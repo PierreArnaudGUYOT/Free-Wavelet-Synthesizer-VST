@@ -153,7 +153,9 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
 .st-item { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .st-item b { color: var(--text); }
 .st-keys { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; }
-#st-midi { flex: none; max-width: 240px; overflow: hidden; text-overflow: ellipsis; display: block; }
+#st-midi { flex: none; max-width: 460px; overflow: hidden; text-overflow: ellipsis; display: block; }
+.st-sel { flex: none; border: 1px solid #2c333e; background: #161a20; color: var(--text); border-radius: 6px; padding: 4px 6px; font-size: 12px; cursor: pointer; }
+.st-sel:hover { border-color: var(--accent-a); }
 #st-audio { flex: none; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: #444b57; display: inline-block; }
 .st-item.on .dot { background: #3ddc84; box-shadow: 0 0 8px #3ddc84; }

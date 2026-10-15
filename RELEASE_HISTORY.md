@@ -21,6 +21,7 @@ Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 **Web app extras**
 - ▶ DEMO plays Beethoven's *Appassionata* (III) with a tour of all the factory presets (a new preset about every 4 s, on a change of chord, shown in the preset browser: "A · Warm Pad" on the opening chords with its filter cutoff opening, then "A · Wavelet Lead", then the other presets in menu order, favourites first, without "A · Square Mod"); the ▾ menu offers J. S. Bach *Toccata in D minor* and seven virtuoso Beethoven piano works (*Appassionata* III, *Moonlight* III, *Rage over a Lost Penny*, Symphony No. 5 I in piano reduction, *Pathétique* I, *The Tempest* I, Sonata Op. 111 I; MIDI from the Mutopia Project, public domain except *Moonlight*: CC BY-SA 2.5, Stewart Holmes), or your own MIDI file, with animated parameters explained in a small window.
 - Computer keyboard (digits 1–0 = C D E F G A B C D E, letter rows chromatic), Web MIDI, user presets (save / export / import).
+- Online on GitHub Pages (https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/). MIDI for hardware without a DAW: input channel selector (all or 1–16), Program Change selects a preset, MIDI learn (right-click a control, move a controller knob; Esc cancels, Delete unlinks; kept in the browser).
 
 **Quality**
 - Independent test suites (`tests/`): VST3 test host (DAW-like call order, state, automation, offline rendering, editor), browser tests (UI, audio, presets, demo).

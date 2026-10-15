@@ -9,10 +9,16 @@ A **sub oscillator** (sine, triangle or square, one or two octaves below) adds l
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.
 
+**Play online:** https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/ (Chrome or Edge; with Web MIDI,
+a hardware keyboard, sequencer or controller plays it directly, no DAW needed).
 **Download the plugin** (Windows 64-bit, VST3 / VST2): see the
 [Releases](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases) page of the
-[GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST). **Try the web app:** download
-the repository and open `web/index.html` in Chrome or Edge.
+[GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST). The web app also works offline:
+download the repository and open `web/index.html`.
+
+**MIDI without a DAW (web app):** all inputs, notes, pitch bend, mod wheel, sustain; a channel selector in the status
+bar (all or 1–16); Program Change selects a preset; **MIDI learn**: right-click a panel control, then move a knob or
+fader on your controller (Esc cancels, Delete unlinks; links are kept in the browser).
 
 | Engine | Idea | Manual |
 |---|---|---|

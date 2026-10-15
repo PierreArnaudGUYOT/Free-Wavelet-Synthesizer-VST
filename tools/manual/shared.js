@@ -404,7 +404,13 @@ ${table(['Keys', 'Notes', 'Notes on use'], [
 <li>The VST3 plugin has no computer-keyboard map of its own: use Live’s Computer MIDI Keyboard (${kbd('M')}).</li>
 </ul>
 <h3 id="midi">MIDI</h3>
-<p>The web app uses Web MIDI, which works best in Chrome and Edge (if a browser does not offer it, the status bar says <i>MIDI: not supported by this browser</i>). When audio starts it asks for MIDI access, listens to <b>all connected inputs on all channels</b>, and lists the devices in the status bar (e.g. <i>MIDI: KeyStep 37</i>). Devices plugged in later are picked up automatically. In the plugin, MIDI comes from the Live track.</p>
+<p>The web app uses Web MIDI, which works best in Chrome and Edge (if a browser does not offer it, the status bar says <i>MIDI: not supported by this browser</i>). When audio starts it asks for MIDI access, listens to <b>all connected inputs</b>, and lists the devices in the status bar (e.g. <i>MIDI: KeyStep 37</i>). Devices plugged in later are picked up automatically. In the plugin, MIDI comes from the Live track.</p>
+<p><b>Without a DAW (dawless).</b> Keyboards, sequencers and controllers connected to the computer (USB or a MIDI interface) play the web app directly, also from the online version, which is served over https as Web MIDI requires.</p>
+<ul>
+<li><b>Channel.</b> The selector in the status bar chooses the input channel: <i>MIDI ch: all</i> (default) or one channel 1–16, for example to play the synthesizer from one track of a hardware sequencer.</li>
+<li><b>Program Change</b> selects a preset: program 0 is the first preset of the list, program 1 the second, and so on (your user presets follow the factory presets). The status bar shows the program and the preset.</li>
+<li><b>MIDI learn.</b> Right-click a control on the panel (knob, drawbar or selector): it lights up and the status bar asks you to move a knob or fader on your controller. The control change you move is then linked to that control and moves it over its whole range. ${kbd('Esc')} cancels, ${kbd('Delete')} unlinks the control. A control’s tooltip shows its linked CC. A learned link takes priority over the default meaning of that CC (for example CC 1). Links and the channel are kept in this browser.</li>
+</ul>
 ${table(['MIDI message', 'Effect'], [
     ['Note on / off', 'Plays notes; velocity 1–127 sets the velocity used by the AMP ENVELOPE and VEL AMT.'],
     ['Pitch bend', '±2 semitones.'],
@@ -412,6 +418,9 @@ ${table(['MIDI message', 'Effect'], [
     ['CC 64 — sustain pedal', 'Held notes keep sounding until the pedal is released.'],
     ['CC 120 — all sound off', 'Silences everything at once, including delay and reverb tails (web app).'],
     ['CC 123 — all notes off', 'Releases all notes; their release tails fade out normally (web app). Useful after a stuck note.'],
+    ['Program Change 0–127', 'Selects the preset with that number in the preset list (web app).'],
+    ['Any other CC 0–119', 'Moves the panel control linked to it by MIDI learn (web app).'],
+    ['Clock, start / stop, SysEx', 'Ignored.'],
   ], 'compact')}
 <h3 id="poly">Polyphony, mono, glide and unison</h3>
 <ul>

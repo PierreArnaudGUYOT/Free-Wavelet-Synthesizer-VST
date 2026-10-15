@@ -82,6 +82,20 @@ class SynthUI {
     const i = this.P[param];
     if (!this.byParam.has(i)) this.byParam.set(i, []);
     this.byParam.get(i).push(widget);
+    // right-click: MIDI learn (link a knob or fader of a MIDI controller to this control)
+    if (widget.el && this.host.midiLearn) widget.el.addEventListener('contextmenu', (e) => { e.preventDefault(); this.host.midiLearn(i); });
+  }
+
+  // Shows the MIDI CC linked to each control in its tooltip. map: { cc: paramKey }
+  setMidiMap(map) {
+    const ccOf = {};
+    for (const cc of Object.keys(map)) ccOf[map[cc]] = cc;
+    for (const [i, list] of this.byParam) for (const w of list) {
+      if (!w.el) continue;
+      if (w.baseTitle === undefined) w.baseTitle = w.el.title || this.params[i].name;
+      const cc = ccOf[this.params[i].key];
+      w.el.title = w.baseTitle + (cc !== undefined ? ` — MIDI CC ${cc} (right-click to change)` : ' — right-click for MIDI learn');
+    }
   }
 
   makeWidget(w, parent, sec) {

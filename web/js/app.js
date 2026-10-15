@@ -231,24 +231,73 @@
   window.addEventListener('pageshow', (e) => { if (e.persisted) showOverlay('Click to start the audio again.'); });
 
   // ---------------------------------------------------------------- MIDI
+  // For hardware without a DAW (keyboards, sequencers, controllers): an input channel filter (all channels by
+  // default), Program Change selects a preset, and MIDI learn links a control change to a panel control: right-click
+  // the control, then move a knob or fader on the controller. The channel and the links are kept in this browser.
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  let midiCh = store.get('ws.midiCh', 0);                   // 0 = all channels, else 1..16
+  if (!(Number.isInteger(midiCh) && midiCh >= 0 && midiCh <= 16)) midiCh = 0;
+  let ccMap = store.get('ws.ccMap', {});                    // CC number -> parameter key
+  if (!ccMap || typeof ccMap !== 'object' || Array.isArray(ccMap)) ccMap = {};
+  for (const cc of Object.keys(ccMap)) if (!(/^\d+$/.test(cc) && +cc < 120 && typeof ccMap[cc] === 'string' && own(P, ccMap[cc]))) delete ccMap[cc];
+  let learn = -1;                                           // parameter waiting for a control change
+  let midiNames = '', flashTimer = null;
+  function midiStatus(msg, ms) {   // a message in the status bar, then back to the device list after `ms`
+    clearTimeout(flashTimer);
+    const text = msg || 'MIDI: ' + (midiNames || '—');
+    $('st-midi').textContent = text; $('st-midi').title = text;
+    if (msg && ms) flashTimer = setTimeout(() => midiStatus(), ms);
+  }
   function initMIDI() {
-    if (!navigator.requestMIDIAccess) { $('st-midi').textContent = 'MIDI: not supported by this browser'; return; }
+    if (!navigator.requestMIDIAccess) { midiStatus('MIDI: not supported by this browser'); return; }
     navigator.requestMIDIAccess().then((access) => {
       const hook = () => {
         const names = [];
         access.inputs.forEach((inp) => { inp.onmidimessage = onMIDI; names.push(inp.name); });
-        $('st-midi').textContent = 'MIDI: ' + (names.length ? names.join(', ') : 'no device');
+        midiNames = names.length ? names.join(', ') : 'no device';
+        if (learn < 0) midiStatus();
       };
       access.onstatechange = hook;
       hook();
-    }, () => { $('st-midi').textContent = 'MIDI: access denied'; });
+    }, () => { midiNames = 'access denied'; midiStatus(); });
+  }
+  function programChange(n) {
+    const list = presetList();
+    if (!list[n]) return;
+    loadPreset(list[n].id);
+    midiStatus(`MIDI: program ${n} → ${list[n].name}`, 3000);
+  }
+  function midiLearn(i) {
+    if (learn === i) { stopLearn('MIDI learn cancelled'); return; }
+    learn = i;
+    ui.setHot([i]);
+    midiStatus(`MIDI learn: move a knob or fader for ${PARAMS[i].name} · Esc cancels · Del unlinks`);
+  }
+  function stopLearn(msg) {
+    if (learn < 0) return;
+    learn = -1;
+    ui.setHot([]);
+    midiStatus(msg, 3000);
+  }
+  function linkCC(cc, i, unlink) {
+    const key = PARAMS[i].key;
+    for (const c of Object.keys(ccMap)) if (ccMap[c] === key) delete ccMap[c];
+    if (!unlink) ccMap[cc] = key;
+    store.set('ws.ccMap', ccMap);
+    ui.setMidiMap(ccMap);
+    stopLearn(unlink ? `MIDI: ${PARAMS[i].name} unlinked` : `MIDI: CC ${cc} → ${PARAMS[i].name}`);
   }
   function onMIDI(e) {
     const [st, d1, d2] = e.data, cmd = st & 0xf0;
+    if (st >= 0xf0) return;                                    // clock, start / stop, SysEx: not used
+    if (midiCh && (st & 0x0f) + 1 !== midiCh) return;
     if (cmd === 0x90 && d2 > 0) noteOn(d1, d2 / 127);
     else if (cmd === 0x80 || cmd === 0x90) noteOff(d1);
     else if (cmd === 0xe0) setParam(P.bend, (((d2 << 7) | d1) - 8192) / 8192, false);
+    else if (cmd === 0xc0) programChange(d1);
     else if (cmd === 0xb0) {
+      if (learn >= 0 && d1 < 120 && d1 !== 64) { linkCC(d1, learn); return; }
+      if (own(ccMap, d1)) { const i = P[ccMap[d1]]; setParam(i, C.toPlain(PARAMS[i], d2 / 127), true); return; }
       if (d1 === 1) setParam(P.modwheel, d2 / 127, false);
       else if (d1 === 64) setParam(P.hold, d2 >= 64 ? 1 : 0, false);
       else if (d1 === 120) { localKeys.clear(); post({ t: 'soundoff' }); }
@@ -264,6 +313,8 @@
   const heldCodes = new Map();
   function showOct() { $('st-oct').textContent = 'C' + (kbBase / 12 - 1); }
   window.addEventListener('keydown', (e) => {
+    if (learn >= 0 && e.key === 'Escape') { stopLearn('MIDI learn cancelled'); return; }
+    if (learn >= 0 && (e.key === 'Delete' || e.key === 'Backspace')) { linkCC(0, learn, true); e.preventDefault(); return; }
     if (e.key === 'Escape') { if ($('manual-overlay').hidden && demo && demo.running()) demo.stop(); closeManual(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
@@ -320,8 +371,20 @@
       const s = new Set(localKeys); for (const k of live.keys) s.add(k); return s;
     },
     computerBase: () => kbBase,
+    midiLearn: (i) => midiLearn(i),
   };
   const ui = new SynthUI($('device'), SPEC, C, host);
+  ui.setMidiMap(ccMap);
+  {   // MIDI input channel selector in the status bar
+    const sel = $('midi-ch');
+    for (let k = 0; k <= 16; k++) {
+      const o = document.createElement('option');
+      o.value = String(k); o.textContent = k ? 'MIDI ch ' + k : 'MIDI ch: all';
+      sel.appendChild(o);
+    }
+    sel.value = String(midiCh);
+    sel.onchange = () => { midiCh = +sel.value; store.set('ws.midiCh', midiCh); allOff(); sel.blur(); };
+  }
 
   // ---------------------------------------------------------------- demo (Bach, Toccata in D minor)
   demo = WSDemo({
@@ -390,5 +453,10 @@
     demoSongs: () => demo.songs(),
     demoStop: () => demo.stop(),
     demoState: () => demo.state(),
+    midi: (bytes) => onMIDI({ data: bytes }),
+    midiLearn: (key) => midiLearn(P[key]),
+    midiMap: () => Object.assign({}, ccMap),
+    midiStatus: () => $('st-midi').textContent,
+    setMidiChannel: (ch) => { $('midi-ch').value = String(ch); $('midi-ch').onchange(); },
   };
 })();
