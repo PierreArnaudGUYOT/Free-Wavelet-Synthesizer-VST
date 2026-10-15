@@ -36,5 +36,5 @@ manuals for both engines, a demo that plays Beethoven's
 "Appassionata" through a tour of the presets, and independent test
 suites for the plugin and the web app.
 
-Written by Pierre Arnaud GUYOT ("OktoPierre").
+Written by Pierre Arnaud GUYOT ("OktoPierre"), 15 October 2026
 Licence: GNU GPL v3 or later (see LICENSE).
