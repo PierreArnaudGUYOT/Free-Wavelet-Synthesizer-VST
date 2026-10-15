@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wavelet Synthesizer</title>
+<meta name="author" content="Pierre Arnaud GUYOT (OktoPierre)">
+<!-- Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre). Release beta 0.1 (see RELEASE_HISTORY.md). -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2316191f'/%3E%3Cpath d='M4 16h5l3-9 4 18 4-13 3 7h5' fill='none' stroke='%232fd4c6' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/synth.css">
+</head>
+<body>
+<div id="stage">
+  <div id="device" class="mode-a" aria-label="Wavelet Synthesizer"></div>
+</div>
+
+<div id="statusbar">
+  <span id="st-audio" class="st-item"><i class="dot"></i><span>Audio off</span></span>
+  <span id="st-midi" class="st-item">MIDI: —</span>
+  <span class="st-item st-keys" title="Digits 1–9 0 (or numeric keypad) = C D E F G A B C D E · letter rows A W S E D F T G Y H U J K = chromatic · Z / X = octave down / up">Keys: <b>1</b>–<b>0</b> = C D E F G A B C D E · <b>A W S E D…</b> chromatic · <b>Z</b>/<b>X</b> octave <span id="st-oct">C4</span></span>
+  <button id="btn-save" class="st-btn" title="Save the current sound as a user preset">Save preset</button>
+  <button id="btn-export" class="st-btn" title="Download the current sound as a .json file">Export</button>
+  <button id="btn-import" class="st-btn" title="Load a preset from a .json file">Import</button>
+  <input id="file-import" type="file" accept=".json,application/json" hidden>
+  <input id="file-midi" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" hidden>
+</div>
+
+<div id="start-overlay">
+  <button id="start-btn">
+    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+    <span>Click to start audio</span>
+  </button>
+  <p>Browsers only allow sound after a click. Then play with the mouse, your computer keyboard or a MIDI keyboard.</p>
+</div>
+
+<div id="manual-overlay" hidden>
+  <div class="manual-frame">
+    <div class="manual-bar">
+      <span id="manual-title">Manual</span>
+      <span class="st-spacer"></span>
+      <a id="manual-newtab" href="#" target="_blank" rel="noopener">Open in new tab</a>
+      <button id="manual-close" title="Close (Esc)">✕</button>
+    </div>
+    <iframe id="manual-iframe" title="User manual"></iframe>
+  </div>
+</div>
+
+<script src="js/spec.js"></script>
+<script src="js/core.js"></script>
+<script src="js/worklet.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/midi.js"></script>
+<script src="js/demo_data.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

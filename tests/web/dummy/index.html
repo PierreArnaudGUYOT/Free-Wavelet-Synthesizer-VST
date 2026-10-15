@@ -1,0 +1,124 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Dummy page used ONLY to validate tests/web/cdp.js and test_web.js (not the product).
+     Implements window.WS_TEST with plain WebAudio, using tools/spec.js for params/presets.
+     Hash options: #noaudio, #preset=N, #error (console.error at load), #throw (uncaught exception). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WS_TEST dummy</title>
+<style>
+  :root { --bg: #15171c; --fg: #d8dbe2; --accent: #4f9cf0; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px system-ui, sans-serif; overflow: hidden; }
+  #device { position: absolute; left: 0; top: 0; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  #manual { position: fixed; inset: 5%; background: #f4f1ea; color: #222; padding: 24px; overflow: auto; display: none; font: 15px Georgia, serif; }
+  #manual h1 { margin-top: 0; }
+</style>
+<script>var module = { exports: {} };</script>
+<script src="../../../tools/spec.js"></script>
+</head>
+<body>
+<div id="device"><canvas id="cv" width="1100" height="720"></canvas></div>
+<div id="overlay">Click to start audio</div>
+<div id="manual"><h1 id="mtitle"></h1><p id="mtext"></p></div>
+<script>
+'use strict';
+const SPECX = module.exports;
+const PD = Object.fromEntries(SPECX.PARAMS.map(p => [p.key, p]));
+const values = Object.fromEntries(SPECX.PARAMS.map(p => [p.key, p.def]));
+let ctx = null, master = null, analyser = null, buf = null;
+const voices = new Map();
+const clamp = (k, v) => { const p = PD[k]; v = Math.min(p.max, Math.max(p.min, Number(v))); return (p.curve === 'int' || p.curve === 'choice') ? Math.round(v) : v; };
+
+function layout() {
+  const s = Math.min(innerWidth / 1100, innerHeight / 720);
+  const d = document.getElementById('device');
+  d.style.width = 1100 * s + 'px'; d.style.height = 720 * s + 'px';
+  d.style.left = (innerWidth - 1100 * s) / 2 + 'px'; d.style.top = (innerHeight - 720 * s) / 2 + 'px';
+}
+function draw() {
+  const g = document.getElementById('cv').getContext('2d');
+  g.fillStyle = '#1b1e25'; g.fillRect(0, 0, 1100, 720);
+  g.fillStyle = '#262a35'; g.fillRect(0, 0, 1100, 48);
+  ['A · SUBTRACTIVE', 'B · ADDITIVE'].forEach((t, i) => {
+    g.fillStyle = values.engine === i ? '#4f9cf0' : '#343846'; g.fillRect(290 + i * 132, 9, 132, 30);
+    g.fillStyle = '#eee'; g.font = '12px sans-serif'; g.fillText(t, 300 + i * 132, 28);
+  });
+  g.strokeStyle = '#3a3f4f';
+  for (const s of SPECX.SECTIONS) if (!s.mode || s.mode === (values.engine ? 'B' : 'A')) g.strokeRect(s.x + .5, s.y + .5, s.w, s.h);
+  const v = (values.f_cutoff - PD.f_cutoff.min) / (PD.f_cutoff.max - PD.f_cutoff.min);
+  g.beginPath(); g.arc(50, 418, 22, 0, 7); g.fillStyle = '#3a3f4f'; g.fill();
+  g.beginPath(); g.moveTo(50, 418); const a = (-135 + 270 * v) * Math.PI / 180; g.lineTo(50 + 22 * Math.sin(a), 418 - 22 * Math.cos(a)); g.strokeStyle = '#4f9cf0'; g.lineWidth = 3; g.stroke(); g.lineWidth = 1;
+  g.fillStyle = values.engine ? '#2e4a3a' : '#4a2e3a'; g.fillRect(24, 90, 300, 150);
+  for (let k = 0; k < 36; k++) { g.fillStyle = '#ddd'; g.fillRect(80 + k * 28, 620, 26, 92); }
+  g.fillStyle = '#9ab'; g.fillText('preset: ' + (currentPreset >= 0 ? SPECX.PRESETS[currentPreset].name : '-'), 600, 28);
+}
+let currentPreset = -1;
+function noteOn(n, vel) {
+  if (!ctx) return;
+  noteOff(n, true);
+  const o = ctx.createOscillator(); o.type = values.engine ? 'sine' : 'sawtooth';
+  o.frequency.value = 440 * Math.pow(2, (n - 69 + 12 * values.v_oct) / 12);
+  const gn = ctx.createGain(); gn.gain.value = 0; gn.gain.setTargetAtTime(0.3 * vel, ctx.currentTime, Math.max(0.002, values.amp_a / 3));
+  o.connect(gn).connect(master); o.start(); voices.set(n, { o, gn });
+}
+function noteOff(n, immediate) {
+  const v = voices.get(n); if (!v) return; voices.delete(n);
+  const t = ctx.currentTime, r = immediate ? 0.002 : Math.max(0.005, values.amp_r / 4);
+  v.gn.gain.cancelScheduledValues(t); v.gn.gain.setTargetAtTime(0, t, r); v.o.stop(t + r * 12);
+}
+window.WS_TEST = {
+  async start() {
+    if (!ctx) { ctx = new AudioContext(); master = ctx.createGain(); analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
+      buf = new Float32Array(analyser.fftSize); master.connect(analyser).connect(ctx.destination); }
+    await ctx.resume(); document.getElementById('overlay').style.display = 'none';
+  },
+  noteOn, noteOff: (n) => noteOff(n, false),
+  allNotesOff() { for (const n of [...voices.keys()]) noteOff(n, false); },
+  setParam(k, v) { if (k in PD) { values[k] = clamp(k, v); draw(); } },
+  getParam: (k) => values[k],
+  paramKeys: () => SPECX.PARAMS.map(p => p.key),
+  getLevel() { if (!analyser) return { peakL: 0, peakR: 0 }; analyser.getFloatTimeDomainData(buf); let p = 0; for (const x of buf) p = Math.max(p, Math.abs(x)); return { peakL: p, peakR: p }; },
+  presets: () => SPECX.PRESETS.map(p => p.name),
+  loadPreset(i) { for (const p of SPECX.PARAMS) values[p.key] = p.def; Object.assign(values, SPECX.PRESETS[i].v); currentPreset = i; draw(); },
+  openManual(m) { document.getElementById('mtitle').textContent = 'Manual ' + m; document.getElementById('mtext').textContent = ('Engine ' + m + ' explained. ').repeat(80); document.getElementById('manual').style.display = 'block'; },
+  closeManual() { document.getElementById('manual').style.display = 'none'; },
+};
+// computer keyboard: digits/numpad = C D E F G A B C D E, letters chromatic from C4
+const DIG = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16], LET = 'awsedftgyhujkolp;\'';
+let oct = 0; const held = new Map();
+function keyNote(e) {
+  let m = /^(Digit|Numpad)(\d)$/.exec(e.code); if (m) { const d = Number(m[2]); return 60 + oct * 12 + DIG[d === 0 ? 9 : d - 1]; }
+  const i = LET.indexOf(e.key.toLowerCase()); return i >= 0 ? 60 + oct * 12 + i : null;
+}
+addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (e.code === 'KeyZ') { oct = Math.max(-3, oct - 1); return; } if (e.code === 'KeyX') { oct = Math.min(3, oct + 1); return; }
+  const n = keyNote(e); if (n !== null && !held.has(e.code)) { held.set(e.code, n); noteOn(n, 0.8); }
+});
+addEventListener('keyup', (e) => { const n = held.get(e.code); if (n !== undefined) { held.delete(e.code); noteOff(n, false); } });
+// mouse on the canvas (spec coordinates)
+const cv = document.getElementById('cv'); let drag = null, mouseNote = null;
+const toSpec = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * 1100 / r.width, (e.clientY - r.top) * 720 / r.height]; };
+cv.addEventListener('mousedown', (e) => {
+  const [x, y] = toSpec(e);
+  if (y >= 9 && y < 39 && x >= 290 && x < 554) { values.engine = x < 422 ? 0 : 1; draw(); return; }
+  if ((x - 50) ** 2 + (y - 418) ** 2 < 28 * 28) { drag = { y: e.clientY, v: values.f_cutoff }; return; }
+  if (y >= 620 && x >= 80 && x < 1088) { mouseNote = 48 + Math.floor((x - 80) / 28); noteOn(mouseNote, 0.8); }
+});
+addEventListener('mousemove', (e) => { if (drag) { values.f_cutoff = clamp('f_cutoff', drag.v + (drag.y - e.clientY) / 20); draw(); } });
+addEventListener('mouseup', () => { drag = null; if (mouseNote !== null) { noteOff(mouseNote, false); mouseNote = null; } });
+addEventListener('resize', layout);
+document.getElementById('overlay').addEventListener('click', () => WS_TEST.start());
+const h = location.hash;
+if (h.includes('noaudio')) document.getElementById('overlay').style.display = 'none';
+const pm = /preset=(\d+)/.exec(h); if (pm) WS_TEST.loadPreset(Number(pm[1]));
+if (h.includes('error')) console.error('deliberate console error (dummy #error)');
+if (h.includes('throw')) setTimeout(() => { throw new Error('deliberate uncaught exception (dummy #throw)'); }, 10);
+layout(); draw();
+</script>
+</body>
+</html>
