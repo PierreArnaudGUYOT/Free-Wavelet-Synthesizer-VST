@@ -12,8 +12,8 @@ var WS_SPEC = {
   "credit": "created by OktoPierre",
   "copyright": "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)",
   "license": "GPL v3",
-  "version": "beta 0.3",
-  "versionNum": "0.3.0",
+  "version": "beta 0.2",
+  "versionNum": "0.2.0",
   "date": "2026-10-15"
  },
  "DEFAULT_PRESET": 10,

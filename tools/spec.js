@@ -3,8 +3,7 @@
 // Wavelet Synthesizer — single source of truth.
 // Created by Pierre Arnaud GUYOT ("OktoPierre"). Release history: see RELEASE_HISTORY.md
 //   beta 0.1 (2026-10-14) — first release.
-//   beta 0.2 (2026-10-15) — engines A and B mixed (A/B MIX), triple chorus, new presets.
-//   beta 0.3 (2026-10-15) — 107 presets organised by category, demo starts after the opening chords.
+//   beta 0.2 (2026-10-15) — engines A and B mixed (A/B MIX), triple chorus, 107 presets by category.
 // Parameters, panel layout and factory presets are defined here once and
 // generated into web/js/spec.js and vst/src/generated/spec.h by gen_spec.js.
 // Parameter order defines the VST3 ParamIDs: append only, never reorder.
@@ -17,8 +16,8 @@ const APP = {
   credit: 'created by OktoPierre',   // shown on the panel
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: 'beta 0.3',
-  versionNum: '0.3.0',
+  version: 'beta 0.2',
+  versionNum: '0.2.0',
   date: '2026-10-15',
 };
 const DEFAULT_PRESET = 'A · Warm Pad';   // sound loaded when the app / a new plugin instance opens (first preset)
@@ -364,7 +363,7 @@ const PRESET_LIST = [
     b_pattern: 5, b_seed: 7, b_tilt: -2, b_body: 2, b_bright: 0.3, b_sus: 0, amp_a: 0.001, amp_d: 1.2, amp_s: 0, amp_r: 0.5,
     ch_mix: 0.5, fx_dtime: 0.3, fx_dfb: 0.5, fx_dmix: 0.3, fx_rmix: 0.35, master: 0 } },
 
-  // ---- beta 0.3: a library by category (cat), like the factory banks of a hardware synthesizer
+  // ---- beta 0.2: a library by category (cat), like the factory banks of a hardware synthesizer
   // Bass
   { name: 'A · Ladder Bass', cat: 'Bass', v: { engine: 0, a_wave: 0, wavelet: 3, f_cutoff: 2.8, f_slope: 48, f_res: 9, f_env: 4.5, f_vel: 2,
     mod_d: 0.28, mod_s: 0.15, amp_a: 0.002, amp_d: 0.6, amp_s: 0.8, amp_r: 0.1, v_oct: -1, v_voices: 1, v_glide: 0.03, v_porta: 2,

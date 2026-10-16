@@ -274,7 +274,7 @@ const presetDesc = {
   'AB · Space Strings': ['heavy', 'A 70 · B 30: bright Daubechies 20 strings (A) over RAMP atoms (B), the CHORUS at 90 % with a deep sweep, long echoes and a big reverb.'],
   'AB · Wide Brass': ['light', 'A 70 · B 30: a resonant sawtooth brass (A) with a 60 ms filter swell and a RAMP layer (B), two unison copies and a touch of chorus.'],
   'AB · Shimmer Pluck': ['heavy', 'A 60 · B 40: a filter-plucked Symlet 8 sawtooth (A) and RANDOM atoms (SEED 7) whose bright bands decay fast (B), with chorus, ping-pong echoes and reverb.'],
-  // beta 0.3: the library by category
+  // beta 0.2: the library by category
   'A · Ladder Bass': ['light', 'Mono legato bass one octave down: a Daubechies 8 sawtooth through a steep 48 dB/band resonant low-pass (CUTOFF 2.8, RESO 9 dB) that the mod envelope snaps open by 4.5 bands, more with velocity; a sine sub at 40 % and a little drive.'],
   'AB · Wobble Bass': ['heavy', 'A 70 · B 30: a Haar sawtooth (A) and WALSH atoms (B) one octave down through a 10 dB resonant low-pass that a 3 Hz LFO swings ±3 bands — the “wobble” — with a sine sub at 60 % and 40 % drive.'],
   'A · Rubber Bass': ['light', 'Round mono bass one octave down: a Symlet 8 triangle with a short filter envelope (+3 bands, 200 ms), an 80 ms legato glide and a triangle sub at 50 %.'],

@@ -1,6 +1,6 @@
 # Wavelet Synthesizer
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.3** (2026-10-15), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.2** (2026-10-15), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
@@ -44,7 +44,7 @@ Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or ins
   Export / Import** are in the status bar. (In the VST: favourites on top, then one submenu per category.)
 - Works directly from the file (no web server needed).
 - **▶ DEMO** (header, web app) plays Beethoven's *Appassionata* (III) from the phrase after its opening chords while touring 30 presets:
-  a new preset about every 4 s, on a change of chord, starting with "A · Square Mod 2", OktoPierre's favourites first, then the beta 0.2
+  a new preset about every 4 s, on a change of chord, starting with "B · Clarinet", then OktoPierre's favourites, then the beta 0.2
   chorus / sub / A + B presets (played polyphonic at their normal octave); the preset browser shows the preset being played. **▾** opens the list: J. S. Bach's *Toccata in D minor* or one of the virtuoso Beethoven piano works
   (*Appassionata* III, *Moonlight* III, *Rage over a Lost Penny*, Symphony No. 5 I (piano), *Pathétique* I, *The Tempest* I, Sonata Op. 111 I) —
   or **Load a MIDI file…** of your own. The demo animates the important parameters and a small window explains in English

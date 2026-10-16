@@ -91,10 +91,10 @@ function WSDemo(api) {
 
   // The preset sequence of the default demo, on the whole piece (one preset about every 4 s). It is written out so that new
   // factory presets or a new menu order do not change the demo. The demo starts at song.origin (7.8 s: its opening
-  // chords are cut), so it begins with "A · Square Mod 2", the preset playing there; the first two are not heard.
+  // chords are cut), so it begins with "B · Clarinet", the preset playing there; the first two are not heard.
   const TOUR_APPASSIONATA = ['A · Warm Pad', 'A · Wavelet Lead',
-    // OktoPierre's favourite sounds
-    'A · Square Mod 2', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute', 'A · Infra Sub Bass',
+    // the opening of the demo (OktoPierre's choice), then his favourite sounds
+    'B · Clarinet', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute', 'A · Infra Sub Bass',
     'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'B · Mirror Sub Bass', 'A · Sparse Keys', 'B · Space Choir',
     // beta 0.2: chorus, sub oscillator, engines A + B mixed
     'A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ', 'AB · Bell Pad',

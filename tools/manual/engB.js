@@ -265,7 +265,7 @@ const presetDesc = {
   'AB · Organ Lead': ['medium', 'A 65 · B 35: the organ registration (B) with a resonant Daubechies 20 sawtooth (A), mono legato glide, 7-cent vibrato, drive and delay.'],
   'AB · Glass Keys': ['light', 'A 40 · B 60: an IMPULSE pattern whose bright bands die in 0.25 s (B) over a pure SINE (A) — glassy electric-piano keys with light chorus.'],
   'AB · Chip Hybrid': ['medium', 'A 50 · B 50: Haar Walsh chip bands (B) and a Haar SQUARE (A), mono with a short glide and fast echoes.'],
-  // beta 0.3: the library by category
+  // beta 0.2: the library by category
   'B · Pluck Bass': ['light', 'Mono bass one octave down: RAMP atoms on the five lowest drawbars, the bright bands dying in 0.1 s and the body in 0.9 s to half level (SCALE SUSTAIN 50 %), with a sine sub at 50 %.'],
   'AB · Hybrid Lead': ['medium', 'A 50 · B 50: a resonant Symlet 8 SQUARE (A) layered with MIRROR atoms on the six lowest drawbars (B), mono legato with a 60 ms glide, vibrato, drive and echo.'],
   'B · Reed Piano': ['light', 'Reed electric piano: MIRROR atoms (odd harmonics) on the five lowest drawbars, the bright bands fading in 0.3 s, velocity-sensitive, with 25 % drive for the bark.'],

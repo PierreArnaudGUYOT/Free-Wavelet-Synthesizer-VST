@@ -2,29 +2,29 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
-## beta 0.3 — 2026-10-15
-
-**Presets by category**: 107 factory presets (51 new), organised like the banks of a hardware synthesizer. OktoPierre's 15 favourite sounds stay first, in his order; all the others follow by category: Bass (15), Lead (11), Keys (10), Organ (8), Pad (17), Strings (8), Brass & Wind (8), Pluck (7), Bells & Mallets (7), FX (8), Drums & Perc (6), Init (2).
-- New: A · Ladder Bass, B · Pluck Bass, AB · Wobble Bass, A · Rubber Bass, A · Octave Bass; A · Saw Lead, A · Whistle Lead, A · Pulse Lead, AB · Hybrid Lead; A · Tine Piano, AB · Electric Piano, B · Reed Piano, A · Clavi, B · Toy Piano, A · Lo-Fi Piano; B · Jazz Organ, B · Gospel Organ, B · Church Organ, B · Reed Organ, B · Flute Organ; A · Analog Pad, A · Dark Pad, B · Halo Pad, AB · Evolving Pad; A · Chamber Strings, A · Pizzicato, A · Slow Strings, AB · Analog Strings; A · Synth Brass, A · Brass Stab, B · Clarinet, AB · Breathy Flute; A · Harp, B · Koto, A · Synth Pluck, AB · Arp Pluck; B · Glockenspiel, B · Vibraphone, B · Marimba, B · Tubular Bells, AB · Crystal Bell; A · Wind, B · Sci-Fi Burble, AB · Robot Voice, A · Alarm; AB · Sub Kick, A · Noise Snare, A · Closed Hat, A · Open Hat, B · Wood Block, A · Synth Tom (the drums are pitched: play them on different keys). Levels matched to the favourites.
-- Preset menus: in the web app ★ FAVOURITES on top, then one folding group per category (with its number of presets), then the user presets; in the VST the favourites on top and one submenu per category. ◀ ▶ and Program Change follow the same order. Live Sets keep their preset (stored by name).
-
-**Demo**: the default demo now starts with the phrase that follows the opening chords of the *Appassionata* (7.8 s cut, 1:59 instead of 2:07), on "A · Square Mod 2"; every later preset change is unchanged (same presets, same chords). The demo's preset sequence is written out, so new presets do not change it.
-
-**Quality**: the C++ engine matches the JavaScript reference within 2.4e-7 for all 107 presets; test expectations updated for the A/B MIX (VST host) and the new tour (demo test).
-
 ## beta 0.2 — 2026-10-15
+
+**In short**
+- **Sound engine**: the two engines can now be **mixed** (new A/B MIX knob: subtractive engine A, additive engine B, or both together in one sound), and a new **triple chorus** gives the wide, lush ensemble sound of 1970s string machines.
+- **Presets**: **107 factory presets** instead of 32 (75 new), **organised by type** like a hardware synthesizer — Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck, Bells & Mallets, FX, Drums & Perc — with OktoPierre's 15 favourite sounds at the top of the list.
+- **Demo** (web app): starts straight on the music's first fast phrase, on the Clarinet.
 
 **Engines A and B mixed**
 - New **A/B MIX** knob (at the right of both engine sections): engine A alone, engine B alone, or both at once (linear crossfade, smoothed over 20 ms). Each voice then renders engine A's filtered source and engine B's atoms at the same pitch, through the same envelopes, scale filter, position window and effects; the sub oscillator is added once.
 - The **A · SUBTRACTIVE / B · ADDITIVE** tabs now only choose the panel shown; switching them neither changes the sound nor marks the preset as modified.
-- Compatibility: presets, user presets and Live Sets saved before beta 0.2 get A/B MIX = their engine and sound exactly as before (the 32 beta 0.1 factory presets render bit-identically).
+- Compatibility: presets, user presets and Live Sets saved with beta 0.1 get A/B MIX = their engine and sound exactly as before (the 32 beta 0.1 factory presets render bit-identically).
 
 **Triple chorus (string machine)**
 - New **CHORUS** section (amount, RATE, DEPTH) next to the SUB OSC: three delay lines (6–12 ms) swept by a slow and a fast LFO (about 9.7 × the rate), 120° apart, spread left / centre / right; after DRIVE, before DELAY and REVERB. The keyboard is a little narrower to make room (still C2–C7).
 
-**Presets**: 56 factory presets. OktoPierre's 15 favourites stay first, followed by 24 new presets using the chorus (A · String Machine, A · Solina Cellos, A · Poly Chorus Pad, A · Chorus Square Lead, B · Ensemble Organ, B · Glass Ensemble, B · Chorus Flute), the sub oscillator (A · Sub Saw Bass, A · Reese Sub, A · Acid Sub, A · Deep Sub Pluck, B · Sub Organ Bass) and the A + B mix ("AB · …": Hybrid Strings, Dream Pad, Bell Pad, Wavelet Choir, Hybrid Keys, Organ Lead, Space Strings, Sub Hybrid Bass, Glass Keys, Wide Brass, Chip Hybrid, Shimmer Pluck); then the other beta 0.1 presets. In the preset list "AB" is shown in both engine colours.
+**Presets by category**: 107 factory presets (75 new), organised like the banks of a hardware synthesizer. OktoPierre's 15 favourite sounds stay first, in his order; all the others follow by category: Bass (15), Lead (11), Keys (10), Organ (8), Pad (17), Strings (8), Brass & Wind (8), Pluck (7), Bells & Mallets (7), FX (8), Drums & Perc (6), Init (2).
+- With the chorus: A · String Machine, A · Solina Cellos, A · Poly Chorus Pad, A · Chorus Square Lead, B · Ensemble Organ, B · Glass Ensemble, B · Chorus Flute. With the sub oscillator: A · Sub Saw Bass, A · Reese Sub, A · Acid Sub, A · Deep Sub Pluck, B · Sub Organ Bass. Mixing both engines ("AB · …", shown in both engine colours): Hybrid Strings, Dream Pad, Bell Pad, Wavelet Choir, Hybrid Keys, Organ Lead, Space Strings, Sub Hybrid Bass, Glass Keys, Wide Brass, Chip Hybrid, Shimmer Pluck.
+- A library by category: A · Ladder Bass, B · Pluck Bass, AB · Wobble Bass, A · Rubber Bass, A · Octave Bass; A · Saw Lead, A · Whistle Lead, A · Pulse Lead, AB · Hybrid Lead; A · Tine Piano, AB · Electric Piano, B · Reed Piano, A · Clavi, B · Toy Piano, A · Lo-Fi Piano; B · Jazz Organ, B · Gospel Organ, B · Church Organ, B · Reed Organ, B · Flute Organ; A · Analog Pad, A · Dark Pad, B · Halo Pad, AB · Evolving Pad; A · Chamber Strings, A · Pizzicato, A · Slow Strings, AB · Analog Strings; A · Synth Brass, A · Brass Stab, B · Clarinet, AB · Breathy Flute; A · Harp, B · Koto, A · Synth Pluck, AB · Arp Pluck; B · Glockenspiel, B · Vibraphone, B · Marimba, B · Tubular Bells, AB · Crystal Bell; A · Wind, B · Sci-Fi Burble, AB · Robot Voice, A · Alarm; AB · Sub Kick, A · Noise Snare, A · Closed Hat, A · Open Hat, B · Wood Block, A · Synth Tom (the drums are pitched: play them on different keys). Levels matched to the favourites.
+- Preset menus: in the web app ★ FAVOURITES on top, then one folding group per category (with its number of presets), then the user presets; in the VST the favourites on top and one submenu per category. ◀ ▶ and Program Change follow the same order. Live Sets keep their preset (stored by name).
 
-**Quality**: the C++ engine still matches the JavaScript reference within 2.4e-7 for all 56 presets. `CLAUDE.md` describes the architecture for maintenance and code reviews.
+**Demo**: the default demo now starts with the phrase that follows the opening chords of the *Appassionata* (7.8 s cut, 1:59 instead of 2:07), opening on "B · Clarinet"; then a new preset about every 4 s on a change of chord: OktoPierre's favourites, then presets showing the chorus, the sub oscillator and the mix of both engines. The demo's preset sequence is written out, so new presets do not change it.
+
+**Quality**: the C++ engine matches the JavaScript reference within 2.4e-7 for all 107 presets; test expectations updated for the A/B MIX (VST host) and the new tour (demo test). `CLAUDE.md` describes the architecture for maintenance and code reviews.
 
 ## beta 0.1 — 2026-10-14 (first release)
 

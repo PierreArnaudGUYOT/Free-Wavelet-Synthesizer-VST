@@ -101,6 +101,7 @@ function vst3() {
 }
 
 // ---------------------------------------------------------------- 4. web app smoke test (muted headless Edge)
+const DEMO_FIRST = 'B · Clarinet';   // the agreed opening sound of the default demo (tests/web/test_demo.js has the whole sequence)
 async function web() {
   const t = Date.now(), bad = [];
   const { Browser, sleep } = require(R('tests', 'web', 'cdp.js'));
@@ -134,7 +135,7 @@ async function web() {
     const st = await B.evaluate('WS_TEST.demoState()');
     await B.evaluate('WS_TEST.demoStop()');
     if (!st.running) bad.push('the default demo did not start');
-    else if (st.preset !== undefined && st.preset !== SPEC.PRESETS[0].name) bad.push(`demo tour starts on '${st.preset}'`);
+    else if (st.preset !== undefined && st.preset !== DEMO_FIRST) bad.push(`demo tour starts on '${st.preset}' instead of '${DEMO_FIRST}'`);
     const errs = B.errors();
     if (errs.length) bad.push('page errors: ' + errs.slice(0, 2).join(' | '));
   } catch (e) {

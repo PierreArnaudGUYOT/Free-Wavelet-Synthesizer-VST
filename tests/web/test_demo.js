@@ -58,9 +58,9 @@ const SCHED = [
 ];
 const TOL_T = 0.3; // s: scene clock vs. parameter update (rAF) tolerance
 const TOUR_STEP = 4; // s per preset in the tour (TOL_T = 0.3 s leaves a 3.4 s checked window per preset)
-const TOUR_START = 'A · Square Mod 2'; // first preset of the tour (the opening chords of the piece are cut)
-// the agreed preset sequence of the default demo (beta 0.3): OktoPierre's favourites, then beta 0.2 presets
-const EXPECTED_TOUR = ['A · Square Mod 2', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute',
+const TOUR_START = 'B · Clarinet'; // first preset of the tour (the opening chords of the piece are cut)
+// the agreed preset sequence of the default demo (beta 0.2): Clarinet, OktoPierre's favourites, then beta 0.2 presets
+const EXPECTED_TOUR = ['B · Clarinet', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute',
   'A · Infra Sub Bass', 'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'B · Mirror Sub Bass', 'A · Sparse Keys',
   'B · Space Choir', 'A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ',
   'AB · Bell Pad', 'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'B · Sub Organ Bass', 'AB · Hybrid Keys',

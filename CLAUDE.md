@@ -38,7 +38,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
 - **Layout**: sections (cards) with widgets in panel coordinates (1100 × 720). Both GUIs (`web/js/ui.js` and
   `vst/src/editor.cpp`) are generated from it. A widget may appear in several sections (the A/B MIX knob is in both
   engine sections; sections with `mode 'A'/'B'` are shown for one engine tab only).
-- **Presets**: `PRESET_LIST` (name + sparse values over the defaults; beta 0.3 presets carry `cat`, older ones get
+- **Presets**: `PRESET_LIST` (name + sparse values over the defaults; presets added in beta 0.2 carry `cat`, older ones get
   theirs from `CATEGORY_OF`), then the factory order `PRESETS`: `FAVOURITES` (OktoPierre's 15, in his order) → every
   other preset grouped by category in the order of `CATEGORIES` (Bass … Drums & Perc, Init last). Generated as
   `cat` per preset plus `CATEGORIES` / `FAVOURITES` (web) and `PresetDef::cat` / `kNumFavourites` (C++).
@@ -170,9 +170,9 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
 - `vst/devtest/vst2_smoke.cpp`, `tools/dsp_compare.js`, `tools/dsp_selftest.js`; `tests/quick.js` (fast check).
 - **Headless Edge must always run with `--mute-audio`** (otherwise test audio plays on the user's speakers) and be
   closed in `finally`; check that no `msedge --headless` process is left.
-- beta 0.3: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour
+- beta 0.2: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour
   against `WS_TEST.demoTour` and the agreed sequence `EXPECTED_TOUR`; `quick.js` waits up to 2 s for slow attacks.
-  `tests/web/test_web.js` and the full VST host run were not re-run for beta 0.3 (quick + demo smoke + VST2 smoke were).
+  `tests/web/test_web.js` and the full VST host run were not re-run for beta 0.2 (quick + demo smoke + VST2 smoke were).
 
 ## 9. Common changes — checklist
 - **New parameter**: append in `tools/spec.js` (never insert), choose `structural`, place a widget in the layout, run
@@ -183,7 +183,7 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
   the favourites ≈ −14 dB; drums measured over 50 ms, 3 dB lower), regenerate the spec, the VST and the manuals.
   The demo sequence is fixed (`TOUR_APPASSIONATA`): add a preset there only on purpose.
 - **DSP change**: both engines, bit-exact for unchanged settings where possible, cross-check, VST suite, web suite.
-- **Release**: build, manuals, tests (muted), release zip (`WaveletSynthesizer.vst3` + `INSTALL.txt`, made with
+- **Release**: version in `tools/spec.js` (APP) **and** `vst/src/version.rc` (DLL version info), build, manuals, tests (muted), release zip (`WaveletSynthesizer.vst3` + `INSTALL.txt`, made with
   Windows `tar` so paths use `/`), README + RELEASE_HISTORY. Publishing to GitHub uses a repo-local identity
   (GitHub noreply address), never the author's work identity.
 
