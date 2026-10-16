@@ -82,8 +82,9 @@
   // ---------------------------------------------------------------- presets
   function presetList() {
     const list = [];
+    // ★ FAVOURITES (OktoPierre's sounds, first in the factory order), then one group per category.
     SPEC.PRESETS.forEach((pr, k) => list.push({
-      id: 'f:' + k, name: pr.name, group: 'FACTORY PRESETS',
+      id: 'f:' + k, name: pr.name, group: k < SPEC.FAVOURITES ? '★ FAVOURITES' : pr.cat.toUpperCase(),
       current: presetId === 'f:' + k, deletable: false,
     }));
     userPresets.forEach((pr, k) => list.push({ id: 'u:' + k, name: pr.name, group: 'USER PRESETS', current: presetId === 'u:' + k, deletable: true }));
@@ -460,6 +461,7 @@
     allNotesOff: allOff,
     demoStart: (i) => demo.start(i || 0),
     demoSongs: () => demo.songs(),
+    demoTour: (i) => demo.tourPlan(i || 0),
     demoStop: () => demo.stop(),
     demoState: () => demo.state(),
     midi: (bytes) => onMIDI({ data: bytes }),

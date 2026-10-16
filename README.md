@@ -1,11 +1,13 @@
 # Wavelet Synthesizer
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.2** (2026-10-15), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.3** (2026-10-15), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
 It comes as a **web application** and a **VST3 / VST2 instrument for Ableton Live** (Windows x64). Both share
-the same engine, panel layout and 56 factory presets (OktoPierre's 15 favourite sounds first, then the beta 0.2 presets, then the others, from clean sounds to heavy effects); both open on "A · Warm Pad".
+the same engine, panel layout and 107 factory presets: OktoPierre's 15 favourite sounds first, then the others sorted by
+category like a hardware synthesizer (Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck, Bells & Mallets, FX,
+Drums & Perc); both open on "A · Warm Pad".
 Its two engines can play **alone or mixed** (the **A/B MIX** knob), and a **string-machine triple chorus** widens pads,
 strings and organs.
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
@@ -38,10 +40,12 @@ Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or ins
   - digits **1 2 3 4 5 6 7 8 9 0** (or the numeric keypad) = C D E F G A B C D E (do ré mi…)
   - letter rows = chromatic piano (A W S E D F T G Y H U J K O L P)
   - **Z** / **X** = octave down / up
-- Presets: ◀ ▶ or click the preset name. **Save preset / Export / Import** are in the status bar.
+- Presets: ◀ ▶ or click the preset name: ★ FAVOURITES on top, then one folding group per category. **Save preset /
+  Export / Import** are in the status bar. (In the VST: favourites on top, then one submenu per category.)
 - Works directly from the file (no web server needed).
-- **▶ DEMO** (header, web app) plays Beethoven's *Appassionata* (III) while touring all the factory presets: a new preset about every 4 s, on a change of chord,
-  starting with "A · Warm Pad" on the opening chords (its filter cutoff opening), then "A · Wavelet Lead", then the other presets in menu order, favourites first, without "A · Square Mod" (played polyphonic at its normal octave); the preset browser shows the preset being played. **▾** opens the list: J. S. Bach's *Toccata in D minor* or one of the virtuoso Beethoven piano works
+- **▶ DEMO** (header, web app) plays Beethoven's *Appassionata* (III) from the phrase after its opening chords while touring 30 presets:
+  a new preset about every 4 s, on a change of chord, starting with "A · Square Mod 2", OktoPierre's favourites first, then the beta 0.2
+  chorus / sub / A + B presets (played polyphonic at their normal octave); the preset browser shows the preset being played. **▾** opens the list: J. S. Bach's *Toccata in D minor* or one of the virtuoso Beethoven piano works
   (*Appassionata* III, *Moonlight* III, *Rage over a Lost Penny*, Symphony No. 5 I (piano), *Pathétique* I, *The Tempest* I, Sonata Op. 111 I) —
   or **Load a MIDI file…** of your own. The demo animates the important parameters and a small window explains in English
   which parameter is changing. Stop it with ■ STOP or Esc; your sound is restored afterwards.
@@ -119,7 +123,7 @@ node tools/dsp_selftest.js --wav # engine self-test; --wav writes build/test-aud
 ```
 To cross-check the C++ port, compile `vst/devtest/dsp_render.cpp` and run `node tools/dsp_compare.js <dir>`.
 To check the VST2 entry point like a VST2 host, compile and run `vst/devtest/vst2_smoke.cpp` (build line at its top).
-The difference between the two engines is below 2.4e-7 for all 32 presets.
+The difference between the two engines is below 2.4e-7 for all 107 presets.
 
 ## Licence
 

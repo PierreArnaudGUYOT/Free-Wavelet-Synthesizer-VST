@@ -4,6 +4,7 @@
 // Created by Pierre Arnaud GUYOT ("OktoPierre"). Release history: see RELEASE_HISTORY.md
 //   beta 0.1 (2026-10-14) — first release.
 //   beta 0.2 (2026-10-15) — engines A and B mixed (A/B MIX), triple chorus, new presets.
+//   beta 0.3 (2026-10-15) — 107 presets organised by category, demo starts after the opening chords.
 // Parameters, panel layout and factory presets are defined here once and
 // generated into web/js/spec.js and vst/src/generated/spec.h by gen_spec.js.
 // Parameter order defines the VST3 ParamIDs: append only, never reorder.
@@ -16,8 +17,8 @@ const APP = {
   credit: 'created by OktoPierre',   // shown on the panel
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: 'beta 0.2',
-  versionNum: '0.2.0',
+  version: 'beta 0.3',
+  versionNum: '0.3.0',
   date: '2026-10-15',
 };
 const DEFAULT_PRESET = 'A · Warm Pad';   // sound loaded when the app / a new plugin instance opens (first preset)
@@ -362,36 +363,171 @@ const PRESET_LIST = [
   { name: 'AB · Shimmer Pluck', v: { engine: 0, ab_mix: 0.4, a_wave: 0, wavelet: 4, f_cutoff: 3, f_env: 6, mod_d: 0.35, mod_s: 0,
     b_pattern: 5, b_seed: 7, b_tilt: -2, b_body: 2, b_bright: 0.3, b_sus: 0, amp_a: 0.001, amp_d: 1.2, amp_s: 0, amp_r: 0.5,
     ch_mix: 0.5, fx_dtime: 0.3, fx_dfb: 0.5, fx_dmix: 0.3, fx_rmix: 0.35, master: 0 } },
+
+  // ---- beta 0.3: a library by category (cat), like the factory banks of a hardware synthesizer
+  // Bass
+  { name: 'A · Ladder Bass', cat: 'Bass', v: { engine: 0, a_wave: 0, wavelet: 3, f_cutoff: 2.8, f_slope: 48, f_res: 9, f_env: 4.5, f_vel: 2,
+    mod_d: 0.28, mod_s: 0.15, amp_a: 0.002, amp_d: 0.6, amp_s: 0.8, amp_r: 0.1, v_oct: -1, v_voices: 1, v_glide: 0.03, v_porta: 2,
+    sub_level: 0.4, sub_shape: 0, fx_drive: 0.2, master: -1 } },
+  { name: 'B · Pluck Bass', cat: 'Bass', v: { engine: 1, wavelet: 2, b_pattern: 0, b_tilt: -3, ...bars11([1, 0.8, 0.5, 0.3, 0.2, 0, 0, 0, 0, 0, 0]),
+    b_body: 0.9, b_bright: 0.1, b_sus: 0.5, amp_a: 0.001, amp_d: 0.8, amp_s: 0.4, amp_r: 0.08, v_oct: -1, v_voices: 1,
+    sub_level: 0.5, master: 4 } },
+  { name: 'AB · Wobble Bass', cat: 'Bass', v: { engine: 0, ab_mix: 0.3, a_wave: 0, wavelet: 0, f_cutoff: 3, f_res: 10, lfo_rate: 3,
+    lfo_cut: 3, b_pattern: 3, v_oct: -1, v_voices: 1, sub_level: 0.6, sub_shape: 0, fx_drive: 0.4, master: -2.5 } },
+  { name: 'A · Rubber Bass', cat: 'Bass', v: { engine: 0, a_wave: 3, wavelet: 4, f_cutoff: 3.5, f_env: 3, mod_d: 0.2, mod_s: 0,
+    amp_d: 0.5, amp_s: 0.6, amp_r: 0.06, v_oct: -1, v_voices: 1, v_glide: 0.08, v_porta: 2, sub_level: 0.5, sub_shape: 1, master: 1 } },
+  { name: 'A · Octave Bass', cat: 'Bass', v: { engine: 0, a_wave: 1, wavelet: 2, f_cutoff: 4.5, f_env: 2, mod_d: 0.15, mod_s: 0,
+    amp_a: 0.002, amp_d: 0.3, amp_s: 0.5, amp_r: 0.05, v_oct: -1, sub_level: 0.6, sub_shape: 2, master: -7.5 } },
+  // Lead
+  { name: 'A · Saw Lead', cat: 'Lead', v: { engine: 0, a_wave: 0, wavelet: 3, f_cutoff: 7, f_res: 4, v_voices: 1, v_porta: 2, v_glide: 0.05,
+    v_unison: 2, v_detune: 10, lfo_rate: 5.5, lfo_pitch: 5, fx_dtime: 0.375, fx_dfb: 0.35, fx_dmix: 0.18, fx_rmix: 0.15, master: 0.5 } },
+  { name: 'A · Whistle Lead', cat: 'Lead', v: { engine: 0, a_wave: 4, wavelet: 6, v_oct: 1, v_voices: 1, v_porta: 2, v_glide: 0.1,
+    lfo_rate: 5.5, lfo_pitch: 10, amp_a: 0.04, amp_r: 0.2, fx_dmix: 0.15, fx_rmix: 0.25, master: -1 } },
+  { name: 'A · Pulse Lead', cat: 'Lead', v: { engine: 0, a_wave: 2, a_width: 0.2, wavelet: 2, f_cutoff: 5.5, f_res: 8, f_env: 2.5,
+    mod_d: 0.3, mod_s: 0.3, v_voices: 1, v_porta: 2, v_glide: 0.04, ch_mix: 0.3, fx_dmix: 0.2, master: 5 } },
+  { name: 'AB · Hybrid Lead', cat: 'Lead', v: { engine: 1, ab_mix: 0.5, a_wave: 1, wavelet: 4, f_cutoff: 6, f_res: 6, b_pattern: 1,
+    ...bars11([1, 0.7, 0.5, 0.4, 0.3, 0.2, 0, 0, 0, 0, 0]), v_voices: 1, v_porta: 2, v_glide: 0.06, lfo_rate: 5, lfo_pitch: 6,
+    fx_drive: 0.2, fx_dmix: 0.2, master: -1 } },
+  // Keys
+  { name: 'A · Tine Piano', cat: 'Keys', v: { engine: 0, a_wave: 3, wavelet: 3, f_cutoff: 5, f_env: 3, f_vel: 2, mod_d: 0.25, mod_s: 0,
+    amp_a: 0.002, amp_d: 2.5, amp_s: 0.15, amp_r: 0.5, amp_vel: 0.8, ch_mix: 0.25, ch_rate: 0.9, ch_depth: 0.4, fx_rmix: 0.15, master: -1 } },
+  { name: 'AB · Electric Piano', cat: 'Keys', v: { engine: 0, ab_mix: 0.35, a_wave: 4, wavelet: 6, b_pattern: 4, b_tilt: -3, b_body: 1.2,
+    b_bright: 0.12, b_sus: 0, amp_a: 0.002, amp_d: 2.2, amp_s: 0.2, amp_r: 0.4, amp_vel: 0.8, ch_mix: 0.4, ch_rate: 0.8,
+    ch_depth: 0.5, fx_rmix: 0.15, master: 2 } },
+  { name: 'B · Reed Piano', cat: 'Keys', v: { engine: 1, wavelet: 4, b_pattern: 1, b_tilt: -4, ...bars11([1, 0.6, 0.4, 0.2, 0.1, 0, 0, 0, 0, 0, 0]),
+    b_body: 1.5, b_bright: 0.3, b_sus: 0.2, amp_a: 0.002, amp_d: 1.8, amp_s: 0.25, amp_r: 0.3, amp_vel: 0.7, fx_drive: 0.25, master: 1 } },
+  { name: 'A · Clavi', cat: 'Keys', v: { engine: 0, a_wave: 2, a_width: 0.15, wavelet: 1, f_type: 1, f_cutoff: 2, f_vel: 2,
+    amp_a: 0.001, amp_d: 0.45, amp_s: 0.15, amp_r: 0.05, amp_vel: 0.8, master: 0 } },
+  { name: 'B · Toy Piano', cat: 'Keys', v: { engine: 1, wavelet: 4, b_pattern: 3, b_tilt: -2, b_atk: 0.001, b_body: 1.2, b_bright: 0.25, b_sus: 0,
+    amp_a: 0.001, amp_d: 1.5, amp_s: 0, amp_r: 0.5, v_oct: 1, fx_rmix: 0.2, master: 5.5 } },
+  { name: 'A · Lo-Fi Piano', cat: 'Keys', v: { engine: 0, a_wave: 0, wavelet: 2, a_sparsity: 0.55, f_cutoff: 6, f_env: 2, mod_d: 0.3,
+    mod_s: 0, amp_a: 0.002, amp_d: 2, amp_s: 0.1, amp_r: 0.4, amp_vel: 0.7, ch_mix: 0.2, fx_rmix: 0.25, master: -1 } },
+  // Organ
+  { name: 'B · Jazz Organ', cat: 'Organ', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: 0, ...bars11([1, 1, 0.8, 0, 0, 0, 0, 0, 0, 0, 0]),
+    amp_a: 0.005, amp_d: 0.1, amp_s: 1, amp_r: 0.06, lfo_rate: 6.5, lfo_pitch: 6, ch_mix: 0.45, ch_rate: 1.2, ch_depth: 0.4,
+    fx_drive: 0.1, fx_rmix: 0.15, master: 1 } },
+  { name: 'B · Gospel Organ', cat: 'Organ', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: 0, ...bars11([1, 1, 1, 1, 0.6, 0.8, 0.5, 0.3, 0, 0, 0]),
+    amp_a: 0.005, amp_s: 1, amp_r: 0.1, lfo_rate: 6.8, lfo_pitch: 8, fx_drive: 0.3, ch_mix: 0.3, fx_rmix: 0.2, master: 3.5 } },
+  { name: 'B · Church Organ', cat: 'Organ', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: -1, ...bars11([1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0, 0]),
+    amp_a: 0.08, amp_s: 1, amp_r: 0.8, fx_rsize: 0.95, fx_rmix: 0.55, master: -2 } },
+  { name: 'B · Reed Organ', cat: 'Organ', v: { engine: 1, wavelet: 4, b_pattern: 1, b_tilt: -2, ...bars11([1, 0.8, 0.6, 0.5, 0.4, 0.3, 0, 0, 0, 0, 0]),
+    amp_a: 0.03, amp_s: 1, amp_r: 0.15, ch_mix: 0.5, ch_rate: 0.7, fx_rmix: 0.2, master: 3 } },
+  { name: 'B · Flute Organ', cat: 'Organ', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: -6, ...bars11([1, 0.3, 0.15, 0, 0, 0, 0, 0, 0, 0, 0]),
+    amp_a: 0.03, amp_s: 1, amp_r: 0.2, lfo_rate: 5.5, lfo_pitch: 4, fx_rmix: 0.3, master: -6 } },
+  // Pad
+  { name: 'A · Analog Pad', cat: 'Pad', v: { engine: 0, a_wave: 0, wavelet: 5, f_cutoff: 4.5, f_res: 3, lfo_rate: 0.25, lfo_cut: 1,
+    amp_a: 0.9, amp_s: 0.9, amp_r: 2, v_unison: 4, v_detune: 18, ch_mix: 0.5, fx_rmix: 0.4, master: -2 } },
+  { name: 'A · Dark Pad', cat: 'Pad', v: { engine: 0, a_wave: 3, wavelet: 6, f_cutoff: 3, f_slope: 48, amp_a: 1.5, amp_s: 1, amp_r: 3,
+    v_unison: 3, v_detune: 12, sub_level: 0.3, sub_shape: 0, fx_rsize: 0.9, fx_rmix: 0.6, master: -10.5 } },
+  { name: 'B · Halo Pad', cat: 'Pad', v: { engine: 1, wavelet: 6, b_pattern: 1, b_tilt: -5, b_atk: 2.5, b_spread: 1, amp_a: 1.5, amp_s: 1,
+    amp_r: 3, v_unison: 3, v_detune: 14, ch_mix: 0.6, ch_rate: 0.35, fx_rsize: 0.95, fx_rmix: 0.7, master: -1 } },
+  { name: 'AB · Evolving Pad', cat: 'Pad', v: { engine: 0, ab_mix: 0.5, a_wave: 2, a_width: 0.3, wavelet: 4, f_cutoff: 5, p_depth: 0.6,
+    p_width: 0.3, lfo_rate: 0.12, lfo_pos: 0.5, lfo_cut: 0.8, b_pattern: 5, b_seed: 23, b_atk: 3, b_spread: 1, b_tilt: -4,
+    amp_a: 2, amp_s: 1, amp_r: 3, v_unison: 2, v_detune: 10, ch_mix: 0.5, fx_dmix: 0.15, fx_rmix: 0.6, master: 0 } },
+  // Strings
+  { name: 'A · Chamber Strings', cat: 'Strings', v: { engine: 0, a_wave: 0, wavelet: 6, f_cutoff: 6.5, f_slope: 18, amp_a: 0.25,
+    amp_s: 0.9, amp_r: 0.8, v_unison: 2, v_detune: 8, ch_mix: 0.4, ch_rate: 0.6, ch_depth: 0.5, fx_rmix: 0.35, master: -1.5 } },
+  { name: 'A · Pizzicato', cat: 'Strings', v: { engine: 0, a_wave: 0, wavelet: 5, f_cutoff: 4, f_env: 4, mod_d: 0.15, mod_s: 0,
+    amp_a: 0.002, amp_d: 0.35, amp_s: 0, amp_r: 0.2, fx_rmix: 0.35, master: 1 } },
+  { name: 'A · Slow Strings', cat: 'Strings', v: { engine: 0, a_wave: 0, wavelet: 6, f_cutoff: 7, f_slope: 18, amp_a: 1.2, amp_s: 0.9,
+    amp_r: 2, ch_mix: 0.7, ch_rate: 0.5, ch_depth: 0.7, fx_rmix: 0.5, master: -1 } },
+  { name: 'AB · Analog Strings', cat: 'Strings', v: { engine: 0, ab_mix: 0.25, a_wave: 0, wavelet: 6, b_pattern: 0, b_tilt: -6,
+    f_cutoff: 6.5, amp_a: 0.3, amp_s: 0.9, amp_r: 1, ch_mix: 0.9, ch_rate: 0.6, ch_depth: 0.8, fx_rmix: 0.3, master: -0.5 } },
+  // Brass & Wind
+  { name: 'A · Synth Brass', cat: 'Brass & Wind', v: { engine: 0, a_wave: 0, wavelet: 3, f_cutoff: 3, f_res: 4, f_env: 6, mod_a: 0.08,
+    mod_d: 0.45, mod_s: 0.5, amp_a: 0.03, amp_s: 0.9, amp_r: 0.2, v_unison: 2, v_detune: 12, fx_drive: 0.15, fx_rmix: 0.2, master: -5 } },
+  { name: 'A · Brass Stab', cat: 'Brass & Wind', v: { engine: 0, a_wave: 0, wavelet: 2, f_cutoff: 2.5, f_res: 5, f_env: 7, mod_d: 0.2,
+    mod_s: 0.1, amp_a: 0.005, amp_d: 0.35, amp_s: 0.2, amp_r: 0.15, v_unison: 2, v_detune: 8, fx_rmix: 0.25, master: -0.5 } },
+  { name: 'B · Clarinet', cat: 'Brass & Wind', v: { engine: 1, wavelet: 6, b_pattern: 1, b_tilt: -6, ...bars11([1, 0.6, 0.4, 0.2, 0, 0, 0, 0, 0, 0, 0]),
+    b_atk: 0.05, amp_a: 0.05, amp_s: 0.9, amp_r: 0.15, lfo_rate: 5, lfo_pitch: 5, fx_rmix: 0.2, master: -3.5 } },
+  { name: 'AB · Breathy Flute', cat: 'Brass & Wind', v: { engine: 1, ab_mix: 0.8, a_wave: 5, wavelet: 6, f_cutoff: 7, b_pattern: 0, b_tilt: -9,
+    ...bars11([1, 0.5, 0.2, 0.1, 0, 0, 0, 0, 0, 0, 0]), amp_a: 0.08, amp_s: 0.9, amp_r: 0.25, lfo_rate: 5, lfo_pitch: 6, fx_rmix: 0.25,
+    master: -3 } },
+  // Pluck
+  { name: 'A · Harp', cat: 'Pluck', v: { engine: 0, a_wave: 3, wavelet: 6, f_cutoff: 4.5, f_env: 4, mod_d: 0.6, mod_s: 0, amp_a: 0.002,
+    amp_d: 2, amp_s: 0, amp_r: 1, fx_rsize: 0.8, fx_rmix: 0.45, master: -2.5 } },
+  { name: 'B · Koto', cat: 'Pluck', v: { engine: 1, wavelet: 2, b_pattern: 0, b_tilt: -2, ...bars11([1, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0, 0, 0, 0]),
+    b_body: 1.2, b_bright: 0.15, b_sus: 0, amp_a: 0.001, amp_d: 1.4, amp_s: 0, amp_r: 0.4, lfo_rate: 4, lfo_pitch: 3,
+    fx_rmix: 0.2, master: 2 } },
+  { name: 'A · Synth Pluck', cat: 'Pluck', v: { engine: 0, a_wave: 0, wavelet: 3, f_cutoff: 2.5, f_res: 6, f_env: 7, mod_d: 0.2, mod_s: 0,
+    amp_a: 0.001, amp_d: 0.5, amp_s: 0, amp_r: 0.3, fx_dtime: 0.375, fx_dfb: 0.4, fx_dmix: 0.25, fx_rmix: 0.2, master: -0.5 } },
+  { name: 'AB · Arp Pluck', cat: 'Pluck', v: { engine: 0, ab_mix: 0.3, a_wave: 1, wavelet: 2, f_cutoff: 3.5, f_env: 5, mod_d: 0.15,
+    mod_s: 0, b_pattern: 3, amp_a: 0.001, amp_d: 0.35, amp_s: 0, amp_r: 0.15, ch_mix: 0.3, fx_dtime: 0.25, fx_dfb: 0.45,
+    fx_dmix: 0.3, master: 1 } },
+  // Bells & Mallets
+  { name: 'B · Glockenspiel', cat: 'Bells & Mallets', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: 0, ...bars11([1, 0, 0, 0.5, 0, 0.25, 0, 0, 0, 0, 0]),
+    b_body: 2.5, b_bright: 0.6, b_sus: 0, amp_a: 0.001, amp_d: 3, amp_s: 0, amp_r: 1.5, v_oct: 1, fx_rmix: 0.3, master: -0.5 } },
+  { name: 'B · Vibraphone', cat: 'Bells & Mallets', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: -4,
+    ...bars11([1, 0, 0.35, 0, 0.15, 0, 0, 0, 0, 0, 0]), b_body: 3, b_bright: 1, b_sus: 0, amp_a: 0.002, amp_d: 3.5, amp_s: 0,
+    amp_r: 1.2, ch_mix: 0.35, ch_rate: 2.5, ch_depth: 0.3, fx_rmix: 0.3, master: 0.5 } },
+  { name: 'B · Marimba', cat: 'Bells & Mallets', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: -2, ...bars11([1, 0, 0.3, 0, 0, 0, 0, 0, 0, 0, 0]),
+    b_body: 0.7, b_bright: 0.1, b_sus: 0, amp_a: 0.001, amp_d: 0.9, amp_s: 0, amp_r: 0.3, fx_rmix: 0.2, master: 1 } },
+  { name: 'B · Tubular Bells', cat: 'Bells & Mallets', v: { engine: 1, wavelet: 4, b_pattern: 3, b_tilt: -1, b_body: 6, b_bright: 1.5,
+    b_sus: 0, amp_a: 0.001, amp_d: 6, amp_s: 0, amp_r: 3, fx_rsize: 0.9, fx_rmix: 0.5, master: 5 } },
+  { name: 'AB · Crystal Bell', cat: 'Bells & Mallets', v: { engine: 1, ab_mix: 0.7, a_wave: 4, wavelet: 3, b_pattern: 3, b_tilt: -2,
+    b_body: 3, b_bright: 0.5, b_sus: 0, amp_a: 0.001, amp_d: 3, amp_s: 0, amp_r: 2, ch_mix: 0.3, fx_dmix: 0.2, fx_rmix: 0.4,
+    master: 3 } },
+  // FX
+  { name: 'A · Wind', cat: 'FX', v: { engine: 0, a_wave: 5, wavelet: 5, f_type: 0, f_cutoff: 4, f_res: 10, lfo_rate: 0.15, lfo_cut: 2.5,
+    amp_a: 1.5, amp_s: 1, amp_r: 3, fx_rsize: 0.9, fx_rmix: 0.6, master: 1.5 } },
+  { name: 'B · Sci-Fi Burble', cat: 'FX', v: { engine: 1, wavelet: 2, b_pattern: 5, b_seed: 61, lfo_shape: 4, lfo_rate: 9, lfo_pos: 0.5,
+    p_depth: 1, p_width: 0.2, amp_s: 1, amp_r: 0.5, fx_dtime: 0.2, fx_dfb: 0.6, fx_dmix: 0.35, master: -1.5 } },
+  { name: 'AB · Robot Voice', cat: 'FX', v: { engine: 0, ab_mix: 0.4, a_wave: 1, wavelet: 0, f_type: 2, f_cutoff: 5, f_res: 14,
+    lfo_shape: 4, lfo_rate: 8, lfo_cut: 2.5, b_pattern: 3, amp_s: 1, amp_r: 0.2, fx_drive: 0.3, master: 4.5 } },
+  { name: 'A · Alarm', cat: 'FX', v: { engine: 0, a_wave: 1, wavelet: 0, f_cutoff: 9, lfo_shape: 1, lfo_rate: 2.5, lfo_pitch: 100,
+    amp_s: 1, amp_r: 0.1, v_voices: 1, fx_dmix: 0.2, master: -5.5 } },
+  // Drums & Perc (play them on the keyboard: the pitch follows the key)
+  { name: 'AB · Sub Kick', cat: 'Drums & Perc', v: { engine: 0, ab_mix: 0.15, a_wave: 4, wavelet: 6, b_pattern: 4, b_body: 0.05,
+    b_bright: 0.01, b_sus: 0, amp_a: 0.001, amp_d: 0.3, amp_s: 0, amp_r: 0.05, v_oct: -1, sub_level: 0.7, sub_oct: 0, sub_shape: 0,
+    master: -6 } },
+  { name: 'A · Noise Snare', cat: 'Drums & Perc', v: { engine: 0, a_wave: 5, wavelet: 2, f_type: 1, f_cutoff: 2.5, amp_a: 0.001, amp_d: 0.2, amp_s: 0,
+    amp_r: 0.1, sub_level: 0.5, sub_shape: 1, sub_oct: 0, fx_rmix: 0.15, master: 3 } },
+  { name: 'A · Closed Hat', cat: 'Drums & Perc', v: { engine: 0, a_wave: 5, wavelet: 0, f_type: 1, f_cutoff: 4.5, f_res: 4, fx_drive: 0.3, amp_a: 0.001, amp_d: 0.06, amp_s: 0,
+    amp_r: 0.04, master: 6 } },
+  { name: 'A · Open Hat', cat: 'Drums & Perc', v: { engine: 0, a_wave: 5, wavelet: 0, f_type: 1, f_cutoff: 4.5, f_res: 4, fx_drive: 0.3, amp_a: 0.001, amp_d: 0.5, amp_s: 0,
+    amp_r: 0.3, master: 6 } },
+  { name: 'B · Wood Block', cat: 'Drums & Perc', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: 0, ...bars11([1, 0, 0.6, 0, 0.3, 0, 0, 0, 0, 0, 0]),
+    b_body: 0.25, b_bright: 0.05, b_sus: 0, amp_a: 0.001, amp_d: 0.22, amp_s: 0, amp_r: 0.06, v_oct: 1, master: 3.5 } },
+  { name: 'A · Synth Tom', cat: 'Drums & Perc', v: { engine: 0, a_wave: 3, wavelet: 6, f_cutoff: 4, f_env: 3, mod_d: 0.1, mod_s: 0,
+    amp_a: 0.001, amp_d: 0.45, amp_s: 0, amp_r: 0.2, sub_level: 0.5, sub_shape: 0, sub_oct: 0, master: -6.5 } },
 ];
 // Presets saved before A/B MIX existed play the engine they were made for.
 for (const pr of PRESET_LIST) if (pr.v.ab_mix === undefined) pr.v.ab_mix = pr.v.engine || 0;
-// Factory order (preset menu, ◀ ▶ and the DEMO preset tour): OktoPierre's favourite sounds first, in his order,
-// then the beta 0.2 presets (chorus, sub oscillator, A + B mix, interleaved), then the other presets alternating
-// engine B (additive) and engine A (subtractive), and the two Init presets last.
+
+// Categories (preset menu groups, like the banks of a hardware synthesizer), in menu order.
+const CATEGORIES = ['Bass', 'Lead', 'Keys', 'Organ', 'Pad', 'Strings', 'Brass & Wind', 'Pluck', 'Bells & Mallets', 'FX', 'Drums & Perc', 'Init'];
+const CATEGORY_OF = {   // presets of beta 0.1 and 0.2
+  'A · Square Mod 2': 'Pad', 'A · Wavelet Lead': 'Lead', 'A · Haar Bass': 'Bass', 'A · Edge Pluck': 'Pluck', 'B · Focus Sweep': 'FX',
+  'B · Soft Flute': 'Brass & Wind', 'A · Infra Sub Bass': 'Bass', 'A · Dub Echo Lead': 'Lead', 'A · Fuzz Bass': 'Bass',
+  'A · Laser Sweep': 'FX', 'A · Warm Pad': 'Pad', 'B · Mirror Sub Bass': 'Bass', 'A · Sparse Keys': 'Keys', 'B · Space Choir': 'Pad',
+  'A · Square Mod': 'Pad', 'A · Init': 'Init', 'B · Init': 'Init', 'A · Glass Pad': 'Pad', 'A · Noise Brass': 'Brass & Wind',
+  'A · Scanning Edge': 'FX', 'A · Clean Keys': 'Keys', 'A · Cathedral Saw': 'Pad', 'B · Octave Organ': 'Organ', 'B · Chip Walsh': 'Lead',
+  'B · Walsh Bells': 'Bells & Mallets', 'B · Impulse Pluck': 'Pluck', 'B · Random Glass': 'Pad', 'B · Mirror Pad': 'Pad',
+  'B · Music Box': 'Bells & Mallets', 'B · Chip Echo': 'Lead', 'B · Distorted Organ': 'Organ', 'B · Alien Texture': 'FX',
+  'A · String Machine': 'Strings', 'A · Solina Cellos': 'Strings', 'A · Poly Chorus Pad': 'Pad', 'A · Chorus Square Lead': 'Lead',
+  'B · Ensemble Organ': 'Organ', 'B · Glass Ensemble': 'Pad', 'B · Chorus Flute': 'Brass & Wind', 'A · Sub Saw Bass': 'Bass',
+  'A · Reese Sub': 'Bass', 'A · Acid Sub': 'Bass', 'B · Sub Organ Bass': 'Bass', 'A · Deep Sub Pluck': 'Bass',
+  'AB · Hybrid Strings': 'Strings', 'AB · Wavelet Choir': 'Pad', 'AB · Bell Pad': 'Pad', 'AB · Hybrid Keys': 'Keys',
+  'AB · Organ Lead': 'Lead', 'AB · Sub Hybrid Bass': 'Bass', 'AB · Dream Pad': 'Pad', 'AB · Space Strings': 'Strings',
+  'AB · Glass Keys': 'Keys', 'AB · Wide Brass': 'Brass & Wind', 'AB · Chip Hybrid': 'Lead', 'AB · Shimmer Pluck': 'Pluck',
+};
+for (const pr of PRESET_LIST) {
+  pr.cat = pr.cat || CATEGORY_OF[pr.name];
+  if (!CATEGORIES.includes(pr.cat)) throw new Error(`preset ${pr.name}: no category`);
+}
+
+// Factory order (preset menu, ◀ ▶, VST programs): OktoPierre's favourite sounds first, in his order (the
+// ★ FAVOURITES group of the menu), then every other preset by category, in the order of CATEGORIES.
 const FAVOURITES = ['A · Square Mod 2', 'A · Wavelet Lead', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep',
   'B · Soft Flute', 'A · Infra Sub Bass', 'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'A · Warm Pad',
   'B · Mirror Sub Bass', 'A · Sparse Keys', 'B · Space Choir', 'A · Square Mod'];
-const NEW_V02 = ['A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ',
-  'AB · Bell Pad', 'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'B · Sub Organ Bass', 'AB · Hybrid Keys',
-  'A · Poly Chorus Pad', 'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Space Strings', 'AB · Sub Hybrid Bass',
-  'A · Chorus Square Lead', 'AB · Glass Keys', 'B · Chorus Flute', 'AB · Wide Brass', 'A · Deep Sub Pluck', 'AB · Chip Hybrid',
-  'AB · Shimmer Pluck'];
-const PRESETS = FAVOURITES.concat(NEW_V02).map((n) => {
+const PRESETS = FAVOURITES.map((n) => {
   const p = PRESET_LIST.find(x => x.name === n);
   if (!p) throw new Error('preset not found: ' + n);
   return p;
 });
-{
-  const INIT = ['A · Init', 'B · Init'];
-  const rest = PRESET_LIST.filter(p => !FAVOURITES.includes(p.name) && !NEW_V02.includes(p.name) && !INIT.includes(p.name));
-  const listA = rest.filter(p => p.name.startsWith('A')), listB = rest.filter(p => p.name.startsWith('B'));
-  for (let i = 0; i < Math.max(listA.length, listB.length); i++) {
-    if (listB[i]) PRESETS.push(listB[i]);
-    if (listA[i]) PRESETS.push(listA[i]);
-  }
-  for (const n of INIT) PRESETS.push(PRESET_LIST.find(x => x.name === n));
-  if (PRESETS.length !== PRESET_LIST.length || new Set(PRESETS).size !== PRESET_LIST.length) throw new Error('factory order: every preset exactly once');
-}
+for (const cat of CATEGORIES) for (const p of PRESET_LIST) if (p.cat === cat && !FAVOURITES.includes(p.name)) PRESETS.push(p);
+if (PRESETS.length !== PRESET_LIST.length || new Set(PRESETS).size !== PRESET_LIST.length) throw new Error('factory order: every preset exactly once');
 if (!PRESETS.some(p => p.name === DEFAULT_PRESET)) throw new Error('DEFAULT_PRESET not found: ' + DEFAULT_PRESET);
 
 // Validate preset keys and ranges at generation time.
@@ -402,4 +538,4 @@ for (const pr of PRESETS) for (const [k, v] of Object.entries(pr.v)) {
 }
 for (const s of S) for (const w of s.widgets) if (w.param && !(w.param in idx)) throw new Error('layout: unknown param ' + w.param);
 
-module.exports = { DEVICE, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, FAVOURITES: FAVOURITES.length };
+module.exports = { DEVICE, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, FAVOURITES: FAVOURITES.length, CATEGORIES };

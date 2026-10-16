@@ -288,8 +288,14 @@ function loadDemo() {
       toccata = f({ C, P: C.P, PARAMS: SPEC.PARAMS });
     }
   } catch (e) { console.warn('demo.js: could not read the Toccata scenes (' + e.message + ')'); }
+  let tour = null;
+  try {   // the preset tour of the default demo, computed by demo.js itself (tourPlan)
+    ctx.WS_SPEC = SPEC;
+    vm.runInContext(src, ctx);
+    tour = vm.runInContext('WSDemo', ctx)({ C, P: C.P, PARAMS: SPEC.PARAMS }).tourPlan(0);
+  } catch (e) { console.warn('demo.js: could not compute the preset tour (' + e.message + ')'); }
   const mx = /MAX_FILE_SECONDS\s*=\s*(\d+)/.exec(src);
-  return { songs, toccata, maxFile: mx ? +mx[1] : 360 };
+  return { songs, toccata, tour, maxFile: mx ? +mx[1] : 360 };
 }
 const DEMO = loadDemo();
 const mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
@@ -322,17 +328,11 @@ function demoSpeeds() {   // tempo factors used by tools/make_demo.js (files wit
 }
 function demoTour() {   // preset-tour settings, read from web/js/demo.js
   const src = require('fs').readFileSync(require('path').join(L.ROOT, 'web', 'js', 'demo.js'), 'utf8');
-  const tours = {}, firsts = {}, skips = {}, intros = {};
-  for (const m of src.matchAll(/(\w+):\s*\{\s*tour:\s*([\d.]+)([^}]*)\}/g)) {
-    tours[m[1]] = +m[2];
-    const fi = /first:\s*\[([^\]]*)\]/.exec(m[3]); if (fi) firsts[m[1]] = [...fi[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
-    const sk = /skip:\s*\[([^\]]*)\]/.exec(m[3]); if (sk) skips[m[1]] = [...sk[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
-    const it = /intro:\s*\{\s*param:\s*'(\w+)',\s*from:\s*([\d.]+),\s*to:\s*([\d.]+)/.exec(m[3]);
-    if (it) intros[m[1]] = { param: it[1], from: +it[2], to: +it[3] };
-  }
+  const tours = {};
+  for (const m of src.matchAll(/(\w+):\s*\{\s*tour:\s*([\d.]+)/g)) tours[m[1]] = +m[2];
   const att = /TOUR_MAX_ATTACK\s*=\s*([\d.]+)/.exec(src), voices = /TOUR_SAFE\s*=\s*\{[^}]*v_voices:\s*(\d+)/.exec(src);
   const dmix = /TOUR_MAX_DELAY_MIX\s*=\s*([\d.]+)/.exec(src), dfb = /TOUR_MAX_DELAY_FB\s*=\s*([\d.]+)/.exec(src);
-  return { tours, firsts, skips, intros, maxAttack: att ? +att[1] : null, voices: voices ? +voices[1] : null, maxDMix: dmix ? +dmix[1] : null, maxDFb: dfb ? +dfb[1] : null };
+  return { tours, maxAttack: att ? +att[1] : null, voices: voices ? +voices[1] : null, maxDMix: dmix ? +dmix[1] : null, maxDFb: dfb ? +dfb[1] : null };
 }
 function demoSection(E) {
   const S = DEMO.songs, toc = S.find(s => s.id === 'toccata'), speeds = demoSpeeds(), TOUR = demoTour();
@@ -345,19 +345,16 @@ function demoSection(E) {
     s.composer || '', mmssMenu(s.duration), kind(s),
     `<span class="small">${s.license || ''}${isPD(s) ? '' : ` — ${s.source}`}${speeds[s.id] ? ` · played ${speeds[s.id]}× faster (the MIDI file has no tempo mark)` : ''}</span>`]);
   const nonPD = S.filter(s => !isPD(s));
-  const skip = (def && TOUR.skips[def.id]) || [];
-  const names = SPEC.PRESETS.map(p => p.name).filter(n => !skip.includes(n));
-  const head = ((def && TOUR.firsts[def.id]) || []).filter(n => names.includes(n));
-  const order = head.concat(names.filter(n => !head.includes(n)));   // same rule as demo.js
-  const NT = order.length, tourCount = step ? Math.min(NT, Math.ceil(def.duration / step)) : 0;
-  const tourName = k => order[k % NT];
-  const intro = def && TOUR.intros[def.id];
-  const firstNames = [0, 1, 2, 3].map(tourName);
+  const plan = DEMO.tour || [], NT = plan.length;   // [{ t, preset }] as demo.js plays it
+  const tourName = k => (plan[k] ? plan[k].preset : '');
+  const firstNames = [0, 1, 2, 3].map(tourName).filter(Boolean);
   const shotPreset = tourName(2);
+  const favs = SPEC.PRESETS.slice(0, SPEC.FAVOURITES).map(p => p.name);
+  const nFav = plan.filter(x => favs.includes(x.preset)).length;
   return `<h3 id="demo">Demo (web app)</h3>
 <p>The demo control next to the logo is a split button. ${ctl('▶ DEMO')} plays the default demo straight away; the small ${ctl('▾')} beside it opens the list of all demo pieces and ${ctl('Load a MIDI file…')}. While a demo plays, the main button reads ${ctl('■ STOP')}. The ${S.length} pieces, by ${composers.length > 1 ? composers.slice(0, -1).join(', ') + ' and ' + composers[composers.length - 1] : composers[0]}, are free editions from the Mutopia Project, each cut after about two minutes at the end of a phrase; the notes are played sample-accurately by a sequencer inside the audio engine.</p>
 ${def && step ? `<h4 id="demo-tour">The default demo: a tour of the presets</h4>
-<p>${ctl('▶ DEMO')} plays ${def.composer} — <i>${def.short || def.title}</i> (${mmssMenu(def.duration)}) as a <b>preset tour</b>: ${intro ? `<b>${tourName(0)}</b> plays the opening chords while its ${P(intro.param)} opens from band ${intro.from} to band ${intro.to}; then ` : ''}about every ${step} seconds, on a change of chord in the music, the next factory preset is loaded — ${firstNames.join(' → ')} … — ${head.length ? `after ${head.map(n => `<b>${n}</b>`).join(' and ')} come the other presets in the order of the preset menu (OktoPierre’s favourite sounds first)` : 'in the order of the preset menu'}, wrapping around after the last one, so one run goes through ${tourCount === NT ? `all ${NT}` : `${tourCount} of the ${NT}`} presets of the tour${skip.length ? ` (${skip.map(n => `<b>${n}</b>`).join(' and ')} ${skip.length > 1 ? 'are' : 'is'} left out, so the tour has ${NT} of the ${NP} factory presets)` : ''}. The preset browser in the header shows the name of the preset being played (with the “•” modified mark while a control moves).</p>
+<p>${ctl('▶ DEMO')} plays ${def.composer} — <i>${def.short || def.title}</i> (${mmssMenu(def.duration)}) as a <b>preset tour</b>${def.origin ? `, starting with the phrase that follows the opening chords (${def.origin.toFixed(1)} s into the movement)` : ''}: about every ${step} seconds, on a change of chord in the music, the next preset is loaded — ${firstNames.map(n => `<b>${n}</b>`).join(' → ')} … — ${NT} presets in all: ${nFav} of OktoPierre’s favourite sounds first, then ${NT - nFav} presets that show the chorus, the sub oscillator and the mix of the two engines. The sequence is fixed in the demo, so new factory presets (there are ${NP}) do not change it. The preset browser in the header shows the name of the preset being played (with the “•” modified mark while a control moves).</p>
 <ul>
 <li>To keep every preset playable on the piece, each preset is played polyphonic${TOUR.voices ? ` (${TOUR.voices} voices)` : ''}, at its normal octave, without glide${TOUR.maxAttack ? ` and with its attack shortened to at most ${Math.round(TOUR.maxAttack * 1000)} ms` : ''}${TOUR.maxDMix != null ? `; long echoes are reduced (delay mix at most ${Math.round(TOUR.maxDMix * 100)} %, feedback at most ${Math.round(TOUR.maxDFb * 100)} %) so the fast piece stays clear` : ''}. The presets themselves are not changed.</li>
 <li>The demo window shows “Preset tour · <i>n</i>/${NT} · Engine A/B” (<i>n</i> = the preset’s place in the tour), “Now playing:” with the preset’s name, a countdown to the next preset with its name, and a one-line summary of the sound, ending with “Played polyphonic at its normal octave, with short echoes.”</li>
@@ -436,7 +433,7 @@ function presetsSaving(E) {
   return `<h3 id="saving">Browsing and saving presets</h3>
 <div class="pair" style="grid-template-columns: 1fr 260px; align-items: start;">
 <div>
-<p>The preset browser sits in the header. The ${SPEC.PRESETS.length} factory presets start with OktoPierre’s ${SPEC.FAVOURITES} favourite sounds (from <b>${SPEC.PRESETS[0].name}</b> to <b>${SPEC.PRESETS[SPEC.FAVOURITES - 1].name}</b>); the others follow, alternating between the two engines, with the two Init presets last. ◀ ▶ step through them in that order (and then, in the web app, through your own). Clicking the name opens the list: in the web app one <b>FACTORY PRESETS</b> list in which a coloured letter before each name gives its engine (A in teal, B in amber), followed by your USER PRESETS. A dot after the preset name means the sound has been modified since it was loaded. The tables in this manual group the presets by engine.</p>
+<p>The preset browser sits in the header. The ${SPEC.PRESETS.length} factory presets start with OktoPierre’s ${SPEC.FAVOURITES} favourite sounds (from <b>${SPEC.PRESETS[0].name}</b> to <b>${SPEC.PRESETS[SPEC.FAVOURITES - 1].name}</b>); the others follow sorted by category, like the banks of a hardware synthesizer — ${SPEC.CATEGORIES.filter(c => c !== 'Init').join(', ')} — with the two Init presets last. ◀ ▶ step through them in that order (and then, in the web app, through your own). Clicking the name opens the list: in the web app <b>★ FAVOURITES</b> at the top, then one group per category, then your USER PRESETS. A click on a group title opens or closes it (the number at its right is the number of presets in it); the favourites, your user presets and the group of the current preset start open. A coloured letter before each name gives its engine (A in teal, B in amber; AB in both colours = the two engines mixed). A dot after the preset name means the sound has been modified since it was loaded. The tables in this manual list the presets by category, separately for each engine.</p>
 <p><b>Web app.</b> The buttons at the right of the status bar manage your own sounds:</p>
 <ul>
 <li><b>Save preset</b> asks for a name (up to 40 characters) and stores the sound in this browser’s storage, in the USER PRESETS group.</li>
@@ -445,9 +442,9 @@ function presetsSaving(E) {
 <li>To delete a user preset, open the list, hover over it and click ✕ (you are asked to confirm). Factory presets cannot be deleted.</li>
 <li>The app always opens on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>; it does not bring back the sound you had when you closed it. Save or export a sound you want to keep — your user presets stay in the list.</li>
 </ul>
-<p><b>VST3 plugin.</b> ◀ ▶ and the preset menu (a standard Windows menu) list the factory presets. Save your own sounds with Live: the plugin’s settings are stored in the Live Set, and you can save the device as a Live preset (or inside an Instrument Rack) to reuse it in other projects. A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>.</p>
+<p><b>VST3 plugin.</b> ◀ ▶ step through the factory presets in the same order; the preset menu (a standard Windows menu) shows the favourites at the top and one submenu per category, with the number of presets in it. Save your own sounds with Live: the plugin’s settings are stored in the Live Set, and you can save the device as a Live preset (or inside an Instrument Rack) to reuse it in other projects. A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>.</p>
 </div>
-<figure class="shot" style="margin:0"><img src="img/presets-menu.png" alt="The factory preset list of the web app"><figcaption>The web app’s preset list: one factory list, OktoPierre’s favourite sounds first, with a teal A or an amber B before each name.</figcaption></figure>
+<figure class="shot" style="margin:0"><img src="img/presets-menu.png" alt="The factory preset list of the web app"><figcaption>The web app’s preset list: OktoPierre’s favourite sounds first, then one folding group per category (click a title to open it); a teal A, an amber B or both before each name.</figcaption></figure>
 </div>
 ${note('<p>User presets saved in the browser live in that browser profile only. Private windows and “clear site data” erase them — use <b>Export</b> for anything you want to keep.</p>')}`;
 }
@@ -467,7 +464,7 @@ function vstSection(E) {
 <h3 id="vst-diff">Differences from the web app</h3>
 <ul>
 <li><b>No start button, no DEMO button and no status bar.</b> Audio runs as soon as the plugin is loaded; there are no Save / Export / Import buttons. In the header, the place of the web app’s DEMO button holds the window-size button.</li>
-<li><b>Presets.</b> A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>. ◀ ▶ step through the ${SPEC.PRESETS.length} factory presets; clicking the preset name opens a standard Windows menu with all of them in the same alternating A / B order, as one list (the current one ticked). Save your own sounds with Live: as a device preset, inside an Instrument Rack, or simply in the Live Set. The plugin remembers the selected preset with the Live Set.</li>
+<li><b>Presets.</b> A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>. ◀ ▶ step through the ${SPEC.PRESETS.length} factory presets; clicking the preset name opens a standard Windows menu: the favourites at the top, then one submenu per category (the current preset and its category ticked). Save your own sounds with Live: as a device preset, inside an Instrument Rack, or simply in the Live Set. The plugin remembers the selected preset with the Live Set.</li>
 <li><b>Mouse.</b> Drag vertically (${kbd('Shift')} = fine), use the mouse wheel (${kbd('Shift')} = fine), and double-click or ${kbd('Ctrl')} + click to reset a control to its default. Hovering shows the value, as in the web app.</li>
 <li><b>Playing.</b> The on-screen keyboard and wheels work with the mouse, but there are no computer-keyboard notes: arm the track and use a MIDI keyboard or Live’s Computer MIDI Keyboard (${kbd('M')}). Pitch bend, the mod wheel and the sustain pedal arrive from the track’s MIDI.</li>
 <li><b>Manuals.</b> ${ctl('MANUAL A')} and ${ctl('MANUAL B')} open the copies stored in the bundle (<code>Contents\\Resources\\manual\\manual-a.html</code> and <code>manual-b.html</code>) in your default web browser.</li>
@@ -657,16 +654,24 @@ function presetSettings(pr) {
   if (barsChanged && !out.some(s => s.startsWith('DRAWBARS'))) out.splice(2, 0, `DRAWBARS ${bars.join(' / ')}`);
   return out.join(' · ');
 }
-function presetTable(E, desc) {
-  const rows = [];
-  SPEC.PRESETS.forEach((pr, i) => {
-    if ((E === 'a') !== (pr.values[0] === 0)) return;
-    const d = desc[pr.name] || ['', ''];
-    if (!desc[pr.name]) console.warn('no description for preset ' + pr.name);
-    const def = pr.name === SPEC.PRESETS[SPEC.DEFAULT_PRESET].name ? ' <span class="small muted">(default sound)</span>' : '';
-    rows.push([pr.name + def, d[0] ? `<span class="fxl fxl-${d[0]}">${d[0]}</span>` : '', d[1], `<span class="small muted">${presetSettings(pr)}</span>`]);
-  });
-  return table(['Preset', 'Effects', 'Sound', 'Settings that differ from the defaults'], rows, 'presets');
+function presetTable(E, desc) {   // the presets of one engine's panel, by category (★ = one of OktoPierre's favourites)
+  const favs = new Set(SPEC.PRESETS.slice(0, SPEC.FAVOURITES).map(p => p.name));
+  const head = ['Preset', 'Effects', 'Sound', 'Settings that differ from the defaults'];
+  let body = '';
+  for (const cat of SPEC.CATEGORIES) {
+    const list = SPEC.PRESETS.filter(pr => pr.cat === cat && (E === 'a') === (pr.values[0] === 0));
+    if (!list.length) continue;
+    body += `<tr class="cat"><td colspan="${head.length}">${cat}</td></tr>`;
+    for (const pr of list) {
+      const d = desc[pr.name] || ['', ''];
+      if (!desc[pr.name]) console.warn('no description for preset ' + pr.name);
+      const def = pr.name === SPEC.PRESETS[SPEC.DEFAULT_PRESET].name ? ' <span class="small muted">(default sound)</span>' : '';
+      const star = favs.has(pr.name) ? '<span class="fav" title="One of OktoPierre’s favourite sounds">★</span> ' : '';
+      body += '<tr>' + [star + pr.name + def, d[0] ? `<span class="fxl fxl-${d[0]}">${d[0]}</span>` : '', d[1],
+        `<span class="small muted">${presetSettings(pr)}</span>`].map(c => `<td>${c}</td>`).join('') + '</tr>';
+    }
+  }
+  return `<div class="tbl"><table class="presets"><thead><tr>${head.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 module.exports = { DEMO, demoSection, subSection, mixSection, chorusSection, aboutSection, bandMap, waveletTable, quickStart, controlsHowTo, filterSection, positionSection, envelopesSection, lfoSection, voiceSection, fxSection, displaysSection, playingSection, presetsSaving, vstSection, troubleshooting, glossary, presetTable };

@@ -304,10 +304,33 @@ class SynthUI {
     if (this.pmenu) { this.closePresetMenu(); return; }
     const m = el('div', 'pmenu', box);
     const list = this.host.presetList();
-    let grp = null;
+    // Groups fold like the banks of a hardware synth: favourites, user presets and the group of the current preset
+    // start open; a click on a group title opens or closes it (remembered while the page is open).
+    const cur = list.find(x => x.current);
+    if (!this.openGroups) this.openGroups = new Set(['★ FAVOURITES', 'USER PRESETS']);
+    if (cur) this.openGroups.add(cur.group);
+    const counts = {};
+    for (const x of list) counts[x.group] = (counts[x.group] || 0) + 1;
+    let grp = null, body = m;
     list.forEach(item => {
-      if (item.group !== grp) { grp = item.group; el('div', 'grp', m).textContent = grp; }
-      const it = el('div', 'it' + (item.current ? ' cur' : ''), m);
+      if (item.group !== grp) {
+        grp = item.group;
+        const g = grp, open = this.openGroups.has(g);
+        const h = el('div', 'grp fold' + (open ? ' open' : ''), m);
+        h.innerHTML = `<span class="tw">${open ? '▾' : '▸'}</span>${g.replace(/&/g, '&amp;')}<span class="cnt">${counts[g]}</span>`;
+        body = el('div', 'gbody', m);
+        if (!open) body.style.display = 'none';
+        const b = body;
+        h.onclick = (e) => {
+          e.stopPropagation();
+          const nowOpen = b.style.display === 'none';
+          b.style.display = nowOpen ? '' : 'none';
+          h.classList.toggle('open', nowOpen);
+          h.firstChild.textContent = nowOpen ? '▾' : '▸';
+          if (nowOpen) this.openGroups.add(g); else this.openGroups.delete(g);
+        };
+      }
+      const it = el('div', 'it' + (item.current ? ' cur' : ''), body);
       const n = el('span', '', it);
       const mm = /^(AB|A|B) · (.*)$/.exec(item.name);   // engine letters in their colours (AB = both engines mixed)
       if (mm) {
@@ -322,6 +345,8 @@ class SynthUI {
       it.onclick = () => { this.host.loadPreset(item.id); this.closePresetMenu(); };
     });
     this.pmenu = m;
+    const c = m.querySelector('.it.cur');
+    if (c && c.offsetTop + c.offsetHeight > m.clientHeight) m.scrollTop = c.offsetTop - m.clientHeight / 2;   // bring the current preset into view
   }
   closePresetMenu() { if (this.pmenu) { this.pmenu.remove(); this.pmenu = null; } }
 

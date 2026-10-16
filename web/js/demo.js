@@ -89,11 +89,22 @@ function WSDemo(api) {
       text: 'The reverb grows for the final bars.' }) },
   };
 
+  // The preset sequence of the default demo, on the whole piece (one preset about every 4 s). It is written out so that new
+  // factory presets or a new menu order do not change the demo. The demo starts at song.origin (7.8 s: its opening
+  // chords are cut), so it begins with "A · Square Mod 2", the preset playing there; the first two are not heard.
+  const TOUR_APPASSIONATA = ['A · Warm Pad', 'A · Wavelet Lead',
+    // OktoPierre's favourite sounds
+    'A · Square Mod 2', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute', 'A · Infra Sub Bass',
+    'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'B · Mirror Sub Bass', 'A · Sparse Keys', 'B · Space Choir',
+    // beta 0.2: chorus, sub oscillator, engines A + B mixed
+    'A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ', 'AB · Bell Pad',
+    'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'B · Sub Organ Bass', 'AB · Hybrid Keys', 'A · Poly Chorus Pad',
+    'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Space Strings', 'AB · Sub Hybrid Bass', 'A · Chorus Square Lead'];
+
   const STYLE = {
     toccata: { scenes: TOCCATA },
-    // default demo: a tour of the factory presets, about one every 4 seconds. Warm Pad plays the opening chords while its
-    // filter cutoff opens, then Wavelet Lead, then the other presets in menu order (favourites first), without Square Mod.
-    appassionata: { tour: 4, first: ['A · Warm Pad', 'A · Wavelet Lead'], skip: ['A · Square Mod'], intro: { param: 'f_cutoff', from: 1.5, to: 9 } },
+    // default demo: a tour of the factory presets, about one every 4 seconds, on a change of chord
+    appassionata: { tour: 4, order: TOUR_APPASSIONATA },
     moonlight: { env: KEYS, palette: ['wavelets', 'tilt', 'cutoff', 'reso', 'slope', 'position', 'sub', 'delay', 'drawbars', 'unison', 'final'] },
     rondo: { env: PLUCK, palette: ['patterns', 'drawbars', 'cutoff', 'wave', 'reso', 'sparsity', 'delay', 'final'] },
     symphony5: { env: ORGAN, palette: ['cutoff', 'slope', 'reso', 'sub', 'wavelets', 'tilt', 'unison', 'final'] },
@@ -139,16 +150,17 @@ function WSDemo(api) {
     return scenes;
   }
 
-  // Preset tour: about every `step` seconds the next factory preset: the presets of `style.first`, then the others in
-  // menu order except those of `style.skip` (wraps around). Each change is moved to a change of chord of the piece: near every `step`-second mark
-  // (within TOUR_SNAP), the onset where the most notes start together. The preset is loaded TOUR_LEAD before it, so the
-  // new sound starts with the chord. With `style.intro`, the first preset lasts until the first note after `step`
-  // seconds (the end of the opening chords) while one of its controls moves from `from` to `to`.
+  // Preset tour: about every `step` seconds the next preset of `style.order` (default: the factory order; wraps around).
+  // Each change is moved to a change of chord of the piece: near every `step`-second mark (within TOUR_SNAP), the onset
+  // where the most notes start together. The preset is loaded TOUR_LEAD before it, so the new sound starts with the chord.
+  // `origin` = where the demo starts in the piece (song.origin, when its opening bars are cut): the grid and the sequence
+  // are those of the whole piece, and the tour begins with the preset loaded at the cut or less than TOUR_CUT after it,
+  // so cutting the opening changes nothing after the cut.
   // Every preset is made playable on the piece: polyphonic, normal octave, no glide, short attack.
   const TOUR_SAFE = { v_voices: 16, v_oct: 0, v_glide: 0 };
   const TOUR_MAX_ATTACK = 0.08;
   const TOUR_MAX_DELAY_MIX = 0.1, TOUR_MAX_DELAY_FB = 0.3;   // long echoes on a fast piece sound like a canon
-  const TOUR_SNAP = 1.5, TOUR_LEAD = 0.08;
+  const TOUR_SNAP = 1.5, TOUR_LEAD = 0.08, TOUR_CUT = 0.25;
   function chordOnsets(notes) {   // notes: flat [time, duration, note, velocity] * n, sorted by time
     const ev = [];
     for (let i = 0; i < notes.length; i += 4) {
@@ -157,20 +169,12 @@ function WSDemo(api) {
     }
     return ev;
   }
-  function tourOrder(first, skip) {
-    const names = WS_SPEC.PRESETS.map(p => p.name).filter(n => !(skip || []).includes(n));
-    const head = (first || []).filter(n => names.includes(n));
-    return head.concat(names.filter(n => !head.includes(n)));
-  }
-  function tourScenes(notes, duration, step, style) {
-    const names = tourOrder(style.first, style.skip), out = [], ev = chordOnsets(notes);
-    let prev = 0;
-    for (let k = 0; k * step < duration; k++) {
-      let t = k * step;
-      if (k === 1 && style.intro) {
-        const e = ev.find(x => x.t >= step - 1e-6);
-        if (e) t = e.t - TOUR_LEAD;
-      } else if (k > 0) {
+  function tourScenes(notes, duration, step, style, origin) {
+    const names = style.order || WS_SPEC.PRESETS.map(p => p.name), ev = chordOnsets(notes);
+    let out = [], prev = -origin;
+    for (let k = 0; k * step < origin + duration; k++) {
+      let t = k * step - origin;
+      if (k > 0) {
         let best = null, score = -Infinity;
         for (const e of ev) {
           if (e.t < t - TOUR_SNAP || e.t <= prev + step / 2) continue;
@@ -180,10 +184,14 @@ function WSDemo(api) {
         }
         if (best) t = best.t - TOUR_LEAD;
       }
-      out.push({ t, tour: true, pos: k % names.length, of: names.length, preset: names[k % names.length] });
+      out.push({ t, tour: true, preset: names[k % names.length] });
       prev = t;
     }
-    if (style.intro && out.length > 1) Object.assign(out[0], { param: style.intro.param, ramp: [0, out[1].t, style.intro.from, style.intro.to] });
+    let first = 0;
+    out.forEach((sc, i) => { if (sc.t < TOUR_CUT) first = i; });
+    out = out.slice(first);
+    out[0].t = 0;
+    out.forEach((sc, i) => { sc.pos = i; sc.of = out.length; });
     return out;
   }
   function engineLabel() {   // what the sound uses (A/B MIX), not the panel shown
@@ -339,7 +347,7 @@ function WSDemo(api) {
     if (st) stop();
     await api.startAudio();
     if (!win) buildWindow();
-    const scenes = style.tour ? tourScenes(song.notes, song.duration, style.tour, style) : style.scenes || autoScenes(song.notes, song.duration, style);
+    const scenes = style.tour ? tourScenes(song.notes, song.duration, style.tour, style, song.origin || 0) : style.scenes || autoScenes(song.notes, song.duration, style);
     st = { song, scenes, saved: api.snapshot(), scene: -1, t0: api.ctxTime() + LEAD_IN, raf: 0, sync: null };
     api.post({ t: 'alloff' });
     api.post({ t: 'seq', notes: song.notes, delay: LEAD_IN });
@@ -395,6 +403,11 @@ function WSDemo(api) {
   return {
     start, startFile, stop, onSeqTime,
     running: () => !!st,
+    // the preset tour of factory song i ([{ t, preset }], null for a song without tour): for the tests and the manual
+    tourPlan: (i) => {
+      const s = SONGS[i], style = s && STYLE[s.id];
+      return style && style.tour ? tourScenes(s.notes, s.duration, style.tour, style, s.origin || 0).map(x => ({ t: x.t, preset: x.preset })) : null;
+    },
     songs: () => SONGS.map(s => ({ title: s.title, short: s.short || s.title, composer: s.composer, duration: s.duration, license: s.license,
       tour: !!(STYLE[s.id] && STYLE[s.id].tour) })),
     state: () => (st ? { running: true, song: st.song.title, scene: st.scene, section: st.scenes[Math.max(0, st.scene)].section,

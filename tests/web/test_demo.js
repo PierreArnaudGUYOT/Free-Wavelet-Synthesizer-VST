@@ -8,9 +8,10 @@
 // `.demo-arrow` ("▾") opens `.demo-menu` (songs + "Load a MIDI file…", the default song tagged DEFAULT).
 // By default Edge runs WITHOUT --allow-file-access-from-files (like a normal browser opening file://).
 // Data-driven: songs come from WS_TEST.demoSongs() and are looked up by title; presets by name.
-// - Default demo = PRESET TOUR (demoState().preset defined): every 4 s the next factory preset in menu order
-//   from index 0, with Voices 16, Octave 0, Glide 0 and Amp Attack capped at 0.08 s forced; all other values
-//   must equal the spec preset. Played from a cold start via `.demo-btn`, to the end (full mode).
+// - Default demo = PRESET TOUR (demoState().preset defined): the agreed sequence EXPECTED_TOUR (OktoPierre's
+//   favourites first), a change every ~4 s on a chord (WS_TEST.demoTour gives the times), with Voices 16, Octave 0,
+//   Glide 0 and Amp Attack capped at 0.08 s forced; all other values must equal the spec preset. Played from a cold
+//   start via `.demo-btn`, to the end (full mode).
 // - Toccata (looked up by title): the agreed scene schedule (SCHED) over the first 30 s.
 // - Every other song: starts, sounds, monotonic scenes, the varied parameter moves, stop restores exactly.
 // - Stop paths (header STOP, window STOP, Esc), user MIDI files, non-MIDI error, Ctrl+click reset.
@@ -57,7 +58,14 @@ const SCHED = [
 ];
 const TOL_T = 0.3; // s: scene clock vs. parameter update (rAF) tolerance
 const TOUR_STEP = 4; // s per preset in the tour (TOL_T = 0.3 s leaves a 3.4 s checked window per preset)
-const TOUR_START = 'A · Square Mod 2'; // first preset of the tour (then menu order, wrapping)
+const TOUR_START = 'A · Square Mod 2'; // first preset of the tour (the opening chords of the piece are cut)
+// the agreed preset sequence of the default demo (beta 0.3): OktoPierre's favourites, then beta 0.2 presets
+const EXPECTED_TOUR = ['A · Square Mod 2', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute',
+  'A · Infra Sub Bass', 'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'B · Mirror Sub Bass', 'A · Sparse Keys',
+  'B · Space Choir', 'A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ',
+  'AB · Bell Pad', 'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'B · Sub Organ Bass', 'AB · Hybrid Keys',
+  'A · Poly Chorus Pad', 'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Space Strings', 'AB · Sub Hybrid Bass',
+  'A · Chorus Square Lead'];
 // base preset of the Toccata scenes (label shows it with the modified dot)
 const TOC_PRESETS = [[0, 'B · Octave Organ'], [11.5, 'A · Init'], [68.8, 'B · Init'], [105.6, 'B · Octave Organ']];
 const FORCED = { v_voices: 16, v_oct: 0, v_glide: 0 }; // + caps: amp_a <= 0.08, fx_dmix <= 0.1, fx_dfb <= 0.3
@@ -190,19 +198,27 @@ function songChecks(name, song, samples, full) {
   }
 }
 
-// Preset tour: preset k = names[(start + floor(t / TOUR_STEP)) mod N]; all values = spec preset except the forced ones
-function tourChecks(name, song, samples, names, full) {
+// The tour plan itself (independent of the player): the agreed sequence, a change about every TOUR_STEP s.
+function planChecks(plan, song) {
+  const seq = plan.map((p) => p.preset), gaps = plan.slice(1).map((p, i) => p.t - plan[i].t);
+  check(JSON.stringify(seq) === JSON.stringify(EXPECTED_TOUR), `tour plan: the agreed sequence of ${EXPECTED_TOUR.length} presets, from '${TOUR_START}'`,
+    seq.map((n, i) => (n === EXPECTED_TOUR[i] ? null : `#${i + 1} '${n}' expected '${EXPECTED_TOUR[i]}'`)).filter(Boolean).slice(0, 3).join('; ') || `${seq.length} presets`);
+  check(plan.length > 0 && plan[0].t === 0 && gaps.every((g) => g > TOUR_STEP - 1.5 && g < TOUR_STEP + 1.5) && plan[plan.length - 1].t < song.duration,
+    `tour plan: starts at 0 s, then a change every ${TOUR_STEP} ± 1.5 s (on a chord) until the end`,
+    `gaps ${Math.min(...gaps).toFixed(2)}–${Math.max(...gaps).toFixed(2)} s, last change ${plan[plan.length - 1].t.toFixed(1)} s of ${song.duration} s`);
+}
+
+// Preset tour: at time t the preset of the last plan entry with plan[k].t <= t; all values = spec preset except the forced ones
+function tourChecks(name, song, samples, plan, full) {
   const run = samples.filter((x) => x.s.running && x.s.time >= 0);
-  const N = names.length;
-  const start = Math.max(0, names.indexOf(TOUR_START));
+  const N = plan.length;
   const seen = [], badOrder = [], badVals = [], badText = [], badLbl = [];
   for (const x of run) {
     const t = x.s.time;
-    const kRaw = Math.floor(t / TOUR_STEP);
-    if (Math.abs(t - kRaw * TOUR_STEP) < TOL_T || Math.abs(t - (kRaw + 1) * TOUR_STEP) < TOL_T) continue;
-    // the last tour preset is kept until the demo ends (2.5 s after the last note)
-    const k = x.s.scenes ? Math.min(kRaw, x.s.scenes - 1) : kRaw;
-    const want = names[(start + k) % N], next = names[(start + k + 1) % N];
+    let k = 0;
+    for (let i = 0; i < N; i++) if (plan[i].t <= t) k = i;
+    if ((k > 0 && Math.abs(t - plan[k].t) < TOL_T) || (k + 1 < N && Math.abs(t - plan[k + 1].t) < TOL_T)) continue;
+    const want = plan[k].preset, next = k + 1 < N ? plan[k + 1].preset : null;
     if (!seen.length || seen[seen.length - 1] !== x.s.preset) seen.push(x.s.preset);
     if (x.s.preset !== want) { badOrder.push(`t=${t.toFixed(1)} '${x.s.preset}' expected '${want}'`); continue; }
     const pv = presetValues(want);
@@ -215,24 +231,22 @@ function tourChecks(name, song, samples, names, full) {
       }
     }
     if (!(x.lbl && x.lbl.name === want && !x.lbl.dirty)) badLbl.push(`t=${t.toFixed(1)} label ${JSON.stringify(x.lbl)} expected '${want}' without dot`);
-    if (!((x.sec || '').includes('Preset tour') && (x.sec || '').includes(`${((start + k) % N) + 1}/${N}`) && (x.param || '').includes(want)))
+    if (!((x.sec || '').includes('Preset tour') && (x.sec || '').includes(`${k + 1}/${N}`) && (x.param || '').includes(want)))
       badText.push(`t=${t.toFixed(1)} sec '${x.sec}' param '${x.param}'`);
-    else if (full && t < song.duration - TOUR_STEP && !(x.val || '').includes(next)) badText.push(`t=${t.toFixed(1)} next '${x.val}' (expected '${next}')`);
+    else if (full && next && !(x.val || '').includes(next)) badText.push(`t=${t.toFixed(1)} next '${x.val}' (expected '${next}')`);
   }
   log(`  ${name}: presets in order of appearance (${seen.length}): ${seen.join(' | ')}`);
   check(seen[0] === TOUR_START, `${name}: the tour starts at '${TOUR_START}'`, `first preset '${seen[0]}'`);
-  check(badOrder.length === 0, `${name}: a new factory preset every ${TOUR_STEP} s, in menu order from '${TOUR_START}' (wrapping)`, short(badOrder));
+  check(badOrder.length === 0, `${name}: at every moment the preset of the tour plan`, short(badOrder));
   check(badLbl.length === 0, `${name}: preset label shows exactly the tour preset (no modified dot)`, short(badLbl));
   check(badVals.length === 0, `${name}: each preset's spec values with Voices 16, Octave 0, Glide 0 forced and Amp Attack <= 0.08 s, Delay Mix <= 0.1, Delay Feedback <= 0.3`, short(badVals));
   check(badText.length === 0, `${name}: window shows 'Preset tour · n/${N}', 'Now playing: <preset>' and the next preset`, short(badText));
   if (full) {
-    // one run covers every preset exactly once, wrapping after the last menu entry
-    const lastWant = names[(start + N - 1) % N];
-    const changes = seen.length - 1;
-    log(`  ${name}: ${changes} preset changes, ${new Set(seen).size} distinct presets of ${N}, last '${seen[seen.length - 1]}'`);
-    check(changes >= Math.floor(song.duration / TOUR_STEP), `${name}: at least floor(${song.duration.toFixed(1)} / ${TOUR_STEP}) = ${Math.floor(song.duration / TOUR_STEP)} preset changes`, `${changes}`);
-    check(seen.length === N && new Set(seen).size === N, `${name}: all ${N} presets played exactly once in one run`, `${seen.length} entries, ${new Set(seen).size} distinct`);
-    check(seen[seen.length - 1] === lastWant, `${name}: wraps around and ends on '${lastWant}'`, `last '${seen[seen.length - 1]}'`);
+    // one run plays every preset of the plan exactly once
+    const lastWant = plan[N - 1].preset;
+    log(`  ${name}: ${seen.length - 1} preset changes, ${new Set(seen).size} distinct presets of ${N}, last '${seen[seen.length - 1]}'`);
+    check(seen.length === N && new Set(seen).size === N, `${name}: all ${N} presets of the plan played exactly once in one run`, `${seen.length} entries, ${new Set(seen).size} distinct`);
+    check(seen[seen.length - 1] === lastWant, `${name}: ends on '${lastWant}'`, `last '${seen[seen.length - 1]}'`);
   }
   const maxLv = Math.max(0, ...run.map((x) => x.lv));
   const lv = run.filter((x) => x.s.time > 1).map((x) => x.lv);
@@ -540,8 +554,10 @@ async function main() {
       if (!shot && s.s.time > 13) { shot = true; await B.screenshot(path.join(opt.out, 'tour_t13.png')); }
     });
     if (isTour) {
-      const n = tourChecks('tour', songs[0], [st0, ...tourSamples], names, !opt.smoke);
-      check(n >= (opt.smoke ? 5 : Math.floor(songs[0].duration / TOUR_STEP)), `tour: at least ${opt.smoke ? 5 : Math.floor(songs[0].duration / TOUR_STEP)} presets observed`, `${n}`);
+      const plan = await ev('WS_TEST.demoTour(0)');
+      planChecks(plan, songs[0]);
+      const n = tourChecks('tour', songs[0], [st0, ...tourSamples], plan, !opt.smoke);
+      check(n >= (opt.smoke ? 5 : plan.length), `tour: at least ${opt.smoke ? 5 : plan.length} presets observed`, `${n}`);
     } else songChecks('default demo', songs[0], [st0, ...tourSamples], !opt.smoke);
     if (opt.smoke) {
       const hb = await rectOf('.demo-btn');
@@ -588,7 +604,7 @@ async function main() {
       await waitDemoTime(0, 8000);
       const sm = await follow(14);
       const st = sm[sm.length - 1].s;
-      if (typeof st.preset === 'string') tourChecks(`song ${i}`, songs[i], sm, names, false);
+      if (typeof st.preset === 'string') tourChecks(`song ${i}`, songs[i], sm, await ev(`WS_TEST.demoTour(${i})`), false);
       else songChecks(`song ${i} '${songs[i].short || songs[i].title}' (14 s)`, songs[i], sm, false);
       await ev('WS_TEST.demoStop()');
       check(await waitStopped(2000), `song ${i}: demoStop() stops it`);

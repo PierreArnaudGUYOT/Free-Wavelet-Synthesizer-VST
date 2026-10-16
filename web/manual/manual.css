@@ -263,3 +263,7 @@ table.presets th:nth-child(3) { width: 40%; }
 table.presets th:nth-child(4) { width: 33%; }
 .callout.release h4 { margin-top: 4px; }
 .callout.release p { margin: 8px 0 4px; }
+
+/* preset table: category rows and favourites (beta 0.3) */
+table.presets tr.cat td { background: #f1f3f6; color: #4b5563; font-size: 12px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; padding: 7px 12px; }
+table.presets .fav { color: #c98a00; }

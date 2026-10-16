@@ -120,10 +120,14 @@ async function web() {
     for (const k of [0, SPEC.DEFAULT_PRESET, SPEC.PRESETS.length - 1]) {
       await B.evaluate(`WS_TEST.loadPreset(${k})`);
       await B.evaluate('WS_TEST.noteOn(60, 0.9)');
-      await sleep(450);
-      const lv = await B.evaluate('WS_TEST.getLevel()');
+      let peak = 0;   // pads have slow attacks: listen up to 2 s
+      for (let w = 0; w < 2000 && !(peak > 1e-3); w += 150) {
+        await sleep(150);
+        const lv = await B.evaluate('WS_TEST.getLevel()');
+        peak = Math.max(peak, lv.peakL, lv.peakR);
+      }
       await B.evaluate('WS_TEST.allNotesOff()');
-      if (!(Math.max(lv.peakL, lv.peakR) > 1e-3)) bad.push(`${SPEC.PRESETS[k].name}: no sound`);
+      if (!(peak > 1e-3)) bad.push(`${SPEC.PRESETS[k].name}: no sound`);
     }
     await B.evaluate('WS_TEST.demoStart(0)');
     await sleep(1200);

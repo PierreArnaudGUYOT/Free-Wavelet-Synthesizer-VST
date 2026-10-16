@@ -265,9 +265,30 @@ const presetDesc = {
   'AB · Organ Lead': ['medium', 'A 65 · B 35: the organ registration (B) with a resonant Daubechies 20 sawtooth (A), mono legato glide, 7-cent vibrato, drive and delay.'],
   'AB · Glass Keys': ['light', 'A 40 · B 60: an IMPULSE pattern whose bright bands die in 0.25 s (B) over a pure SINE (A) — glassy electric-piano keys with light chorus.'],
   'AB · Chip Hybrid': ['medium', 'A 50 · B 50: Haar Walsh chip bands (B) and a Haar SQUARE (A), mono with a short glide and fast echoes.'],
+  // beta 0.3: the library by category
+  'B · Pluck Bass': ['light', 'Mono bass one octave down: RAMP atoms on the five lowest drawbars, the bright bands dying in 0.1 s and the body in 0.9 s to half level (SCALE SUSTAIN 50 %), with a sine sub at 50 %.'],
+  'AB · Hybrid Lead': ['medium', 'A 50 · B 50: a resonant Symlet 8 SQUARE (A) layered with MIRROR atoms on the six lowest drawbars (B), mono legato with a 60 ms glide, vibrato, drive and echo.'],
+  'B · Reed Piano': ['light', 'Reed electric piano: MIRROR atoms (odd harmonics) on the five lowest drawbars, the bright bands fading in 0.3 s, velocity-sensitive, with 25 % drive for the bark.'],
+  'B · Toy Piano': ['light', 'Toy piano one octave up: WALSH atoms whose bright bands fade in 0.25 s and body in 1.2 s, with a short decay and reverb.'],
+  'B · Jazz Organ': ['medium', 'Jazz drawbar organ: the three lowest bands only (drawbars 100 / 100 / 80), a fast attack, 6.5 Hz vibrato with the CHORUS at 45 %, a touch of drive and reverb.'],
+  'B · Gospel Organ': ['medium', 'Full gospel organ: drawbars 1–8 pulled out (the first four at full), 30 % drive for the growl, fast vibrato, chorus and reverb.'],
+  'B · Church Organ': ['medium', 'Pipe organ in a church: nine drawbars falling gently from the fundamental, an 80 ms attack and a 0.8 s release, in a very large reverb (SIZE 95 %, MIX 55 %).'],
+  'B · Reed Organ': ['light', 'Harmonium: MIRROR atoms (odd harmonics) on six drawbars, a soft 30 ms attack, the CHORUS at 50 % and some reverb.'],
+  'B · Flute Organ': ['light', 'Flute stop: almost only the fundamental band (drawbars 100 / 30 / 15), a soft attack, gentle vibrato and reverb.'],
+  'B · Halo Pad': ['heavy', 'Airy pad: MIRROR atoms whose bands fade in one after another over 2.5 s, three unison copies, a slow, wide CHORUS (60 %, 0.35 Hz) and a very large reverb.'],
+  'B · Clarinet': ['light', 'Clarinet: MIRROR atoms (odd harmonics, like the clarinet’s closed pipe) on the four lowest drawbars, a 50 ms breathy attack, 5 Hz vibrato and reverb.'],
+  'AB · Breathy Flute': ['light', 'A 20 · B 80: a flute tone from RAMP atoms on four drawbars with a −9 dB/band tilt (B) and a little filtered NOISE (A) for the breath; soft attack, vibrato and reverb.'],
+  'B · Koto': ['light', 'Koto: RAMP atoms on seven drawbars, the bright bands dying in 0.15 s and the body in 1.2 s, with a slight vibrato and reverb.'],
+  'B · Glockenspiel': ['light', 'Glockenspiel one octave up: drawbars 1, 4 and 6 only (bright, widely spaced partials), a long 2.5 s body and reverb.'],
+  'B · Vibraphone': ['medium', 'Vibraphone: drawbars 1, 3 and 5 for a soft, bell-like tone, a 3.5 s decay and a fast 2.5 Hz CHORUS in place of the motor-driven tremolo, with reverb.'],
+  'B · Marimba': ['light', 'Marimba: the fundamental band with a little of band 3, a short 0.7 s body and room reverb — wooden and round.'],
+  'B · Tubular Bells': ['medium', 'Tubular bells: WALSH atoms (square partials that sound inharmonic), a 6 s body, a slower 1.5 s fade of the bright bands and a large hall.'],
+  'AB · Crystal Bell': ['medium', 'A 30 · B 70: WALSH bell atoms (B) over a pure sine (A), a 3 s decay, light chorus, echoes and reverb.'],
+  'B · Sci-Fi Burble': ['heavy', 'Retro computer: RANDOM atoms (SEED 61) behind a narrow position window that a SAMPLE & HOLD LFO moves to a new place nine times a second, through 60 % feedback echoes.'],
+  'B · Wood Block': ['none', 'Wood block one octave up: drawbars 1, 3 and 5 decaying in a quarter of a second — a hollow, pitched knock. Two keys make a temple-block pattern.'],
 };
 const presetCount = SPEC.PRESETS.filter(p => p.values[C.P.engine] === 1).length;
-const presets = `<p>${presetCount} factory presets show what engine B can do, from clean sounds to extreme effects. Load one, play, then look at the panel to see how it is made — the table lists every setting that differs from the defaults. In the instrument’s preset menu OktoPierre’s favourite sounds come first, then the beta 0.2 presets, then the others; this table lists the presets that open on engine B’s panel, including the “AB · …” presets that mix both engines (their settings show both engines). The <b>Effects</b> column rates how much each preset relies on effects and movement (delay, reverb, saturation, unison, LFO, sub oscillator): <span class="fxl fxl-none">none</span> <span class="fxl fxl-light">light</span> <span class="fxl fxl-medium">medium</span> <span class="fxl fxl-heavy">heavy</span> <span class="fxl fxl-extreme">extreme</span>.</p>
+const presets = `<p>${presetCount} factory presets show what engine B can do, from clean sounds to extreme effects. Load one, play, then look at the panel to see how it is made — the table lists every setting that differs from the defaults. In the instrument’s preset menu OktoPierre’s favourite sounds come first, then all the presets by category (bass, lead, keys, organ, pad, strings, brass &amp; wind, pluck, bells &amp; mallets, FX, drums &amp; percussion). This table lists, category by category, the presets that open on engine B’s panel (★ = one of OktoPierre’s favourites), including the “AB · …” presets that mix both engines (their settings show both engines). The drum and percussion presets are pitched: play them on different keys. The <b>Effects</b> column rates how much each preset relies on effects and movement (delay, reverb, saturation, unison, LFO, sub oscillator): <span class="fxl fxl-none">none</span> <span class="fxl fxl-light">light</span> <span class="fxl fxl-medium">medium</span> <span class="fxl fxl-heavy">heavy</span> <span class="fxl fxl-extreme">extreme</span>.</p>
 ${S.presetTable(E, presetDesc)}
 ${S.presetsSaving(E)}`;
 

@@ -38,9 +38,15 @@ products identical. Read it before changing the DSP, the parameters or the prese
 - **Layout**: sections (cards) with widgets in panel coordinates (1100 × 720). Both GUIs (`web/js/ui.js` and
   `vst/src/editor.cpp`) are generated from it. A widget may appear in several sections (the A/B MIX knob is in both
   engine sections; sections with `mode 'A'/'B'` are shown for one engine tab only).
-- **Presets**: `PRESET_LIST` (name + sparse values over the defaults), then the factory order `PRESETS`:
-  `FAVOURITES` (OktoPierre's 15, in his order) → `NEW_V02` → the remaining presets alternating B/A → the two Init
-  presets. Names start with `A · `, `B · ` or `AB · ` (both engines mixed); the UI colours those letters.
+- **Presets**: `PRESET_LIST` (name + sparse values over the defaults; beta 0.3 presets carry `cat`, older ones get
+  theirs from `CATEGORY_OF`), then the factory order `PRESETS`: `FAVOURITES` (OktoPierre's 15, in his order) → every
+  other preset grouped by category in the order of `CATEGORIES` (Bass … Drums & Perc, Init last). Generated as
+  `cat` per preset plus `CATEGORIES` / `FAVOURITES` (web) and `PresetDef::cat` / `kNumFavourites` (C++).
+  Menus: web `presetList()` groups ★ FAVOURITES + one folding group per category + USER PRESETS (`ui.js`
+  `togglePresetMenu`); VST `editor.cpp presetMenu` = favourites + one submenu per category (relies on the categories
+  being consecutive after the favourites). ◀ ▶, Program Change and VST programs follow the flat factory order.
+  The VST stores the preset by name, so reordering never breaks saved Live Sets.
+  Names start with `A · `, `B · ` or `AB · ` (both engines mixed); the UI colours those letters.
   Presets without `ab_mix` get `ab_mix = engine` (compatibility rule, §3.3). `DEFAULT_PRESET` is the opening sound.
   Values are validated against the ranges at generation time; preset values are stored as doubles in both products.
 
@@ -118,8 +124,12 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
 - MIDI (Web MIDI, all inputs): notes, bend, CC1, CC64, CC120/123, **channel filter** (`ws.midiCh`), **Program Change**
   → preset, **MIDI learn** (`ws.ccMap`: CC → parameter key; validated on load). Stored data is untrusted: names are
   escaped / set with `textContent`, values clamped.
-- Demo: songs from `demo_data.js`; the default demo (Appassionata) is a **preset tour** (`STYLE.appassionata`:
-  `first`, `skip`, `intro` cutoff sweep, changes snapped to chord onsets); other songs use animated scenes.
+- Demo: songs from `demo_data.js`; the default demo (Appassionata) is a **preset tour**: `STYLE.appassionata.order` =
+  the written-out sequence `TOUR_APPASSIONATA` (so new presets never change the demo), one preset about every 4 s
+  snapped to chord onsets. `make_demo.js` `start` cuts the opening chords; the song keeps `origin` (7.84 s) and
+  `tourScenes(..., origin)` computes the grid on the whole piece, then starts with the preset playing at the cut, so the
+  cut changes nothing after it. `demo.tourPlan(i)` (`WS_TEST.demoTour`) returns the plan for tests and the manual.
+  Other songs use animated scenes.
 - Test hooks: `window.WS_TEST` (used by the test suites).
 - Other storage keys: `ws.user` (user presets), `ws.state`.
 
@@ -160,16 +170,18 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
 - `vst/devtest/vst2_smoke.cpp`, `tools/dsp_compare.js`, `tools/dsp_selftest.js`; `tests/quick.js` (fast check).
 - **Headless Edge must always run with `--mute-audio`** (otherwise test audio plays on the user's speakers) and be
   closed in `finally`; check that no `msedge --headless` process is left.
-- Known items for beta 0.2: the VST host check "Engine A and B sound different" switches `engine`, which is now only the
-  panel (it should switch `ab_mix`); suites that assume 32 presets or a 4-second tour grid need their expectations
-  updated; the web part of `tests/quick.js` reports a false "no sound" with its small window.
+- beta 0.3: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour
+  against `WS_TEST.demoTour` and the agreed sequence `EXPECTED_TOUR`; `quick.js` waits up to 2 s for slow attacks.
+  `tests/web/test_web.js` and the full VST host run were not re-run for beta 0.3 (quick + demo smoke + VST2 smoke were).
 
 ## 9. Common changes — checklist
 - **New parameter**: append in `tools/spec.js` (never insert), choose `structural`, place a widget in the layout, run
   `gen_spec`, implement in `core.js` **and** `dsp.h`, add the manual control text (`shared.js`/`engX.js`, `PLABEL`),
   think about compatibility of old states (default must reproduce the old sound), run the cross-check and the suites.
-- **New preset**: add to `PRESET_LIST`, place it in the order lists, add its manual description, check its loudness
-  against the favourites (sustained chord ≈ −17 dB RMS), regenerate the spec and the manuals.
+- **New preset**: add to `PRESET_LIST` with its `cat` (one of `CATEGORIES`), add its manual description (`engA.js` or
+  `engB.js` by its `engine`), match its loudness to the favourites (loudest 200 ms of a held C major chord, median of
+  the favourites ≈ −14 dB; drums measured over 50 ms, 3 dB lower), regenerate the spec, the VST and the manuals.
+  The demo sequence is fixed (`TOUR_APPASSIONATA`): add a preset there only on purpose.
 - **DSP change**: both engines, bit-exact for unchanged settings where possible, cross-check, VST suite, web suite.
 - **Release**: build, manuals, tests (muted), release zip (`WaveletSynthesizer.vst3` + `INSTALL.txt`, made with
   Windows `tar` so paths use `/`), README + RELEASE_HISTORY. Publishing to GitHub uses a repo-local identity

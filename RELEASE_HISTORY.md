@@ -2,6 +2,16 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.3 — 2026-10-15
+
+**Presets by category**: 107 factory presets (51 new), organised like the banks of a hardware synthesizer. OktoPierre's 15 favourite sounds stay first, in his order; all the others follow by category: Bass (15), Lead (11), Keys (10), Organ (8), Pad (17), Strings (8), Brass & Wind (8), Pluck (7), Bells & Mallets (7), FX (8), Drums & Perc (6), Init (2).
+- New: A · Ladder Bass, B · Pluck Bass, AB · Wobble Bass, A · Rubber Bass, A · Octave Bass; A · Saw Lead, A · Whistle Lead, A · Pulse Lead, AB · Hybrid Lead; A · Tine Piano, AB · Electric Piano, B · Reed Piano, A · Clavi, B · Toy Piano, A · Lo-Fi Piano; B · Jazz Organ, B · Gospel Organ, B · Church Organ, B · Reed Organ, B · Flute Organ; A · Analog Pad, A · Dark Pad, B · Halo Pad, AB · Evolving Pad; A · Chamber Strings, A · Pizzicato, A · Slow Strings, AB · Analog Strings; A · Synth Brass, A · Brass Stab, B · Clarinet, AB · Breathy Flute; A · Harp, B · Koto, A · Synth Pluck, AB · Arp Pluck; B · Glockenspiel, B · Vibraphone, B · Marimba, B · Tubular Bells, AB · Crystal Bell; A · Wind, B · Sci-Fi Burble, AB · Robot Voice, A · Alarm; AB · Sub Kick, A · Noise Snare, A · Closed Hat, A · Open Hat, B · Wood Block, A · Synth Tom (the drums are pitched: play them on different keys). Levels matched to the favourites.
+- Preset menus: in the web app ★ FAVOURITES on top, then one folding group per category (with its number of presets), then the user presets; in the VST the favourites on top and one submenu per category. ◀ ▶ and Program Change follow the same order. Live Sets keep their preset (stored by name).
+
+**Demo**: the default demo now starts with the phrase that follows the opening chords of the *Appassionata* (7.8 s cut, 1:59 instead of 2:07), on "A · Square Mod 2"; every later preset change is unchanged (same presets, same chords). The demo's preset sequence is written out, so new presets do not change it.
+
+**Quality**: the C++ engine matches the JavaScript reference within 2.4e-7 for all 107 presets; test expectations updated for the A/B MIX (VST host) and the new tour (demo test).
+
 ## beta 0.2 — 2026-10-15
 
 **Engines A and B mixed**

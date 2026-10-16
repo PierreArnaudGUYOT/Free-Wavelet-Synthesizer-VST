@@ -97,6 +97,10 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
 .pmenu { position: absolute; top: 34px; left: 0; right: 0; background: #1d2129; border: 1px solid #343b47; border-radius: 8px; padding: 6px 0;
   box-shadow: 0 14px 40px rgba(0,0,0,0.6); z-index: 50; max-height: 520px; overflow-y: auto; }
 .pmenu .grp { font-size: 9.5px; letter-spacing: 0.16em; color: var(--faint); padding: 8px 14px 4px; font-weight: 700; }
+.pmenu .grp.fold { cursor: pointer; display: flex; align-items: baseline; gap: 6px; user-select: none; color: #8b94a3; }
+.pmenu .grp.fold:hover, .pmenu .grp.fold.open { color: #b9c0cc; }
+.pmenu .grp .tw { width: 10px; display: inline-block; }
+.pmenu .grp .cnt { margin-left: auto; font-weight: 400; letter-spacing: 0; }
 .pmenu .it { padding: 6px 14px; font-size: 12.5px; cursor: pointer; display: flex; justify-content: space-between; }
 .pmenu .it:hover { background: rgba(255,255,255,0.06); }
 .pmenu .it.cur { color: var(--accent); }

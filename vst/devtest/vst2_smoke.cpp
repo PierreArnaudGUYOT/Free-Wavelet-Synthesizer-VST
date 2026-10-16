@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
   std::memset(buf, 0, sizeof buf); D(fx, 7, P_F_CUTOFF, 0, buf); check(buf[0] != 0 && std::strlen(buf) < 24, "parameter display (cutoff)", buf);
   std::memset(buf, 0, sizeof buf); D(fx, 5, 0, 0, buf); check(!std::strcmp(buf, "A - Warm Pad"), "starts on program 'A - Warm Pad'", buf);
   std::memset(buf, 0, sizeof buf); D(fx, 29, 0, 0, buf); check(!std::strcmp(buf, "A - Square Mod 2"), "program 0 name", buf);
-  check(D(fx, 29, 99, 0, buf) == 0, "program name out of range is refused");
+  check(D(fx, 29, kNumPresets, 0, buf) == 0, "program name out of range is refused");
 
   D(fx, 10, 0, 0, nullptr, 48000.0f); D(fx, 11, 0, 512); D(fx, 12, 0, 1);
   Render r0 = render(fx, 20); check(r0.bad == 0 && r0.peak < 1e-6, "silent before any note");

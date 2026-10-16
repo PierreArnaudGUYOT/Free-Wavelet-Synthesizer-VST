@@ -13,6 +13,7 @@ namespace Gdiplus { using std::min; using std::max; }
 #include <cmath>
 #include <cstring>
 #include <map>
+#include <string>
 #include <vector>
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
@@ -910,10 +911,27 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   }
 
   void presetMenu(const Item& it) {
+    // ★ Favourites (the first kNumFavourites presets) at the top, then one submenu per category, in factory order
+    // (the categories are consecutive there). DestroyMenu also destroys the submenus.
     HMENU m = CreatePopupMenu();
     int cur = host->presetIndex();
-    for (int k = 0; k < kNumPresets; k++) {
+    AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"★ Favourites");
+    for (int k = 0; k < kNumFavourites && k < kNumPresets; k++)
       AppendMenuW(m, MF_STRING | (k == cur ? MF_CHECKED : 0), 100 + k, toW(kPresets[k].name).c_str());
+    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    for (int k = kNumFavourites; k < kNumPresets;) {
+      const char* cat = kPresets[k].cat;
+      HMENU sub = CreatePopupMenu();
+      bool here = false;
+      int n = 0;
+      for (; k < kNumPresets && std::strcmp(kPresets[k].cat, cat) == 0; k++, n++) {
+        AppendMenuW(sub, MF_STRING | (k == cur ? MF_CHECKED : 0), 100 + k, toW(kPresets[k].name).c_str());
+        if (k == cur) here = true;
+      }
+      std::wstring label = toW(cat), esc;
+      for (wchar_t c : label) { if (c == L'&') esc += L'&'; esc += c; }   // '&' would be a menu mnemonic
+      esc += L"	" + std::to_wstring(n);
+      AppendMenuW(m, MF_POPUP | MF_STRING | (here ? MF_CHECKED : 0), (UINT_PTR)sub, esc.c_str());
     }
     POINT pt{(LONG)((it.r.x + 30) * scale()), (LONG)((it.r.y + it.r.h) * scale())};
     ClientToScreen(hwnd, &pt);

@@ -2486,10 +2486,13 @@ static void testStatePerParam (Instance& in, AudioCtx& ac)
 static void testOffline (Instance& in, AudioCtx& ac)
 {
 	beginSection ("Offline rendering (export / freeze)");
-	int iEng = in.findParam ("Engine");
+	// beta 0.2+: the sound's engine is the A/B MIX (0 = engine A, 1 = engine B); "Engine" only picks the panel shown
+	int iEng = in.findParam ("A/B Mix");
+	if (iEng < 0)
+		iEng = in.findParam ("Engine");
 	if (iEng < 0)
 	{
-		LOG ("  no 'Engine' parameter; skipped");
+		LOG ("  no 'A/B Mix' or 'Engine' parameter; skipped");
 		return;
 	}
 	ParamID eid = in.params[(size_t)iEng].info.id;
