@@ -178,16 +178,21 @@ static bool readAll(IBStream* s, void* d, int32 n) { int32 got = 0; return s->re
 static bool writeAll(IBStream* s, const void* d, int32 n) { int32 put = 0; return s->write(const_cast<void*>(d), n, &put) == kResultOk && put == n; }
 
 // Reads a processor state blob into plain values (missing parameters keep their current value).
+// A state saved before beta 0.2 has no A/B MIX: it gets A/B MIX = ENGINE, so it plays the engine it was made for.
 static bool readState(IBStream* s, double* plain) {
   uint32_t magic = 0, version = 0, count = 0;
   if (!readAll(s, &magic, 4) || magic != kStateMagic) return false;
   if (!readAll(s, &version, 4) || !readAll(s, &count, 4) || count > 4096) return false;
+  bool sawMix = false;
   for (uint32_t k = 0; k < count; k++) {
     uint32_t id; double v;
     if (!readAll(s, &id, 4) || !readAll(s, &v, 8)) return false;
-    if (id < (uint32_t)kNumParams && std::isfinite(v) && !kParams[id].hidden)
+    if (id < (uint32_t)kNumParams && std::isfinite(v) && !kParams[id].hidden) {
       plain[id] = std::min(kParams[id].max, std::max(kParams[id].min, v));
+      if (id == (uint32_t)P_AB_MIX) sawMix = true;
+    }
   }
+  if (!sawMix) plain[P_AB_MIX] = plain[P_ENGINE];
   return true;
 }
 
@@ -263,7 +268,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
         if (idx >= 0) {
           buildTables(snap, true, sets[idx]);
           setState_[idx].store(kActive);
-          engine.setTables(TableRef{sets[idx].mode, sets[idx].mips.data(), sets[idx].rms.data(), &sets[idx]});
+          engine.setTables(tableRef(sets[idx]));
           builtVersion.store(v);
         }
       }
@@ -332,9 +337,12 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
         if (id < (ParamID)kNumParams && np > 0 && queue->getPoint(np - 1, off, v) == kResultOk) {
           double pv = toPlain(kParams[id], v);
           if (plain[id].load() != pv) {
+            const double old = plain[id].load();
             plain[id].store(pv);
             engine.setParam((int)id, pv);
-            if (kParams[id].structural) structVersion.fetch_add(1);
+            // A/B MIX rebuilds the tables only when it reaches or leaves one end (engine A or B alone)
+            const bool mixEnds = id == (ParamID)P_AB_MIX && ((old < 1) != (pv < 1) || (old > 0) != (pv > 0));
+            if (kParams[id].structural || mixEnds) structVersion.fetch_add(1);
           }
         }
       }
@@ -345,7 +353,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     int pend = pendingIdx.exchange(-1);
     if (pend >= 0) {
       setState_[pend].store(kActive);
-      engine.setTables(TableRef{sets[pend].mode, sets[pend].mips.data(), sets[pend].rms.data(), &sets[pend]});
+      engine.setTables(tableRef(sets[pend]));
     }
     // Offline rendering (export / freeze) must not depend on the builder thread's timing:
     // rebuild structural changes synchronously, which is allowed when not running in real time.
@@ -361,7 +369,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
           buildTables(snap, true, sets[idx]);
           builtVersion.store(v);
           setState_[idx].store(kActive);
-          engine.setTables(TableRef{sets[idx].mode, sets[idx].mips.data(), sets[idx].rms.data(), &sets[idx]});
+          engine.setTables(tableRef(sets[idx]));
         }
       }
     }
@@ -666,7 +674,8 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
     double v = toNorm(kParams[id], pv);
     if (norm[id] == v) return;
     norm[id] = v; version++;
-    if (!kParams[id].hidden && !dirty) { dirty = true; }
+    // the ENGINE tabs only choose the panel shown: switching them does not modify the sound
+    if (!kParams[id].hidden && id != P_ENGINE && !dirty) { dirty = true; }
     if (handler) handler->performEdit(id, v);
   }
   void endEdit(int id) override { if (handler) handler->endEdit(id); }
@@ -703,11 +712,11 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   int presetIdx = kDefaultPreset; bool dirty = false;
   float zoomFactor = 1.0f;
 
-  int exactPreset() const {   // the factory preset whose values are exactly the current ones, or -1
+  int exactPreset() const {   // the factory preset whose sound is exactly the current one (ENGINE = panel shown), or -1
     for (int k = 0; k < kNumPresets; k++) {
       bool same = true;
       for (int i = 0; i < kNumParams && same; i++)
-        if (!kParams[i].hidden && std::fabs(toNorm(kParams[i], kPresets[k].v[i]) - norm[i]) > 1e-6) same = false;
+        if (!kParams[i].hidden && i != P_ENGINE && std::fabs(toNorm(kParams[i], kPresets[k].v[i]) - norm[i]) > 1e-6) same = false;
       if (same) return k;
     }
     return -1;

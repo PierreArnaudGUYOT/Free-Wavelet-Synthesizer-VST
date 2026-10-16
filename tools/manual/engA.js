@@ -82,7 +82,7 @@ ${fig('db20-square.png', '<b>Daubechies 20 + SQUARE:</b> atoms in every band, cl
 // ---------------------------------------------------------------- 3. panel tour
 const pins = [
   { x: 218, y: 8, title: '▶ DEMO ▾ (web app)', desc: '▶ DEMO plays the default demo, a tour of the presets; ▾ opens the list of demo pieces.', href: 'demo' },
-  { x: 286, y: 5, title: 'ENGINE', desc: 'switches between engine A (teal) and engine B (amber).', href: 'header-controls' },
+  { x: 286, y: 5, title: 'ENGINE', desc: 'chooses the engine panel shown, A (teal) or B (amber); A/B MIX sets what you hear.', href: 'header-controls' },
   { x: 562, y: 5, title: 'Preset browser', desc: '◀ ▶ step through the presets; click the name for the list.', href: 'saving' },
   { x: 872, y: 5, title: 'MANUAL A / B', desc: 'open this manual or the engine B manual.', href: 'header-controls' },
   { x: 1024, y: 2, title: 'VOLUME and meter', desc: 'master level and stereo peak meter.', href: 'effects' },
@@ -90,8 +90,9 @@ const pins = [
   { x: 13, y: 146, title: 'ATOM SHAPE', desc: 'one atom of the selected wavelet.', href: 'wavelets' },
   { x: 13, y: 285, title: 'WAVELET', desc: 'chooses the atom shape (seven wavelets).', href: 'wavelets' },
   { x: 281, y: 146, title: 'SOURCE CYCLE', desc: 'the wave before (grey) and after sparsity, with “K / nz ATOMS KEPT”.', href: 'sparsity' },
-  { x: 298, y: 198, title: 'WIDTH', desc: 'pulse width or triangle symmetry (greyed out for other waves).', href: 'source' },
-  { x: 418, y: 198, title: 'SPARSITY', desc: 'keeps only the largest atoms.', href: 'sparsity' },
+  { x: 288, y: 198, title: 'WIDTH', desc: 'pulse width or triangle symmetry (greyed out for other waves).', href: 'source' },
+  { x: 384, y: 198, title: 'SPARSITY', desc: 'keeps only the largest atoms.', href: 'sparsity' },
+  { x: 469, y: 262, title: 'A/B MIX', desc: 'what you hear: engine A, engine B or both mixed.', href: 'mix' },
   { x: 568, y: 104, title: 'SCOPE', desc: 'one cycle of the output; grey = the dry wave.', href: 'displays' },
   { x: 568, y: 216, title: 'SCALOGRAM', desc: 'the atoms of the 11 bands; dashed line = window.', href: 'displays' },
   { x: 130, y: 337, title: 'SCALE FILTER', desc: 'per-band filter with resonance, key tracking, envelope and velocity.', href: 'filter' },
@@ -103,7 +104,8 @@ const pins = [
   { x: 785, y: 485, title: 'EFFECTS', desc: 'saturation, ping-pong delay and reverb.', href: 'effects' },
   { x: 8, y: 616, title: 'Wheels', desc: 'pitch bend and modulation (vibrato).', href: 'kbd-screen' },
   { x: 169, y: 633, title: 'SUB OSC', desc: 'LEVEL, OCT and SHAPE of the sub oscillator.', href: 'sub' },
-  { x: 212, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
+  { x: 305, y: 633, title: 'CHORUS', desc: 'string-machine triple chorus: amount, RATE and DEPTH.', href: 'chorus' },
+  { x: 348, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
   { x: 2, y: 751, title: 'Status bar (web app)', desc: 'audio and MIDI status, key help, Save preset / Export / Import.', href: 'saving' },
 ];
 const ann = annotated('panel-a.png', 'The whole instrument in engine A mode, showing the A · Edge Pluck preset', pins);
@@ -113,7 +115,7 @@ ${ann.legend}
 <h3 id="header-controls">The header</h3>
 <ul>
 <li>${ctl('▶ DEMO')} (web app only) plays the default demo, a piece during which the factory presets change every few seconds; the ${ctl('▾')} beside it opens the other demo pieces and lets you load your own MIDI file — see <a href="#demo">Demo</a>.</li>
-<li>${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} switches the engine. Only the upper-left section and the accent colour change; the filter, position, envelopes, LFO, voice and effects are shared and keep their settings.</li>
+<li>${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} chooses which engine section is shown in the upper left (and the accent colour). What you hear is set by the ${P('ab_mix')} knob at the right of that section — engine A, engine B, or both mixed (see <a href="#mix">Mixing engines A and B</a>). The filter, position, envelopes, LFO, voice and effects are shared by both engines.</li>
 <li>The preset browser shows the current preset; a dot after the name means it has been modified. See <a href="#saving">Browsing and saving presets</a>.</li>
 <li>${ctl('MANUAL A')} and ${ctl('MANUAL B')} open the manuals — in the web app as an overlay (close it with ✕, ${kbd('Esc')} or a click outside; “Open in new tab” pops it out), in the plugin in your web browser.</li>
 <li>The small knob at the right is the master ${ctl('VOLUME')} (−36 to +6 dB, default −3 dB), followed by the stereo output meter. In the plugin, a size button next to the logo opens a menu of window sizes (70–150 %).</li>
@@ -257,9 +259,24 @@ const presetDesc = {
   'A · Fuzz Bass': ['heavy', 'Aggressive mono bass: a Haar sawtooth one octave down through 85 % saturation, with a square sub an octave below.'],
   'A · Cathedral Saw': ['extreme', 'A soft Daubechies 20 sawtooth in an enormous hall: maximum reverb size at 85 % mix, slow attack and a 2.5 s release.'],
   'A · Laser Sweep': ['extreme', 'Sci-fi zaps: a very resonant (20 dB), steep Daubechies 2 filter swept ±4 bands by a 6 Hz saw LFO that also moves a narrow position window, with drive and fast echoes.'],
+  'A · String Machine': ['medium', 'Classic string machine: a soft Daubechies 20 sawtooth through a gentle low-pass (CUTOFF 7.5, 18 dB/band) with a 350 ms attack, 16 voices and the triple CHORUS at 85 % (0.65 Hz, depth 75 %) into a medium hall.'],
+  'A · Solina Cellos': ['medium', 'Low string ensemble one octave down: a Coiflet 3 sawtooth at CUTOFF 5.5, a quiet sine sub one octave below (25 %) and the CHORUS at 80 % with a deep sweep.'],
+  'A · Poly Chorus Pad': ['medium', 'Polysynth pad: a Symlet 8 PULSE (30 %) through a resonant low-pass that a 0.35 Hz LFO moves ±1.2 bands, with the chorus at 60 %, soft echoes and reverb.'],
+  'A · Chorus Square Lead': ['medium', 'Mono SQUARE lead with legato glide, a short filter envelope, 6-cent vibrato and a faster, lighter chorus (1.2 Hz, 45 %) that widens it, plus delay.'],
+  'A · Sub Saw Bass': ['light', 'Mono legato bass one octave down: a Daubechies 4 sawtooth through a resonant 30 dB/band low-pass with an envelope snap, a square sub one octave below at 70 % and a touch of drive.'],
+  'A · Reese Sub': ['medium', 'Reese bass: three unison sawtooths detuned by 22 cents beating against each other, a slow LFO on the filter, a sine sub at 75 % and drive.'],
+  'A · Acid Sub': ['medium', 'Acid line: a Haar SQUARE through a steep, very resonant low-pass (18 dB) that the envelope and velocity open, legato glide, a triangle sub, drive and a dotted echo.'],
+  'A · Deep Sub Pluck': ['light', 'Deep pluck one octave down: a Daubechies 8 triangle with a fast filter envelope and a sine sub two octaves below at 80 % — the sub is the body of the sound.'],
+  'AB · Hybrid Strings': ['medium', 'Engines mixed A 60 · B 40: a Daubechies 20 sawtooth (A) layered with MIRROR atoms (B, odd harmonics), two unison copies and the CHORUS at 70 % — strings with an organ-like core.'],
+  'AB · Hybrid Keys': ['light', 'A 50 · B 50: a SQUARE with a filter envelope (A) and an IMPULSE pattern whose bright bands die in 0.15 s (B) — a struck attack over a woody body, with light chorus.'],
+  'AB · Sub Hybrid Bass': ['medium', 'A 70 · B 30: a Haar sawtooth bass (A) with MIRROR atoms on the low drawbars (B), a sine sub at 60 % and drive.'],
+  'AB · Dream Pad': ['heavy', 'A 50 · B 50: a Coiflet 3 PULSE whose filter and position window drift with a slow LFO (A), MIRROR atoms opening over a second (B), three unison copies, chorus, echoes and a large hall.'],
+  'AB · Space Strings': ['heavy', 'A 70 · B 30: bright Daubechies 20 strings (A) over RAMP atoms (B), the CHORUS at 90 % with a deep sweep, long echoes and a big reverb.'],
+  'AB · Wide Brass': ['light', 'A 70 · B 30: a resonant sawtooth brass (A) with a 60 ms filter swell and a RAMP layer (B), two unison copies and a touch of chorus.'],
+  'AB · Shimmer Pluck': ['heavy', 'A 60 · B 40: a filter-plucked Symlet 8 sawtooth (A) and RANDOM atoms (SEED 7) whose bright bands decay fast (B), with chorus, ping-pong echoes and reverb.'],
 };
 const presetCount = SPEC.PRESETS.filter(p => p.values[C.P.engine] === 0).length;
-const presets = `<p>${presetCount} factory presets show what engine A can do, from clean sounds to extreme effects. Load one, play, then look at the panel to see how it is made — the table lists every setting that differs from the defaults. In the instrument’s preset menu the engine A and engine B presets alternate; this table shows engine A’s only. The <b>Effects</b> column rates how much each preset relies on effects and movement (delay, reverb, saturation, unison, LFO, sub oscillator): <span class="fxl fxl-none">none</span> <span class="fxl fxl-light">light</span> <span class="fxl fxl-medium">medium</span> <span class="fxl fxl-heavy">heavy</span> <span class="fxl fxl-extreme">extreme</span>.</p>
+const presets = `<p>${presetCount} factory presets show what engine A can do, from clean sounds to extreme effects. Load one, play, then look at the panel to see how it is made — the table lists every setting that differs from the defaults. In the instrument’s preset menu OktoPierre’s favourite sounds come first, then the beta 0.2 presets, then the others; this table lists the presets that open on engine A’s panel, including the “AB · …” presets that mix both engines (their settings show both engines). The <b>Effects</b> column rates how much each preset relies on effects and movement (delay, reverb, saturation, unison, LFO, sub oscillator): <span class="fxl fxl-none">none</span> <span class="fxl fxl-light">light</span> <span class="fxl fxl-medium">medium</span> <span class="fxl fxl-heavy">heavy</span> <span class="fxl fxl-extreme">extreme</span>.</p>
 ${S.presetTable(E, presetDesc)}
 ${S.presetsSaving(E)}`;
 
@@ -280,6 +297,8 @@ const sections = [
   { id: 'lfo', num: '8', title: 'LFO', html: S.lfoSection(E) },
   { id: 'voice', title: 'Voice', html: S.voiceSection(E) },
   { id: 'sub', title: 'Sub oscillator', html: S.subSection(E) },
+  { id: 'mix', title: 'Mixing engines A and B', html: S.mixSection(E) },
+  { id: 'chorus', title: 'Chorus (string machine)', html: S.chorusSection(E) },
   { id: 'effects', num: '10', title: 'Effects and master', html: S.fxSection(E) },
   { id: 'displays', num: '11', title: 'Displays', html: S.displaysSection(E) },
   { id: 'recipes', num: '12', title: 'Sound-design recipes', html: recipes, subs: [{ id: 'r-sweep', title: 'Classic sweep' }, { id: 'r-decimator', title: 'Pitch-locked decimator' }, { id: 'r-edge', title: 'Edge pluck' }, { id: 'r-sparse', title: 'Lossy keys' }, { id: 'r-brass', title: 'Noise brass' }, { id: 'r-scan', title: 'Scanning edge' }, { id: 'r-notch', title: 'Octave notch phaser' }, { id: 'r-bass', title: 'Expressive mono bass' }, { id: 'r-legato', title: 'Expressive legato lead' }, { id: 'r-polyglide', title: 'Polyphonic glide pad' }, { id: 'r-sub', title: 'Infra sub bass' }] },

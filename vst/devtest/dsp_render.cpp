@@ -14,8 +14,7 @@ int main(int argc, char** argv) {
     Engine eng(sr);
     for (int i = 0; i < kNumParams; i++) eng.setParam(i, params[i]);
     Tables t; buildTables(params, true, t);
-    TableRef ref{t.mode, t.mips.data(), t.rms.data(), &t};
-    eng.setTables(ref);
+    eng.setTables(tableRef(t));
     std::vector<float> L(n), R(n);
     auto t0 = std::chrono::steady_clock::now();
     for (int o = 0; o < n; o += blk) {

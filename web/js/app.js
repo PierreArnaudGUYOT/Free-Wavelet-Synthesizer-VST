@@ -36,11 +36,15 @@
     v = Math.min(p.max, Math.max(p.min, v));
     if (p.curve === 'int' || p.curve === 'choice') v = Math.round(v);
     if (values[i] === v) return;
+    const needs = i === P.ab_mix ? C.tableNeeds(values) : 0;
     values[i] = v;
     post({ t: 'p', i, v });
     ui.refresh(i);
-    if (p.structural) scheduleBuild();
-    if (user && !p.hidden) { if (!dirty) { dirty = true; ui.setPresetName(presetName, true); } saveStateSoon(); }
+    // A/B MIX rebuilds the tables only when it reaches or leaves one end (engine A or B alone)
+    if (p.structural || (i === P.ab_mix && C.tableNeeds(values) !== needs)) scheduleBuild();
+    // the ENGINE tabs only choose the panel shown: switching them does not modify the sound
+    if (user && !p.hidden && i !== P.engine) { if (!dirty) { dirty = true; ui.setPresetName(presetName, true); } }
+    if (user && !p.hidden) saveStateSoon();
   }
 
   function scheduleBuild() {
@@ -51,8 +55,11 @@
     buildTimer = null;
     lastBuild = performance.now();
     const tb = C.buildTables(values, true);
-    if (node) post({ t: 'tables', mode: tb.mode, mips: tb.mips, rms: tb.rms }, [tb.mips.buffer, tb.rms.buffer]);
-    ui.setTables(tb);
+    const alt = tb.alt ? { mode: tb.alt.mode, mips: tb.alt.mips, rms: tb.alt.rms } : null;
+    const transfer = [tb.mips.buffer, tb.rms.buffer].concat(alt ? [alt.mips.buffer, alt.rms.buffer] : []);
+    if (node) post({ t: 'tables', mode: tb.mode, mips: tb.mips, rms: tb.rms, alt }, transfer);
+    // the displays show the engine of the panel; with A/B MIX at the other engine the sound uses other tables
+    ui.setTables(tb.mode === Math.round(values[P.engine]) ? tb : C.buildTables(values, false));
   }
 
   let saveTimer = null;
@@ -62,6 +69,8 @@
   }
 
   function applyKeyed(obj) {
+    // presets and states saved before beta 0.2 have no A/B MIX: they play the engine they were made for
+    if (obj && obj.ab_mix === undefined && obj.engine !== undefined) obj = Object.assign({}, obj, { ab_mix: obj.engine });
     PARAMS.forEach((p, i) => {
       if (p.hidden) return;
       const v = obj && obj[p.key] !== undefined && isFinite(obj[p.key]) ? +obj[p.key] : p.def;

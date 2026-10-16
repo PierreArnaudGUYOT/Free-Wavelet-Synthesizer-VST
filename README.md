@@ -1,10 +1,13 @@
 # Wavelet Synthesizer
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.1** (2026-10-14), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).*
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.2** (2026-10-15), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
 It comes as a **web application** and a **VST3 / VST2 instrument for Ableton Live** (Windows x64). Both share
-the same engine, panel layout and 32 factory presets (OktoPierre's 15 favourite sounds first, then the others alternating engine A / engine B, from clean sounds to heavy effects); both open on "A · Warm Pad".
+the same engine, panel layout and 56 factory presets (OktoPierre's 15 favourite sounds first, then the beta 0.2 presets, then the others, from clean sounds to heavy effects); both open on "A · Warm Pad".
+Its two engines can play **alone or mixed** (the **A/B MIX** knob), and a **string-machine triple chorus** widens pads,
+strings and organs.
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.

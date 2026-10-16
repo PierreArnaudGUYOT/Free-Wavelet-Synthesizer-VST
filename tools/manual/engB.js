@@ -57,7 +57,7 @@ ${fig('staircase-b.svg', '<b>Figure 4.</b> Haar + RAMP + TILT −6 dB/band with 
 // ---------------------------------------------------------------- 3. panel tour
 const pins = [
   { x: 218, y: 8, title: '▶ DEMO ▾ (web app)', desc: '▶ DEMO plays the default demo, a tour of the presets; ▾ opens the list of demo pieces.', href: 'demo' },
-  { x: 286, y: 5, title: 'ENGINE', desc: 'switches between engine A (teal) and engine B (amber).', href: 'header-controls' },
+  { x: 286, y: 5, title: 'ENGINE', desc: 'chooses the engine panel shown, A (teal) or B (amber); A/B MIX sets what you hear.', href: 'header-controls' },
   { x: 562, y: 5, title: 'Preset browser', desc: '◀ ▶ step through the presets; click the name for the list.', href: 'saving' },
   { x: 872, y: 5, title: 'MANUAL A / B', desc: 'open the engine A manual or this one.', href: 'header-controls' },
   { x: 1024, y: 2, title: 'VOLUME and meter', desc: 'master level and stereo peak meter.', href: 'effects' },
@@ -66,8 +66,9 @@ const pins = [
   { x: 13, y: 268, title: 'SCALE ENVELOPE', desc: 'ATTACK, SPREAD, BODY, BRIGHT and SUSTAIN for the bands.', href: 'scale-env' },
   { x: 361, y: 146, title: 'ATOM SHAPE', desc: 'one atom of the selected wavelet.', href: 'wavelets' },
   { x: 361, y: 210, title: 'WAVELET', desc: 'chooses the atom shape (seven wavelets).', href: 'wavelets' },
-  { x: 365, y: 262, title: 'TILT', desc: 'a dB-per-band slope across the drawbars.', href: 'drawbars' },
-  { x: 443, y: 262, title: 'SEED', desc: 'picks the random pattern (RANDOM only).', href: 'patterns' },
+  { x: 353, y: 262, title: 'TILT', desc: 'a dB-per-band slope across the drawbars.', href: 'drawbars' },
+  { x: 411, y: 262, title: 'SEED', desc: 'picks the random pattern (RANDOM only).', href: 'patterns' },
+  { x: 469, y: 262, title: 'A/B MIX', desc: 'what you hear: engine A, engine B or both mixed.', href: 'mix' },
   { x: 568, y: 104, title: 'SCOPE', desc: 'one cycle of the sound; shaded area = window.', href: 'displays' },
   { x: 568, y: 216, title: 'SCALOGRAM', desc: 'the atoms of the 11 bands; dashed line = window.', href: 'displays' },
   { x: 130, y: 337, title: 'SCALE FILTER', desc: 'a modulatable per-band filter on top of the drawbars.', href: 'filter' },
@@ -79,7 +80,8 @@ const pins = [
   { x: 785, y: 485, title: 'EFFECTS', desc: 'saturation, ping-pong delay and reverb.', href: 'effects' },
   { x: 8, y: 616, title: 'Wheels', desc: 'pitch bend and modulation (vibrato).', href: 'kbd-screen' },
   { x: 169, y: 633, title: 'SUB OSC', desc: 'LEVEL, OCT and SHAPE of the sub oscillator.', href: 'sub' },
-  { x: 212, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
+  { x: 305, y: 633, title: 'CHORUS', desc: 'string-machine triple chorus: amount, RATE and DEPTH.', href: 'chorus' },
+  { x: 348, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
   { x: 2, y: 751, title: 'Status bar (web app)', desc: 'audio and MIDI status, key help, Save preset / Export / Import.', href: 'saving' },
 ];
 const ann = annotated('panel-b.png', 'The whole instrument in engine B mode, showing the B · Random Glass preset', pins);
@@ -89,7 +91,7 @@ ${ann.legend}
 <h3 id="header-controls">The header</h3>
 <ul>
 <li>${ctl('▶ DEMO')} (web app only) plays the default demo, a piece during which the factory presets change every few seconds; the ${ctl('▾')} beside it opens the other demo pieces and lets you load your own MIDI file — see <a href="#demo">Demo</a>.</li>
-<li>${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} switches the engine. Only the upper-left section and the accent colour change; the filter, position, envelopes, LFO, voice and effects are shared and keep their settings.</li>
+<li>${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} chooses which engine section is shown in the upper left (and the accent colour). What you hear is set by the ${P('ab_mix')} knob at the right of that section — engine A, engine B, or both mixed (see <a href="#mix">Mixing engines A and B</a>). The filter, position, envelopes, LFO, voice and effects are shared by both engines.</li>
 <li>The preset browser shows the current preset; a dot after the name means it has been modified. See <a href="#saving">Browsing and saving presets</a>.</li>
 <li>${ctl('MANUAL A')} and ${ctl('MANUAL B')} open the manuals — in the web app as an overlay (close it with ✕, ${kbd('Esc')} or a click outside; “Open in new tab” pops it out), in the plugin in your web browser.</li>
 <li>The small knob at the right is the master ${ctl('VOLUME')} (−36 to +6 dB, default −3 dB), followed by the stereo output meter. In the plugin, a size button next to the logo opens a menu of window sizes (70–150 %).</li>
@@ -254,9 +256,18 @@ const presetDesc = {
   'B · Chip Echo': ['heavy', 'Chip-tune lead with loud ping-pong echoes (250 ms, 65 % feedback, 60 % mix).'],
   'B · Distorted Organ': ['heavy', 'Rock organ: a full octave registration through 70 % saturation, with a fast 6.5 Hz vibrato.'],
   'B · Alien Texture': ['extreme', 'Random atoms (SEED 42) chopped by a 7 Hz sample-and-hold LFO that throws the focus window and the cutoff around, detail arriving before the body, long echoes and reverb.'],
+  'B · Ensemble Organ': ['medium', 'The Octave Organ registration through the triple CHORUS at 70 % — the classic ensemble organ of the 1970s.'],
+  'B · Glass Ensemble': ['heavy', 'IMPULSE atoms through Daubechies 8 that swell in (SPREAD +40 %) and settle at 60 %, through a slow, deep chorus and a large reverb.'],
+  'B · Chorus Flute': ['light', 'The Soft Flute with a gentle chorus (55 %, 0.7 Hz) that widens and animates it.'],
+  'B · Sub Organ Bass': ['light', 'Mono organ bass one octave down: the four lowest Daubechies 20 RAMP bands and a sine sub two octaves below at 80 %.'],
+  'AB · Wavelet Choir': ['heavy', 'A 45 · B 55: MIRROR atoms opening over almost a second (B) with a soft triangle (A), three unison copies, a slow position LFO, chorus and a large hall.'],
+  'AB · Bell Pad': ['medium', 'A 55 · B 45: Walsh bells whose fine bands ring out in 0.6 s (B) over a filtered Symlet 8 sawtooth pad (A), with chorus, echoes and reverb.'],
+  'AB · Organ Lead': ['medium', 'A 65 · B 35: the organ registration (B) with a resonant Daubechies 20 sawtooth (A), mono legato glide, 7-cent vibrato, drive and delay.'],
+  'AB · Glass Keys': ['light', 'A 40 · B 60: an IMPULSE pattern whose bright bands die in 0.25 s (B) over a pure SINE (A) — glassy electric-piano keys with light chorus.'],
+  'AB · Chip Hybrid': ['medium', 'A 50 · B 50: Haar Walsh chip bands (B) and a Haar SQUARE (A), mono with a short glide and fast echoes.'],
 };
 const presetCount = SPEC.PRESETS.filter(p => p.values[C.P.engine] === 1).length;
-const presets = `<p>${presetCount} factory presets show what engine B can do, from clean sounds to extreme effects. Load one, play, then look at the panel to see how it is made — the table lists every setting that differs from the defaults. In the instrument’s preset menu the engine A and engine B presets alternate; this table shows engine B’s only. The <b>Effects</b> column rates how much each preset relies on effects and movement (delay, reverb, saturation, unison, LFO, sub oscillator): <span class="fxl fxl-none">none</span> <span class="fxl fxl-light">light</span> <span class="fxl fxl-medium">medium</span> <span class="fxl fxl-heavy">heavy</span> <span class="fxl fxl-extreme">extreme</span>.</p>
+const presets = `<p>${presetCount} factory presets show what engine B can do, from clean sounds to extreme effects. Load one, play, then look at the panel to see how it is made — the table lists every setting that differs from the defaults. In the instrument’s preset menu OktoPierre’s favourite sounds come first, then the beta 0.2 presets, then the others; this table lists the presets that open on engine B’s panel, including the “AB · …” presets that mix both engines (their settings show both engines). The <b>Effects</b> column rates how much each preset relies on effects and movement (delay, reverb, saturation, unison, LFO, sub oscillator): <span class="fxl fxl-none">none</span> <span class="fxl fxl-light">light</span> <span class="fxl fxl-medium">medium</span> <span class="fxl fxl-heavy">heavy</span> <span class="fxl fxl-extreme">extreme</span>.</p>
 ${S.presetTable(E, presetDesc)}
 ${S.presetsSaving(E)}`;
 
@@ -277,6 +288,8 @@ const sections = [
   { id: 'lfo', num: '8', title: 'LFO', html: S.lfoSection(E) },
   { id: 'voice', title: 'Voice', html: S.voiceSection(E) },
   { id: 'sub', title: 'Sub oscillator', html: S.subSection(E) },
+  { id: 'mix', title: 'Mixing engines A and B', html: S.mixSection(E) },
+  { id: 'chorus', title: 'Chorus (string machine)', html: S.chorusSection(E) },
   { id: 'effects', num: '10', title: 'Effects and master', html: S.fxSection(E) },
   { id: 'displays', num: '11', title: 'Displays', html: S.displaysSection(E) },
   { id: 'recipes', num: '12', title: 'Sound-design recipes', html: recipes, subs: [{ id: 'r-organ', title: 'Drawbar organ' }, { id: 'r-chip', title: 'Chip-tune Walsh lead' }, { id: 'r-bell', title: 'Bell with per-band decays' }, { id: 'r-swell', title: 'Swelling pad' }, { id: 'r-pluck', title: 'Impulse pluck' }, { id: 'r-random', title: 'Random glass' }, { id: 'r-staircase', title: 'Square to sawtooth' }, { id: 'r-focus', title: 'Focus sweep' }, { id: 'r-filter', title: 'Filter pluck' }, { id: 'r-legato', title: 'Legato flute' }, { id: 'r-polyglide', title: 'Gliding organ chords' }, { id: 'r-sub', title: 'Pedal organ with a 32′ sub' }] },

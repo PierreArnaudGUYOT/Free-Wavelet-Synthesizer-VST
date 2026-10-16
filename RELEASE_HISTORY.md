@@ -2,6 +2,20 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.2 — 2026-10-15
+
+**Engines A and B mixed**
+- New **A/B MIX** knob (at the right of both engine sections): engine A alone, engine B alone, or both at once (linear crossfade, smoothed over 20 ms). Each voice then renders engine A's filtered source and engine B's atoms at the same pitch, through the same envelopes, scale filter, position window and effects; the sub oscillator is added once.
+- The **A · SUBTRACTIVE / B · ADDITIVE** tabs now only choose the panel shown; switching them neither changes the sound nor marks the preset as modified.
+- Compatibility: presets, user presets and Live Sets saved before beta 0.2 get A/B MIX = their engine and sound exactly as before (the 32 beta 0.1 factory presets render bit-identically).
+
+**Triple chorus (string machine)**
+- New **CHORUS** section (amount, RATE, DEPTH) next to the SUB OSC: three delay lines (6–12 ms) swept by a slow and a fast LFO (about 9.7 × the rate), 120° apart, spread left / centre / right; after DRIVE, before DELAY and REVERB. The keyboard is a little narrower to make room (still C2–C7).
+
+**Presets**: 56 factory presets. OktoPierre's 15 favourites stay first, followed by 24 new presets using the chorus (A · String Machine, A · Solina Cellos, A · Poly Chorus Pad, A · Chorus Square Lead, B · Ensemble Organ, B · Glass Ensemble, B · Chorus Flute), the sub oscillator (A · Sub Saw Bass, A · Reese Sub, A · Acid Sub, A · Deep Sub Pluck, B · Sub Organ Bass) and the A + B mix ("AB · …": Hybrid Strings, Dream Pad, Bell Pad, Wavelet Choir, Hybrid Keys, Organ Lead, Space Strings, Sub Hybrid Bass, Glass Keys, Wide Brass, Chip Hybrid, Shimmer Pluck); then the other beta 0.1 presets. In the preset list "AB" is shown in both engine colours.
+
+**Quality**: the C++ engine still matches the JavaScript reference within 2.4e-7 for all 56 presets. `CLAUDE.md` describes the architecture for maintenance and code reviews.
+
 ## beta 0.1 — 2026-10-14 (first release)
 
 **Products**

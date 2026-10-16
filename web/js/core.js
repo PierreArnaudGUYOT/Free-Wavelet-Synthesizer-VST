@@ -20,6 +20,7 @@ function WSCoreFactory(SPEC) {
   const LN1000 = Math.log(1000);
   const VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
   const LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
+  const CH_BASE = 0.006, CH_DEPTH = 0.003, CH_FAST = 9.7;   // chorus: base delay, sweep per unit of depth (s), fast/slow LFO ratio
 
   const P = {};
   SPEC.PARAMS.forEach((p, i) => { P[p.key] = i; });
@@ -66,6 +67,7 @@ function WSCoreFactory(SPEC) {
       case 'deg': return Math.round(v * 360) + '°';
       case 'cyc': return '±' + Math.round(v * 360) + '°';
       case 'bandamt': return '±' + v.toFixed(1) + ' bands';
+      case 'abmix': return v <= 0 ? 'A' : v >= 1 ? 'B' : `A ${Math.round((1 - v) * 100)} · B ${Math.round(v * 100)}`;
       default: return v.toFixed(2);
     }
   }
@@ -73,6 +75,13 @@ function WSCoreFactory(SPEC) {
     if (p.fmt === 'choice') {
       const i = p.choices.findIndex(c => c.toLowerCase() === String(s).trim().toLowerCase());
       if (i >= 0) return i;
+    }
+    if (p.fmt === 'abmix') {   // "A", "B", or the B share in percent ("A 70 · B 30" or "30")
+      const t = String(s).trim().toUpperCase();
+      if (t === 'A') return 0;
+      if (t === 'B') return 1;
+      const mb = /B\s*([0-9.]+)/.exec(t) || /^([0-9.]+)/.exec(t);
+      return mb ? Math.min(1, Math.max(0, parseFloat(mb[1]) / 100)) : null;
     }
     let t = String(s).replace('−', '-');
     if (p.fmt === 'sec' && /off/i.test(t)) return p.min;
@@ -207,10 +216,27 @@ function WSCoreFactory(SPEC) {
     return c;
   }
 
+  // Which table sets the sound needs: bit 0 = engine A (A/B MIX below B), bit 1 = engine B (MIX above A).
+  function tableNeeds(params) {
+    const m = params[P.ab_mix];
+    return (m < 1 ? 1 : 0) | (m > 0 ? 2 : 0);
+  }
+
   // Builds everything that depends only on structural parameters.
-  // withMips=false is used by displays (raw layers only).
+  // withMips=false is used by displays (raw layers of the engine shown on the panel).
+  // withMips=true builds what the sound needs: engine A or B alone (A/B MIX at A or at B), or both when they are
+  // mixed: then the engine shown on the panel is the main set and the other one is in `alt` ({ mode, mips, rms }).
   function buildTables(params, withMips) {
-    const mode = Math.round(params[P.engine]);
+    const view = Math.round(params[P.engine]);
+    if (!withMips) return buildSet(params, view, false);
+    const need = tableNeeds(params);
+    if (need !== 3) return buildSet(params, need === 1 ? 0 : 1, true);
+    const out = buildSet(params, view, true), alt = buildSet(params, 1 - view, true);
+    out.alt = { mode: alt.mode, mips: alt.mips, rms: alt.rms };
+    return out;
+  }
+
+  function buildSet(params, mode, withMips) {
     const f = FILTERS[Math.round(params[P.wavelet])];
     let c, kept = 0, nonzero = 0;
     const layers = [];
@@ -384,6 +410,9 @@ function WSCoreFactory(SPEC) {
     }
     this.vol = Math.pow(10, this.p[P.master] / 20);
     this.dcR = 1 - 2 * Math.PI * 10 / sr; this.dcxL = 0; this.dcyL = 0; this.dcxR = 0; this.dcyR = 0;
+    this.chLen = Math.ceil(sr * 0.03) + 4;
+    this.chBuf = new Float32Array(this.chLen); this.chW = 0; this.chPh = 0; this.chPh2 = 0;
+    this.mixSm = this.p[P.ab_mix];
   };
 
   E.setParam = function (id, v) {
@@ -502,6 +531,7 @@ function WSCoreFactory(SPEC) {
     this.dlyL.fill(0); this.dlyR.fill(0); this.lpL = 0; this.lpR = 0;
     for (const c of this.combs) { c.buf.fill(0); c.f = 0; }
     for (const a of this.aps) a.buf.fill(0);
+    this.chBuf.fill(0);
   };
 
   E.lfoTick = function (n) {
@@ -579,7 +609,9 @@ function WSCoreFactory(SPEC) {
   // Does not modify the voice: the end state is left in this.endLevel/endStage/endPhase
   // so that during a table crossfade both table sets render from the same state.
   // Output gain ramps from fade0 by fadeInc per sample (invert: 1 - fade).
-  E.renderVoice = function (vc, n, t, fade0, fadeInc, invert) {
+  // gain0/gainInc: the A/B MIX share of this table set (1, 0 when it plays alone); withSub: adds the sub oscillator
+  // (once per voice, at full level whatever the mix).
+  E.renderVoice = function (vc, n, t, fade0, fadeInc, invert, gain0, gainInc, withSub) {
     const mode = t.mode, mips = t.mips, rms = t.rms;
     const off = vc.mip * TW;
     const g = mode === 0 ? vc.gA : vc.gB, dg = mode === 0 ? vc.dA : vc.dB;
@@ -612,17 +644,19 @@ function WSCoreFactory(SPEC) {
     const velGain = VOICE_GAIN * (1 - p[P.amp_vel] * (1 - vc.vel));
     // sub oscillator: one per voice (not per unison voice), centred, not filtered
     const subInc = vc.f0 * (Math.round(p[P.sub_oct]) === 1 ? 0.25 : 0.5) / sr, subShape = Math.round(p[P.sub_shape]);
-    const subLvl = p[P.sub_level], subOn = subLvl > 0 && subInc < 0.5;   // silent when it would alias (above Nyquist)
+    const subLvl = p[P.sub_level], subOn = withSub && subLvl > 0 && subInc < 0.5;   // silent when it would alias (above Nyquist)
+    const unity = gain0 === 1 && gainInc === 0;
     let sph = vc.subPhase;
-    let fade = fade0;
+    let fade = fade0, gain = gain0;
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < na; j++) { const b = act[j]; lg[b] += dg[b]; }
       if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
       else if (st === 2) lev = s + (lev - s) * dC;
       else if (st === 3) { lev *= rC; if (lev < 1e-5) { lev = 0; st = 0; } }
       const fg = fade >= 1 ? 1 : fade;
-      const env = lev * velGain * (invert ? 1 - fg : fg);
-      fade += fadeInc;
+      const envBase = lev * velGain * (invert ? 1 - fg : fg);
+      const env = unity ? envBase : envBase * gain;
+      fade += fadeInc; gain += gainInc;
       let outL = 0, outR = 0;
       for (let u = 0; u < U; u++) {
         let x = ph[u] + inc[u];
@@ -647,14 +681,26 @@ function WSCoreFactory(SPEC) {
         }
         outL += y * gl[u]; outR += y * gr[u];
       }
+      let sv = 0;
       if (subOn) {
         sph += subInc; if (sph >= 1) sph -= Math.floor(sph);
-        const sv = subLvl * subWave(sph, subInc, subShape);
-        outL += sv; outR += sv;
+        sv = subLvl * subWave(sph, subInc, subShape);
+        if (unity) { outL += sv; outR += sv; }
       }
-      L[i] += outL * env; R[i] += outR * env;
+      if (unity) { L[i] += outL * env; R[i] += outR * env; }
+      else { L[i] += outL * env + sv * envBase; R[i] += outR * env + sv * envBase; }
     }
-    this.endLevel = lev; this.endStage = st; this.endSubPhase = sph;
+    this.endLevel = lev; this.endStage = st;
+    if (withSub) this.endSubPhase = sph;
+  };
+
+  // Renders one voice with a table set and, when engines A and B are mixed, its `alt` set: shares 1 - mix (A) and
+  // mix (B), moving from m0 to m1 across the block; the sub oscillator is rendered once.
+  E.renderSet = function (vc, n, t, fade0, fadeInc, invert, m0, m1) {
+    if (!t.alt) { this.renderVoice(vc, n, t, fade0, fadeInc, invert, 1, 0, true); return; }
+    const g0 = t.mode === 0 ? 1 - m0 : m0, g1 = t.mode === 0 ? 1 - m1 : m1;
+    this.renderVoice(vc, n, t, fade0, fadeInc, invert, g0, (g1 - g0) / n, true);
+    this.renderVoice(vc, n, t.alt, fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
   };
 
   // Process n samples (any n) into outL/outR (overwrites).
@@ -673,12 +719,16 @@ function WSCoreFactory(SPEC) {
     this.lfoTick(n);
     let voices = 0;
     const fading = !!this.prev, fadeInc = fading ? 1 / 512 : 0, fade0 = fading ? this.fade : 1;
+    // A/B MIX, smoothed (20 ms) so that turning the knob does not click
+    const m0 = this.mixSm;
+    this.mixSm += (p[P.ab_mix] - this.mixSm) * (1 - Math.exp(-n / (0.02 * this.sr)));
+    const m1 = this.mixSm;
     for (let k = 0; k < MAXV; k++) {
       const vc = this.voices[k];
       if (!vc.active || !this.cur) continue;
       this.control(vc, n);
-      if (fading) this.renderVoice(vc, n, this.prev, fade0, fadeInc, true);
-      this.renderVoice(vc, n, this.cur, fade0, fadeInc, false);
+      if (fading) this.renderSet(vc, n, this.prev, fade0, fadeInc, true, m0, m1);
+      this.renderSet(vc, n, this.cur, fade0, fadeInc, false, m0, m1);
       // commit end-of-block state
       vc.amp.level = this.endLevel; vc.amp.stage = this.endStage;
       for (let u = 0; u < 4; u++) vc.phase[u] = this.endPhase[u];
@@ -695,6 +745,9 @@ function WSCoreFactory(SPEC) {
     const dTarget = p[P.fx_dtime] * this.sr, dlen = this.dlyLen;
     const feedback = 0.7 + 0.28 * p[P.fx_rsize], damp = 0.25;
     const volT = Math.pow(10, p[P.master] / 20);
+    const chMix = p[P.ch_mix], chLen = this.chLen, chBuf = this.chBuf;
+    const chBase = CH_BASE * this.sr, chDepth = p[P.ch_depth] * CH_DEPTH * this.sr;
+    const chInc = p[P.ch_rate] / this.sr, chInc2 = chInc * CH_FAST;
     let pkL = this.disp.peakL, pkR = this.disp.peakR;
     for (let i = 0; i < n; i++) {
       let l = L[i], r = R[i];
@@ -702,6 +755,24 @@ function WSCoreFactory(SPEC) {
         l = (1 - drive) * l + drive * Math.tanh(k * l) * comp;
         r = (1 - drive) * r + drive * Math.tanh(k * r) * comp;
       }
+      // string-machine triple chorus: three delay lines swept by a slow and a fast LFO, 120° apart,
+      // spread left / centre / right
+      chBuf[this.chW] = 0.5 * (l + r);
+      if (chMix > 0) {
+        this.chPh += chInc; if (this.chPh >= 1) this.chPh -= 1;
+        this.chPh2 += chInc2; if (this.chPh2 >= 1) this.chPh2 -= 1;
+        let v0 = 0, v1 = 0, v2 = 0;
+        for (let c = 0; c < 3; c++) {
+          const mo = 0.8 * Math.sin(2 * Math.PI * (this.chPh + c / 3)) + 0.2 * Math.sin(2 * Math.PI * (this.chPh2 + c / 3));
+          let rp = this.chW - (chBase + chDepth * (1 + mo)); if (rp < 0) rp += chLen;
+          const i0 = Math.floor(rp), fr = rp - i0, i1 = (i0 + 1) % chLen;
+          const v = chBuf[i0] + fr * (chBuf[i1] - chBuf[i0]);
+          if (c === 0) v0 = v; else if (c === 1) v1 = v; else v2 = v;
+        }
+        l += chMix * ((2 * v0 + v1) / 3 - l);
+        r += chMix * ((2 * v2 + v1) / 3 - r);
+      }
+      if (++this.chW >= chLen) this.chW = 0;
       // ping-pong delay
       this.dlyT += (dTarget - this.dlyT) * 0.0005;
       if (dmix > 0 || fb > 0) {
@@ -796,7 +867,7 @@ function WSCoreFactory(SPEC) {
   return {
     N, NB, NL, DRY, NMIP, TW, CTRL, MAXV, P, NP,
     rng, toPlain, toNorm, format, parse, defaults,
-    FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables,
+    FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables, tableNeeds,
     filterGains, windowValue, staticGains, displayCycle, atomShape, Engine,
   };
 }

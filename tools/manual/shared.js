@@ -497,7 +497,7 @@ function troubleshooting(E, extra) {
     ['Clicks', `<p>Very short AMP attack or release times (1–2 ms) can click, especially on low notes and smooth waves; 3–10 ms is usually clean. Changing ${a ? 'WAVE, WIDTH, SPARSITY' : 'PATTERN, SEED'} or WAVELET while a note sounds is crossfaded and should not click.</p>`],
     ['Squashed or distorted sound, meter at the top', `<p>Resonance (up to +24 dB), unison, big chords, DRIVE and the effect mix knobs all add level. The output limiter never lets the signal exceed 0 dBFS, but when it works hard the sound gets squashed. Lower ${ctl('VOLUME')} or the offending control.</p>`],
     ['High CPU load', `<p>CPU use grows with ${P('v_voices')} × ${P('v_unison')} and with the number of bands that actually sound. Lower UNISON first, then VOICES. Bands whose gain is (almost) zero are skipped, so steep low-pass settings and high notes are cheaper. In the browser, close other heavy tabs.</p>`],
-    ['My sound changed after switching engines', `<p>${ctl('ENGINE')} only swaps the engine section. The SCALE FILTER, POSITION, envelopes, LFO, voice and effects keep their settings — for example the CUTOFF 7 of “A · Init” also filters engine B. Load an engine’s Init preset for a neutral start.</p>`],
+    ['Clicking an engine tab does not change the sound', `<p>That is by design since beta 0.2: ${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} only choose the panel shown. The sound is set by ${P('ab_mix')} (at the right of the engine section): turn it to A, to B, or in between. The SCALE FILTER, POSITION, envelopes, LFO, voice and effects are shared by both engines — for example the CUTOFF 7 of “A · Init” also filters engine B. Load an engine’s Init preset for a neutral start.</p>`],
     ['My sound is gone after reloading', `<p>That is by design: the web app always opens on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>. Keep sounds with <b>Save preset</b> (stored in this browser) or <b>Export</b> (a file). Private windows, another browser or clearing site data lose the browser-stored user presets — exported files are safe.</p>`],
     ['I cannot hear the sub oscillator', `<p>Its ${P('sub_level')} is 0 % by default. At −2 octaves on low notes the sub can be below 20 Hz, which small speakers and most headphones cannot reproduce: try −1 octave, a higher note, or the ${ctl('TRI')} or ${ctl('SQR')} shape, whose harmonics stay audible.</p>`],
   ];
@@ -519,6 +519,41 @@ ${controls(rows)}
 <li><b>Outside the wavelet engine.</b> The sub is added after ${a ? 'the SCALE FILTER and the POSITION window' : 'the drawbars, TILT, SCALE ENVELOPE, SCALE FILTER and POSITION window'}, so none of them affects it: it stays clean and steady while you sweep the wavelet sound. Then the AMP ENVELOPE (and velocity) shapes it like the rest of the note, and it goes through the effects — ${P('fx_drive')} saturates it too.</li>
 <li><b>How low?</b> On C2 (65 Hz) the sub sits at 33 Hz (−1 octave) or 16 Hz (−2 octaves); with ${P('v_oct')} at −1 it goes one more octave down. Below about 20 Hz you feel rather than hear it, and laptop speakers, small monitors and most headphones cannot reproduce it at all. The output’s 10 Hz DC blocker softens the very lowest frequencies (about −1.5 dB at 16 Hz, −4 dB at 8 Hz).</li>
 <li>The SCOPE and SCALOGRAM show the wavelet sound only; the sub is not drawn.</li>
+</ul>`;
+}
+
+// ---------------------------------------------------------------- engines A and B mixed (beta 0.2)
+function mixSection(E) {
+  const a = isA(E);
+  const rows = [
+    [{ key: 'ab_mix', range: 'A … B' }, 'What you hear: at <b>A</b> only engine A (wavelet subtractive), at <b>B</b> only engine B (wavelet additive), in between both at once — the display reads for example “A 60 · B 40”.', 'Start from a preset of one engine and turn MIX slowly: the other engine fades in under it.'],
+  ];
+  return `<p>Since beta 0.2 the two engines can play together. The ${P('ab_mix')} knob sits at the right of both engine sections, so it is always in reach.</p>
+${controls(rows)}
+<ul>
+<li><b>The tabs choose the panel, MIX chooses the sound.</b> ${ctl('A · SUBTRACTIVE')} and ${ctl('B · ADDITIVE')} only choose which engine section is shown, to edit it; switching them neither changes the sound nor marks the preset as modified. ${a ? 'Turn MIX towards B, then click B · ADDITIVE to shape the additive layer.' : 'Turn MIX towards A, then click A · SUBTRACTIVE to shape the subtractive layer.'}</li>
+<li><b>One note, two layers.</b> Each note plays engine A’s filtered source and engine B’s atoms at the same pitch, with the same AMP ENVELOPE, glide, unison and effects. Both layers go through the SCALE FILTER (engine B also keeps its drawbars, TILT and SCALE ENVELOPE) and through the POSITION window. The sub oscillator is added once, whatever the mix.</li>
+<li><b>Linear crossfade.</b> At “A 50 · B 50” each layer plays at half level, so the mix stays about as loud as either engine alone. Turning MIX while notes sound is smoothed (20 ms) and does not click.</li>
+<li><b>Cost.</b> In between, every voice is computed twice, so the CPU load roughly doubles. The tables of the second engine are built when MIX leaves A or B (and dropped when it returns there), with the same 10 ms crossfade as the other table changes.</li>
+<li><b>Older sounds.</b> Presets, user presets and Live Sets made before beta 0.2 have no MIX: they get MIX = their engine and sound exactly as before. The factory presets that mix both engines are named “AB · …”.</li>
+<li>The SCOPE and SCALOGRAM show the engine whose panel is open.</li>
+</ul>`;
+}
+
+// ---------------------------------------------------------------- string-machine chorus (beta 0.2)
+function chorusSection(E) {
+  const rows = [
+    ['ch_mix', 'Amount of chorus: 0 % switches it off (the default), 100 % keeps only the three chorus lines.', '60–90 % gives the classic string-machine shimmer; 30–40 % just widens a lead or keys.'],
+    ['ch_rate', 'Speed of the slow sweep (0.1–3 Hz). A second, fast sweep runs at about 9.7 times this rate with a smaller depth — the two together make the “ensemble” movement.', 'Around 0.5–0.8 Hz sounds like the string machines of the 1970s; above 1.5 Hz it becomes a vibrato.'],
+    ['ch_depth', 'How far the delay lines sweep: from 6 ms up to 12 ms at 100 %.', 'Lower DEPTH when RATE is high, or the pitch wobble becomes obvious.'],
+  ];
+  return `<p>The ${ctl('CHORUS')} section, at the bottom left next to the SUB OSC, is a triple chorus modelled on the ensemble effect of 1970s string machines.</p>
+${controls(rows)}
+<ul>
+<li><b>How it works.</b> The sound (after DRIVE) feeds three short delay lines. Each is swept by the same slow and fast LFOs, shifted by 120° from one line to the next, so the three copies are never in step. They are spread left, centre and right: the result is wide and lush even from a single voice.</li>
+<li><b>Where it sits.</b> After the voices and the DRIVE, before the ping-pong DELAY and the REVERB — the order of a classic string machine going into an echo and a hall.</li>
+<li><b>Mono in, stereo out.</b> The chorus works on the mono sum of the sound; at 100 % the stereo image is made by the three lines. Lower settings keep part of the original stereo spread of ${P('v_unison')} and ${P('v_width')}.</li>
+<li>Try it on “A · String Machine”, “A · Solina Cellos”, “B · Ensemble Organ” or “AB · Hybrid Strings”.</li>
 </ul>`;
 }
 
@@ -598,21 +633,23 @@ const PLABEL = {
   v_porta: 'PORTAMENTO', v_oct: 'OCTAVE', v_fine: 'FINE', v_voices: 'VOICES', v_glide: 'GLIDE', v_unison: 'UNISON', v_detune: 'DETUNE', v_width: 'STEREO',
   fx_drive: 'DRIVE', fx_dtime: 'DLY TIME', fx_dfb: 'FEEDBACK', fx_dmix: 'DLY MIX', fx_rsize: 'REV SIZE', fx_rmix: 'REV MIX', master: 'VOLUME',
   sub_level: 'SUB LEVEL', sub_oct: 'SUB', sub_shape: 'SUB SHAPE',
+  ab_mix: 'A/B MIX', ch_mix: 'CHORUS', ch_rate: 'CHORUS RATE', ch_depth: 'CHORUS DEPTH',
 };
 function presetSettings(pr) {
   const out = [], v = pr.values, idx = k => SPEC.PARAMS.findIndex(p => p.key === k);
-  const always = v[idx('engine')] === 0 ? ['a_wave', 'wavelet'] : ['b_pattern', 'wavelet'];
+  const mixed = v[idx('ab_mix')] > 0 && v[idx('ab_mix')] < 1;   // both engines sound: show both engines' settings
+  const always = mixed ? ['ab_mix', 'a_wave', 'b_pattern', 'wavelet'] : v[idx('engine')] === 0 ? ['a_wave', 'wavelet'] : ['b_pattern', 'wavelet'];
   const fmtV = (k, x) => { const p = PK[k]; let s = p.fmt === 'choice' ? p.choices[Math.round(x)] : C.format(p, x); if (k === 'f_cutoff') s = s.replace('band ', ''); return s; };
   for (const k of always) out.push(`${PLABEL[k]} ${fmtV(k, v[idx(k)])}`);
   const bars = []; let barsChanged = false;
   for (let b = 1; b <= 11; b++) { const x = v[idx('b_bar' + b)]; bars.push(Math.round(x * 100)); if (x !== 1) barsChanged = true; }
   SPEC.PARAMS.forEach((p, i) => {
-    if (p.hidden || p.key === 'engine' || always.includes(p.key) || p.key.startsWith('b_bar')) return;
+    if (p.hidden || p.key === 'engine' || p.key === 'ab_mix' || always.includes(p.key) || p.key.startsWith('b_bar')) return;
     const subOn = v[idx('sub_level')] > 0;
     if ((p.key === 'sub_oct' || p.key === 'sub_shape') && !subOn) return;
     if (v[i] === p.def && !((p.key === 'sub_oct' || p.key === 'sub_shape') && subOn)) return;
-    if (v[idx('engine')] === 0 && p.key.startsWith('b_')) return;
-    if (v[idx('engine')] === 1 && p.key.startsWith('a_')) return;
+    if (!mixed && v[idx('engine')] === 0 && p.key.startsWith('b_')) return;
+    if (!mixed && v[idx('engine')] === 1 && p.key.startsWith('a_')) return;
     if (p.key === 'b_seed' && Math.round(v[idx('b_pattern')]) !== 5) return;
     out.push(`${PLABEL[p.key]} ${fmtV(p.key, v[i])}`);
     if (p.key === 'b_tilt' && barsChanged) out.push(`DRAWBARS ${bars.join(' / ')}`);
@@ -632,4 +669,4 @@ function presetTable(E, desc) {
   return table(['Preset', 'Effects', 'Sound', 'Settings that differ from the defaults'], rows, 'presets');
 }
 
-module.exports = { DEMO, demoSection, subSection, aboutSection, bandMap, waveletTable, quickStart, controlsHowTo, filterSection, positionSection, envelopesSection, lfoSection, voiceSection, fxSection, displaysSection, playingSection, presetsSaving, vstSection, troubleshooting, glossary, presetTable };
+module.exports = { DEMO, demoSection, subSection, mixSection, chorusSection, aboutSection, bandMap, waveletTable, quickStart, controlsHowTo, filterSection, positionSection, envelopesSection, lfoSection, voiceSection, fxSection, displaysSection, playingSection, presetsSaving, vstSection, troubleshooting, glossary, presetTable };

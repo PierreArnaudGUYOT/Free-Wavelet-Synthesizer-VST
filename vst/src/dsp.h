@@ -28,6 +28,7 @@ constexpr double LN1000 = 6.907755278982137;
 constexpr double VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
 constexpr double LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
 constexpr double PI = 3.14159265358979323846;
+constexpr double CH_BASE = 0.006, CH_DEPTH = 0.003, CH_FAST = 9.7;   // chorus: base delay, sweep per unit of depth (s), fast/slow LFO ratio
 
 inline double jsRound(double x) { return std::floor(x + 0.5); }  // Math.round semantics
 
@@ -77,6 +78,10 @@ inline std::string formatValue(const ParamDef& p, double v) {
     case FMT_DEG: return fmtNum("%.0f", jsRound(v * 360)) + "\xC2\xB0";
     case FMT_CYC: return "\xC2\xB1" + fmtNum("%.0f", jsRound(v * 360)) + "\xC2\xB0";
     case FMT_BANDAMT: return "\xC2\xB1" + fmtNum("%.1f", v) + " bands";
+    case FMT_ABMIX:
+      if (v <= 0) return "A";
+      if (v >= 1) return "B";
+      return "A " + fmtNum("%.0f", jsRound((1 - v) * 100)) + " \xC2\xB7 B " + fmtNum("%.0f", jsRound(v * 100));
     default: return fmtNum("%.2f", v);
   }
 }
@@ -86,6 +91,18 @@ inline bool parseValue(const ParamDef& p, std::string s, double& out) {
   if (p.fmt == FMT_CHOICE) {
     std::string t = s; while (!t.empty() && t.back() == ' ') t.pop_back(); while (!t.empty() && t[0] == ' ') t.erase(0, 1);
     for (int i = 0; i < p.numChoices; i++) if (lower(p.choices[i]) == lower(t)) { out = i; return true; }
+  }
+  if (p.fmt == FMT_ABMIX) {   // "A", "B", or the B share in percent ("A 70 · B 30" or "30")
+    std::string t = lower(s); while (!t.empty() && t.back() == ' ') t.pop_back(); while (!t.empty() && t[0] == ' ') t.erase(0, 1);
+    if (t == "a") { out = 0; return true; }
+    if (t == "b") { out = 1; return true; }
+    size_t k = t.find('b');
+    const char* c = t.c_str() + (k == std::string::npos ? 0 : k + 1);
+    while (*c == ' ') c++;
+    char* end = nullptr; double v = std::strtod(c, &end);
+    if (end == c) return false;
+    out = std::min(1.0, std::max(0.0, v / 100));
+    return true;
   }
   size_t m = s.find("\xE2\x88\x92"); if (m != std::string::npos) s.replace(m, 3, "-");
   if (p.fmt == FMT_SEC && lower(s).find("off") != std::string::npos) { out = p.min; return true; }
@@ -237,12 +254,37 @@ struct Tables {
   double bandScale[NB];
   std::vector<float> mips;      // NMIP * TW (empty when built without mips)
   std::vector<float> rms;       // NMIP * NL
+  // engines A and B mixed: the other engine's mip tables (mode altMode)
+  bool hasAlt = false; int altMode = 0;
+  std::vector<float> altMips, altRms;
   Tables() : layers((size_t)NL * N), coeffs(N) {}
   const double* layer(int l) const { return layers.data() + (size_t)l * N; }
 };
 
+// Which table sets the sound needs: bit 0 = engine A (A/B MIX below B), bit 1 = engine B (MIX above A).
+inline int tableNeeds(const double* params) {
+  const double m = params[P_AB_MIX];
+  return (m < 1 ? 1 : 0) | (m > 0 ? 2 : 0);
+}
+
+inline void buildSet(const double* params, int mode, bool withMips, Tables& t);
+
+// withMips=false: the engine shown on the panel (displays). withMips=true: what the sound needs, engine A or B
+// alone, or both when mixed (the engine shown on the panel is the main set, the other one the alt set).
 inline void buildTables(const double* params, bool withMips, Tables& t) {
-  t.mode = (int)jsRound(params[P_ENGINE]);
+  const int view = (int)jsRound(params[P_ENGINE]);
+  t.hasAlt = false; t.altMips.clear(); t.altRms.clear();
+  if (!withMips) { buildSet(params, view, false, t); return; }
+  const int need = tableNeeds(params);
+  if (need != 3) { buildSet(params, need == 1 ? 0 : 1, true, t); return; }
+  buildSet(params, view, true, t);
+  Tables a;
+  buildSet(params, 1 - view, true, a);
+  t.hasAlt = true; t.altMode = a.mode; t.altMips.swap(a.mips); t.altRms.swap(a.rms);
+}
+
+inline void buildSet(const double* params, int mode, bool withMips, Tables& t) {
+  t.mode = mode;
   const Filter& f = filter((int)jsRound(params[P_WAVELET]));
   double* c = t.coeffs.data();
   std::vector<double> band(N), l(N);
@@ -407,7 +449,16 @@ struct Voice {
   double pc = 0, pw = 1, pd = 0;
 };
 
-struct TableRef { int mode = 0; const float* mips = nullptr; const float* rms = nullptr; const void* owner = nullptr; };
+struct TableRef {
+  int mode = 0; const float* mips = nullptr; const float* rms = nullptr; const void* owner = nullptr;
+  int altMode = 0; const float* altMips = nullptr; const float* altRms = nullptr;   // engines A and B mixed
+};
+inline TableRef tableRef(const Tables& t) {
+  TableRef r;
+  r.mode = t.mode; r.mips = t.mips.data(); r.rms = t.rms.data(); r.owner = &t;
+  if (t.hasAlt) { r.altMode = t.altMode; r.altMips = t.altMips.data(); r.altRms = t.altRms.data(); }
+  return r;
+}
 
 struct Display {
   float gains[NB] = {}; int mode = 0; uint32_t voices = 0; float peakL = 0, peakR = 0;
@@ -446,6 +497,9 @@ class Engine {
     }
     vol = std::pow(10.0, p[P_MASTER] / 20);
     dcR = 1 - 2 * PI * 10 / sr; dcxL = dcyL = dcxR = dcyR = 0;
+    chLen = (int)std::ceil(sr * 0.03) + 4;
+    chBuf.assign(chLen, 0.0f); chW = 0; chPh = 0; chPh2 = 0;
+    mixSm = p[P_AB_MIX];
   }
 
   // Called on deactivation: also forgets the voices' pitch memory so that a render (export, freeze)
@@ -457,6 +511,7 @@ class Engine {
     std::fill(dlyL.begin(), dlyL.end(), 0.0f); std::fill(dlyR.begin(), dlyR.end(), 0.0f);
     for (auto& c : combs) { std::fill(c.buf.begin(), c.buf.end(), 0.0f); c.f = 0; }
     for (auto& a : aps) std::fill(a.buf.begin(), a.buf.end(), 0.0f);
+    std::fill(chBuf.begin(), chBuf.end(), 0.0f);
     dcxL = dcyL = dcxR = dcyR = 0;
   }
 
@@ -560,6 +615,7 @@ class Engine {
     std::fill(dlyL.begin(), dlyL.end(), 0.0f); std::fill(dlyR.begin(), dlyR.end(), 0.0f); lpL = lpR = 0;
     for (auto& c : combs) { std::fill(c.buf.begin(), c.buf.end(), 0.0f); c.f = 0; }
     for (auto& a : aps) std::fill(a.buf.begin(), a.buf.end(), 0.0f);
+    std::fill(chBuf.begin(), chBuf.end(), 0.0f);
   }
 
   // Process n samples (any n) into outL/outR (overwrites).
@@ -574,6 +630,8 @@ class Engine {
   std::vector<float> dlyL, dlyR; int dlyLen = 0, dlyW = 0; double dlyT = 0, lpL = 0, lpR = 0;
   Comb combs[16]; AP aps[8];
   double vol = 0.5, dcR = 0.999, dcxL = 0, dcyL = 0, dcxR = 0, dcyR = 0;
+  std::vector<float> chBuf; int chLen = 0, chW = 0; double chPh = 0, chPh2 = 0;   // triple chorus
+  double mixSm = 0;                                                               // smoothed A/B MIX
   float bufL[CTRL], bufR[CTRL];
   double fg[NB], tmpB[NB], lg[NB], panL[4], panR[4], inc[4], endPhase[4];
   int act[NL];
@@ -666,8 +724,10 @@ class Engine {
     vc.pd = p[P_P_DEPTH];
   }
 
-  void renderVoice(const Voice& vc, int n, const TableRef& t, double fade0, double fadeInc, bool invert) {
-    const int mode = t.mode; const float* mips = t.mips; const float* rms = t.rms;
+  // gain0/gainInc: the A/B MIX share of this table set (1, 0 when it plays alone); withSub: adds the sub oscillator
+  // (once per voice, at full level whatever the mix).
+  void renderVoice(const Voice& vc, int n, int mode, const float* mips, const float* rms, double fade0, double fadeInc,
+                   bool invert, double gain0, double gainInc, bool withSub) {
     const size_t off = (size_t)vc.mip * TW;
     const double* g = mode == 0 ? vc.gA : vc.gB; const double* dg = mode == 0 ? vc.dA : vc.dB;
     // A fundamental at or above Nyquist can only alias: the wavetable part of such a voice stays silent.
@@ -695,18 +755,20 @@ class Engine {
     // sub oscillator: one per voice (not per unison voice), centred, not filtered
     const double subLvl = p[P_SUB_LEVEL];
     const double subInc = vc.f0 * ((int)jsRound(p[P_SUB_OCT]) == 1 ? 0.25 : 0.5) / sr;
-    const bool subOn = subLvl > 0 && subInc < 0.5;   // silent when it would alias (above Nyquist)
+    const bool subOn = withSub && subLvl > 0 && subInc < 0.5;   // silent when it would alias (above Nyquist)
     const int subShape = (int)jsRound(p[P_SUB_SHAPE]);
+    const bool unity = gain0 == 1 && gainInc == 0;
     double sph = vc.subPhase;
-    double fade = fade0;
+    double fade = fade0, gain = gain0;
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < na; j++) { int b = act[j]; lg[b] += dg[b]; }
       if (st == 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
       else if (st == 2) lev = s + (lev - s) * dC;
       else if (st == 3) { lev *= rC; if (lev < 1e-5) { lev = 0; st = 0; } }
       double fg1 = fade >= 1 ? 1 : fade;
-      double env = lev * velGain * (invert ? 1 - fg1 : fg1);
-      fade += fadeInc;
+      double envBase = lev * velGain * (invert ? 1 - fg1 : fg1);
+      double env = unity ? envBase : envBase * gain;
+      fade += fadeInc; gain += gainInc;
       double oL = 0, oR = 0;
       for (int u = 0; u < U; u++) {
         double x = endPhase[u] + inc[u];
@@ -732,14 +794,26 @@ class Engine {
         }
         oL += y * panL[u]; oR += y * panR[u];
       }
+      double sv = 0;
       if (subOn) {
         sph += subInc; if (sph >= 1) sph -= std::floor(sph);
-        double sv = subLvl * subWave(sph, subInc, subShape);
-        oL += sv; oR += sv;
+        sv = subLvl * subWave(sph, subInc, subShape);
+        if (unity) { oL += sv; oR += sv; }
       }
-      bufL[i] += (float)(oL * env); bufR[i] += (float)(oR * env);
+      if (unity) { bufL[i] += (float)(oL * env); bufR[i] += (float)(oR * env); }
+      else { bufL[i] += (float)(oL * env + sv * envBase); bufR[i] += (float)(oR * env + sv * envBase); }
     }
-    endLevel = lev; endStage = st; endSubPhase = sph;
+    endLevel = lev; endStage = st;
+    if (withSub) endSubPhase = sph;
+  }
+
+  // Renders one voice with a table set and, when engines A and B are mixed, its alt set: shares 1 - mix (A) and
+  // mix (B), moving from m0 to m1 across the block; the sub oscillator is rendered once.
+  void renderSet(const Voice& vc, int n, const TableRef& t, double fade0, double fadeInc, bool invert, double m0, double m1) {
+    if (!t.altMips) { renderVoice(vc, n, t.mode, t.mips, t.rms, fade0, fadeInc, invert, 1, 0, true); return; }
+    const double g0 = t.mode == 0 ? 1 - m0 : m0, g1 = t.mode == 0 ? 1 - m1 : m1;
+    renderVoice(vc, n, t.mode, t.mips, t.rms, fade0, fadeInc, invert, g0, (g1 - g0) / n, true);
+    renderVoice(vc, n, t.altMode, t.altMips, t.altRms, fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
   }
 
   void block(float* outL, float* outR, int o, int n) {
@@ -748,12 +822,16 @@ class Engine {
     uint32_t vmask = 0;
     const bool fading = hasPrev;
     const double fadeInc = fading ? 1.0 / 512 : 0, fade0 = fading ? fade : 1;
+    // A/B MIX, smoothed (20 ms) so that turning the knob does not click
+    const double m0 = mixSm;
+    mixSm += (p[P_AB_MIX] - mixSm) * (1 - std::exp(-n / (0.02 * sr)));
+    const double m1 = mixSm;
     for (int k = 0; k < MAXV; k++) {
       Voice& vc = voices[k];
       if (!vc.active || !hasCur) continue;
       control(vc, n);
-      if (fading) renderVoice(vc, n, prev, fade0, fadeInc, true);
-      renderVoice(vc, n, cur, fade0, fadeInc, false);
+      if (fading) renderSet(vc, n, prev, fade0, fadeInc, true, m0, m1);
+      renderSet(vc, n, cur, fade0, fadeInc, false, m0, m1);
       vc.amp.level = endLevel; vc.amp.stage = endStage;
       for (int u = 0; u < 4; u++) vc.phase[u] = endPhase[u];
       vc.subPhase = endSubPhase;
@@ -772,6 +850,8 @@ class Engine {
     const double dTarget = p[P_FX_DTIME] * sr;
     const double feedback = 0.7 + 0.28 * p[P_FX_RSIZE], damp = 0.25;
     const double volT = std::pow(10.0, p[P_MASTER] / 20);
+    const double chMix = p[P_CH_MIX], chBase = CH_BASE * sr, chDepth = p[P_CH_DEPTH] * CH_DEPTH * sr;
+    const double chInc = p[P_CH_RATE] / sr, chInc2 = chInc * CH_FAST;
     float pkL = disp.peakL, pkR = disp.peakR;
     for (int i = 0; i < n; i++) {
       double l = bufL[i], r = bufR[i];
@@ -779,6 +859,23 @@ class Engine {
         l = (1 - drive) * l + drive * std::tanh(kd * l) * comp;
         r = (1 - drive) * r + drive * std::tanh(kd * r) * comp;
       }
+      // string-machine triple chorus: three delay lines swept by a slow and a fast LFO, 120° apart,
+      // spread left / centre / right
+      chBuf[chW] = (float)(0.5 * (l + r));
+      if (chMix > 0) {
+        chPh += chInc; if (chPh >= 1) chPh -= 1;
+        chPh2 += chInc2; if (chPh2 >= 1) chPh2 -= 1;
+        double v[3];
+        for (int c = 0; c < 3; c++) {
+          const double mo = 0.8 * std::sin(2 * PI * (chPh + c / 3.0)) + 0.2 * std::sin(2 * PI * (chPh2 + c / 3.0));
+          double rp = chW - (chBase + chDepth * (1 + mo)); if (rp < 0) rp += chLen;
+          const int i0 = (int)std::floor(rp), i1 = (i0 + 1) % chLen; const double fr = rp - i0;
+          v[c] = chBuf[i0] + fr * (chBuf[i1] - chBuf[i0]);
+        }
+        l += chMix * ((2 * v[0] + v[1]) / 3 - l);
+        r += chMix * ((2 * v[2] + v[1]) / 3 - r);
+      }
+      if (++chW >= chLen) chW = 0;
       dlyT += (dTarget - dlyT) * 0.0005;
       if (dmix > 0 || fb > 0) {
         double rp = dlyW - dlyT; if (rp < 0) rp += dlyLen;

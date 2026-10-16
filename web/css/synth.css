@@ -100,9 +100,9 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
 .pmenu .it { padding: 6px 14px; font-size: 12.5px; cursor: pointer; display: flex; justify-content: space-between; }
 .pmenu .it:hover { background: rgba(255,255,255,0.06); }
 .pmenu .it.cur { color: var(--accent); }
-.pmenu .eng { display: inline-block; width: 18px; font-weight: 800; }
-.pmenu .eng.a { color: var(--accent-a); }
-.pmenu .eng.b { color: var(--accent-b); }
+.pmenu .eng { display: inline-block; width: 24px; font-weight: 800; }
+.pmenu .eng .a { color: var(--accent-a); }
+.pmenu .eng .b { color: var(--accent-b); }
 .pmenu .it .del { color: var(--faint); visibility: hidden; }
 .pmenu .it:hover .del { visibility: visible; }
 .pmenu .it .del:hover { color: var(--danger); }

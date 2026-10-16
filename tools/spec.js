@@ -3,6 +3,7 @@
 // Wavelet Synthesizer — single source of truth.
 // Created by Pierre Arnaud GUYOT ("OktoPierre"). Release history: see RELEASE_HISTORY.md
 //   beta 0.1 (2026-10-14) — first release.
+//   beta 0.2 (2026-10-15) — engines A and B mixed (A/B MIX), triple chorus, new presets.
 // Parameters, panel layout and factory presets are defined here once and
 // generated into web/js/spec.js and vst/src/generated/spec.h by gen_spec.js.
 // Parameter order defines the VST3 ParamIDs: append only, never reorder.
@@ -15,9 +16,9 @@ const APP = {
   credit: 'created by OktoPierre',   // shown on the panel
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: 'beta 0.1',
-  versionNum: '0.1.0',
-  date: '2026-10-14',
+  version: 'beta 0.2',
+  versionNum: '0.2.0',
+  date: '2026-10-15',
 };
 const DEFAULT_PRESET = 'A · Warm Pad';   // sound loaded when the app / a new plugin instance opens (first preset)
 
@@ -98,6 +99,13 @@ add('sub_shape', 'Sub Shape', 'SHAPE', { curve: 'choice', fmt: 'choice', min: 0,
 // one note at a time = from the previous note); Legato only = glide only while another key is held
 add('v_porta', 'Portamento', 'PORTA', { curve: 'choice', fmt: 'choice', min: 0, max: 2, def: 1,
   choices: ['Off', 'Poly', 'Legato only'], choiceShort: ['OFF', 'POLY', 'LEGATO'] });
+// beta 0.2: engines A and B mixed, and a string-machine triple chorus.
+// A/B MIX makes the sound (0 = engine A alone, 1 = engine B alone); the ENGINE tabs only choose the panel shown.
+// States and presets saved without A/B MIX get A/B MIX = ENGINE, so they sound as before.
+add('ab_mix', 'A/B Mix', 'MIX', { fmt: 'abmix', min: 0, max: 1, def: 0 });
+add('ch_mix', 'Chorus', 'CHORUS', { min: 0, max: 1, def: 0 });
+add('ch_rate', 'Chorus Rate', 'RATE', { curve: 'exp', fmt: 'hz', min: 0.1, max: 3, def: 0.7 });
+add('ch_depth', 'Chorus Depth', 'DEPTH', { min: 0, max: 1, def: 0.6 });
 
 const idx = Object.fromEntries(P.map((p, i) => [p.key, i]));
 
@@ -126,8 +134,9 @@ section('engA', 'ENGINE A · WAVELET SUBTRACTIVE', 12, 56, 544, 260, 'A', [
   { type: 'atom', x: 12, y: 70, w: 250, h: 136 },
   { type: 'step', param: 'wavelet', x: 12, y: 214, w: 250, h: 30 },
   { type: 'source', x: 276, y: 70, w: 256, h: 64 },
-  kn('a_width', 290, 146, 'knobL'),
-  kn('a_sparsity', 410, 146, 'knobL'),
+  kn('a_width', 280, 146, 'knobL'),
+  kn('a_sparsity', 376, 146, 'knobL'),
+  kn('ab_mix', 470, 180),   // same place in both engine panels
 ]);
 
 const bars = [];
@@ -137,7 +146,7 @@ section('engB', 'ENGINE B · WAVELET ADDITIVE', 12, 56, 544, 260, 'B', [
   ...bars,
   { type: 'atom', x: 356, y: 70, w: 176, h: 64 },
   { type: 'step', param: 'wavelet', x: 356, y: 140, w: 176, h: 28 },
-  kn('b_tilt', 368, 180), kn('b_seed', 444, 180),
+  kn('b_tilt', 356, 180), kn('b_seed', 412, 180), kn('ab_mix', 470, 180),
   ...row(['b_atk', 'b_spread', 'b_body', 'b_bright', 'b_sus'], 12, 198),
 ]);
 
@@ -177,7 +186,7 @@ section('fx', 'EFFECTS', 700, 472, 388, 140, '', [
 ]);
 section('keys', '', 0, 620, 1100, 100, '', [
   { type: 'wheels', x: 12, y: 0, w: 60, h: 84 },
-  { type: 'keyboard', x: 216, y: 0, w: 872, h: 84 },
+  { type: 'keyboard', x: 352, y: 0, w: 736, h: 84 },
   { type: 'credit', x: 588, y: 87, w: 500, h: 12 },
 ]);
 // knobT = tiny knob with label (cell 40 x 56)
@@ -185,6 +194,11 @@ section('sub', 'SUB OSC', 80, 620, 128, 84, '', [
   { type: 'knobT', param: 'sub_level', x: 4, y: 22, w: 40, h: 58 },
   { type: 'knobT', param: 'sub_oct', x: 44, y: 22, w: 40, h: 58 },
   { type: 'knobT', param: 'sub_shape', x: 84, y: 22, w: 40, h: 58 },
+]);
+section('chorus', 'CHORUS', 216, 620, 128, 84, '', [
+  { type: 'knobT', param: 'ch_mix', x: 4, y: 22, w: 40, h: 58 },
+  { type: 'knobT', param: 'ch_rate', x: 44, y: 22, w: 40, h: 58 },
+  { type: 'knobT', param: 'ch_depth', x: 84, y: 22, w: 40, h: 58 },
 ]);
 
 // ---------------------------------------------------------------- presets
@@ -272,20 +286,104 @@ const PRESET_LIST = [
     ...bars11([1, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0, 0, 0, 0]), lfo_shape: 4, lfo_rate: 7, lfo_pos: 0.5,
     p_depth: 0.8, p_width: 0.3, lfo_cut: 2, f_cutoff: 10, b_atk: 0.4, b_spread: -1, amp_a: 0.3, amp_r: 2,
     fx_dtime: 0.33, fx_dfb: 0.7, fx_dmix: 0.4, fx_rsize: 0.9, fx_rmix: 0.5, master: -2 } },
+
+  // ---- beta 0.2: string-machine chorus
+  { name: 'A · String Machine', v: { engine: 0, a_wave: 0, wavelet: 6, f_cutoff: 7.5, f_slope: 18, f_res: 2, f_keytrk: 0.6,
+    amp_a: 0.35, amp_d: 1, amp_s: 0.9, amp_r: 0.9, amp_vel: 0.2, v_voices: 16, ch_mix: 0.85, ch_rate: 0.65, ch_depth: 0.75,
+    fx_rsize: 0.75, fx_rmix: 0.28, master: -6 } },
+  { name: 'A · Solina Cellos', v: { engine: 0, a_wave: 0, wavelet: 5, v_oct: -1, f_cutoff: 5.5, f_slope: 24, f_res: 3,
+    amp_a: 0.25, amp_s: 0.9, amp_r: 0.7, ch_mix: 0.8, ch_rate: 0.55, ch_depth: 0.8, sub_level: 0.25, sub_shape: 0,
+    fx_rmix: 0.25, master: -6 } },
+  { name: 'A · Poly Chorus Pad', v: { engine: 0, a_wave: 2, a_width: 0.3, wavelet: 4, f_cutoff: 5, f_res: 6, lfo_rate: 0.35,
+    lfo_cut: 1.2, amp_a: 0.5, amp_s: 0.85, amp_r: 1.2, ch_mix: 0.6, ch_rate: 0.9, ch_depth: 0.55, fx_dmix: 0.12, fx_rmix: 0.3,
+    master: -6 } },
+  { name: 'A · Chorus Square Lead', v: { engine: 0, a_wave: 1, wavelet: 3, f_cutoff: 6, f_res: 7, f_env: 2.5, mod_d: 0.4,
+    mod_s: 0.3, v_voices: 1, v_glide: 0.05, v_porta: 2, lfo_rate: 5, lfo_pitch: 6, ch_mix: 0.45, ch_rate: 1.2, ch_depth: 0.5,
+    fx_dtime: 0.33, fx_dmix: 0.18, fx_rmix: 0.15, master: -3 } },
+  { name: 'B · Ensemble Organ', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: 0,
+    ...bars11([1, 0.8, 0.6, 0.7, 0.3, 0.5, 0.2, 0, 0, 0, 0]), amp_a: 0.01, amp_d: 0.1, amp_s: 1, amp_r: 0.12,
+    ch_mix: 0.7, ch_rate: 0.8, ch_depth: 0.6, fx_rmix: 0.2, master: -1 } },
+  { name: 'B · Glass Ensemble', v: { engine: 1, wavelet: 3, b_pattern: 4, b_tilt: -3, b_atk: 0.1, b_spread: 0.4, b_body: 4,
+    b_bright: 1.2, b_sus: 0.6, amp_a: 0.2, amp_s: 0.9, amp_r: 1.5, ch_mix: 0.75, ch_rate: 0.5, ch_depth: 0.7, fx_rmix: 0.4,
+    master: 6 } },
+  { name: 'B · Chorus Flute', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: -9, ...bars11([1, 0.5, 0.2, 0.1, 0, 0, 0, 0, 0, 0, 0]),
+    b_atk: 0.08, b_spread: 0.6, amp_a: 0.06, amp_s: 0.9, amp_r: 0.3, lfo_rate: 5, lfo_pitch: 6, ch_mix: 0.55, ch_rate: 0.7,
+    ch_depth: 0.5, fx_rmix: 0.18 } },
+  // ---- beta 0.2: sub oscillator
+  { name: 'A · Sub Saw Bass', v: { engine: 0, a_wave: 0, wavelet: 2, f_cutoff: 3.8, f_slope: 30, f_res: 7, f_env: 3, mod_d: 0.3,
+    mod_s: 0.15, amp_a: 0.002, amp_d: 0.5, amp_s: 0.75, amp_r: 0.1, v_oct: -1, v_voices: 1, v_glide: 0.04, v_porta: 2,
+    sub_level: 0.7, sub_oct: 0, sub_shape: 2, fx_drive: 0.15, master: -6 } },
+  { name: 'A · Reese Sub', v: { engine: 0, a_wave: 0, wavelet: 4, f_cutoff: 4.2, f_res: 4, amp_r: 0.12, v_oct: -1, v_voices: 1,
+    v_unison: 3, v_detune: 22, v_width: 0.6, lfo_rate: 0.2, lfo_cut: 0.6, sub_level: 0.75, sub_oct: 0, sub_shape: 0,
+    fx_drive: 0.25, master: -7 } },
+  { name: 'A · Acid Sub', v: { engine: 0, a_wave: 1, wavelet: 0, f_cutoff: 2.5, f_slope: 48, f_res: 18, f_env: 6, f_vel: 2,
+    mod_d: 0.22, mod_s: 0, amp_a: 0.002, amp_d: 0.3, amp_s: 0.6, amp_r: 0.08, v_oct: -1, v_voices: 1, v_glide: 0.08, v_porta: 2,
+    sub_level: 0.55, sub_oct: 0, sub_shape: 1, fx_drive: 0.35, fx_dtime: 0.375, fx_dfb: 0.4, fx_dmix: 0.15, master: -7 } },
+  { name: 'B · Sub Organ Bass', v: { engine: 1, wavelet: 6, b_pattern: 0, b_tilt: -3, ...bars11([1, 0.7, 0.4, 0.2, 0, 0, 0, 0, 0, 0, 0]),
+    amp_a: 0.005, amp_d: 0.2, amp_s: 0.9, amp_r: 0.1, v_oct: -1, v_voices: 1, sub_level: 0.8, sub_oct: 1, sub_shape: 0,
+    master: -5 } },
+  { name: 'A · Deep Sub Pluck', v: { engine: 0, a_wave: 3, wavelet: 3, f_cutoff: 4, f_env: 5, mod_d: 0.25, mod_s: 0,
+    amp_a: 0.001, amp_d: 0.9, amp_s: 0, amp_r: 0.3, v_oct: -1, sub_level: 0.8, sub_oct: 1, sub_shape: 0, fx_rmix: 0.1,
+    master: -5 } },
+  // ---- beta 0.2: engines A and B mixed
+  { name: 'AB · Hybrid Strings', v: { engine: 0, ab_mix: 0.4, a_wave: 0, wavelet: 6, b_pattern: 1, b_tilt: -6, f_cutoff: 7,
+    f_slope: 18, amp_a: 0.4, amp_s: 0.9, amp_r: 1, v_unison: 2, v_detune: 10, ch_mix: 0.7, ch_rate: 0.6, ch_depth: 0.7,
+    fx_rmix: 0.3, master: 0 } },
+  { name: 'AB · Wavelet Choir', v: { engine: 1, ab_mix: 0.55, a_wave: 3, wavelet: 6, b_pattern: 1, b_tilt: -6, b_atk: 0.8,
+    b_spread: 1, amp_a: 0.9, amp_s: 1, amp_r: 2.5, v_unison: 3, v_detune: 18, lfo_rate: 0.25, lfo_pos: 0.2, p_depth: 0.4,
+    ch_mix: 0.5, ch_rate: 0.45, ch_depth: 0.6, fx_rsize: 0.9, fx_rmix: 0.6, master: -5 } },
+  { name: 'AB · Bell Pad', v: { engine: 1, ab_mix: 0.45, a_wave: 0, wavelet: 4, f_cutoff: 5.5, b_pattern: 3, b_tilt: -3,
+    b_atk: 0.002, b_body: 4, b_bright: 0.6, b_sus: 0.2, amp_a: 0.3, amp_d: 3, amp_s: 0.6, amp_r: 2, ch_mix: 0.4,
+    fx_dmix: 0.18, fx_rmix: 0.45, master: -1 } },
+  { name: 'AB · Hybrid Keys', v: { engine: 0, ab_mix: 0.5, a_wave: 1, wavelet: 3, f_cutoff: 6.5, f_env: 3, mod_d: 0.5, mod_s: 0.1,
+    b_pattern: 4, b_tilt: -2, b_body: 1.2, b_bright: 0.15, b_sus: 0.1, amp_a: 0.002, amp_d: 1.4, amp_s: 0.25, amp_r: 0.4,
+    amp_vel: 0.7, ch_mix: 0.3, fx_rmix: 0.15, master: 0 } },
+  { name: 'AB · Organ Lead', v: { engine: 1, ab_mix: 0.35, a_wave: 0, wavelet: 6, f_cutoff: 6, f_res: 6,
+    ...bars11([1, 0.8, 0.6, 0.7, 0.3, 0.5, 0.2, 0, 0, 0, 0]), amp_a: 0.01, amp_s: 1, amp_r: 0.1, v_voices: 1, v_glide: 0.06,
+    v_porta: 2, lfo_rate: 6, lfo_pitch: 7, fx_drive: 0.25, fx_dmix: 0.2, fx_rmix: 0.15, master: -2 } },
+  { name: 'AB · Sub Hybrid Bass', v: { engine: 0, ab_mix: 0.3, a_wave: 0, wavelet: 0, f_cutoff: 3.5, f_res: 8, f_env: 3.5,
+    mod_d: 0.25, mod_s: 0.1, b_pattern: 1, b_tilt: 2, ...bars11([1, 0.6, 0.5, 0.3, 0, 0, 0, 0, 0, 0, 0]), amp_a: 0.002,
+    amp_d: 0.4, amp_s: 0.8, amp_r: 0.08, v_oct: -1, v_voices: 1, sub_level: 0.6, sub_shape: 0, fx_drive: 0.3, master: -4 } },
+  { name: 'AB · Dream Pad', v: { engine: 0, ab_mix: 0.5, a_wave: 2, a_width: 0.4, wavelet: 5, f_cutoff: 5, f_res: 5,
+    lfo_rate: 0.2, lfo_cut: 1, lfo_pos: 0.25, p_depth: 0.4, b_pattern: 1, b_tilt: -6, b_atk: 1, b_spread: 0.8, amp_a: 1.2,
+    amp_s: 0.9, amp_r: 3, v_unison: 3, v_detune: 14, ch_mix: 0.65, ch_rate: 0.4, ch_depth: 0.7, fx_dmix: 0.15,
+    fx_rsize: 0.85, fx_rmix: 0.55, master: -3 } },
+  { name: 'AB · Space Strings', v: { engine: 0, ab_mix: 0.3, a_wave: 0, wavelet: 6, f_cutoff: 8, b_pattern: 0, b_tilt: -4,
+    amp_a: 0.6, amp_s: 0.9, amp_r: 2, ch_mix: 0.9, ch_rate: 0.55, ch_depth: 0.85, fx_dtime: 0.5, fx_dfb: 0.45, fx_dmix: 0.2,
+    fx_rsize: 0.9, fx_rmix: 0.5, master: -5 } },
+  { name: 'AB · Glass Keys', v: { engine: 1, ab_mix: 0.6, a_wave: 4, wavelet: 3, b_pattern: 4, b_tilt: -3, b_body: 2,
+    b_bright: 0.25, b_sus: 0, amp_a: 0.002, amp_d: 2, amp_s: 0, amp_r: 1, amp_vel: 0.6, ch_mix: 0.35, fx_rmix: 0.3, master: 1 } },
+  { name: 'AB · Wide Brass', v: { engine: 0, ab_mix: 0.3, a_wave: 0, wavelet: 3, f_cutoff: 3.5, f_res: 5, f_env: 5, mod_a: 0.06,
+    mod_d: 0.5, mod_s: 0.5, b_pattern: 0, b_tilt: -2, amp_a: 0.04, amp_s: 0.9, amp_r: 0.3, v_unison: 2, v_detune: 10,
+    ch_mix: 0.35, ch_rate: 0.8, fx_rmix: 0.2, master: -3 } },
+  { name: 'AB · Chip Hybrid', v: { engine: 1, ab_mix: 0.5, a_wave: 1, wavelet: 0, f_cutoff: 9, b_pattern: 3,
+    ...bars11([1, 0.5, 0.7, 0, 0.4, 0, 0, 0, 0, 0, 0]), amp_a: 0.001, amp_d: 0.25, amp_s: 0.6, amp_r: 0.05, v_voices: 1,
+    v_glide: 0.02, v_porta: 2, fx_dtime: 0.25, fx_dfb: 0.5, fx_dmix: 0.25, master: -3 } },
+  { name: 'AB · Shimmer Pluck', v: { engine: 0, ab_mix: 0.4, a_wave: 0, wavelet: 4, f_cutoff: 3, f_env: 6, mod_d: 0.35, mod_s: 0,
+    b_pattern: 5, b_seed: 7, b_tilt: -2, b_body: 2, b_bright: 0.3, b_sus: 0, amp_a: 0.001, amp_d: 1.2, amp_s: 0, amp_r: 0.5,
+    ch_mix: 0.5, fx_dtime: 0.3, fx_dfb: 0.5, fx_dmix: 0.3, fx_rmix: 0.35, master: 0 } },
 ];
+// Presets saved before A/B MIX existed play the engine they were made for.
+for (const pr of PRESET_LIST) if (pr.v.ab_mix === undefined) pr.v.ab_mix = pr.v.engine || 0;
 // Factory order (preset menu, ◀ ▶ and the DEMO preset tour): OktoPierre's favourite sounds first, in his order,
-// then the other presets alternating engine B (additive) and engine A (subtractive), and the two Init presets last.
+// then the beta 0.2 presets (chorus, sub oscillator, A + B mix, interleaved), then the other presets alternating
+// engine B (additive) and engine A (subtractive), and the two Init presets last.
 const FAVOURITES = ['A · Square Mod 2', 'A · Wavelet Lead', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep',
   'B · Soft Flute', 'A · Infra Sub Bass', 'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'A · Warm Pad',
   'B · Mirror Sub Bass', 'A · Sparse Keys', 'B · Space Choir', 'A · Square Mod'];
-const PRESETS = FAVOURITES.map((n) => {
+const NEW_V02 = ['A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ',
+  'AB · Bell Pad', 'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'B · Sub Organ Bass', 'AB · Hybrid Keys',
+  'A · Poly Chorus Pad', 'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Space Strings', 'AB · Sub Hybrid Bass',
+  'A · Chorus Square Lead', 'AB · Glass Keys', 'B · Chorus Flute', 'AB · Wide Brass', 'A · Deep Sub Pluck', 'AB · Chip Hybrid',
+  'AB · Shimmer Pluck'];
+const PRESETS = FAVOURITES.concat(NEW_V02).map((n) => {
   const p = PRESET_LIST.find(x => x.name === n);
-  if (!p) throw new Error('favourite preset not found: ' + n);
+  if (!p) throw new Error('preset not found: ' + n);
   return p;
 });
 {
   const INIT = ['A · Init', 'B · Init'];
-  const rest = PRESET_LIST.filter(p => !FAVOURITES.includes(p.name) && !INIT.includes(p.name));
+  const rest = PRESET_LIST.filter(p => !FAVOURITES.includes(p.name) && !NEW_V02.includes(p.name) && !INIT.includes(p.name));
   const listA = rest.filter(p => p.name.startsWith('A')), listB = rest.filter(p => p.name.startsWith('B'));
   for (let i = 0; i < Math.max(listA.length, listB.length); i++) {
     if (listB[i]) PRESETS.push(listB[i]);

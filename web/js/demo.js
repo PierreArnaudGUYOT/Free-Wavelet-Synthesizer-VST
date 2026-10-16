@@ -186,14 +186,20 @@ function WSDemo(api) {
     if (style.intro && out.length > 1) Object.assign(out[0], { param: style.intro.param, ramp: [0, out[1].t, style.intro.from, style.intro.to] });
     return out;
   }
+  function engineLabel() {   // what the sound uses (A/B MIX), not the panel shown
+    const m = api.values()[P.ab_mix];
+    return m <= 0 ? 'Engine A · Wavelet Subtractive' : m >= 1 ? 'Engine B · Wavelet Additive' : 'Engines A + B mixed';
+  }
   function presetSummary() {
     const v = api.values(), f = (k) => C.format(PARAMS[P[k]], v[P[k]]);
-    const parts = [];
-    if (Math.round(v[P.engine]) === 0) parts.push(`${f('a_wave')} wave through the scale filter (${f('f_type').toLowerCase()}, ${f('f_cutoff')}, reso ${f('f_res')})`);
-    else parts.push(`${f('b_pattern')} atom pattern, tilt ${f('b_tilt')}`);
+    const parts = [], mix = v[P.ab_mix];
+    const aTxt = `${f('a_wave')} wave through the scale filter (${f('f_type').toLowerCase()}, ${f('f_cutoff')}, reso ${f('f_res')})`;
+    const bTxt = `${f('b_pattern')} atom pattern, tilt ${f('b_tilt')}`;
+    parts.push(mix <= 0 ? aTxt : mix >= 1 ? bTxt : `engines mixed ${f('ab_mix')}: ${aTxt} + ${bTxt}`);
     parts.push(`${f('wavelet')} atoms`);
     if (v[P.sub_level] > 0) parts.push(`sub ${f('sub_shape').toLowerCase()} ${f('sub_oct')}`);
     const fx = [];
+    if (v[P.ch_mix] > 0.05) fx.push('chorus');
     if (v[P.fx_drive] > 0.02) fx.push('drive');
     if (v[P.fx_dmix] > 0.05) fx.push('delay');
     if (v[P.fx_rmix] > 0.05) fx.push('reverb');
@@ -253,7 +259,7 @@ function WSDemo(api) {
       st.scene = k;
       api.setPresetLabel(sc.preset, !!sc.ramp);   // a moving control modifies the preset
       api.ui.setHot(sc.ramp ? [P[sc.param]] : []);
-      const engine = Math.round(api.values()[P.engine]) === 0 ? 'Engine A · Wavelet Subtractive' : 'Engine B · Wavelet Additive';
+      const engine = engineLabel();
       win.sec.textContent = `Preset tour · ${sc.pos + 1}/${sc.of} · ${engine}`;
       win.param.textContent = 'Now playing: ' + sc.preset;
       win.text.textContent = sc.ramp
@@ -267,7 +273,7 @@ function WSDemo(api) {
     const hot = sc.param === 'drawbars' ? Array.from({ length: 11 }, (_, i) => P['b_bar' + (i + 1)]) : [P[sc.param]];
     api.ui.setHot(hot);
     const name = sc.param === 'drawbars' ? 'Drawbars 1–11 (band levels)' : PARAMS[P[sc.param]].name;
-    const engine = Math.round(api.values()[P.engine]) === 0 ? 'Engine A · Wavelet Subtractive' : 'Engine B · Wavelet Additive';
+    const engine = engineLabel();
     win.sec.textContent = `Scene ${k + 1}/${st.scenes.length} · ${sc.section} · ${engine}`;
     win.param.textContent = 'Now varying: ' + name;
     win.text.textContent = sc.text;

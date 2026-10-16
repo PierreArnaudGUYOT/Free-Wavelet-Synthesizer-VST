@@ -10,3 +10,5 @@
 *.wav
 *.raw
 *.zip
+# copy of the sources prepared for publishing
+/SourceCode/

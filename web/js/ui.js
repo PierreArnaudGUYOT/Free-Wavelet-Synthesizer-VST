@@ -309,9 +309,12 @@ class SynthUI {
       if (item.group !== grp) { grp = item.group; el('div', 'grp', m).textContent = grp; }
       const it = el('div', 'it' + (item.current ? ' cur' : ''), m);
       const n = el('span', '', it);
-      const mm = /^([AB]) · (.*)$/.exec(item.name);   // engine letter in its colour
-      if (mm) { const e = el('b', 'eng ' + mm[1].toLowerCase(), n); e.textContent = mm[1]; n.appendChild(document.createTextNode(mm[2])); }
-      else n.textContent = item.name;
+      const mm = /^(AB|A|B) · (.*)$/.exec(item.name);   // engine letters in their colours (AB = both engines mixed)
+      if (mm) {
+        const e = el('b', 'eng', n);
+        for (const ch of mm[1]) el('span', ch.toLowerCase(), e).textContent = ch;
+        n.appendChild(document.createTextNode(mm[2]));
+      } else n.textContent = item.name;
       if (item.deletable) {
         const d = el('span', 'del', it); d.textContent = '✕'; d.title = 'Delete user preset';
         d.onclick = (e) => { e.stopPropagation(); this.host.deletePreset(item.id); this.closePresetMenu(); };

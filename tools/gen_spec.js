@@ -30,7 +30,7 @@ fs.writeFileSync(path.join(root, 'web', 'js', 'spec.js'), webOut);
 
 // ---------------------------------------------------------------- C++
 const CURVES = ['lin', 'exp', 'pow2', 'int', 'choice'];
-const FMTS = ['pct', 'db', 'sec', 'hz', 'cents', 'band', 'dbband', 'int', 'choice', 'deg', 'cyc', 'semi', 'bipct', 'bandamt'];
+const FMTS = ['pct', 'db', 'sec', 'hz', 'cents', 'band', 'dbband', 'int', 'choice', 'deg', 'cyc', 'semi', 'bipct', 'bandamt', 'abmix'];
 const WTYPES = ['knobL', 'knobM', 'knobS', 'knobT', 'seg', 'step', 'drawbar', 'scope', 'scalogram', 'atom', 'source', 'window',
   'adsr', 'leds', 'fxheads', 'keyboard', 'wheels', 'logo', 'presets', 'manualA', 'manualB', 'meter', 'zoom', 'credit'];
 const q = s => JSON.stringify(s); // UTF-8 string literal (JSON escaping is valid C for our content)
