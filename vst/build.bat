@@ -30,7 +30,7 @@ where node >nul 2>nul && (
 
 set "FLAGS=-std=c++17 -O2 -DNDEBUG -Wall -Wno-unknown-pragmas -Wno-unused-parameter -Wno-pragma-pack -Wno-format -DUNICODE -D_UNICODE -DNOMINMAX -I"%HERE%external" -I"%HERE%src""
 echo [2/4] compiling
-for %%F in (plugin editor iids vst2) do (
+for %%F in (plugin editor editor_win iids vst2) do (
   x86_64-w64-mingw32-clang++ %FLAGS% -c "%HERE%src\%%F.cpp" -o "%OBJ%\%%F.o" || exit /b 1
 )
 x86_64-w64-mingw32-clang++ %FLAGS% -c "%HERE%external\pluginterfaces\base\funknown.cpp" -o "%OBJ%\funknown.o" || exit /b 1
@@ -39,7 +39,7 @@ x86_64-w64-mingw32-windres "%HERE%src\version.rc" -O coff -o "%OBJ%\version.o" |
 echo [3/4] linking
 if not exist "%BUNDLE%\Contents\x86_64-win" mkdir "%BUNDLE%\Contents\x86_64-win"
 x86_64-w64-mingw32-clang++ -shared -static -s -o "%BUNDLE%\Contents\x86_64-win\WaveletSynthesizer.vst3" ^
-  "%OBJ%\plugin.o" "%OBJ%\editor.o" "%OBJ%\iids.o" "%OBJ%\vst2.o" "%OBJ%\funknown.o" "%OBJ%\version.o" ^
+  "%OBJ%\plugin.o" "%OBJ%\editor.o" "%OBJ%\editor_win.o" "%OBJ%\iids.o" "%OBJ%\vst2.o" "%OBJ%\funknown.o" "%OBJ%\version.o" ^
   -lgdiplus -lgdi32 -luser32 -lshell32 -lole32 -luuid -lcomdlg32 || exit /b 1
 rem the same DLL as a VST2 plug-in: hosts scanning a VST2 folder find this .dll inside the bundle folder
 copy /Y "%BUNDLE%\Contents\x86_64-win\WaveletSynthesizer.vst3" "%BUNDLE%\Contents\x86_64-win\WaveletSynthesizer.dll" >nul || exit /b 1

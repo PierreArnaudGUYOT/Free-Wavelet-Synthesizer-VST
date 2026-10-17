@@ -26,7 +26,6 @@
 // A beta 0.3 user-bank file ("Wavelet Synthesizer user bank.txt", sections and presets only) is read when the library
 // file does not exist yet.
 #pragma once
-#include <windows.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -37,6 +36,7 @@
 #include <string>
 #include <vector>
 #include "dsp.h"
+#include "platform.h"   // files and folders (Windows / macOS)
 
 namespace ws {
 
@@ -53,31 +53,6 @@ struct BankPreset {
 inline int bankSectionOf(const std::string& s) {
   for (int i = 0; i < kNumBankSections; i++) if (s == kBankSections[i]) return i;
   return -1;
-}
-
-inline HMODULE libraryModule() {   // the plug-in DLL
-  HMODULE h = nullptr;
-  GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&libraryModule, &h);
-  return h;
-}
-// The folder of the library: the one holding the WaveletSynthesizer.vst3 bundle (the DLL is
-// <bundle>\Contents\x86_64-win\<dll>), else the DLL's folder.
-inline std::wstring libraryFolder() {
-  wchar_t b[MAX_PATH * 2] = {};
-  GetModuleFileNameW(libraryModule(), b, MAX_PATH * 2);
-  std::wstring p = b;
-  auto up = [&p] { const size_t s = p.find_last_of(L"\\/"); if (s != std::wstring::npos) p.resize(s); };
-  up();
-  std::wstring low = p;
-  std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-  const std::wstring tail = L"\\contents\\x86_64-win";
-  if (low.size() > tail.size() && low.compare(low.size() - tail.size(), tail.size(), tail) == 0) { up(); up(); up(); }
-  return p;
-}
-inline std::wstring envPath(const wchar_t* var) {   // developer tests (vst/devtest/bank_session.cpp)
-  wchar_t b[MAX_PATH * 2] = {};
-  const DWORD n = GetEnvironmentVariableW(var, b, MAX_PATH * 2);
-  return n > 0 && n < MAX_PATH * 2 ? std::wstring(b) : std::wstring();
 }
 
 inline std::string bankNum(double v) {   // up to 6 decimals, no trailing zeros
@@ -107,43 +82,6 @@ inline bool parseParamLine(const std::string& line, double* v) {
   for (int i = 0; i < kNumParams; i++)
     if (key == kParams[i].key && !kParams[i].hidden) { v[i] = std::min(kParams[i].max, std::max(kParams[i].min, x)); return true; }
   return false;
-}
-
-// Writes the text atomically (temporary file, then replace). Returns "" or the Windows error.
-inline std::wstring writeTextFile(const std::wstring& path, const std::string& text) {
-  auto err = [](DWORD e) {
-    wchar_t b[512] = {};
-    FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, e, 0, b, 511, nullptr);
-    std::wstring s = b;
-    while (!s.empty() && (s.back() == L'\n' || s.back() == L'\r' || s.back() == L' ' || s.back() == L'.')) s.pop_back();
-    return s.empty() ? L"error " + std::to_wstring(e) : s;
-  };
-  const std::wstring tmp = path + L".tmp";
-  HANDLE h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-  if (h == INVALID_HANDLE_VALUE) return err(GetLastError());
-  DWORD put = 0;
-  const BOOL ok = WriteFile(h, text.data(), (DWORD)text.size(), &put, nullptr) && put == text.size();
-  const DWORD we = GetLastError();
-  CloseHandle(h);
-  if (!ok) { DeleteFileW(tmp.c_str()); return err(we); }
-  if (!MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-    const DWORD me = GetLastError();
-    DeleteFileW(tmp.c_str());
-    return err(me);
-  }
-  return L"";
-}
-inline std::string readTextFile(const std::wstring& path, bool& found) {
-  found = false;
-  FILE* f = _wfopen(path.c_str(), L"rb");
-  if (!f) return "";
-  found = true;
-  std::string all;
-  char b[4096];
-  size_t n;
-  while ((n = std::fread(b, 1, sizeof b, f)) > 0 && all.size() < (16u << 20)) all.append(b, n);   // a library is small
-  std::fclose(f);
-  return all;
 }
 
 // ------------------------------------------------------------------ the library (one per process)
@@ -263,7 +201,7 @@ class Library {
   std::mutex m;
   State s;
   bool loaded = false, existed = false;
-  FILETIME stamp{}; uint64_t size = 0;
+  uint64_t stamp = 0, size = 0;   // the file's last write time and size when read or written
   std::atomic<uint32_t> ver{1};
 
   Library() { builtIn(s); }
@@ -302,20 +240,20 @@ class Library {
   }
   static std::wstring pathOf() {
     const std::wstring e = envPath(L"WS_PRESETS_FILE");
-    return e.empty() ? libraryFolder() + L"\\OKTOWAVE presets.txt" : e;
+    return e.empty() ? libraryFolder() + kPathSep + L"OKTOWAVE presets.txt" : e;
   }
   static std::wstring oldBankPath() {
     const std::wstring e = envPath(L"WS_PRESETS_FILE");
     if (!e.empty()) return e + L".oldbank";   // tests: never the player's files
-    return libraryFolder() + L"\\Wavelet Synthesizer user bank.txt";
+    return libraryFolder() + kPathSep + L"Wavelet Synthesizer user bank.txt";
   }
   void refreshLocked() {
-    WIN32_FILE_ATTRIBUTE_DATA a{};
-    const bool exists = GetFileAttributesExW(pathOf().c_str(), GetFileExInfoStandard, &a) != 0;
-    const uint64_t sz = exists ? ((uint64_t)a.nFileSizeHigh << 32) | a.nFileSizeLow : 0;
-    if (loaded && exists == existed && (!exists || (CompareFileTime(&a.ftLastWriteTime, &stamp) == 0 && sz == size))) return;
+    uint64_t st = 0, sz = 0;
+    const bool exists = fileStamp(pathOf(), st, sz);
+    if (!exists) sz = 0;
+    if (loaded && exists == existed && (!exists || (st == stamp && sz == size))) return;
     loaded = true; existed = exists; size = sz;
-    if (exists) stamp = a.ftLastWriteTime;
+    if (exists) stamp = st;
     State t;
     builtIn(t);
     bool found = false;
@@ -330,10 +268,8 @@ class Library {
     const std::wstring e = writeTextFile(pathOf(), text(t));
     if (!e.empty()) return e;
     s = std::move(t);
-    WIN32_FILE_ATTRIBUTE_DATA a{};
-    if (GetFileAttributesExW(pathOf().c_str(), GetFileExInfoStandard, &a)) {
-      existed = true; stamp = a.ftLastWriteTime; size = ((uint64_t)a.nFileSizeHigh << 32) | a.nFileSizeLow;
-    }
+    uint64_t st = 0, sz = 0;
+    if (fileStamp(pathOf(), st, sz)) { existed = true; stamp = st; size = sz; }
     ver++;
     return L"";
   }

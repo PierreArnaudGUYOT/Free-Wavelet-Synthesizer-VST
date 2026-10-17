@@ -95,5 +95,6 @@ EditorHost* editorHostOf(Steinberg::Vst::IEditController* controller);
 std::u16string toU16(const std::string& utf8);
 std::string fromU16(const char16_t* s);
 std::wstring toW(const std::string& utf8);
+std::string fromW(const std::wstring& w);
 
 }  // namespace ws

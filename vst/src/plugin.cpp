@@ -4,8 +4,16 @@
 // Release history: beta 0.1 (2026-10-14) — first release (see RELEASE_HISTORY.md).
 // VST3 processor, controller and factory.
 // Written directly against the VST3 interfaces (pluginterfaces, MIT); no SDK helper library.
+#ifdef _WIN32
 #include <windows.h>
+#endif
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
 #include <xmmintrin.h>
+#endif
+#ifdef __APPLE__
+#define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0   // no check() / verify() macros from Apple's headers
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 #include <chrono>
 #include <cstring>
 #include <map>
@@ -51,6 +59,7 @@ static const char* const kBeta01Order[] = {
 };
 
 // ------------------------------------------------------------------ helpers
+#ifdef _WIN32
 std::u16string toU16(const std::string& s) {
   std::u16string out;
   int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
@@ -65,6 +74,12 @@ std::wstring toW(const std::string& s) {
   MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &w[0], n);
   return w;
 }
+std::string fromW(const std::wstring& w) {
+  const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
+  std::string s(n, '\0');
+  WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
+  return s;
+}
 std::string fromU16(const char16_t* s) {
   std::wstring w;
   for (; s && *s; s++) w.push_back((wchar_t)*s);
@@ -73,6 +88,29 @@ std::string fromU16(const char16_t* s) {
   WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &out[0], n, nullptr, nullptr);
   return out;
 }
+#else
+// macOS: wchar_t is UTF-32 (platform.h converts); VST3 strings are UTF-16
+std::wstring toW(const std::string& s) { return utf8ToWide(s); }
+std::string fromW(const std::wstring& w) { return wideToUtf8(w); }
+std::u16string toU16(const std::string& s) {
+  std::u16string out;
+  for (wchar_t c : utf8ToWide(s)) {
+    const uint32_t cp = (uint32_t)c;
+    if (cp >= 0x10000) { out.push_back((char16_t)(0xD800 + ((cp - 0x10000) >> 10))); out.push_back((char16_t)(0xDC00 + ((cp - 0x10000) & 0x3FF))); }
+    else out.push_back((char16_t)cp);
+  }
+  return out;
+}
+std::string fromU16(const char16_t* s) {
+  std::string out;
+  for (; s && *s; s++) {
+    uint32_t cp = (uint16_t)*s;
+    if (cp >= 0xD800 && cp < 0xDC00 && s[1] >= 0xDC00 && s[1] < 0xE000) { cp = 0x10000 + ((cp - 0xD800) << 10) + ((uint16_t)s[1] - 0xDC00); s++; }
+    appendUtf8(out, cp);
+  }
+  return out;
+}
+#endif
 static void copyU16(TChar* dst, const std::string& utf8, int max) {
   std::u16string u = toU16(utf8);
   int n = std::min((int)u.size(), max - 1);
@@ -327,7 +365,15 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
 
   tresult PLUGIN_API process(ProcessData& data) override {
     // flush denormals to zero on this thread while we process (restored on return)
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
     struct FtzGuard { unsigned int old = _mm_getcsr(); FtzGuard() { _mm_setcsr(old | 0x8040); } ~FtzGuard() { _mm_setcsr(old); } } ftz;
+#elif defined(__aarch64__)
+    struct FtzGuard {   // Apple silicon: the FZ bit (24) of FPCR
+      uint64_t old;
+      FtzGuard() { __asm__ __volatile__("mrs %0, fpcr" : "=r"(old)); const uint64_t n = old | (1ull << 24); __asm__ __volatile__("msr fpcr, %0" : : "r"(n)); }
+      ~FtzGuard() { __asm__ __volatile__("msr fpcr, %0" : : "r"(old)); }
+    } ftz;
+#endif
     // 1. parameter changes (last value of each queue, applied at block start)
     if (data.inputParameterChanges) {
       int32 nq = data.inputParameterChanges->getParameterCount();
@@ -852,8 +898,17 @@ EditorHost* editorHostOf(IEditController* controller) { return static_cast<Contr
 
 }  // namespace ws
 
+#ifdef _WIN32
 extern "C" {
 __declspec(dllexport) bool InitDll() { return true; }
 __declspec(dllexport) bool ExitDll() { return true; }
 __declspec(dllexport) Steinberg::IPluginFactory* PLUGIN_API GetPluginFactory() { return &ws::gFactory; }
 }
+#else
+// macOS: the host calls bundleEntry before GetPluginFactory and bundleExit before unloading the bundle
+extern "C" {
+__attribute__((visibility("default"))) bool bundleEntry(CFBundleRef) { return true; }
+__attribute__((visibility("default"))) bool bundleExit() { return true; }
+__attribute__((visibility("default"))) Steinberg::IPluginFactory* PLUGIN_API GetPluginFactory() { return &ws::gFactory; }
+}
+#endif

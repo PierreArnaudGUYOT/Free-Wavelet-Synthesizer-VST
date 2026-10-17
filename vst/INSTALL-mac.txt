@@ -1,0 +1,33 @@
+Wavelet Synthesizer beta 0.3 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
+the licence text is in WaveletSynthesizer.vst3/Contents/Resources/LICENSE.txt.
+Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
+How to cite: Guyot, P. A. (2026). Wavelet Synthesizer [Computer software]. Zenodo.
+DOI 10.5281/zenodo.23431760 - https://doi.org/10.5281/zenodo.23431760 (record: https://zenodo.org/records/23431760)
+
+This is the FIRST MAC VERSION: the same instrument as the Windows beta 0.3 (same sound, panel, 153 presets, preset
+browser and presets file). It was built and tested automatically on Apple's Macs, but not yet in every DAW: please
+report any problem at https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/issues
+
+INSTALL
+1. Quit your DAW. Double-click the zip to unzip it.
+2. Copy the "WaveletSynthesizer.vst3" plug-in into YOUR OWN plug-in folder: in the Finder, menu Go > Go to Folder...
+   (Shift-Cmd-G), type  ~/Library/Audio/Plug-Ins/VST3  and press Return (create the "VST3" folder if it is missing).
+   Use this folder rather than the system folder /Library/Audio/Plug-Ins/VST3: the presets file is written next to the
+   plug-in, and only your own folder can be written without an administrator password.
+3. FIRST START - macOS security. The plug-in is free and is not signed with a paid Apple developer certificate, so macOS
+   blocks it the first time (it may say that it "cannot be opened", that "Apple could not verify" it, or that it "is
+   damaged"). To allow it once: open Terminal (Applications > Utilities > Terminal), paste this line and press Return:
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/WaveletSynthesizer.vst3
+   (or, after macOS has blocked it: System Settings > Privacy & Security, scroll down, "Open Anyway").
+4. In Ableton Live: Settings > Plug-ins > switch on "Use VST3 Plug-in System Folders", then click "Rescan".
+   In Live's browser: Plug-ins > OktoPierre > Wavelet Synthesizer. Drag it onto a MIDI track.
+   Other VST3 hosts (Cubase, Bitwig Studio, Reaper, Studio One...) find it after a plug-in rescan. Logic Pro and GarageBand
+   only load Audio Units (AU): they cannot use this VST3 version.
+
+ON A MAC
+- Cmd-click (or double-click) a knob: back to its default value. Shift-drag: fine adjustment.
+- Control-click (or right-click) on the preset name: the classic preset menu. A click opens the preset browser.
+- The MANUAL A / MANUAL B buttons open the user manuals included in the plug-in, in your web browser.
+- Your adjusted presets, deleted presets and user bank are kept in "OKTOWAVE presets.txt", next to WaveletSynthesizer.vst3
+  (FILE in the preset browser shows it in the Finder).

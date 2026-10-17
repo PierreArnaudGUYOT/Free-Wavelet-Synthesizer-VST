@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
 // Release history: beta 0.1 (2026-10-14) — first release (see RELEASE_HISTORY.md).
-// Plugin editor: native Win32 window drawn with GDI+ (part of Windows).
+// Plugin editor: the panel, the same on every system. It draws through editor_platform.h: a Win32 window drawn with GDI+
+// (editor_win.cpp) or a Cocoa view drawn with Core Graphics (editor_mac.mm, Mac port of beta 0.3).
 // Same layout as the web UI (generated from tools/spec.js).
-#include <windows.h>
-#include <windowsx.h>
-#include <shellapi.h>
-#include <commdlg.h>
 #include <algorithm>
-namespace Gdiplus { using std::min; using std::max; }
-#include <gdiplus.h>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <map>
@@ -20,29 +16,15 @@ namespace Gdiplus { using std::min; using std::max; }
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "common.h"
 #include "bank.h"
+#include "editor_platform.h"
 
 using namespace Steinberg;
-namespace G = Gdiplus;
 
 namespace ws {
 
 // ------------------------------------------------------------------ palette
-static G::Color rgb(uint32_t c, int a = 255) { return G::Color((BYTE)a, (BYTE)(c >> 16), (BYTE)(c >> 8), (BYTE)c); }
 static const uint32_t kText = 0xd5dce6, kDim = 0x8792a1, kFaint = 0x566070, kInset = 0x101317, kInsetEdge = 0x262c35;
 static const uint32_t kAccentA = 0x2fd4c6, kAccentB = 0xffae42;
-
-static ULONG_PTR gGdiToken = 0;
-static int gGdiUsers = 0, gClassUsers = 0;
-static const wchar_t* kClassName = L"WaveletSynthesizerEditorWnd";
-
-static HMODULE thisModule() {
-  HMODULE h = nullptr;
-  GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&thisModule, &h);
-  return h;
-}
-
-struct R { float x, y, w, h; bool has(float px, float py) const { return px >= x && py >= y && px < x + w && py < y + h; }
-  bool hits(const R& o) const { return x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h; } };
 
 struct Item { const WidgetDef* w; int section; R r; };
 
@@ -51,7 +33,17 @@ static std::wstring noteName(int n) { return toW(std::string(kNoteNames[n % 12])
 static bool isBlack(int n) { int k = n % 12; return k == 1 || k == 3 || k == 6 || k == 8 || k == 10; }
 static const int KB_LO = 36, KB_HI = 96;
 
-class Editor : public IPlugView, public IPlugViewContentScaleSupport {
+// where the presets file must be writable (the message of a failed save)
+#ifdef _WIN32
+static const wchar_t* kFolderNote = L"The presets file is kept next to the WaveletSynthesizer.vst3 folder: that folder must allow "
+                                    L"writing (the VST3 system folder, C:\\Program Files\\Common Files\\VST3, needs administrator rights).";
+#else
+static const wchar_t* kFolderNote = L"The presets file is kept next to the WaveletSynthesizer.vst3 folder: that folder must allow "
+                                    L"writing (the system folder /Library/Audio/Plug-Ins/VST3 needs administrator rights: install the "
+                                    L"plug-in in your own folder, ~/Library/Audio/Plug-Ins/VST3).";
+#endif
+
+class Editor : public IPlugView, public IPlugViewContentScaleSupport, public EditorEvents {
  public:
   Editor(EditorHost* h, FUnknown* keep) : host(h), keepAlive(keep) {
     if (keepAlive) keepAlive->addRef();
@@ -79,21 +71,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   uint32 PLUGIN_API release() override { uint32 r = --refs; if (!r) delete this; return r; }
 
   // IPlugView
-  tresult PLUGIN_API isPlatformTypeSupported(FIDString type) override { return type && std::strcmp(type, kPlatformTypeHWND) == 0 ? kResultTrue : kResultFalse; }
+  tresult PLUGIN_API isPlatformTypeSupported(FIDString type) override { return type && std::strcmp(type, editorPlatformType()) == 0 ? kResultTrue : kResultFalse; }
   tresult PLUGIN_API attached(void* parent, FIDString type) override {
-    if (!parent || isPlatformTypeSupported(type) != kResultTrue || hwnd) return kResultFalse;
-    if (gGdiUsers++ == 0) { G::GdiplusStartupInput in; G::GdiplusStartup(&gGdiToken, &in, nullptr); }
-    if (gClassUsers++ == 0) {
-      WNDCLASSEXW wc{}; wc.cbSize = sizeof wc; wc.style = CS_DBLCLKS; wc.lpfnWndProc = &Editor::wndProc;
-      wc.hInstance = thisModule(); wc.hCursor = LoadCursor(nullptr, IDC_ARROW); wc.lpszClassName = kClassName;
-      RegisterClassExW(&wc);
-    }
-    HWND p = (HWND)parent;
-    if (!hostScale) dpiScale = windowDpi(p);
+    if (!parent || isPlatformTypeSupported(type) != kResultTrue || win) return kResultFalse;
+    if (!hostScale) dpiScale = windowScaleOf(parent);
     int W = pxW(), H = pxH();
-    hwnd = CreateWindowExW(0, kClassName, L"Wavelet Synthesizer", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, W, H, p, nullptr, thisModule(), this);
-    SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)this);
-    SetTimer(hwnd, 1, 33, nullptr);
+    win = createEditorWindow(this, parent, W, H);
+    if (!win) return kResultFalse;
     rebuildDisplay(true);
     bReveal();
     if (frame && (W != reportedW || H != reportedH)) requestResize();
@@ -109,14 +93,14 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   tresult PLUGIN_API onKeyUp(char16, int16, int16) override { return kResultFalse; }
   tresult PLUGIN_API getSize(ViewRect* size) override {
     if (!size) return kInvalidArgument;
-    if (!hwnd && !hostScale) dpiScale = systemDpi();
+    if (!win && !hostScale) dpiScale = systemScale();
     reportedW = pxW(); reportedH = pxH();
     *size = ViewRect(0, 0, reportedW, reportedH);
     return kResultOk;
   }
   tresult PLUGIN_API onSize(ViewRect* r) override {
     if (!r) return kInvalidArgument;
-    if (hwnd) SetWindowPos(hwnd, nullptr, 0, 0, r->getWidth(), r->getHeight(), SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+    if (win) win->setSize(r->getWidth(), r->getHeight());
     return kResultOk;
   }
   tresult PLUGIN_API onFocus(TBool) override { return kResultOk; }
@@ -126,10 +110,15 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
 
   // IPlugViewContentScaleSupport
   tresult PLUGIN_API setContentScaleFactor(ScaleFactor f) override {
+#ifdef __APPLE__
+    (void)f;
+    return kResultFalse;   // macOS sizes the view in points and scales them itself (Retina)
+#else
     if (!(f > 0.25f && f < 8.0f)) return kResultFalse;
     hostScale = true;
-    if (std::fabs(f - dpiScale) > 1e-3) { dpiScale = f; if (hwnd) requestResize(); }
+    if (std::fabs(f - dpiScale) > 1e-3) { dpiScale = f; if (win) requestResize(); }
     return kResultOk;
+#endif
   }
 
  private:
@@ -137,14 +126,10 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   EditorHost* host;
   FUnknown* keepAlive;
   IPlugFrame* frame = nullptr;
-  HWND hwnd = nullptr;
+  EditorWindow* win = nullptr;   // the system window while attached
   double dpiScale = 1; bool hostScale = false;
   int reportedW = 0, reportedH = 0;
   std::vector<Item> items;
-  // back buffer
-  HDC memDC = nullptr; HBITMAP memBmp = nullptr, oldBmp = nullptr; int bufW = 0, bufH = 0;
-  std::map<int, G::Font*> fonts;
-  G::FontFamily* family = nullptr;
   // state
   double lastPlain[kNumParams];
   uint32_t lastVersion = 0;
@@ -157,52 +142,26 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   // interaction
   int hover = -1, drag = -1; float dragY = 0; double dragNorm = 0; bool dragShift = false, dragMoved = false;   // hover -2 = SAVE PRESET
   int mouseNote = -1; int wheelDrag = -1;  // 0 bend, 1 mod
-  bool tracking = false;
 
-  double scale() const { return dpiScale * host->zoom(); }
+  double scale() const override { return dpiScale * host->zoom(); }
   int pxW() const { return (int)std::lround((kDeviceW + (host->browserOpen() ? kBrowserW : 0)) * scale()); }   // + the browser
   int pxH() const { return (int)std::lround(kDeviceH * scale()); }
   uint32_t accent() const { return mode == 0 ? kAccentA : kAccentB; }
-
-  static double systemDpi() {
-    typedef UINT(WINAPI * Fn)();
-    static Fn fn = (Fn)GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForSystem");
-    if (fn) return fn() / 96.0;
-    HDC dc = GetDC(nullptr); int d = GetDeviceCaps(dc, LOGPIXELSX); ReleaseDC(nullptr, dc); return d / 96.0;
-  }
-  static double windowDpi(HWND w) {
-    typedef UINT(WINAPI * Fn)(HWND);
-    static Fn fn = (Fn)GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow");
-    if (fn) { UINT d = fn(w); if (d) return d / 96.0; }
-    return systemDpi();
-  }
 
   void requestResize() {
     ViewRect r(0, 0, pxW(), pxH());
     reportedW = r.getWidth(); reportedH = r.getHeight();
     if (frame) frame->resizeView(this, &r);
-    if (hwnd) SetWindowPos(hwnd, nullptr, 0, 0, r.getWidth(), r.getHeight(), SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
-    InvalidateRect(hwnd, nullptr, FALSE);
+    if (win) { win->setSize(r.getWidth(), r.getHeight()); win->invalidateAll(); }
   }
 
   void cleanup() {
-    if (hwnd) {
-      KillTimer(hwnd, 1);
+    if (win) {
       if (mouseNote >= 0) noteOff(mouseNote);
-      SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
-      DestroyWindow(hwnd); hwnd = nullptr;
-      freeBuffer();
-      for (auto& f : fonts) delete f.second;
-      fonts.clear();
-      delete family; family = nullptr;
-      if (--gGdiUsers == 0) G::GdiplusShutdown(gGdiToken);
-      if (--gClassUsers == 0) UnregisterClassW(kClassName, thisModule());
+      delete win; win = nullptr;   // the timer, the window and its drawing resources
     }
   }
-  void freeBuffer() {
-    if (memDC) { SelectObject(memDC, oldBmp); DeleteObject(memBmp); DeleteDC(memDC); memDC = nullptr; memBmp = nullptr; }
-    bufW = bufH = 0;
-  }
+  void invalidateAll() { if (win) win->invalidateAll(); }
 
   // ---------------------------------------------------------------- params & display data
   double plainOf(int id) { return host->getPlain(id); }
@@ -224,10 +183,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   }
 
   void invalidateLogical(const R& r) {
-    if (!hwnd) return;
+    if (!win) return;
     double s = scale();
-    RECT rc{(LONG)std::floor((r.x - 2) * s), (LONG)std::floor((r.y - 2) * s), (LONG)std::ceil((r.x + r.w + 2) * s), (LONG)std::ceil((r.y + r.h + 2) * s)};
-    InvalidateRect(hwnd, &rc, FALSE);
+    win->invalidate((int)std::floor((r.x - 2) * s), (int)std::floor((r.y - 2) * s), (int)std::ceil((r.x + r.w + 2) * s), (int)std::ceil((r.y + r.h + 2) * s));
   }
   void invalidateType(int type) { for (auto& it : items) if (it.w->type == type) invalidateLogical(bubbleRect(it, true)); }
   void invalidateItem(int idx) { if (idx >= 0) invalidateLogical(bubbleRect(items[idx], true)); }
@@ -237,6 +195,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     return r;
   }
 
+  void timer() override { onTimer(); }
   void onTimer() {
     // parameter changes (automation, preset loads, host)
     uint32_t ver = host->paramVersion();
@@ -253,7 +212,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       }
       if (any) {
         rebuildDisplay(false);
-        if (structural || mode != oldMode) InvalidateRect(hwnd, nullptr, FALSE);
+        if (structural || mode != oldMode) invalidateAll();
         else for (int t : {W_SCOPE, W_SCALOGRAM, W_WINDOW, W_ADSR, W_LEDS, W_WHEELS, W_PRESETS}) invalidateType(t);
       }
       invalidateType(W_PRESETS);
@@ -287,121 +246,66 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   }
 
   // ---------------------------------------------------------------- drawing helpers
-  G::Font* font(float px, bool bold) {
-    int key = (int)std::lround(px * 10) * 2 + (bold ? 1 : 0);
-    auto it = fonts.find(key);
-    if (it != fonts.end()) return it->second;
-    if (!family) family = new G::FontFamily(L"Segoe UI");
-    G::Font* f = new G::Font(family, px, bold ? G::FontStyleBold : G::FontStyleRegular, G::UnitPixel);
-    fonts[key] = f;
-    return f;
+  void text(Canvas& g, const std::wstring& s, R r, float px, bool bold, Col c, int align = 1, bool vcenter = true) {
+    g.text(s, r, px, bold, c, align, vcenter);
   }
-  void text(G::Graphics& g, const std::wstring& s, R r, float px, bool bold, G::Color c, int align = 1, bool vcenter = true) {
-    G::StringFormat f;
-    f.SetAlignment(align == 0 ? G::StringAlignmentNear : align == 1 ? G::StringAlignmentCenter : G::StringAlignmentFar);
-    f.SetLineAlignment(vcenter ? G::StringAlignmentCenter : G::StringAlignmentNear);
-    f.SetFormatFlags(G::StringFormatFlagsNoWrap | G::StringFormatFlagsNoClip);
-    f.SetTrimming(G::StringTrimmingNone);
-    G::SolidBrush b(c);
-    g.DrawString(s.c_str(), -1, font(px, bold), G::RectF(r.x, r.y, r.w, r.h), &f, &b);
+  void fillRR(Canvas& g, R r, float rad, const Brush& b) { g.fillRR(r, rad, b); }
+  void strokeRR(Canvas& g, R r, float rad, Col c, float w = 1) { g.strokeRR(r, rad, Pen(c, w)); }
+  void inset(Canvas& g, R r, float rad = 7) {
+    fillRR(g, r, rad, rgb(kInset)); strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, rgb(kInsetEdge));
   }
-  static void rrPath(G::GraphicsPath& p, R r, float rad) {
-    float d = rad * 2;
-    if (rad <= 0) { p.AddRectangle(G::RectF(r.x, r.y, r.w, r.h)); return; }
-    p.AddArc(r.x, r.y, d, d, 180, 90);
-    p.AddArc(r.x + r.w - d, r.y, d, d, 270, 90);
-    p.AddArc(r.x + r.w - d, r.y + r.h - d, d, d, 0, 90);
-    p.AddArc(r.x, r.y + r.h - d, d, d, 90, 90);
-    p.CloseFigure();
+  void screen(Canvas& g, R r) {
+    fillRR(g, r, 7, rgb(0x0c0f13)); strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 7, rgb(0x252b34));
   }
-  void fillRR(G::Graphics& g, R r, float rad, const G::Brush& b) { G::GraphicsPath p; rrPath(p, r, rad); g.FillPath(&b, &p); }
-  void strokeRR(G::Graphics& g, R r, float rad, G::Color c, float w = 1) { G::GraphicsPath p; rrPath(p, r, rad); G::Pen pen(c, w); g.DrawPath(&pen, &p); }
-  void inset(G::Graphics& g, R r, float rad = 7) {
-    G::SolidBrush b(rgb(kInset)); fillRR(g, r, rad, b); strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, rgb(kInsetEdge));
-  }
-  void screen(G::Graphics& g, R r) {
-    G::SolidBrush b(rgb(0x0c0f13)); fillRR(g, r, 7, b); strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 7, rgb(0x252b34));
-  }
-  void pill(G::Graphics& g, const std::wstring& s, float x, float y, bool right, G::Color c) {
-    G::RectF bound;
-    G::StringFormat f; f.SetFormatFlags(G::StringFormatFlagsNoWrap);
-    g.MeasureString(s.c_str(), -1, font(9.5f, true), G::PointF(0, 0), &f, &bound);
-    float w = bound.Width + 6, x0 = right ? x - w + 4 : x - 4;
-    G::SolidBrush bg(rgb(0x0c0f13, 200)); g.FillRectangle(&bg, x0, y - 11, w, 14.f);
+  void pill(Canvas& g, const std::wstring& s, float x, float y, bool right, Col c) {
+    float w = g.textWidth(s, 9.5f, true) + 6, x0 = right ? x - w + 4 : x - 4;
+    g.fillRect(R{x0, y - 11, w, 14.f}, rgb(0x0c0f13, 200));
     text(g, s, R{x0 + 1, y - 11, w, 14}, 9.5f, true, c, 0);
   }
 
   // ---------------------------------------------------------------- paint
-  void paint() {
-    PAINTSTRUCT ps; HDC hdc = BeginPaint(hwnd, &ps);
-    RECT cr; GetClientRect(hwnd, &cr);
-    int W = cr.right, H = cr.bottom;
-    if (W <= 0 || H <= 0) { EndPaint(hwnd, &ps); return; }
-    if (!memDC || W != bufW || H != bufH) {
-      freeBuffer();
-      memDC = CreateCompatibleDC(hdc);
-      memBmp = CreateCompatibleBitmap(hdc, W, H);
-      oldBmp = (HBITMAP)SelectObject(memDC, memBmp);
-      bufW = W; bufH = H;
-      ps.rcPaint = cr;
+  // the window has set its scale, clip and smoothing; dirty is the logical area to draw again
+  void paint(Canvas& g, R dirty) override {
+    // device background
+    g.fillRect(dirty, Brush(Pt{0, 0}, Pt{0, (float)kDeviceH}, rgb(0x1a1d23), rgb(0x13161b)));
+    for (int si = 0; si < kNumSections; si++) {
+      const SectionDef& sd = kSections[si];
+      if (sd.mode >= 0 && sd.mode != mode) continue;
+      R r{sd.x, sd.y, sd.w, sd.h};
+      if (!r.hits(dirty) || sd.title[0] == 0) continue;
+      fillRR(g, r, 10, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(0x1f242c), rgb(0x1a1e25)));
+      strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, rgb(0x2b313b));
+      std::string t = sd.title; size_t dot = t.find(" \xC2\xB7 ");
+      if (dot != std::string::npos) {
+        std::wstring a = toW(t.substr(0, dot)), b = toW(t.substr(dot));
+        const float aw = g.textWidth(a, 10.5f, true);
+        text(g, a, R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(accent()), 0);
+        text(g, b, R{r.x + 12 + aw - 3, r.y + 4, 400, 16}, 10.5f, true, rgb(kDim), 0);
+      } else text(g, toW(t), R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(kDim), 0);
     }
-    {
-      G::Graphics g(memDC);
-      g.SetClip(G::Rect(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right - ps.rcPaint.left, ps.rcPaint.bottom - ps.rcPaint.top));
-      g.SetSmoothingMode(G::SmoothingModeAntiAlias);
-      g.SetTextRenderingHint(G::TextRenderingHintAntiAlias);   // no grid fitting: even letter spacing at small sizes
-      g.SetPixelOffsetMode(G::PixelOffsetModeHalf);
-      float s = (float)scale();
-      g.ScaleTransform(s, s);
-      R dirty{ps.rcPaint.left / s - 1, ps.rcPaint.top / s - 1, (ps.rcPaint.right - ps.rcPaint.left) / s + 2, (ps.rcPaint.bottom - ps.rcPaint.top) / s + 2};
-      // device background
-      G::LinearGradientBrush bg(G::PointF(0, 0), G::PointF(0, kDeviceH), rgb(0x1a1d23), rgb(0x13161b));
-      g.FillRectangle(&bg, dirty.x, dirty.y, dirty.w, dirty.h);
-      for (int si = 0; si < kNumSections; si++) {
-        const SectionDef& sd = kSections[si];
-        if (sd.mode >= 0 && sd.mode != mode) continue;
-        R r{sd.x, sd.y, sd.w, sd.h};
-        if (!r.hits(dirty) || sd.title[0] == 0) continue;
-        G::LinearGradientBrush cb(G::PointF(0, r.y), G::PointF(0, r.y + r.h), rgb(0x1f242c), rgb(0x1a1e25));
-        fillRR(g, r, 10, cb);
-        strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, rgb(0x2b313b));
-        std::string t = sd.title; size_t dot = t.find(" \xC2\xB7 ");
-        if (dot != std::string::npos) {
-          std::wstring a = toW(t.substr(0, dot)), b = toW(t.substr(dot));
-          G::RectF bound; G::StringFormat f; f.SetFormatFlags(G::StringFormatFlagsNoWrap);
-          g.MeasureString(a.c_str(), -1, font(10.5f, true), G::PointF(0, 0), &f, &bound);
-          text(g, a, R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(accent()), 0);
-          text(g, b, R{r.x + 12 + bound.Width - 3, r.y + 4, 400, 16}, 10.5f, true, rgb(kDim), 0);
-        } else text(g, toW(t), R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(kDim), 0);
-      }
-      for (size_t k = 0; k < items.size(); k++) {
-        const Item& it = items[k];
-        if (!visible(it) || !it.r.hits(dirty)) continue;
-        drawItem(g, (int)k);
-      }
-      // value bubble for small knobs and drawbars
-      int b = drag >= 0 ? drag : hover;
-      if (b >= 0 && visible(items[b]) && (items[b].w->type == W_KNOBS || items[b].w->type == W_DRAWBAR)) drawBubble(g, items[b]);
-      drawSaveBtn(g);
-      if (host->browserOpen()) drawBrowser(g);
+    for (size_t k = 0; k < items.size(); k++) {
+      const Item& it = items[k];
+      if (!visible(it) || !it.r.hits(dirty)) continue;
+      drawItem(g, (int)k);
     }
-    BitBlt(hdc, ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right - ps.rcPaint.left, ps.rcPaint.bottom - ps.rcPaint.top, memDC, ps.rcPaint.left, ps.rcPaint.top, SRCCOPY);
-    EndPaint(hwnd, &ps);
+    // value bubble for small knobs and drawbars
+    int b = drag >= 0 ? drag : hover;
+    if (b >= 0 && visible(items[b]) && (items[b].w->type == W_KNOBS || items[b].w->type == W_DRAWBAR)) drawBubble(g, items[b]);
+    drawSaveBtn(g);
+    if (host->browserOpen()) drawBrowser(g);
   }
 
-  void drawBubble(G::Graphics& g, const Item& it) {
+  void drawBubble(Canvas& g, const Item& it) {
     const ParamDef& p = kParams[it.w->param];
     std::wstring s = toW(std::string(it.w->type == W_DRAWBAR ? "Band " : "") + (it.w->type == W_DRAWBAR ? std::string(p.shortName) + " level" : p.name) + ": " + formatValue(p, plainOf(it.w->param)));
-    G::RectF bound; G::StringFormat f; f.SetFormatFlags(G::StringFormatFlagsNoWrap);
-    g.MeasureString(s.c_str(), -1, font(11, false), G::PointF(0, 0), &f, &bound);
-    float w = bound.Width + 12, x = it.r.x + it.r.w / 2 - w / 2;
+    float w = g.textWidth(s, 11, false) + 12, x = it.r.x + it.r.w / 2 - w / 2;
     x = std::max(4.0f, std::min(kDeviceW - w - 4, x));
     R r{x, it.r.y - 26, w, 20};
-    G::SolidBrush b(rgb(0x0b0d10, 240)); fillRR(g, r, 5, b); strokeRR(g, r, 5, rgb(0x343b47));
+    fillRR(g, r, 5, rgb(0x0b0d10, 240)); strokeRR(g, r, 5, rgb(0x343b47));
     text(g, s, r, 11, false, rgb(kText));
   }
 
-  void drawItem(G::Graphics& g, int idx) {
+  void drawItem(Canvas& g, int idx) {
     const Item& it = items[idx];
     switch (it.w->type) {
       case W_KNOBL: case W_KNOBM: case W_KNOBS: case W_KNOBT: drawKnob(g, idx); break;
@@ -429,7 +333,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     }
   }
 
-  // angle 0 = 12 o'clock, clockwise, radians -> GDI+ degrees (0 = 3 o'clock, clockwise)
+  // angle 0 = 12 o'clock, clockwise, radians -> canvas degrees (0 = 3 o'clock, clockwise)
   static float gdiDeg(double a) { return (float)(a * 180 / PI - 90); }
 
   bool disabledParam(int id) {
@@ -438,7 +342,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     return false;
   }
 
-  void drawKnob(G::Graphics& g, int idx) {
+  void drawKnob(Canvas& g, int idx) {
     const Item& it = items[idx];
     const ParamDef& p = kParams[it.w->param];
     bool big = it.w->type == W_KNOBL, small = it.w->type == W_KNOBS, tiny = it.w->type == W_KNOBT;
@@ -447,22 +351,19 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     int alpha = disabledParam(it.w->param) ? 90 : 255;
     double v = plainOf(it.w->param), n = toNorm(p, v);
     const double A0 = -0.75 * PI, A1 = 0.75 * PI, a = A0 + (A1 - A0) * n;
-    G::Pen track(rgb(0x2a303a, alpha), sw); track.SetStartCap(G::LineCapRound); track.SetEndCap(G::LineCapRound);
-    g.DrawArc(&track, cx - ar, cy - ar, 2 * ar, 2 * ar, gdiDeg(A0), 270);
+    const R ring{cx - ar, cy - ar, 2 * ar, 2 * ar};
+    g.arc(ring, gdiDeg(A0), 270, Pen(rgb(0x2a303a, alpha), sw).caps());
     bool bip = p.min < 0 && p.max > 0;
     double from = bip ? A0 + (A1 - A0) * toNorm(p, 0) : A0;
     double lo = std::min(from, a), hi = std::max(from, a);
-    if (hi - lo > 1e-3) {
-      G::Pen val(rgb(accent(), alpha), sw); val.SetStartCap(G::LineCapRound); val.SetEndCap(G::LineCapRound);
-      g.DrawArc(&val, cx - ar, cy - ar, 2 * ar, 2 * ar, gdiDeg(lo), (float)((hi - lo) * 180 / PI));
-    }
-    G::LinearGradientBrush body(G::PointF(cx - r, cy - r), G::PointF(cx + r, cy + r), rgb(0x3a414c, alpha), rgb(0x161a1f, alpha));
-    g.FillEllipse(&body, cx - r + 1, cy - r + 1, 2 * r - 2, 2 * r - 2);
-    G::Pen edge(rgb(0x0b0d10, alpha), 1.5f); g.DrawEllipse(&edge, cx - r + 1, cy - r + 1, 2 * r - 2, 2 * r - 2);
-    G::Pen ring(G::Color(alpha / 20, 255, 255, 255), 1); g.DrawEllipse(&ring, cx - r + 4, cy - r + 4, 2 * r - 8, 2 * r - 8);
-    G::Pen ptr(rgb(0xeef2f7, alpha), big ? 3.f : tiny ? 2.f : 2.2f); ptr.SetStartCap(G::LineCapRound); ptr.SetEndCap(G::LineCapRound);
+    if (hi - lo > 1e-3) g.arc(ring, gdiDeg(lo), (float)((hi - lo) * 180 / PI), Pen(rgb(accent(), alpha), sw).caps());
+    const R body{cx - r + 1, cy - r + 1, 2 * r - 2, 2 * r - 2};
+    g.fillEllipse(body, Brush(Pt{cx - r, cy - r}, Pt{cx + r, cy + r}, rgb(0x3a414c, alpha), rgb(0x161a1f, alpha)));
+    g.strokeEllipse(body, Pen(rgb(0x0b0d10, alpha), 1.5f));
+    g.strokeEllipse(R{cx - r + 4, cy - r + 4, 2 * r - 8, 2 * r - 8}, Pen(argb(alpha / 20, 255, 255, 255), 1));
     float r0 = r * 0.25f, r1 = r - 4;
-    g.DrawLine(&ptr, cx + r0 * (float)std::sin(a), cy - r0 * (float)std::cos(a), cx + r1 * (float)std::sin(a), cy - r1 * (float)std::cos(a));
+    g.line(Pt{cx + r0 * (float)std::sin(a), cy - r0 * (float)std::cos(a)}, Pt{cx + r1 * (float)std::sin(a), cy - r1 * (float)std::cos(a)},
+           Pen(rgb(0xeef2f7, alpha), big ? 3.f : tiny ? 2.f : 2.2f).caps());
     if (!small) {
       bool showVal = (hover == idx || drag == idx);
       std::wstring s = showVal ? toW(formatValue(p, v)) : toW(p.shortName);
@@ -471,7 +372,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     }
   }
 
-  void drawSeg(G::Graphics& g, const Item& it) {
+  void drawSeg(Canvas& g, const Item& it) {
     const ParamDef& p = kParams[it.w->param];
     bool engine = it.w->style == 1;
     inset(g, it.r, engine ? 9.f : 7.f);
@@ -482,13 +383,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       bool on = k == cur;
       if (on) {
         uint32_t c = engine ? (k == 0 ? kAccentA : kAccentB) : accent();
-        G::SolidBrush br(rgb(c)); fillRR(g, b, 5, br);
+        fillRR(g, b, 5, rgb(c));
       }
       text(g, toW(p.choiceShort[k]), b, engine ? 11.f : 10.f, true, on ? rgb(0x0d1014) : rgb(kDim));
     }
   }
 
-  void drawStep(G::Graphics& g, const Item& it) {
+  void drawStep(Canvas& g, const Item& it) {
     const ParamDef& p = kParams[it.w->param];
     inset(g, it.r, 7);
     text(g, L"◀", R{it.r.x, it.r.y, 30, it.r.h}, 11, false, rgb(kDim));
@@ -501,20 +402,17 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     } else text(g, name, R{it.r.x + 28, it.r.y, it.r.w - 56, it.r.h}, 12, true, rgb(kText), 1);
   }
 
-  void drawDrawbar(G::Graphics& g, int idx) {
+  void drawDrawbar(Canvas& g, int idx) {
     const Item& it = items[idx];
     double v = plainOf(it.w->param);
     R tr{it.r.x + 7, it.r.y, it.r.w - 14, it.r.h};
-    G::SolidBrush ib(rgb(kInset)); fillRR(g, tr, 5, ib);
+    fillRR(g, tr, 5, rgb(kInset));
     float fh = (float)(v * tr.h);
-    if (fh > 0.5f) {
-      G::LinearGradientBrush fb(G::PointF(0, tr.y + tr.h - fh - 1), G::PointF(0, tr.y + tr.h + 1), rgb(accent(), 220), rgb(0xffae42, 90));
-      g.FillRectangle(&fb, tr.x + 1, tr.y + tr.h - fh, tr.w - 2, fh);
-    }
+    if (fh > 0.5f)
+      g.fillRect(R{tr.x + 1, tr.y + tr.h - fh, tr.w - 2, fh}, Brush(Pt{0, tr.y + tr.h - fh - 1}, Pt{0, tr.y + tr.h + 1}, rgb(accent(), 220), rgb(0xffae42, 90)));
     strokeRR(g, tr, 5, rgb(kInsetEdge));
     float cy = it.r.y + (float)((1 - v) * (it.r.h - 10));
-    G::LinearGradientBrush cap(G::PointF(0, cy), G::PointF(0, cy + 10), rgb(0xf1f4f8), rgb(0xb9c1cc));
-    fillRR(g, R{it.r.x, cy, it.r.w, 10}, 3, cap);
+    fillRR(g, R{it.r.x, cy, it.r.w, 10}, 3, Brush(Pt{0, cy}, Pt{0, cy + 10}, rgb(0xf1f4f8), rgb(0xb9c1cc)));
     bool hot = hover == idx || drag == idx;
     text(g, toW(kParams[it.w->param].shortName), R{it.r.x - 4, it.r.y + it.r.h + 2, it.r.w + 8, 14}, 9.5f, true, hot ? rgb(accent()) : rgb(kDim));
   }
@@ -528,22 +426,21 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     staticGains(v, g); c = v[P_P_CENTER]; w = v[P_P_WIDTH]; d = v[P_P_DEPTH]; note = -1;
   }
 
-  void polyline(G::Graphics& g, const double* arr, R r, double sy, G::Color c, float width, bool glow) {
+  void polyline(Canvas& g, const double* arr, R r, double sy, Col c, float width, bool glow) {
     int W = (int)r.w;
-    std::vector<G::PointF> pts(W + 1);
+    std::vector<Pt> pts(W + 1);
     for (int x = 0; x <= W; x++) {
       int i = std::min(N - 1, (int)((double)x / W * N));
-      pts[x] = G::PointF(r.x + x, (float)(r.y + r.h / 2 - arr[i] * sy));
+      pts[x] = Pt{r.x + x, (float)(r.y + r.h / 2 - arr[i] * sy)};
     }
-    if (glow) { G::Pen gp(G::Color(60, c.GetR(), c.GetG(), c.GetB()), width + 4); gp.SetLineJoin(G::LineJoinRound); g.DrawLines(&gp, pts.data(), (int)pts.size()); }
-    G::Pen pen(c, width); pen.SetLineJoin(G::LineJoinRound);
-    g.DrawLines(&pen, pts.data(), (int)pts.size());
+    if (glow) g.lines(pts.data(), (int)pts.size(), Pen(argb(60, c.r, c.g, c.b), width + 4).join());
+    g.lines(pts.data(), (int)pts.size(), Pen(c, width).join());
   }
 
-  void drawScope(G::Graphics& g, R r) {
-    G::Pen grid(G::Color(13, 255, 255, 255), 1);
-    for (int k = 1; k < 4; k++) g.DrawLine(&grid, r.x + r.w * k / 4, r.y + 4, r.x + r.w * k / 4, r.y + r.h - 4);
-    G::Pen zero(G::Color(23, 255, 255, 255), 1); g.DrawLine(&zero, r.x, r.y + r.h / 2, r.x + r.w, r.y + r.h / 2);
+  void drawScope(Canvas& g, R r) {
+    const Pen grid(argb(13, 255, 255, 255), 1);
+    for (int k = 1; k < 4; k++) g.line(Pt{r.x + r.w * k / 4, r.y + 4}, Pt{r.x + r.w * k / 4, r.y + r.h - 4}, grid);
+    g.line(Pt{r.x, r.y + r.h / 2}, Pt{r.x + r.w, r.y + r.h / 2}, Pen(argb(23, 255, 255, 255), 1));
     if (disp.mode != mode) return;
     double gains[NB], c, w, d; int note;
     gainsForDisplay(gains, c, w, d, note);
@@ -556,31 +453,29 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     if (d > 0) {
       for (int x = 0; x < (int)r.w; x += 2) {
         double wv = windowValue(x / r.w, c, w, 1);
-        if (wv > 0.01) { G::SolidBrush b(rgb(accent(), (int)(26 * wv * d))); g.FillRectangle(&b, r.x + x, r.y + 1, 2.f, r.h - 2); }
+        if (wv > 0.01) g.fillRect(R{r.x + x, r.y + 1, 2.f, r.h - 2}, rgb(accent(), (int)(26 * wv * d)));
       }
     }
-    if (ghost) polyline(g, ghost, r, sy, G::Color(46, 200, 210, 225), 1.2f, false);
+    if (ghost) polyline(g, ghost, r, sy, argb(46, 200, 210, 225), 1.2f, false);
     polyline(g, y.data(), r, sy, rgb(accent()), 2, true);
     pill(g, disp.mode == 0 ? L"ONE CYCLE · DRY (GREY) vs FILTERED" : L"ONE CYCLE · SUM OF ATOM BANDS", r.x + 8, r.y + 14, false, rgb(0xc8d2e1, 160));
     if (note >= 0) pill(g, noteName(note) + L" · LIVE", r.x + r.w - 8, r.y + 14, true, rgb(accent()));
   }
 
-  void drawScalogram(G::Graphics& g, R r) {
+  void drawScalogram(Canvas& g, R r) {
     const float lm = 26, pw = r.w - lm - 4, rh = (r.h - 6) / NB, top = r.y + 3;
     for (int b = 1; b <= NB; b++)
-      text(g, L"B" + std::to_wstring(b), R{r.x, top + (NB - b) * rh, lm - 4, rh}, 8.5f, true, G::Color(102, 200, 210, 225), 2);
+      text(g, L"B" + std::to_wstring(b), R{r.x, top + (NB - b) * rh, lm - 4, rh}, 8.5f, true, argb(102, 200, 210, 225), 2);
     if (disp.mode != mode) return;
     double gains[NB], c, w, d; int note;
     gainsForDisplay(gains, c, w, d, note);
     int PW = (int)pw;
-    G::Bitmap bmp(PW, NB, PixelFormat32bppARGB);
-    G::BitmapData bd; G::Rect lr(0, 0, PW, NB);
-    bmp.LockBits(&lr, G::ImageLockModeWrite, PixelFormat32bppARGB, &bd);
+    std::vector<uint32_t> img((size_t)PW * NB);
     uint32_t ac = accent(); int ar = (ac >> 16) & 255, ag = (ac >> 8) & 255, ab = ac & 255;
     const double sq = 1 / std::sqrt((double)N);
     for (int b = 1; b <= NB; b++) {
       int n = 1 << (b - 1);
-      uint32_t* row = (uint32_t*)((uint8_t*)bd.Scan0 + (NB - b) * bd.Stride);
+      uint32_t* row = img.data() + (size_t)(NB - b) * PW;
       double sc = disp.bandScale[b - 1] * std::pow(2.0, (b - 1) / 2.0) * sq * std::fabs(gains[b - 1]);
       for (int x = 0; x < PW; x++) {
         int k0 = (int)((double)x / PW * n), k1 = std::max(k0 + 1, (int)((double)(x + 1) / PW * n));
@@ -600,67 +495,62 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
         row[x] = col;
       }
     }
-    bmp.UnlockBits(&bd);
-    auto im = g.GetInterpolationMode(); auto po = g.GetPixelOffsetMode();
-    g.SetInterpolationMode(G::InterpolationModeNearestNeighbor); g.SetPixelOffsetMode(G::PixelOffsetModeHalf);
-    g.DrawImage(&bmp, G::RectF(r.x + lm, top, (float)PW, rh * NB), 0, 0, (float)PW, (float)NB, G::UnitPixel);
-    g.SetInterpolationMode(im); g.SetPixelOffsetMode(po);
-    G::Pen sep(rgb(0x0c0f13), 1);
-    for (int b = 1; b < NB; b++) g.DrawLine(&sep, r.x + lm, top + b * rh, r.x + lm + PW, top + b * rh);
+    g.pixels(img.data(), PW, NB, R{r.x + lm, top, (float)PW, rh * NB});
+    const Pen sep(rgb(0x0c0f13), 1);
+    for (int b = 1; b < NB; b++) g.line(Pt{r.x + lm, top + b * rh}, Pt{r.x + lm + PW, top + b * rh}, sep);
     if (d > 0) {
-      std::vector<G::PointF> pts;
-      for (int x = 0; x <= PW; x += 2) pts.push_back(G::PointF(r.x + lm + x, (float)(top + (1 - windowValue((double)x / PW, c, w, d)) * (r.h - 6))));
-      G::Pen dash(G::Color(140, 255, 255, 255), 1); dash.SetDashStyle(G::DashStyleDash);
-      g.DrawLines(&dash, pts.data(), (int)pts.size());
+      std::vector<Pt> pts;
+      for (int x = 0; x <= PW; x += 2) pts.push_back(Pt{r.x + lm + x, (float)(top + (1 - windowValue((double)x / PW, c, w, d)) * (r.h - 6))});
+      g.lines(pts.data(), (int)pts.size(), Pen(argb(140, 255, 255, 255), 1).dashed());
     }
   }
 
-  void drawAtom(G::Graphics& g, R r) {
+  void drawAtom(Canvas& g, R r) {
     int wi = (int)jsRound(plainOf(P_WAVELET));
     if (!atoms.count(wi)) atoms[wi] = atomShape(wi);
     const Atom& a = atoms[wi];
     double span = a.hi - a.lo + 1, margin = std::max(4.0, span * 0.15), lo = a.lo - margin, hi = a.hi + margin;
     double peak = 1e-9; for (int i = a.lo; i <= a.hi; i++) peak = std::max(peak, std::fabs(a.x[i]));
     double sy = (r.h / 2 - 16) / peak, mid = r.y + r.h / 2 + 6;
-    G::Pen zl(G::Color(20, 255, 255, 255), 1); g.DrawLine(&zl, r.x, (float)mid, r.x + r.w, (float)mid);
-    std::vector<G::PointF> pts; pts.push_back(G::PointF(r.x, (float)mid));
+    g.line(Pt{r.x, (float)mid}, Pt{r.x + r.w, (float)mid}, Pen(argb(20, 255, 255, 255), 1));
+    std::vector<Pt> pts; pts.push_back(Pt{r.x, (float)mid});
     for (int x = 0; x <= (int)r.w; x++) {
       int i = (int)std::lround(lo + x * (hi - lo) / r.w);
       double v = (i >= a.lo && i <= a.hi) ? a.x[i] : 0;
-      pts.push_back(G::PointF(r.x + x, (float)(mid - v * sy)));
+      pts.push_back(Pt{r.x + x, (float)(mid - v * sy)});
     }
-    pts.push_back(G::PointF(r.x + r.w, (float)mid));
-    G::SolidBrush fill(rgb(accent(), 36)); g.FillPolygon(&fill, pts.data(), (int)pts.size());
-    G::Pen glow(rgb(accent(), 60), 5); g.DrawLines(&glow, pts.data() + 1, (int)pts.size() - 2);
-    G::Pen pen(rgb(accent()), 2); g.DrawLines(&pen, pts.data() + 1, (int)pts.size() - 2);
-    text(g, L"ψ  ATOM SHAPE", R{r.x + 8, r.y + 4, 150, 14}, 9.5f, true, G::Color(128, 200, 210, 225), 0);
-    text(g, std::to_wstring(filter(wi).L) + L" TAPS", R{r.x + r.w - 108, r.y + 4, 100, 14}, 9.5f, true, G::Color(128, 200, 210, 225), 2);
+    pts.push_back(Pt{r.x + r.w, (float)mid});
+    g.fillPolygon(pts.data(), (int)pts.size(), rgb(accent(), 36));
+    g.lines(pts.data() + 1, (int)pts.size() - 2, Pen(rgb(accent(), 60), 5));
+    g.lines(pts.data() + 1, (int)pts.size() - 2, Pen(rgb(accent()), 2));
+    text(g, L"ψ  ATOM SHAPE", R{r.x + 8, r.y + 4, 150, 14}, 9.5f, true, argb(128, 200, 210, 225), 0);
+    text(g, std::to_wstring(filter(wi).L) + L" TAPS", R{r.x + r.w - 108, r.y + 4, 100, 14}, 9.5f, true, argb(128, 200, 210, 225), 2);
   }
 
-  void drawSource(G::Graphics& g, R r) {
+  void drawSource(Canvas& g, R r) {
     if (disp.mode != 0) return;
     std::vector<double> raw(N);
     sourceCycle((int)jsRound(plainOf(P_A_WAVE)), plainOf(P_A_WIDTH), raw.data());
     const double* dry = disp.layer(DRY);
     double peak = 1; for (int i = 0; i < N; i++) peak = std::max(peak, std::fabs(dry[i]));
     double sy = (r.h / 2 - 8) / peak;
-    polyline(g, raw.data(), r, sy, G::Color(51, 200, 210, 225), 1.2f, false);
+    polyline(g, raw.data(), r, sy, argb(51, 200, 210, 225), 1.2f, false);
     polyline(g, dry, r, sy, rgb(accent()), 1.8f, false);
-    pill(g, L"SOURCE CYCLE", r.x + 7, r.y + 13, false, G::Color(153, 200, 210, 225));
+    pill(g, L"SOURCE CYCLE", r.x + 7, r.y + 13, false, argb(153, 200, 210, 225));
     pill(g, std::to_wstring(disp.kept) + L" / " + std::to_wstring(disp.nonzero) + L" ATOMS KEPT", r.x + r.w - 7, r.y + r.h - 5, true, rgb(accent()));
   }
 
-  void drawWindow(G::Graphics& g, R r) {
+  void drawWindow(Canvas& g, R r) {
     double gains[NB], c, w, d; int note;
     gainsForDisplay(gains, c, w, d, note);
-    G::Pen base(G::Color(15, 255, 255, 255), 1); g.DrawLine(&base, r.x, r.y + r.h - 4.5f, r.x + r.w, r.y + r.h - 4.5f);
-    if (d <= 0) { text(g, L"WINDOW OFF · RAISE DEPTH", r, 9, true, G::Color(90, 200, 210, 225)); return; }
-    std::vector<G::PointF> pts;
-    for (int x = 0; x <= (int)r.w; x++) pts.push_back(G::PointF(r.x + x, (float)(r.y + r.h - 4 - windowValue(x / r.w, c, w, d) * (r.h - 8))));
-    G::Pen pen(rgb(accent()), 1.6f); g.DrawLines(&pen, pts.data(), (int)pts.size());
+    g.line(Pt{r.x, r.y + r.h - 4.5f}, Pt{r.x + r.w, r.y + r.h - 4.5f}, Pen(argb(15, 255, 255, 255), 1));
+    if (d <= 0) { text(g, L"WINDOW OFF · RAISE DEPTH", r, 9, true, argb(90, 200, 210, 225)); return; }
+    std::vector<Pt> pts;
+    for (int x = 0; x <= (int)r.w; x++) pts.push_back(Pt{r.x + x, (float)(r.y + r.h - 4 - windowValue(x / r.w, c, w, d) * (r.h - 8))});
+    g.lines(pts.data(), (int)pts.size(), Pen(rgb(accent()), 1.6f));
   }
 
-  void drawAdsr(G::Graphics& g, const Item& it) {
+  void drawAdsr(Canvas& g, const Item& it) {
     R r = it.r;
     int base = it.w->env == 0 ? P_AMP_A : P_MOD_A;
     double a = plainOf(base), d = plainOf(base + 1), s = plainOf(base + 2), rl = plainOf(base + 3);
@@ -668,56 +558,53 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     double wa = f(a), wd = f(d), wr = f(rl), hold = 0.35, tot = wa + wd + hold + wr;
     auto X = [&](double v) { return (float)(r.x + 4 + v / tot * (r.w - 8)); };
     auto Y = [&](double v) { return (float)(r.y + r.h - 4 - v * (r.h - 8)); };
-    std::vector<G::PointF> pts;
-    pts.push_back(G::PointF(X(0), Y(0))); pts.push_back(G::PointF(X(wa), Y(1)));
-    for (int k = 1; k <= 16; k++) { double t = k / 16.0; pts.push_back(G::PointF(X(wa + wd * t), Y(s + (1 - s) * std::pow(0.001, t)))); }
-    pts.push_back(G::PointF(X(wa + wd + hold), Y(s)));
-    for (int k = 1; k <= 16; k++) { double t = k / 16.0; pts.push_back(G::PointF(X(wa + wd + hold + wr * t), Y(s * std::pow(0.001, t)))); }
-    std::vector<G::PointF> poly = pts; poly.push_back(G::PointF(X(tot), Y(0)));
-    G::SolidBrush fill(rgb(accent(), 33)); g.FillPolygon(&fill, poly.data(), (int)poly.size());
-    G::Pen pen(rgb(accent()), 1.6f); g.DrawLines(&pen, pts.data(), (int)pts.size());
+    std::vector<Pt> pts;
+    pts.push_back(Pt{X(0), Y(0)}); pts.push_back(Pt{X(wa), Y(1)});
+    for (int k = 1; k <= 16; k++) { double t = k / 16.0; pts.push_back(Pt{X(wa + wd * t), Y(s + (1 - s) * std::pow(0.001, t))}); }
+    pts.push_back(Pt{X(wa + wd + hold), Y(s)});
+    for (int k = 1; k <= 16; k++) { double t = k / 16.0; pts.push_back(Pt{X(wa + wd + hold + wr * t), Y(s * std::pow(0.001, t))}); }
+    std::vector<Pt> poly = pts; poly.push_back(Pt{X(tot), Y(0)});
+    g.fillPolygon(poly.data(), (int)poly.size(), rgb(accent(), 33));
+    g.lines(pts.data(), (int)pts.size(), Pen(rgb(accent()), 1.6f));
   }
 
-  void drawLeds(G::Graphics& g, R r) {
+  void drawLeds(Canvas& g, R r) {
     int maxV = (int)jsRound(plainOf(P_V_VOICES));
     const float step = (r.w - 10) / 15;
     for (int k = 0; k < 16; k++) {
       bool on = (liveVoices >> k) & 1, avail = k < std::max(1, maxV);
       float x = r.x + 5 + k * step, y = r.y + 8.5f;
-      if (on) { G::SolidBrush gb(rgb(accent(), 70)); g.FillEllipse(&gb, x - 7, y - 7, 14.f, 14.f); }
-      G::SolidBrush b(on ? rgb(accent()) : avail ? rgb(0x2a303a) : rgb(0x1a1e24));
-      g.FillEllipse(&b, x - 4, y - 4, 8.f, 8.f);
+      if (on) g.fillEllipse(R{x - 7, y - 7, 14.f, 14.f}, rgb(accent(), 70));
+      g.fillEllipse(R{x - 4, y - 4, 8.f, 8.f}, on ? rgb(accent()) : avail ? rgb(0x2a303a) : rgb(0x1a1e24));
     }
   }
 
-  void drawFxHeads(G::Graphics& g, R r) {
+  void drawFxHeads(Canvas& g, R r) {
     struct H { const wchar_t* t; float x, w; } hs[] = {{L"SATURATION", 26, 52}, {L"PING-PONG DELAY", 78, 156}, {L"REVERB", 234, 104}};
-    G::Pen ln(G::Color(20, 255, 255, 255), 1);
+    const Pen ln(argb(20, 255, 255, 255), 1);
     for (auto& h : hs) {
-      text(g, h.t, R{r.x + h.x, r.y, h.w, 16}, 9, true, G::Color(107, 200, 210, 225));
-      g.DrawLine(&ln, r.x + h.x + 4, r.y + 17.5f, r.x + h.x + h.w - 4, r.y + 17.5f);
+      text(g, h.t, R{r.x + h.x, r.y, h.w, 16}, 9, true, argb(107, 200, 210, 225));
+      g.line(Pt{r.x + h.x + 4, r.y + 17.5f}, Pt{r.x + h.x + h.w - 4, r.y + 17.5f}, ln);
     }
   }
 
   bool keyDown(int n) const { return ((liveKeys[n >> 5] >> (n & 31)) & 1) || n == mouseNote; }
 
-  void drawKeyboard(G::Graphics& g, R r) {
+  void drawKeyboard(Canvas& g, R r) {
     std::vector<int> whites; for (int n = KB_LO; n <= KB_HI; n++) if (!isBlack(n)) whites.push_back(n);
     float ww = r.w / whites.size();
     for (size_t k = 0; k < whites.size(); k++) {
       int n = whites[k]; float x = r.x + k * ww; bool on = keyDown(n);
-      G::LinearGradientBrush b(G::PointF(0, r.y), G::PointF(0, r.y + r.h), on ? rgb(accent()) : rgb(0xd9dee5), on ? rgb(0xe9fbf9) : rgb(0xf6f8fa));
-      g.FillRectangle(&b, x + 0.5f, r.y, ww - 1, r.h);
-      G::SolidBrush sh(G::Color(64, 0, 0, 0)); g.FillRectangle(&sh, x + 0.5f, r.y + r.h - 3, ww - 1, 3.f);
+      g.fillRect(R{x + 0.5f, r.y, ww - 1, r.h}, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, on ? rgb(accent()) : rgb(0xd9dee5), on ? rgb(0xe9fbf9) : rgb(0xf6f8fa)));
+      g.fillRect(R{x + 0.5f, r.y + r.h - 3, ww - 1, 3.f}, argb(64, 0, 0, 0));
       if (n % 12 == 0) text(g, noteName(n), R{x, r.y + r.h - 22, ww, 14}, 9, true, on ? rgb(0x0d1014) : rgb(0x7a8594));
     }
     for (int n = KB_LO; n <= KB_HI; n++) {
       if (!isBlack(n)) continue;
       int k = (int)(std::find(whites.begin(), whites.end(), n - 1) - whites.begin());
       float x = r.x + (k + 1) * ww - ww * 0.31f, bw = ww * 0.62f, bh = r.h * 0.6f; bool on = keyDown(n);
-      G::LinearGradientBrush b(G::PointF(0, r.y), G::PointF(0, r.y + bh), on ? rgb(accent()) : rgb(0x262b33), on ? rgb(0x0f5a54) : rgb(0x0d0f12));
-      g.FillRectangle(&b, x, r.y, bw, bh);
-      G::SolidBrush hl(G::Color(20, 255, 255, 255)); g.FillRectangle(&hl, x + 2, r.y + bh - 5, bw - 4, 3.f);
+      g.fillRect(R{x, r.y, bw, bh}, Brush(Pt{0, r.y}, Pt{0, r.y + bh}, on ? rgb(accent()) : rgb(0x262b33), on ? rgb(0x0f5a54) : rgb(0x0d0f12)));
+      g.fillRect(R{x + 2, r.y + bh - 5, bw - 4, 3.f}, argb(20, 255, 255, 255));
     }
   }
 
@@ -737,34 +624,32 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     return whites[k];
   }
 
-  void drawWheels(G::Graphics& g, R r) {
+  void drawWheels(Canvas& g, R r) {
     double bend = plainOf(P_BEND), mod = plainOf(P_MODWHEEL);
     struct Wh { float x; double v; const wchar_t* lab; bool center; } ws2[] = {{r.x, (bend + 1) / 2, L"PITCH", true}, {r.x + r.w - 24, mod, L"MOD", false}};
     for (auto& w : ws2) {
       float h = r.h - 14;
-      G::LinearGradientBrush b(G::PointF(w.x, 0), G::PointF(w.x + 24, 0), rgb(0x0b0d10), rgb(0x1c2128));
-      g.FillRectangle(&b, w.x, r.y, 24.f, h);
-      G::Pen rib(G::Color(13, 255, 255, 255), 1);
-      for (float y = 4; y < h; y += 5) g.DrawLine(&rib, w.x + 3, r.y + y, w.x + 21, r.y + y);
-      if (w.center) { G::SolidBrush c(G::Color(46, 255, 255, 255)); g.FillRectangle(&c, w.x, r.y + h / 2 - 0.5f, 24.f, 1.f); }
+      g.fillRect(R{w.x, r.y, 24.f, h}, Brush(Pt{w.x, 0}, Pt{w.x + 24, 0}, rgb(0x0b0d10), rgb(0x1c2128)));
+      const Pen rib(argb(13, 255, 255, 255), 1);
+      for (float y = 4; y < h; y += 5) g.line(Pt{w.x + 3, r.y + y}, Pt{w.x + 21, r.y + y}, rib);
+      if (w.center) g.fillRect(R{w.x, r.y + h / 2 - 0.5f, 24.f, 1.f}, argb(46, 255, 255, 255));
       float yy = r.y + (float)((1 - w.v) * (h - 8) + 4);
-      G::SolidBrush gl(rgb(accent(), 70)); g.FillRectangle(&gl, w.x, yy - 4, 24.f, 8.f);
-      G::SolidBrush a(rgb(accent())); g.FillRectangle(&a, w.x + 2, yy - 2, 20.f, 4.f);
-      text(g, w.lab, R{w.x - 6, r.y + r.h - 12, 36, 12}, 8, true, G::Color(115, 200, 210, 225));
+      g.fillRect(R{w.x, yy - 4, 24.f, 8.f}, rgb(accent(), 70));
+      g.fillRect(R{w.x + 2, yy - 2, 20.f, 4.f}, rgb(accent()));
+      text(g, w.lab, R{w.x - 6, r.y + r.h - 12, 36, 12}, 8, true, argb(115, 200, 210, 225));
     }
   }
 
-  void drawLogo(G::Graphics& g, R r) {
+  void drawLogo(Canvas& g, R r) {
     R m{r.x, r.y + 1, 30, 30};
-    G::SolidBrush ib(rgb(kInset)); fillRR(g, m, 8, ib); strokeRR(g, m, 8, rgb(0x2a303a));
-    G::PointF pts[] = {{m.x + 3, m.y + 15}, {m.x + 8, m.y + 15}, {m.x + 11, m.y + 7}, {m.x + 15, m.y + 23}, {m.x + 19, m.y + 11}, {m.x + 22, m.y + 17}, {m.x + 27, m.y + 17}};
-    G::Pen pen(rgb(accent()), 2.2f); pen.SetLineJoin(G::LineJoinRound); pen.SetStartCap(G::LineCapRound); pen.SetEndCap(G::LineCapRound);
-    g.DrawLines(&pen, pts, 7);
+    fillRR(g, m, 8, rgb(kInset)); strokeRR(g, m, 8, rgb(0x2a303a));
+    const Pt pts[] = {{m.x + 3, m.y + 15}, {m.x + 8, m.y + 15}, {m.x + 11, m.y + 7}, {m.x + 15, m.y + 23}, {m.x + 19, m.y + 11}, {m.x + 22, m.y + 17}, {m.x + 27, m.y + 17}};
+    g.lines(pts, 7, Pen(rgb(accent()), 2.2f).join().caps());
     text(g, L"OKTOWAVE", R{r.x + 40, r.y + 1, 160, 18}, 13.5f, true, rgb(0xeef2f7), 0);   // beta 0.3
     text(g, L"WAVELET SYNTHESIZER", R{r.x + 40, r.y + 17, 160, 14}, 9, true, rgb(accent()), 0);
   }
 
-  void drawPresets(G::Graphics& g, R r) {
+  void drawPresets(Canvas& g, R r) {
     inset(g, r, 8);
     text(g, L"◀", R{r.x, r.y, 30, r.h}, 11, false, rgb(kDim));
     text(g, L"▶", R{r.x + r.w - 30, r.y, 30, r.h}, 11, false, rgb(kDim));
@@ -773,37 +658,30 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     if (!host->browserOpen()) name += L"  ▸";   // a click opens the preset browser
     // a long name gets a smaller font rather than overflowing the arrows
     float px = 12.5f;
-    G::StringFormat f; f.SetFormatFlags(G::StringFormatFlagsNoWrap);
-    for (G::RectF bound; px > 9.5f; px -= 0.5f) {
-      g.MeasureString(name.c_str(), -1, font(px, true), G::PointF(0, 0), &f, &bound);
-      if (bound.Width <= r.w - 64) break;
-    }
+    for (; px > 9.5f; px -= 0.5f) if (g.textWidth(name, px, true) <= r.w - 64) break;
     text(g, name, R{r.x + 30, r.y, r.w - 60, r.h}, px, true, rgb(0xeef2f7));
   }
 
-  void drawManualBtn(G::Graphics& g, const Item& it) {
+  void drawManualBtn(Canvas& g, const Item& it) {
     bool b = it.w->type == W_MANUALB;
     inset(g, it.r, 8);
     text(g, L"MANUAL", R{it.r.x, it.r.y + 3, it.r.w, 12}, 9.5f, true, rgb(kDim));
     text(g, b ? L"B" : L"A", R{it.r.x, it.r.y + 14, it.r.w, 14}, 12, true, rgb(b ? kAccentB : kAccentA));
   }
 
-  void drawMeter(G::Graphics& g, R r) {
+  void drawMeter(Canvas& g, R r) {
     float bw = (r.w - 2) / 2;
     float lv[2] = {meterL, meterR};
     for (int k = 0; k < 2; k++) {
       float x = r.x + k * (bw + 2);
-      G::SolidBrush bg(rgb(0x0c0f13)); g.FillRectangle(&bg, x, r.y, bw, r.h);
+      g.fillRect(R{x, r.y, bw, r.h}, rgb(0x0c0f13));
       double db = 20 * std::log10(lv[k] + 1e-9), t = std::min(1.0, std::max(0.0, (db + 48) / 48));
       float h = (float)(t * r.h);
-      if (h > 0.5f) {
-        G::LinearGradientBrush gb(G::PointF(0, r.y + r.h), G::PointF(0, r.y), rgb(0x2fd4c6), rgb(0xff5d5d));
-        g.FillRectangle(&gb, x, r.y + r.h - h, bw, h);
-      }
+      if (h > 0.5f) g.fillRect(R{x, r.y + r.h - h, bw, h}, Brush(Pt{0, r.y + r.h}, Pt{0, r.y}, rgb(0x2fd4c6), rgb(0xff5d5d)));
     }
   }
 
-  void drawZoom(G::Graphics& g, R r) {
+  void drawZoom(Canvas& g, R r) {
     inset(g, r, 5);
     text(g, std::to_wstring((int)std::lround(host->zoom() * 100)) + L"%", r, 9.5f, true, rgb(kDim));
   }
@@ -813,7 +691,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     for (int k = (int)items.size() - 1; k >= 0; k--) if (visible(items[k]) && items[k].r.has(x, y)) return k;
     return -1;
   }
-  void logical(LPARAM lp, float& x, float& y) { double s = scale(); x = (float)(GET_X_LPARAM(lp) / s); y = (float)(GET_Y_LPARAM(lp) / s); }
+  bool shiftDown() { return win && win->shiftDown(); }
   void setPlain(int id, double v) { host->performEditPlain(id, v); }
   void gesture(int id, double v) { host->setPlainGesture(id, v); onTimer(); }
   void noteOn(int n, double vel) { auto sh = host->sharedState(); if (sh) sh->push(SharedState::Ev{(int16_t)n, (int16_t)std::max(1, (int)std::lround(vel * 127))}); }
@@ -826,25 +704,30 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     const ParamDef& p = kParams[id];
     double cur = plainOf(id), v;
     if (p.curve == CURVE_INT || p.curve == CURVE_CHOICE) v = std::min(p.max, std::max(p.min, jsRound(cur) + dir));
-    else v = toPlain(p, std::min(1.0, std::max(0.0, toNorm(p, cur) + dir * ((GetKeyState(VK_SHIFT) & 0x8000) ? 0.002 : 0.01))));
+    else v = toPlain(p, std::min(1.0, std::max(0.0, toNorm(p, cur) + dir * (shiftDown() ? 0.002 : 0.01))));
     gesture(id, v);
   }
+  void wheel(float x, float y, int dir) override {
+    if (host->browserOpen() && bList().has(x, y)) { browserWheel(dir); return; }
+    int idx = hit(x, y);
+    if (idx >= 0) wheelOn(idx, dir);
+  }
 
-  void mouseDown(float x, float y, bool dbl) {
-    if (kSaveBtn.has(x, y)) { if (!dbl) savePreset(); onTimer(); InvalidateRect(hwnd, nullptr, FALSE); return; }
+  void mouseDown(float x, float y, bool dbl) override {
+    if (kSaveBtn.has(x, y)) { if (!dbl) savePreset(); onTimer(); invalidateAll(); return; }
     if (host->browserOpen() && x >= kDeviceW) { browserClick(x, y); return; }
     int idx = hit(x, y);
     if (idx < 0) return;
     const Item& it = items[idx];
     const WidgetDef& w = *it.w;
-    bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    bool ctrl = win && win->ctrlDown();
     switch (w.type) {
       case W_KNOBL: case W_KNOBM: case W_KNOBS: case W_KNOBT: case W_DRAWBAR: {
         const ParamDef& p = kParams[w.param];
         if (dbl || ctrl) { gesture(w.param, p.def); return; }
-        drag = idx; dragY = y; dragNorm = toNorm(p, plainOf(w.param)); dragShift = (GetKeyState(VK_SHIFT) & 0x8000) != 0; dragMoved = false;
+        drag = idx; dragY = y; dragNorm = toNorm(p, plainOf(w.param)); dragShift = shiftDown(); dragMoved = false;
         host->beginEdit(w.param);
-        SetCapture(hwnd);
+        if (win) win->capture(true);
         invalidateItem(idx);
         return;
       }
@@ -868,7 +751,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
         else if (x > it.r.x + it.r.w - 30) { const int k = stepPreset(pi, 1); if (k >= 0) host->loadPreset(k); }
         else if (!host->browserOpen()) setBrowser(true);   // the name opens the preset browser (right-click: the menu)
         else bReveal();
-        onTimer(); InvalidateRect(hwnd, nullptr, FALSE);
+        onTimer(); invalidateAll();
         return;
       }
       case W_MENU: choiceMenu(it); return;
@@ -877,18 +760,24 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       case W_KEYBOARD: {
         double vel; int n = keyAt(it.r, x, y, vel);
         mouseNote = n; noteOn(n, vel);
-        SetCapture(hwnd); drag = idx; invalidateItem(idx);
+        if (win) win->capture(true);
+        drag = idx; invalidateItem(idx);
         return;
       }
       case W_WHEELS: {
         wheelDrag = x < it.r.x + it.r.w / 2 ? 0 : 1;
         host->beginEdit(wheelDrag == 0 ? P_BEND : P_MODWHEEL);
-        drag = idx; SetCapture(hwnd);
+        drag = idx; if (win) win->capture(true);
         wheelMove(it, y);
         return;
       }
       default: return;
     }
+  }
+  // right-click (or Control-click on a Mac) on the preset name: the classic menu
+  void rightDown(float x, float y) override {
+    const int idx = hit(x, y);
+    if (idx >= 0 && items[idx].w->type == W_PRESETS) { presetMenu(items[idx]); onTimer(); invalidateAll(); }
   }
 
   void wheelMove(const Item& it, float y) {
@@ -898,27 +787,27 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     invalidateItem(drag);
   }
 
-  void mouseMove(float x, float y) {
+  bool mouseMove(float x, float y) override {
     if (drag >= 0) {
       const Item& it = items[drag];
       if (it.w->type == W_KEYBOARD) {
         double vel; int n = keyAt(it.r, std::max(it.r.x, std::min(it.r.x + it.r.w - 1, x)), std::max(it.r.y, std::min(it.r.y + it.r.h - 1, y)), vel);
         if (n != mouseNote) { if (mouseNote >= 0) noteOff(mouseNote); mouseNote = n; noteOn(n, vel); invalidateItem(drag); }
-        return;
+        return false;
       }
-      if (it.w->type == W_WHEELS) { wheelMove(it, y); return; }
+      if (it.w->type == W_WHEELS) { wheelMove(it, y); return false; }
       const ParamDef& p = kParams[it.w->param];
       // beta 0.3: a knob with few positions (SUB OCT, shapes) moves 24 px per step; a click without moving steps to the
       // next value (mouseUp)
       const bool few = it.w->type != W_DRAWBAR && (p.curve == CURVE_INT || p.curve == CURVE_CHOICE) && p.max - p.min <= 4;
       if (std::fabs(y - dragY) > 3) dragMoved = true;
-      bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0 && !few;
-      if (shift != dragShift) { dragShift = shift; dragY = y; dragNorm = toNorm(p, plainOf(it.w->param)); return; }
+      bool shift = shiftDown() && !few;
+      if (shift != dragShift) { dragShift = shift; dragY = y; dragNorm = toNorm(p, plainOf(it.w->param)); return false; }
       double range = few ? 24 * (p.max - p.min) : it.w->type == W_DRAWBAR ? 120 : 180;
       double n = std::min(1.0, std::max(0.0, dragNorm - (y - dragY) / (shift ? range * 5 : range)));
       double v = toPlain(p, n);
       if (v != plainOf(it.w->param)) { setPlain(it.w->param, v); onTimer(); }
-      return;
+      return false;
     }
     int h = kSaveBtn.has(x, y) ? -2 : hit(x, y);
     if (h != hover) {
@@ -928,10 +817,10 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     }
     const int bh = host->browserOpen() && x >= kDeviceW ? bHit(x, y) : -1;
     if (bh != bHover) { bHover = bh; invalidateLogical(bCard()); }
-    if (!tracking) { TRACKMOUSEEVENT t{sizeof t, TME_LEAVE, hwnd, 0}; TrackMouseEvent(&t); tracking = true; }
+    return true;
   }
 
-  void mouseUp() {
+  void mouseUp() override {
     if (drag < 0) return;
     const Item& it = items[drag];
     if (it.w->type == W_KEYBOARD) { if (mouseNote >= 0) noteOff(mouseNote); mouseNote = -1; }
@@ -949,9 +838,21 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       host->endEdit(id);
     }
     int old = drag; drag = -1;
-    ReleaseCapture();
+    if (win) win->capture(false);
     invalidateItem(old);
     onTimer();
+  }
+
+  void mouseLeave() override {
+    if (drag < 0 && hover >= 0) { int o = hover; hover = -1; invalidateItem(o); }
+    if (hover == -2) { hover = -1; invalidateLogical(kSaveBtn); }
+    if (bHover >= 0) { bHover = -1; invalidateLogical(bCard()); }
+  }
+
+  // developer test (vst/devtest/bank_session.cpp, tests/machost): a preset-menu command, the bank read again
+  void testCommand(int cmd) override {
+    menuBank = Library::get().bank();
+    menuCommand(cmd);
   }
 
   // ================================================================ presets: menu, library, browser (beta 0.3)
@@ -961,8 +862,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   // replaced. Everything lives in the library file (bank.h), which another instance may change at any time: every action
   // reads it again first. DELETE hides a factory preset from the lists (the file keeps it, "Deleted: yes"; the menu's
   // "Deleted presets" brings it back).
-  static constexpr UINT kCmdBankSave = 900, kCmdBankExport = 901, kCmdBankShow = 902, kCmdSavePreset = 910, kCmdRestore = 911,
-                        kCmdBrowser = 912, kCmdDelete = 913, kCmdBankLoad = 1000, kCmdBankDelete = 3000, kCmdUndelete = 5000;
+  static constexpr int kCmdBankSave = 900, kCmdBankExport = 901, kCmdBankShow = 902, kCmdSavePreset = 910, kCmdRestore = 911,
+                       kCmdBrowser = 912, kCmdDelete = 913, kCmdBankLoad = 1000, kCmdBankDelete = 3000, kCmdUndelete = 5000;
   static constexpr float kBrowserW = 360;                  // logical width added at the right while the browser is open
   static constexpr R kSaveBtn{800, 9, 68, 30};             // SAVE PRESET, left of MANUAL A (the preset box is shorter)
   std::vector<BankPreset> menuBank;                        // the bank as listed by the last menu / browser (commands index it)
@@ -972,17 +873,6 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   uint32_t libVer = 0; int libTick = 0;
   std::wstring bStatus;                                    // last browser message
 
-  static std::wstring menuText(const std::string& s) {   // '&' would be a menu mnemonic
-    std::wstring out;
-    for (wchar_t c : toW(s)) { if (c == L'&') out += L'&'; out += c; }
-    return out;
-  }
-  static std::string fromW(const std::wstring& w) {
-    const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
-    std::string s(n, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
-    return s;
-  }
   // the browser's factory lists, as the library keeps them (TOP Sounds, then the categories, in the player's order)
   void buildCategories() {
     fCats.clear();
@@ -998,100 +888,96 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   // ---------------------------------------------------------------- classic menu (right-click on the preset name)
   void presetMenu(const Item& it) {
     Library& lib = Library::get();
-    HMENU m = CreatePopupMenu();
+    std::vector<MenuItem> m;
     const int cur = host->presetIndex();
     const std::string user = host->userPresetName();
-    AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"★ Favourites");
+    m.push_back(MenuItem::item(L"★ Favourites", 0, false, true));
     for (int k = 0; k < kNumFavourites && k < kNumPresets; k++)
-      if (!lib.deleted(k)) AppendMenuW(m, MF_STRING | (k == cur && user.empty() ? MF_CHECKED : 0), 100 + k, menuText(lib.name(k)).c_str());
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+      if (!lib.deleted(k)) m.push_back(MenuItem::item(toW(lib.name(k)), 100 + k, k == cur && user.empty()));
+    m.push_back(MenuItem::sep());
     for (int k = kNumFavourites; k < kNumPresets;) {
       const char* cat = kPresets[k].cat;
-      HMENU sub = CreatePopupMenu();
+      std::vector<MenuItem> sub;
       bool here = false;
       int n = 0;
       for (; k < kNumPresets && std::strcmp(kPresets[k].cat, cat) == 0; k++) {
         if (lib.deleted(k)) continue;
-        AppendMenuW(sub, MF_STRING | (k == cur && user.empty() ? MF_CHECKED : 0), 100 + k, menuText(lib.name(k)).c_str());
+        sub.push_back(MenuItem::item(toW(lib.name(k)), 100 + k, k == cur && user.empty()));
         if (k == cur && user.empty()) here = true;
         n++;
       }
-      AppendMenuW(m, MF_POPUP | MF_STRING | (here ? MF_CHECKED : 0), (UINT_PTR)sub, (menuText(cat) + L"	" + std::to_wstring(n)).c_str());
+      m.push_back(MenuItem::popup(toW(cat) + L"\t" + std::to_wstring(n), std::move(sub), here));
     }
     menuBank = lib.bank();
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    HMENU ub = CreatePopupMenu(), del = CreatePopupMenu();
+    m.push_back(MenuItem::sep());
+    std::vector<MenuItem> ub, del;
     bool inBank = false;
     for (int sec = 0; sec < kNumBankSections; sec++) {
-      HMENU sub = CreatePopupMenu(), dsub = CreatePopupMenu();
+      std::vector<MenuItem> sub, dsub;
       int n = 0; bool here = false;
       for (size_t i = 0; i < menuBank.size(); i++) {
         if (menuBank[i].section != sec) continue;
         const bool c = !user.empty() && user == kUserPrefix + menuBank[i].name;
-        AppendMenuW(sub, MF_STRING | (c ? MF_CHECKED : 0), kCmdBankLoad + (UINT)i, menuText(menuBank[i].name).c_str());
-        AppendMenuW(dsub, MF_STRING, kCmdBankDelete + (UINT)i, menuText(menuBank[i].name).c_str());
+        sub.push_back(MenuItem::item(toW(menuBank[i].name), kCmdBankLoad + (int)i, c));
+        dsub.push_back(MenuItem::item(toW(menuBank[i].name), kCmdBankDelete + (int)i));
         n++; here = here || c;
       }
-      if (!n) AppendMenuW(sub, MF_STRING | MF_GRAYED, 0, L"(empty)");
-      const std::wstring label = menuText(kBankSections[sec]) + L"	" + std::to_wstring(n);
-      AppendMenuW(ub, MF_POPUP | MF_STRING | (here ? MF_CHECKED : 0), (UINT_PTR)sub, label.c_str());
-      if (n) AppendMenuW(del, MF_POPUP | MF_STRING, (UINT_PTR)dsub, label.c_str()); else DestroyMenu(dsub);
+      if (!n) sub.push_back(MenuItem::item(L"(empty)", 0, false, true));
+      const std::wstring label = toW(kBankSections[sec]) + L"\t" + std::to_wstring(n);
+      ub.push_back(MenuItem::popup(label, std::move(sub), here));
+      if (n) del.push_back(MenuItem::popup(label, std::move(dsub)));
       inBank = inBank || here;
     }
-    AppendMenuW(ub, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(ub, MF_STRING, kCmdBankSave, L"Save the current sound…");
-    if (!menuBank.empty()) AppendMenuW(ub, MF_POPUP | MF_STRING, (UINT_PTR)del, L"Delete"); else DestroyMenu(del);
-    AppendMenuW(m, MF_POPUP | MF_STRING | (inBank ? MF_CHECKED : 0), (UINT_PTR)ub, (L"USER BANK	" + std::to_wstring(menuBank.size())).c_str());
-    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING, kCmdSavePreset, L"Save preset (overwrite)…");
-    AppendMenuW(m, MF_STRING, kCmdBankSave, L"Save to user bank…");
-    if (user.empty() && lib.adjusted(cur)) AppendMenuW(m, MF_STRING, kCmdRestore, L"Restore the original preset");
-    if (user.empty() && !lib.deleted(cur)) AppendMenuW(m, MF_STRING, kCmdDelete, L"Delete this preset from the list…");
+    ub.push_back(MenuItem::sep());
+    ub.push_back(MenuItem::item(L"Save the current sound…", kCmdBankSave));
+    if (!menuBank.empty()) ub.push_back(MenuItem::popup(L"Delete", std::move(del)));
+    m.push_back(MenuItem::popup(L"USER BANK\t" + std::to_wstring(menuBank.size()), std::move(ub), inBank));
+    m.push_back(MenuItem::sep());
+    m.push_back(MenuItem::item(L"Save preset (overwrite)…", kCmdSavePreset));
+    m.push_back(MenuItem::item(L"Save to user bank…", kCmdBankSave));
+    if (user.empty() && lib.adjusted(cur)) m.push_back(MenuItem::item(L"Restore the original preset", kCmdRestore));
+    if (user.empty() && !lib.deleted(cur)) m.push_back(MenuItem::item(L"Delete this preset from the list…", kCmdDelete));
     if (lib.deletedCount() > 0) {   // bring a deleted factory preset back
-      HMENU dm = CreatePopupMenu();
-      for (int k = 0; k < kNumPresets; k++) if (lib.deleted(k)) AppendMenuW(dm, MF_STRING, kCmdUndelete + k, menuText(lib.name(k)).c_str());
-      AppendMenuW(m, MF_POPUP | MF_STRING, (UINT_PTR)dm, (L"Deleted presets (click to bring back)	" + std::to_wstring(lib.deletedCount())).c_str());
+      std::vector<MenuItem> dm;
+      for (int k = 0; k < kNumPresets; k++) if (lib.deleted(k)) dm.push_back(MenuItem::item(toW(lib.name(k)), kCmdUndelete + k));
+      m.push_back(MenuItem::popup(L"Deleted presets (click to bring back)\t" + std::to_wstring(lib.deletedCount()), std::move(dm)));
     }
-    AppendMenuW(m, MF_STRING, kCmdBankExport, L"Export all presets (.txt)…");
-    AppendMenuW(m, MF_STRING, kCmdBankShow, L"Show the presets file");
-    AppendMenuW(m, MF_STRING, kCmdBrowser, host->browserOpen() ? L"Hide the preset browser" : L"Show the preset browser");
-    POINT pt{(LONG)((it.r.x + 30) * scale()), (LONG)((it.r.y + it.r.h) * scale())};
-    ClientToScreen(hwnd, &pt);
-    int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
-    DestroyMenu(m);
+    m.push_back(MenuItem::item(L"Export all presets (.txt)…", kCmdBankExport));
+    m.push_back(MenuItem::item(L"Show the presets file", kCmdBankShow));
+    m.push_back(MenuItem::item(host->browserOpen() ? L"Hide the preset browser" : L"Show the preset browser", kCmdBrowser));
+    const int cmd = win ? win->popupMenu(m, it.r.x + 30, it.r.y + it.r.h) : 0;
     menuCommand(cmd);
   }
-  // a command of the menu or the browser (also sent by the developer test as WM_APP + 1, with the bank read again)
+  // a command of the menu or the browser (also sent by the developer tests, with the bank read again)
   void menuCommand(int cmd) {
     if (cmd >= 100 && cmd < 100 + kNumPresets) host->loadPreset(cmd - 100);
-    else if (cmd == (int)kCmdBankSave) bankSave();
-    else if (cmd == (int)kCmdBankExport) bankExport();
-    else if (cmd == (int)kCmdBankShow) bankShow();
-    else if (cmd == (int)kCmdSavePreset) savePreset();
-    else if (cmd == (int)kCmdRestore) restorePreset(host->presetIndex());
-    else if (cmd == (int)kCmdBrowser) setBrowser(!host->browserOpen());
-    else if (cmd == (int)kCmdDelete) deletePreset(host->presetIndex());
-    else if (cmd >= (int)kCmdUndelete && cmd < (int)kCmdUndelete + kNumPresets) {
+    else if (cmd == kCmdBankSave) bankSave();
+    else if (cmd == kCmdBankExport) bankExport();
+    else if (cmd == kCmdBankShow) bankShow();
+    else if (cmd == kCmdSavePreset) savePreset();
+    else if (cmd == kCmdRestore) restorePreset(host->presetIndex());
+    else if (cmd == kCmdBrowser) setBrowser(!host->browserOpen());
+    else if (cmd == kCmdDelete) deletePreset(host->presetIndex());
+    else if (cmd >= kCmdUndelete && cmd < kCmdUndelete + kNumPresets) {
       if (!libError(Library::get().setDeleted(cmd - kCmdUndelete, false), L"Could not save the presets file:"))
         bStatus = L"“" + toW(Library::get().name(cmd - kCmdUndelete)) + L"” is back in the list.";
     }
-    else if (cmd >= (int)kCmdBankLoad && cmd < (int)kCmdBankLoad + (int)menuBank.size()) {
+    else if (cmd >= kCmdBankLoad && cmd < kCmdBankLoad + (int)menuBank.size()) {
       const BankPreset& p = menuBank[cmd - kCmdBankLoad];
       host->loadUserSound(p.v, kUserPrefix + p.name);
-    } else if (cmd >= (int)kCmdBankDelete && cmd < (int)kCmdBankDelete + (int)menuBank.size()) bankDelete(menuBank[cmd - kCmdBankDelete]);
+    } else if (cmd >= kCmdBankDelete && cmd < kCmdBankDelete + (int)menuBank.size()) bankDelete(menuBank[cmd - kCmdBankDelete]);
     else return;
-    onTimer(); InvalidateRect(hwnd, nullptr, FALSE);
+    onTimer(); invalidateAll();
   }
 
   // ---------------------------------------------------------------- library actions
   bool libError(const std::wstring& e, const wchar_t* what) {
     if (e.empty()) return false;
     const std::wstring path = Library::get().path();
-    MessageBoxW(hwnd, (std::wstring(what) + L"\n" + path + L"\n\n" + e + L".\n\nThe presets file is kept next to the "
-                L"WaveletSynthesizer.vst3 folder: that folder must allow writing (the VST3 system folder, C:\\Program Files"
-                L"\\Common Files\\VST3, needs administrator rights).").c_str(), L"Wavelet Synthesizer", MB_OK | MB_ICONWARNING);
+    if (win) win->message(std::wstring(what) + L"\n" + path + L"\n\n" + e + L".\n\n" + kFolderNote, true);
     return true;
   }
+  bool ask(const std::wstring& q) { return win && win->ask(q); }
   void currentSound(double* v) {
     currentParams(v);
     for (int i = 0; i < kNumParams; i++) if (kParams[i].hidden) v[i] = kParams[i].def;
@@ -1111,7 +997,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       if (!found) { bankSave(); return; }   // no longer in the bank (deleted elsewhere): save it again
       SaveDlg d; d.name = toW(old);
       const std::wstring note = L"Overwrites “" + d.name + L"” in the user bank (" + toW(kBankSections[np.section]) + L").";
-      if (!saveDialog(d, L"Save preset", false, note.c_str())) return;
+      if (!win || !win->saveDialog(d, L"Save preset", false, note.c_str())) return;
       np.name = fromW(d.name);
       std::memcpy(np.v, v, sizeof v);
       if (libError(lib.putUser(np, old), L"Could not save the preset:")) return;
@@ -1124,11 +1010,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     SaveDlg d; d.name = toW(lib.name(k));
     const std::wstring note = std::wstring(L"Overwrites the factory preset “") + toW(lib.name(k)) +
                               L"” in the list (RESTORE in the preset browser brings the original back).";
-    if (!saveDialog(d, L"Save preset", false, note.c_str())) return;
+    if (!win || !win->saveDialog(d, L"Save preset", false, note.c_str())) return;
     const std::string nn = fromW(d.name);
     const int other = lib.find(nn);
     if (other >= 0 && other != k) {
-      MessageBoxW(hwnd, (L"Another preset is already called “" + d.name + L"”: choose another name.").c_str(), L"Wavelet Synthesizer", MB_OK | MB_ICONINFORMATION);
+      win->message(L"Another preset is already called “" + d.name + L"”: choose another name.", false);
       return;
     }
     if (libError(lib.adjust(k, nn, v), L"Could not save the preset:")) return;
@@ -1139,8 +1025,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     Library& lib = Library::get();
     lib.refresh();
     if (k < 0 || k >= kNumPresets || !lib.adjusted(k)) return;
-    if (MessageBoxW(hwnd, (L"Restore the original factory preset “" + toW(kPresets[k].name) + L"”? Your adjustments of “" +
-                    toW(lib.name(k)) + L"” are lost.").c_str(), L"Wavelet Synthesizer", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+    if (!ask(L"Restore the original factory preset “" + toW(kPresets[k].name) + L"”? Your adjustments of “" +
+             toW(lib.name(k)) + L"” are lost.")) return;
     if (libError(lib.restore(k), L"Could not save the presets file:")) return;
     if (host->userPresetName().empty() && host->presetIndex() == k) host->loadPreset(k);   // the original sound again
     bStatus = L"Restored “" + toW(kPresets[k].name) + L"”.";
@@ -1151,9 +1037,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     lib.refresh();
     buildCategories();
     if (k < 0 || k >= kNumPresets || lib.deleted(k)) return;
-    if (MessageBoxW(hwnd, (L"Delete “" + toW(lib.name(k)) + L"” from the preset list?\n\nIt stays in the presets file (\"Deleted: yes\"), "
-                    L"so that the next version can leave it out; a right-click on the preset name, “Deleted presets”, brings it back.").c_str(),
-                    L"Wavelet Synthesizer", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+    if (!ask(L"Delete “" + toW(lib.name(k)) + L"” from the preset list?\n\nIt stays in the presets file (\"Deleted: yes\"), "
+             L"so that the next version can leave it out; a right-click on the preset name, “Deleted presets”, brings it back.")) return;
     const std::vector<int> rows = bTab == 0 ? bRows() : std::vector<int>();
     int next = -1;
     for (size_t j = 0; j < rows.size(); j++) if (rows[j] == k) {
@@ -1187,7 +1072,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       d.name = toW(lib.name(pi));
       d.section = std::max(0, bankSectionOf(kPresets[pi].cat));
     }
-    if (!saveDialog(d, L"Save to user bank", true, nullptr)) return;
+    if (!win || !win->saveDialog(d, L"Save to user bank", true, nullptr)) return;
     BankPreset np;
     np.section = d.section; np.name = fromW(d.name);
     currentSound(np.v);
@@ -1195,115 +1080,36 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     if (!np.from.empty() && host->presetDirty()) np.from += " (modified)";
     const std::vector<BankPreset> bank = lib.bank();
     if (std::any_of(bank.begin(), bank.end(), [&](const BankPreset& p) { return p.section == np.section && p.name == np.name; }) &&
-        MessageBoxW(hwnd, (L"“" + d.name + L"” already exists in " + toW(kBankSections[np.section]) + L". Replace it?").c_str(),
-                    L"Wavelet Synthesizer", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+        !ask(L"“" + d.name + L"” already exists in " + toW(kBankSections[np.section]) + L". Replace it?")) return;
     if (libError(lib.putUser(np), L"Could not save the user bank:")) return;
     host->loadUserSound(np.v, kUserPrefix + np.name);   // the sound is now this bank entry
     bTab = 1; bCat = np.section; bScroll = 0;
     bStatus = L"Saved “" + d.name + L"” in " + toW(kBankSections[np.section]) + L".";
   }
   void bankDelete(const BankPreset& p) {
-    if (MessageBoxW(hwnd, (L"Delete “" + toW(p.name) + L"” from the user bank (" + toW(kBankSections[p.section]) + L")?").c_str(),
-                    L"Wavelet Synthesizer", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+    if (!ask(L"Delete “" + toW(p.name) + L"” from the user bank (" + toW(kBankSections[p.section]) + L")?")) return;
     if (libError(Library::get().removeUser(p.section, p.name), L"Could not save the user bank:")) return;
     bStatus = L"Deleted “" + toW(p.name) + L"”.";
   }
   void bankExport() {
     std::wstring path = envPath(L"WS_PRESETS_EXPORT");   // developer test: no dialog
     if (path.empty()) {
-      wchar_t b[MAX_PATH * 2] = L"OKTOWAVE presets.txt";
-      OPENFILENAMEW o{};
-      o.lStructSize = sizeof o; o.hwndOwner = GetAncestor(hwnd, GA_ROOT);
-      o.lpstrFilter = L"Text file (*.txt)\0*.txt\0"; o.lpstrFile = b; o.nMaxFile = MAX_PATH * 2; o.lpstrDefExt = L"txt";
-      o.lpstrTitle = L"Export all presets (factory presets and user bank)";
-      o.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_HIDEREADONLY;
-      if (!GetSaveFileNameW(&o)) return;
-      path = b;
+      if (!win) return;
+      path = win->saveFileDialog(L"Export all presets (factory presets and user bank)", L"OKTOWAVE presets.txt");
+      if (path.empty()) return;
     }
     Library::get().refresh();
     const std::wstring e = Library::get().exportTo(path);
-    if (!e.empty()) MessageBoxW(hwnd, (L"Could not export the presets:\n" + path + L"\n\n" + e + L".").c_str(), L"Wavelet Synthesizer", MB_OK | MB_ICONWARNING);
+    if (!e.empty()) { if (win) win->message(L"Could not export the presets:\n" + path + L"\n\n" + e + L".", true); }
     else bStatus = L"Exported to " + path.substr(path.find_last_of(L"\\/") + 1) + L".";
   }
   void bankShow() {
     const std::wstring path = Library::get().path();
-    if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+    if (!fileExists(path)) {
       bStatus = L"No presets file yet: it is written by the first SAVE.";
       return;
     }
-    ShellExecuteW(nullptr, L"open", L"explorer.exe", (L"/select,\"" + path + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
-  }
-
-  // The save window: a name (proposed, editable) and, for the user bank, a section. A dialog template built in memory
-  // (no resource file in the plug-in).
-  struct SaveDlg { std::wstring name; int section = 0; bool withSection = true; };
-  static INT_PTR CALLBACK saveDlgProc(HWND d, UINT msg, WPARAM wp, LPARAM lp) {
-    SaveDlg* s = (SaveDlg*)GetWindowLongPtrW(d, DWLP_USER);
-    if (msg == WM_INITDIALOG) {
-      s = (SaveDlg*)lp;
-      SetWindowLongPtrW(d, DWLP_USER, (LONG_PTR)s);
-      SendDlgItemMessageW(d, 101, EM_LIMITTEXT, 48, 0);
-      SetDlgItemTextW(d, 101, s->name.c_str());
-      if (s->withSection) {
-        for (int i = 0; i < kNumBankSections; i++) SendDlgItemMessageW(d, 102, CB_ADDSTRING, 0, (LPARAM)toW(kBankSections[i]).c_str());
-        SendDlgItemMessageW(d, 102, CB_SETCURSEL, (WPARAM)s->section, 0);
-      }
-      SetFocus(GetDlgItem(d, 101));
-      SendDlgItemMessageW(d, 101, EM_SETSEL, 0, -1);
-      return FALSE;   // the focus is set
-    }
-    if (msg == WM_COMMAND && LOWORD(wp) == IDOK && s) {
-      wchar_t b[64] = {};
-      GetDlgItemTextW(d, 101, b, 64);
-      std::wstring n = b;
-      while (!n.empty() && iswspace(n.back())) n.pop_back();
-      while (!n.empty() && iswspace(n.front())) n.erase(n.begin());
-      if (n.empty()) { MessageBeep(MB_ICONWARNING); SetFocus(GetDlgItem(d, 101)); return TRUE; }
-      s->name = n;
-      if (s->withSection) s->section = std::max(0, (int)SendDlgItemMessageW(d, 102, CB_GETCURSEL, 0, 0));
-      EndDialog(d, IDOK);
-      return TRUE;
-    }
-    if (msg == WM_COMMAND && LOWORD(wp) == IDCANCEL) { EndDialog(d, IDCANCEL); return TRUE; }
-    return FALSE;
-  }
-  bool saveDialog(SaveDlg& d, const wchar_t* title, bool withSection, const wchar_t* note) {
-    d.withSection = withSection;
-    std::vector<WORD> t;
-    auto words = [&t](const void* p, size_t bytes) { const WORD* w = (const WORD*)p; t.insert(t.end(), w, w + bytes / 2); };
-    auto str = [&t](const wchar_t* s) { do t.push_back((WORD)*s); while (*s++); };
-    int items = 0;
-    auto item = [&](DWORD style, short x, short y, short cx, short cy, WORD id, WORD cls, const wchar_t* txt) {
-      if (t.size() % 2) t.push_back(0);   // each item starts on a DWORD boundary
-      DLGITEMTEMPLATE it{};
-      it.style = style | WS_CHILD | WS_VISIBLE; it.x = x; it.y = y; it.cx = cx; it.cy = cy; it.id = id;
-      words(&it, sizeof it);
-      t.push_back(0xFFFF); t.push_back(cls);   // predefined class: 0x80 button, 0x81 edit, 0x82 static, 0x85 combo box
-      str(txt);
-      t.push_back(0);   // no creation data
-      items++;
-    };
-    const short top = note ? 30 : 0, bottom = withSection ? 56 : 34;
-    DLGTEMPLATE h{};
-    h.style = DS_MODALFRAME | DS_SETFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU;
-    h.cdit = (WORD)(4 + (withSection ? 2 : 0) + (note ? 1 : 0)); h.cx = 236; h.cy = (short)(top + bottom + 24);
-    words(&h, sizeof h);
-    t.push_back(0); t.push_back(0);   // no menu, default class
-    str(title);
-    t.push_back(9); str(L"Segoe UI");
-    if (note) item(SS_LEFT, 8, 7, 220, 22, 0xFFFF, 0x82, note);
-    item(SS_LEFT, 8, (short)(top + 11), 40, 10, 0xFFFF, 0x82, L"Name:");
-    item(ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 50, (short)(top + 9), 178, 13, 101, 0x81, L"");
-    if (withSection) {
-      item(SS_LEFT, 8, (short)(top + 32), 40, 10, 0xFFFF, 0x82, L"Section:");
-      item(CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 50, (short)(top + 30), 178, 160, 102, 0x85, L"");
-    }
-    item(BS_DEFPUSHBUTTON | WS_TABSTOP, 122, (short)(top + bottom), 50, 16, IDOK, 0x80, L"Save");
-    item(BS_PUSHBUTTON | WS_TABSTOP, 178, (short)(top + bottom), 50, 16, IDCANCEL, 0x80, L"Cancel");
-    (void)items;
-    std::vector<DWORD> mem((t.size() + 1) / 2 + 1);   // DWORD-aligned copy
-    std::memcpy(mem.data(), t.data(), t.size() * sizeof(WORD));
-    return DialogBoxIndirectParamW(thisModule(), (LPCDLGTEMPLATEW)mem.data(), GetAncestor(hwnd, GA_ROOT), saveDlgProc, (LPARAM)&d) == IDOK;
+    if (win) win->reveal(path);
   }
 
   // ---------------------------------------------------------------- preset browser panel
@@ -1350,7 +1156,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     host->setBrowserOpen(open);
     if (open) bReveal();
     requestResize();
-    InvalidateRect(hwnd, nullptr, FALSE);
+    invalidateAll();
   }
   // the tab, category and scroll of the sound shown
   void bReveal() {
@@ -1399,7 +1205,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     menuBank = Library::get().bank();
     const int h = bHit(x, y);
     if (h == 1) { setBrowser(false); return; }
-    if (h == 20 || h == 21) { if (bMoveEnabled()) bMove(h == 20 ? -1 : 1); InvalidateRect(hwnd, nullptr, FALSE); return; }
+    if (h == 20 || h == 21) { if (bMoveEnabled()) bMove(h == 20 ? -1 : 1); invalidateAll(); return; }
     if (h == 10 || h == 11) {   // a tab; it shows the sound playing only when that sound belongs to it
       bTab = h - 10; bCat = 0; bScroll = 0;
       if ((bTab == 0) == host->userPresetName().empty()) bReveal();
@@ -1427,7 +1233,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       menuBank = Library::get().bank();
       onTimer();
     }
-    InvalidateRect(hwnd, nullptr, FALSE);
+    invalidateAll();
   }
   void browserWheel(int dir) {
     buildCategories();
@@ -1436,40 +1242,32 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     if (s != bScroll) { bScroll = s; invalidateLogical(bList()); }
   }
   // a preset name with its engine letters coloured as in the panel (A teal, B orange)
-  void nameText(G::Graphics& g, const std::string& name, R r, float px, bool bold, G::Color rest, int alpha) {
+  void nameText(Canvas& g, const std::string& name, R r, float px, bool bold, Col rest, int alpha) {
     const size_t dot = name.find(" \xC2\xB7 ");
     std::string pre = dot != std::string::npos && dot <= 2 ? name.substr(0, dot) : "";
     if (pre != "A" && pre != "B" && pre != "AB") pre.clear();
     float x = r.x;
-    G::StringFormat f; f.SetFormatFlags(G::StringFormatFlagsNoWrap);
-    auto part = [&](const std::wstring& s, G::Color c) {
-      G::RectF bound; g.MeasureString(s.c_str(), -1, font(px, bold), G::PointF(0, 0), &f, &bound);
-      text(g, s, R{x, r.y, bound.Width + 2, r.h}, px, bold, c, 0);
-      x += bound.Width - px * 0.28f;
+    auto part = [&](const std::wstring& s, Col c) {
+      const float bw = g.textWidth(s, px, bold);
+      text(g, s, R{x, r.y, bw + 2, r.h}, px, bold, c, 0);
+      x += bw - px * 0.28f;
     };
     if (!pre.empty()) {
       for (char ch : pre) part(std::wstring(1, (wchar_t)ch), rgb(ch == 'A' ? kAccentA : kAccentB, alpha));
       part(toW(name.substr(pre.size())), rest);
-    } else {
-      G::StringFormat ff; ff.SetFormatFlags(G::StringFormatFlagsNoWrap); ff.SetTrimming(G::StringTrimmingEllipsisCharacter);
-      ff.SetLineAlignment(G::StringAlignmentCenter);
-      G::SolidBrush b(rest);
-      const std::wstring w = toW(name);
-      g.DrawString(w.c_str(), -1, font(px, bold), G::RectF(r.x, r.y, r.w, r.h), &ff, &b);
-    }
+    } else g.textEllipsis(toW(name), r, px, bold, rest, true);
   }
-  void drawBrowser(G::Graphics& g) {
+  void drawBrowser(Canvas& g) {
     Library& lib = Library::get();
     buildCategories();
     menuBank = lib.bank();
     const R c = bCard();
-    G::LinearGradientBrush cb(G::PointF(0, c.y), G::PointF(0, c.y + c.h), rgb(0x1f242c), rgb(0x1a1e25));
-    fillRR(g, c, 10, cb);
+    fillRR(g, c, 10, Brush(Pt{0, c.y}, Pt{0, c.y + c.h}, rgb(0x1f242c), rgb(0x1a1e25)));
     strokeRR(g, R{c.x + 0.5f, c.y + 0.5f, c.w - 1, c.h - 1}, 10, rgb(0x2b313b));
     text(g, L"PRESET BROWSER", R{c.x + 12, c.y + 6, 200, 18}, 10.5f, true, rgb(accent()), 0);
     {   // HIDE
       const R h = bHide(); const bool hot = bHover == 1;
-      G::SolidBrush b(rgb(hot ? 0x262c35 : kInset)); fillRR(g, h, 5, b);
+      fillRR(g, h, 5, rgb(hot ? 0x262c35 : kInset));
       strokeRR(g, R{h.x + 0.5f, h.y + 0.5f, h.w - 1, h.h - 1}, 5, rgb(hot ? 0x3a4250 : kInsetEdge));
       text(g, L"HIDE \u25B8", h, 9, true, rgb(hot ? kText : kDim));
     }
@@ -1480,7 +1278,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       inset(g, all, 7);
       for (int t = 0; t < 2; t++) {
         const R r = bTabR(t);
-        if (t == bTab) { G::SolidBrush on(rgb(accent())); fillRR(g, R{r.x + 2, r.y + 2, r.w - 4, r.h - 4}, 5, on); }
+        if (t == bTab) fillRR(g, R{r.x + 2, r.y + 2, r.w - 4, r.h - 4}, 5, rgb(accent()));
         text(g, tabs[t], r, 10, true, t == bTab ? rgb(0x0d1014) : rgb(bHover == 10 + t ? kText : kDim));
       }
     }
@@ -1493,9 +1291,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       std::wstring label;
       if (bTab == 0) { for (int k : fCats[i].presets) n += !lib.deleted(k); label = fCats[i].label; }
       else { for (const BankPreset& p : menuBank) n += p.section == i; label = toW(kBankSections[i]); }
-      if (sel || hot) { G::SolidBrush b(sel ? rgb(accent(), 46) : rgb(0xffffff, 10)); fillRR(g, R{r.x, r.y, r.w, r.h}, 5, b); }
-      if (sel) { G::SolidBrush bar(rgb(accent())); g.FillRectangle(&bar, r.x, r.y + 4, 2.5f, r.h - 8); }
-      const G::Color col = sel ? rgb(0xeef2f7) : n ? rgb(hot ? kText : 0xaeb7c4) : rgb(kFaint);
+      if (sel || hot) fillRR(g, R{r.x, r.y, r.w, r.h}, 5, sel ? rgb(accent(), 46) : rgb(0xffffff, 10));
+      if (sel) g.fillRect(R{r.x, r.y + 4, 2.5f, r.h - 8}, rgb(accent()));
+      const Col col = sel ? rgb(0xeef2f7) : n ? rgb(hot ? kText : 0xaeb7c4) : rgb(kFaint);
       text(g, label, R{r.x + 8, r.y, r.w - 34, r.h}, 11, sel, col, 0);
       text(g, std::to_wstring(n), R{r.x + r.w - 30, r.y, 24, r.h}, 9.5f, false, rgb(n ? kDim : kFaint), 2);
     }
@@ -1511,7 +1309,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       for (int d : {-1, 1}) {
         const R b = bMoveR(d);
         const bool hot = en && bHover == (d < 0 ? 20 : 21);
-        G::SolidBrush bg(rgb(hot ? 0x262c35 : kInset)); fillRR(g, b, 5, bg);
+        fillRR(g, b, 5, rgb(hot ? 0x262c35 : kInset));
         strokeRR(g, R{b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, 5, rgb(hot ? 0x3a4250 : kInsetEdge));
         text(g, d < 0 ? L"\u25B2" : L"\u25BC", b, 9, false, en ? rgb(hot ? kText : kDim) : rgb(kFaint));
       }
@@ -1524,8 +1322,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       const int row = rows[j + bScroll];
       const R r = bRowR(j);
       const bool cur = bRowIsCurrent(row), hot = bHover == 1000 + j;
-      if (cur || hot) { G::SolidBrush b(cur ? rgb(accent(), 52) : rgb(0xffffff, 12)); fillRR(g, r, 4, b); }
-      if (cur) { G::SolidBrush bar(rgb(accent())); g.FillRectangle(&bar, r.x, r.y + 3, 2.5f, r.h - 6); }
+      if (cur || hot) fillRR(g, r, 4, cur ? rgb(accent(), 52) : rgb(0xffffff, 12));
+      if (cur) g.fillRect(R{r.x, r.y + 3, 2.5f, r.h - 6}, rgb(accent()));
       std::string name;
       bool fav = false, adj = false;
       int vote = 0;
@@ -1534,7 +1332,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       float right = r.x + r.w - 6;
       if (adj) {   // adjusted by the player
         const R p{right - 26, r.y + 5, 26, r.h - 10};
-        G::SolidBrush b(rgb(accent(), 40)); fillRR(g, p, 3, b);
+        fillRR(g, p, 3, rgb(accent(), 40));
         text(g, L"ADJ", p, 8, true, rgb(accent()));
         right -= 30;
       }
@@ -1548,14 +1346,14 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     }
     if ((int)rows.size() > vis) {   // scroll bar
       const float th = l.h * vis / rows.size(), ty = l.y + (l.h - th) * bScroll / std::max(1, (int)rows.size() - vis);
-      G::SolidBrush sb(rgb(0xffffff, 40)); fillRR(g, R{l.x + l.w + 1, ty, 3, th}, 1.5f, sb);
+      fillRR(g, R{l.x + l.w + 1, ty, 3, th}, 1.5f, rgb(0xffffff, 40));
     }
     // buttons
     const wchar_t* labels[kBtns] = {L"TO BANK\u2026", L"RESTORE", L"DELETE", L"EXPORT\u2026", L"FILE"};
     for (int b = 0; b < kBtns; b++) {
       const R r = bBtnR(b);
       const bool en = bBtnEnabled(b), hot = en && bHover == 500 + b;
-      G::SolidBrush bg(rgb(hot ? 0x262c35 : kInset)); fillRR(g, r, 6, bg);
+      fillRR(g, r, 6, rgb(hot ? 0x262c35 : kInset));
       strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 6, rgb(hot ? 0x3a4250 : kInsetEdge));
       text(g, labels[b], r, 9, true, en ? (b == 2 && hot ? rgb(0xff6b6b) : rgb(hot ? kText : kDim)) : rgb(kFaint));
     }
@@ -1564,33 +1362,30 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     if (st.empty())
       st = std::to_wstring(lib.adjustedCount()) + L" adjusted \u00B7 " + std::to_wstring(lib.deletedCount()) + L" deleted \u00B7 " +
            std::to_wstring(menuBank.size()) + L" in the user bank \u00B7 OKTOWAVE presets.txt";
-    G::StringFormat ff; ff.SetFormatFlags(G::StringFormatFlagsNoWrap); ff.SetTrimming(G::StringTrimmingEllipsisCharacter);
-    G::SolidBrush sb(rgb(kFaint));
-    g.DrawString(st.c_str(), -1, font(9, false), G::RectF(c.x + 12, c.y + 684, c.w - 24, 14), &ff, &sb);
+    g.textEllipsis(st, R{c.x + 12, c.y + 684, c.w - 24, 14}, 9, false, rgb(kFaint), false);
   }
-  void starShape(G::Graphics& g, float cx, float cy, float r, G::Color c) {
-    G::PointF p[10];
+  void starShape(Canvas& g, float cx, float cy, float r, Col c) {
+    Pt p[10];
     for (int k = 0; k < 10; k++) {
       const double a = PI * k / 5, rr = k % 2 ? r * 0.45 : r;
-      p[k] = G::PointF(cx + (float)(rr * std::sin(a)), cy - (float)(rr * std::cos(a)));
+      p[k] = Pt{cx + (float)(rr * std::sin(a)), cy - (float)(rr * std::cos(a))};
     }
-    G::SolidBrush b(c);
-    g.FillPolygon(&b, p, 10);
+    g.fillPolygon(p, 10, c);
   }
-  void drawSaveBtn(G::Graphics& g) {
+  void drawSaveBtn(Canvas& g) {
     const R r = kSaveBtn;
     const bool hot = hover == -2;
-    G::SolidBrush b(rgb(hot ? 0x262c35 : kInset)); fillRR(g, r, 8, b);
+    fillRR(g, r, 8, rgb(hot ? 0x262c35 : kInset));
     strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 8, rgb(hot ? 0x3a4250 : kInsetEdge));
     text(g, L"SAVE", R{r.x, r.y + 3, r.w, 12}, 9.5f, true, rgb(kDim));
     text(g, L"PRESET", R{r.x, r.y + 14, r.w, 14}, 10.5f, true, rgb(accent()));
   }
-  void drawMenu(G::Graphics& g, int idx) {   // a choice parameter as a drop-down (LFO 2 TARGET)
+  void drawMenu(Canvas& g, int idx) {   // a choice parameter as a drop-down (LFO 2 TARGET)
     const Item& it = items[idx];
     const ParamDef& p = kParams[it.w->param];
     const int v = (int)jsRound(plainOf(it.w->param));
     const bool hot = hover == idx;
-    G::SolidBrush b(rgb(kInset)); fillRR(g, it.r, 5, b);
+    fillRR(g, it.r, 5, rgb(kInset));
     strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 5, rgb(hot ? 0x3a4250 : kInsetEdge));
     text(g, toW(p.choiceShort[v]), R{it.r.x + 6, it.r.y, it.r.w - 18, it.r.h}, 9.5f, true, rgb(accent()), 0);
     text(g, L"\u25BE", R{it.r.x + it.r.w - 14, it.r.y, 12, it.r.h}, 9, false, rgb(kDim));
@@ -1598,82 +1393,29 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
   void choiceMenu(const Item& it) {
     const ParamDef& p = kParams[it.w->param];
     const int cur = (int)jsRound(plainOf(it.w->param));
-    HMENU m = CreatePopupMenu();
-    for (int k = 0; k < p.numChoices; k++) AppendMenuW(m, MF_STRING | (k == cur ? MF_CHECKED : 0), 1 + k, toW(p.choices[k]).c_str());
-    POINT pt{(LONG)(it.r.x * scale()), (LONG)((it.r.y + it.r.h) * scale())};
-    ClientToScreen(hwnd, &pt);
-    const int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
-    DestroyMenu(m);
+    std::vector<MenuItem> m;
+    for (int k = 0; k < p.numChoices; k++) m.push_back(MenuItem::item(toW(p.choices[k]), 1 + k, k == cur));
+    const int cmd = win ? win->popupMenu(m, it.r.x, it.r.y + it.r.h) : 0;
     if (cmd >= 1) gesture(it.w->param, p.min + cmd - 1);
   }
 
   void zoomMenu(const Item& it) {
     const int z[] = {70, 80, 90, 100, 115, 130, 150};
-    HMENU m = CreatePopupMenu();
+    std::vector<MenuItem> m;
     int cur = (int)std::lround(host->zoom() * 100);
-    for (int k : z) AppendMenuW(m, MF_STRING | (k == cur ? MF_CHECKED : 0), k, (L"Window size " + std::to_wstring(k) + L"%").c_str());
-    POINT pt{(LONG)(it.r.x * scale()), (LONG)((it.r.y + it.r.h) * scale())};
-    ClientToScreen(hwnd, &pt);
-    int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
-    DestroyMenu(m);
+    for (int k : z) m.push_back(MenuItem::item(L"Window size " + std::to_wstring(k) + L"%", k, k == cur));
+    const int cmd = win ? win->popupMenu(m, it.r.x, it.r.y + it.r.h) : 0;
     if (cmd > 0 && cmd != cur) { host->setZoom(cmd / 100.0); requestResize(); }
   }
 
   void openManual(const wchar_t* file) {
-    wchar_t path[MAX_PATH * 2] = {};
-    GetModuleFileNameW(thisModule(), path, MAX_PATH * 2);
-    std::wstring p = path;
-    // <bundle>.vst3\Contents\x86_64-win\<name>.vst3  ->  <bundle>.vst3\Contents\Resources\manual\<file>
-    for (int up = 0; up < 2; up++) { size_t s = p.find_last_of(L"\\/"); if (s != std::wstring::npos) p = p.substr(0, s); }
-    std::wstring man = p + L"\\Resources\\manual\\" + file;
-    if (GetFileAttributesW(man.c_str()) == INVALID_FILE_ATTRIBUTES) {
-      MessageBoxW(hwnd, (L"The manual was not found:\n" + man + L"\n\nInstall the complete WaveletSynthesizer.vst3 bundle folder.").c_str(), L"Wavelet Synthesizer", MB_OK | MB_ICONINFORMATION);
+    // <bundle>.vst3/Contents/<binary folder>/<binary>  ->  <bundle>.vst3/Contents/Resources/manual/<file>
+    const std::wstring man = contentsFolder() + kPathSep + L"Resources" + kPathSep + L"manual" + kPathSep + file;
+    if (!fileExists(man)) {
+      if (win) win->message(L"The manual was not found:\n" + man + L"\n\nInstall the complete WaveletSynthesizer.vst3 bundle folder.", false);
       return;
     }
-    ShellExecuteW(nullptr, L"open", man.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-  }
-
-  static LRESULT CALLBACK wndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
-    Editor* e = (Editor*)GetWindowLongPtrW(h, GWLP_USERDATA);
-    if (!e) return DefWindowProcW(h, msg, wp, lp);
-    float x, y;
-    switch (msg) {
-      case WM_PAINT: e->paint(); return 0;
-      case WM_ERASEBKGND: return 1;
-      case WM_SIZE: InvalidateRect(h, nullptr, FALSE); return 0;
-      case WM_TIMER: e->onTimer(); return 0;
-      case WM_APP + 1:   // developer test (vst/devtest/bank_session.cpp): a preset-menu command, the bank read again
-        e->menuBank = Library::get().bank();
-        e->menuCommand((int)wp);
-        return 0;
-      case WM_RBUTTONDOWN: {   // right-click on the preset name: the classic menu
-        e->logical(lp, x, y);
-        const int idx = e->hit(x, y);
-        if (idx >= 0 && e->items[idx].w->type == W_PRESETS) { e->presetMenu(e->items[idx]); e->onTimer(); InvalidateRect(h, nullptr, FALSE); }
-        return 0;
-      }
-      case WM_LBUTTONDOWN: e->logical(lp, x, y); e->mouseDown(x, y, false); return 0;
-      case WM_LBUTTONDBLCLK: e->logical(lp, x, y); e->mouseDown(x, y, true); return 0;
-      case WM_MOUSEMOVE: e->logical(lp, x, y); e->mouseMove(x, y); return 0;
-      case WM_LBUTTONUP: e->mouseUp(); return 0;
-      case WM_CAPTURECHANGED: if ((HWND)lp != h) e->mouseUp(); return 0;
-      case WM_MOUSELEAVE:
-        e->tracking = false;
-        if (e->drag < 0 && e->hover >= 0) { int o = e->hover; e->hover = -1; e->invalidateItem(o); }
-        if (e->hover == -2) { e->hover = -1; e->invalidateLogical(kSaveBtn); }
-        if (e->bHover >= 0) { e->bHover = -1; e->invalidateLogical(e->bCard()); }
-        return 0;
-      case WM_MOUSEWHEEL: {
-        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}; ScreenToClient(h, &pt);
-        double s = e->scale(); const float lx = (float)(pt.x / s), ly = (float)(pt.y / s);
-        if (e->host->browserOpen() && e->bList().has(lx, ly)) { e->browserWheel(GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 1 : -1); return 0; }
-        int idx = e->hit(lx, ly);
-        if (idx >= 0) e->wheelOn(idx, GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 1 : -1);
-        return 0;
-      }
-      default: break;
-    }
-    return DefWindowProcW(h, msg, wp, lp);
+    if (win) win->openDocument(man);
   }
 };
 
