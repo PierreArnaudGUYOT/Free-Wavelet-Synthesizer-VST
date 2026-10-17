@@ -108,6 +108,13 @@ products identical. Read it before changing the DSP, the parameters or the prese
 - Rebuild when `morphNeeded` changes: web `setParam`, VST `process` (`morphEnds`: one of the three amounts leaves or
   reaches 0; `wav2` is structural).
 
+### 3.3c LFO 2 (beta 0.3)
+- `lfo2_shape`, `lfo2_rate`, `lfo2_amt`, `lfo2_target` (appended; AMOUNT 0 by default = bit-identical). `LFO2_TARGETS` in
+  `tools/spec.js` (the lfo2_target choices, all linear parameters) → web `SPEC.LFO2_TARGETS`, C++ `kLfo2Targets`.
+  `lfo2Tick` (own phase, S&H `rng(778)`) after `lfoTick`; in `control()` `d2 = amt · lfo2 · 0.5 · (max − min)` of the
+  target and `lfo2Value(p, i, t2, d2)` replaces the target's value (clamped; POSITION wraps with the window). The layout
+  widget `menu` (W_MENU) shows a choice parameter as a drop-down (web `ui.menu`, VST `choiceMenu`).
+
 ### 3.4 Table rebuilds
 - Structural changes rebuild tables **off the audio thread** and switch with a 512-sample crossfade (`setTables`).
 - Web: `app.js` throttles builds (45 ms) on the main thread and transfers the arrays to the worklet (`'tables'` message).
@@ -157,14 +164,28 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   = zoom, modified flag, **preset name** (older `"WSC1"` index states are translated through `kBeta01Order`).
 - `editor.cpp`: Win32 child window + GDI+, drawn from the layout tables, DPI-aware, zoom menu, preset popup, manual
   buttons (open `Contents/Resources/manual/*.html` next to the DLL).
-- **User bank** (beta 0.3, VST only): `bank.h` (12 sections `kBankSections`, text format = export format: `== Section ==`,
-  `Preset:`, `From:`, then `  key: value   (Name: shown)` for the parameters that differ from the defaults, ENGINE and A/B MIX
-  always; parsing ignores unknown lines and clamps values). File `Wavelet Synthesizer user bank.txt` next to the
-  `.vst3` bundle folder (`bankPath`; `WS_BANK_FILE` / `WS_BANK_EXPORT` for tests), re-read before every use (several
-  instances), written atomically. Editor: preset menu → *Save to user bank…* (in-memory dialog template: name + section),
-  *USER BANK* submenu (load, Delete, Export, Show); commands also reachable as `WM_APP + 1` (test hook). Controller:
-  `loadUserSound` (group edit, keeps `presetIdx` for ◀ ▶), `userPresetName()`; the state `"WSC2"` stores
-  `"USER · name"` (name buffer 512; an unknown name is taken only with that prefix).
+- **Preset library** (beta 0.3, VST only): `bank.h`, `Library::get()` (one per process, mutex, reads the file again
+  when its write time or size changes: several instances). One text file `OKTOWAVE presets.txt` next to the `.vst3`
+  bundle folder (`libraryFolder`; `WS_PRESETS_FILE` / `WS_PRESETS_EXPORT` for tests), written atomically after every
+  edit (an error leaves the state unchanged): `######## FACTORY PRESETS` (every preset: `Preset:` its name now,
+  `Factory:` its built-in name = the key, `Adjusted: yes|no`, optional `Deleted: yes`, then `  key: value   (Name: shown)`
+  for the parameters that differ from the defaults, ENGINE and A/B MIX always; only adjusted blocks override the built-in
+  values), `######## LIST ORDER` (TOP Sounds — favourites + `kPresetStars` ≥ 8 — and each category, `N. built-in name`;
+  missing members keep their default place), `######## USER BANK` (12 `kBankSections`, `Preset:`, `From:`, values). A
+  beta 0.3 user-bank file (`Wavelet Synthesizer user bank.txt`) is read when the library file does not exist. Parsing
+  ignores unknown lines and clamps values. The controller takes factory values and names from the library (`loadPreset`,
+  `exactPreset`, `findPreset` = name now or built-in name, new instances' default preset, VST2 program names).
+- **Editor, presets** (beta 0.3): the **preset browser** (`kBrowserW` = 360 logical px added at the right while open;
+  `browserOpen` kept by the controller, written in `"WSC2"` as a trailing int32 only when closed, so other states stay
+  byte-identical): FACTORY / USER BANK tabs, the lists of the library, one click loads, ▲ ▼ `moveInList` / `moveUser`,
+  buttons TO BANK, RESTORE, DELETE, EXPORT, FILE; **SAVE PRESET** (`kSaveBtn`, the preset box is shorter) adjusts the
+  factory preset (`Library::adjust`, then `presetStored`) or replaces the bank sound; DELETE = `setDeleted` (lists and
+  ◀ ▶ skip it; the right-click menu's "Deleted presets" brings it back). The preset name opens the browser, a right-click
+  the classic menu. Save window: an in-memory dialog template (name, optional section and note). Commands also reachable
+  as `WM_APP + 1` (test hook). Controller: `loadUserSound` (group edit, keeps `presetIdx` for ◀ ▶), `userPresetName()`;
+  the state `"WSC2"` stores `"USER · name"` for a bank sound (name buffer 512, no NUL byte; an unknown name is taken only
+  with that prefix). Knobs with ≤ 5 positions: 24 px per step, a click = next value (web `dragBehaviour` too). The
+  panel's logo reads OKTOWAVE / WAVELET SYNTHESIZER (both products; the plug-in keeps its name).
 - `vst2.cpp`: `VSTPluginMain` with VST 2.4 declarations written from the public binary layout (no Steinberg VST2 file).
   It hosts the same Processor + Controller in-process (parameter queues, event list, chunk `"WSV2"` = both states,
   programs = factory presets, editor via `IPlugView` + `IPlugFrame`).
@@ -190,8 +211,12 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
   state, controller state, offline, presets, sub, portamento, high notes, attribute list, editor screenshots, reload).
 - `tests/web/test_web.js`, `tests/web/test_demo.js [--smoke]`: browser suites through `tests/web/cdp.js`.
 - `vst/devtest/vst2_smoke.cpp`, `tools/dsp_compare.js`, `tools/dsp_selftest.js`; `tests/quick.js` (fast check).
-- `vst/devtest/bank_session.cpp` (beta 0.3): the user bank driven through the editor like a player (save window filled by
-  a helper thread, load, replace, export, delete, state name, unwritable folder).
+- `vst/devtest/bank_session.cpp` (beta 0.3): the preset library driven through the editor like a player (browser clicks,
+  SAVE PRESET / rename / refused name, RESTORE, DELETE and back, ▲ ▼, the user bank, EXPORT, OCT click, LFO 2 menu, HIDE,
+  unwritable folder, the file read back after the plug-in is unloaded and loaded). The save windows and message boxes are
+  answered by a helper thread (a single-OK message box closes with IDCANCEL).
+- `tools/dsp_compare.js` / `dsp_render.cpp` also render LFO 2 on each of its targets (no factory preset uses it yet).
+- `tests/vst3host`: `scaled()` maps layout points with the height scale (the browser makes the editor wider).
 - **Headless Edge must always run with `--mute-audio`** (otherwise test audio plays on the user's speakers) and be
   closed in `finally`; check that no `msedge --headless` process is left.
 - beta 0.2: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour

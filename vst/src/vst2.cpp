@@ -21,6 +21,7 @@
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "common.h"
+#include "bank.h"
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -426,10 +427,14 @@ class Instance {
       case effMainsChanged: setActive(value != 0); return 0;
       case effSetProgram: setProgram((int)value); return 0;
       case effGetProgram: return edHost->presetIndex();
-      case effGetProgramName: copyAscii((char*)ptr, edHost->presetIndex() >= 0 ? kPresets[edHost->presetIndex()].name : "", kNameLen); return 1;
-      case effGetProgramNameIndexed:
+      case effGetProgramName: {
+        const std::string user = edHost->userPresetName();
+        copyAscii((char*)ptr, !user.empty() ? user.c_str() : edHost->presetIndex() >= 0 ? Library::get().name(edHost->presetIndex()).c_str() : "", kNameLen);
+        return 1;
+      }
+      case effGetProgramNameIndexed:   // the factory presets as the player may have renamed them (beta 0.3)
         if (index < 0 || index >= kNumPresets) return 0;
-        copyAscii((char*)ptr, kPresets[index].name, kNameLen); return 1;
+        copyAscii((char*)ptr, Library::get().name(index).c_str(), kNameLen); return 1;
       case effSetProgramName: return 0;
       case effGetParamName:
         if (index < 0 || index >= kNumParams) return 0;

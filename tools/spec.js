@@ -116,8 +116,22 @@ add('wav2', 'Wavelet 2', 'WAVELET 2', { curve: 'choice', fmt: 'choice', min: 0, 
 add('wmorph', 'Wavelet Morph', 'MORPH', { min: 0, max: 1, def: 0 });
 add('lfo_wav', 'LFO to Wavelet Morph', 'WAVELET', { min: 0, max: 1, def: 0 });
 add('env_wav', 'Envelope to Wavelet Morph', 'ENV>WAV', { fmt: 'bipct', min: -1, max: 1, def: 0 });
+// beta 0.3: LFO 2, a second free-running LFO on one parameter of the SCALE FILTER or the POSITION window (the TARGET menu
+// next to its title, LFO2_TARGETS below). AMOUNT moves the target by up to ± half its range (kept in range; POSITION wraps
+// round the cycle); 0 % (the default) leaves every older sound bit-identical.
+add('lfo2_shape', 'LFO 2 Shape', 'SHAPE', { curve: 'choice', fmt: 'choice', min: 0, max: 4, def: 0,
+  choices: ['Sine', 'Triangle', 'Saw', 'Square', 'Sample & Hold'], choiceShort: ['SINE', 'TRI', 'SAW', 'SQR', 'S&H'] });
+add('lfo2_rate', 'LFO 2 Rate', 'RATE', { curve: 'exp', fmt: 'hz', min: 0.05, max: 20, def: 1 });
+add('lfo2_amt', 'LFO 2 Amount', 'AMOUNT', { fmt: 'bipct', min: -1, max: 1, def: 0 });
+add('lfo2_target', 'LFO 2 Target', 'TARGET', { curve: 'choice', fmt: 'choice', min: 0, max: 8, def: 0,
+  choices: ['Cutoff', 'Slope', 'Resonance', 'Key Tracking', 'Envelope Amount', 'Velocity Amount', 'Position', 'Window Width', 'Window Depth'],
+  choiceShort: ['CUTOFF', 'SLOPE', 'RESO', 'KEY TRK', 'ENV AMT', 'VEL AMT', 'POSITION', 'WIDTH', 'DEPTH'] });
+// the parameters LFO 2 can move, in the order of the TARGET choices (all linear: the move is in plain units)
+const LFO2_TARGETS = ['f_cutoff', 'f_slope', 'f_res', 'f_keytrk', 'f_env', 'f_vel', 'p_center', 'p_width', 'p_depth'];
 
 const idx = Object.fromEntries(P.map((p, i) => [p.key, i]));
+if (LFO2_TARGETS.length !== P[idx.lfo2_target].choices.length || LFO2_TARGETS.some(k => !(k in idx) || (P[idx[k]].curve || 'lin') !== 'lin'))
+  throw new Error('LFO2_TARGETS must match the lfo2_target choices and be linear parameters');
 
 // ---------------------------------------------------------------- layout
 // Sections are cards; widget coordinates are relative to their section.
@@ -198,7 +212,7 @@ section('fx', 'EFFECTS', 700, 472, 388, 140, '', [
 ]);
 section('keys', '', 0, 620, 1100, 100, '', [
   { type: 'wheels', x: 12, y: 0, w: 60, h: 84 },
-  { type: 'keyboard', x: 352, y: 0, w: 736, h: 84 },
+  { type: 'keyboard', x: 504, y: 0, w: 584, h: 84 },   // narrower since beta 0.3 (LFO 2 card), still C2–C7
   { type: 'credit', x: 588, y: 87, w: 500, h: 12 },
 ]);
 // knobT = tiny knob with label (cell 40 x 56)
@@ -211,6 +225,13 @@ section('chorus', 'CHORUS', 216, 620, 128, 84, '', [
   { type: 'knobT', param: 'ch_mix', x: 4, y: 22, w: 40, h: 58 },
   { type: 'knobT', param: 'ch_rate', x: 44, y: 22, w: 40, h: 58 },
   { type: 'knobT', param: 'ch_depth', x: 84, y: 22, w: 40, h: 58 },
+]);
+// beta 0.3: LFO 2, its TARGET menu next to the title
+section('lfo2', 'LFO 2', 352, 620, 144, 84, '', [
+  { type: 'menu', param: 'lfo2_target', x: 52, y: 4, w: 86, h: 17 },
+  { type: 'knobT', param: 'lfo2_shape', x: 8, y: 22, w: 40, h: 58 },
+  { type: 'knobT', param: 'lfo2_rate', x: 52, y: 22, w: 40, h: 58 },
+  { type: 'knobT', param: 'lfo2_amt', x: 96, y: 22, w: 40, h: 58 },
 ]);
 
 // ---------------------------------------------------------------- presets
@@ -709,4 +730,5 @@ for (const pr of PRESETS) for (const [k, v] of Object.entries(pr.v)) {
 }
 for (const s of S) for (const w of s.widgets) if (w.param && !(w.param in idx)) throw new Error('layout: unknown param ' + w.param);
 
-module.exports = { DEVICE, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, FAVOURITES: FAVOURITES.length, CATEGORIES };
+module.exports = { DEVICE, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, FAVOURITES: FAVOURITES.length, CATEGORIES,
+  LFO2_TARGETS };

@@ -505,6 +505,7 @@ class Engine {
   uint64_t counter = 0; double lastPitch = 60;
   int stack[128]; int stackN = 0;
   double lfoPhase = 0, lfo = 0, sh = 0; Rng lfoRng{777};
+  double lfo2Phase = 0, lfo2 = 0, sh2 = 0; Rng lfo2Rng{778};   // LFO 2 (beta 0.3)
   uint8_t keys[128] = {};
   Display disp; int lastVoice = -1;
   double sr = 48000, fmax = 29000;
@@ -705,6 +706,26 @@ class Engine {
     lfoPhase += p[P_LFO_RATE] * n / sr;
     if (lfoPhase >= 1) { lfoPhase -= std::floor(lfoPhase); sh = lfoRng.next() * 2 - 1; }
   }
+  // LFO 2 (beta 0.3): the same shapes, its own phase and sample & hold sequence
+  void lfo2Tick(int n) {
+    int shape = (int)jsRound(p[P_LFO2_SHAPE]); double ph = lfo2Phase, v;
+    switch (shape) {
+      case 0: v = std::sin(2 * PI * ph); break;
+      case 1: v = ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph; break;
+      case 2: v = 1 - 2 * ph; break;
+      case 3: v = ph < 0.5 ? 1 : -1; break;
+      default: v = sh2; break;
+    }
+    lfo2 = v;
+    lfo2Phase += p[P_LFO2_RATE] * n / sr;
+    if (lfo2Phase >= 1) { lfo2Phase -= std::floor(lfo2Phase); sh2 = lfo2Rng.next() * 2 - 1; }
+  }
+  // parameter i as LFO 2 moves it (its target t2, by d2 in plain units), else exactly as set
+  static double lfo2Value(const double* p, int i, int t2, double d2) {
+    if (i != t2) return p[i];
+    const double v = p[i] + d2;
+    return i == P_P_CENTER ? v : std::min(kParams[i].max, std::max(kParams[i].min, v));   // POSITION wraps later
+  }
 
   void control(Voice& vc, int n) {
     double glide = vc.glide ? p[P_V_GLIDE] : 0;
@@ -722,8 +743,12 @@ class Engine {
     vc.mip = maxH >= 1024 ? 0 : maxH < 1 ? NMIP - 1 : std::min(NMIP - 1, (int)std::ceil(std::log2(1024 / maxH) - 1e-9));
 
     double mod = vc.mod.step(n, sr, p[P_MOD_A], p[P_MOD_D], p[P_MOD_S], p[P_MOD_R]);
-    double cut = p[P_F_CUTOFF] + (1 - p[P_F_KEYTRK]) * std::log2(261.63 / f0) + p[P_F_ENV] * mod + p[P_LFO_CUT] * lfo + p[P_F_VEL] * (vc.vel - 1);
-    filterGains((int)jsRound(p[P_F_TYPE]), cut, p[P_F_SLOPE], p[P_F_RES], fg);
+    // LFO 2 moves its target by up to ± AMOUNT × half the target's range
+    const int t2 = kLfo2Targets[(int)jsRound(p[P_LFO2_TARGET])];
+    const double d2 = p[P_LFO2_AMT] * lfo2 * 0.5 * (kParams[t2].max - kParams[t2].min);
+    double cut = lfo2Value(p, P_F_CUTOFF, t2, d2) + (1 - lfo2Value(p, P_F_KEYTRK, t2, d2)) * std::log2(261.63 / f0) +
+                 lfo2Value(p, P_F_ENV, t2, d2) * mod + p[P_LFO_CUT] * lfo + lfo2Value(p, P_F_VEL, t2, d2) * (vc.vel - 1);
+    filterGains((int)jsRound(p[P_F_TYPE]), cut, lfo2Value(p, P_F_SLOPE, t2, d2), lfo2Value(p, P_F_RES, t2, d2), fg);
 
     double norm = 0;
     double atk = p[P_B_ATK], spread = p[P_B_SPREAD], body = p[P_B_BODY], bright = p[P_B_BRIGHT], sus = p[P_B_SUS];
@@ -752,10 +777,10 @@ class Engine {
     const double wm = std::min(1.0, std::max(0.0, p[P_WMORPH] + p[P_LFO_WAV] * lfo + p[P_ENV_WAV] * mod));
     vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
     vc.fresh = false;
-    double pc = p[P_P_CENTER] + p[P_LFO_POS] * lfo; pc -= std::floor(pc);
+    double pc = lfo2Value(p, P_P_CENTER, t2, d2) + p[P_LFO_POS] * lfo; pc -= std::floor(pc);
     vc.pc = pc;
-    vc.pw = std::min(1.0, std::max(p[P_P_WIDTH], 16 * fTop / sr));
-    vc.pd = p[P_P_DEPTH];
+    vc.pw = std::min(1.0, std::max(lfo2Value(p, P_P_WIDTH, t2, d2), 16 * fTop / sr));
+    vc.pd = lfo2Value(p, P_P_DEPTH, t2, d2);
   }
 
   // gain0/gainInc: the A/B MIX share of this table set (1, 0 when it plays alone); withSub: adds the sub oscillator
@@ -869,6 +894,7 @@ class Engine {
   void block(float* outL, float* outR, int o, int n) {
     std::fill(bufL, bufL + n, 0.0f); std::fill(bufR, bufR + n, 0.0f);
     lfoTick(n);
+    lfo2Tick(n);
     uint32_t vmask = 0;
     const bool fading = hasPrev;
     const double fadeInc = fading ? 1.0 / 512 : 0, fade0 = fading ? fade : 1;

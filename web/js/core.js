@@ -96,6 +96,13 @@ function WSCoreFactory(SPEC) {
     return Math.min(p.max, Math.max(p.min, v));
   }
   function defaults() { return SPEC.PARAMS.map(p => p.def); }
+  // LFO 2 (beta 0.3): parameter i as LFO 2 moves it (its target t2, by d2 in plain units), else exactly as set
+  const LFO2_T = SPEC.LFO2_TARGETS;
+  function lfo2Value(p, i, t2, d2) {
+    if (i !== t2) return p[i];
+    const v = p[i] + d2;
+    return i === P.p_center ? v : Math.min(SPEC.PARAMS[i].max, Math.max(SPEC.PARAMS[i].min, v));   // POSITION wraps later
+  }
 
   // ------------------------------------------------------------ wavelets
   const FILTERS = SPEC.WAVELETS.map(w => {
@@ -400,6 +407,7 @@ function WSCoreFactory(SPEC) {
     this.cur = null; this.prev = null; this.fade = 1;
     this.counter = 0; this.lastPitch = 60; this.stack = [];
     this.lfoPhase = 0; this.lfo = 0; this.sh = 0; this.lfoRng = rng(777);
+    this.lfo2Phase = 0; this.lfo2 = 0; this.sh2 = 0; this.lfo2Rng = rng(778);   // LFO 2 (beta 0.3)
     this.keys = new Uint8Array(128);
     this.tmpA = new Float64Array(NB); this.tmpB = new Float64Array(NB); this.fg = new Float64Array(NB);
     this.active = new Int32Array(NL);
@@ -565,6 +573,21 @@ function WSCoreFactory(SPEC) {
     this.lfoPhase += p[P.lfo_rate] * n / this.sr;
     if (this.lfoPhase >= 1) { this.lfoPhase -= Math.floor(this.lfoPhase); this.sh = this.lfoRng() * 2 - 1; }
   };
+  // LFO 2 (beta 0.3): the same shapes, its own phase and sample & hold sequence
+  E.lfo2Tick = function (n) {
+    const p = this.p, shape = Math.round(p[P.lfo2_shape]), ph = this.lfo2Phase;
+    let v;
+    switch (shape) {
+      case 0: v = Math.sin(2 * Math.PI * ph); break;
+      case 1: v = ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph; break;
+      case 2: v = 1 - 2 * ph; break;
+      case 3: v = ph < 0.5 ? 1 : -1; break;
+      default: v = this.sh2; break;
+    }
+    this.lfo2 = v;
+    this.lfo2Phase += p[P.lfo2_rate] * n / this.sr;
+    if (this.lfo2Phase >= 1) { this.lfo2Phase -= Math.floor(this.lfo2Phase); this.sh2 = this.lfo2Rng() * 2 - 1; }
+  };
 
   // Per-voice control update for a block of n samples. Returns false if the voice ended.
   E.control = function (vc, n) {
@@ -585,9 +608,12 @@ function WSCoreFactory(SPEC) {
     vc.mip = maxH >= 1024 ? 0 : maxH < 1 ? NMIP - 1 : Math.min(NMIP - 1, Math.ceil(Math.log2(1024 / maxH) - 1e-9));
 
     const mod = vc.mod.step(n, sr, p[P.mod_a], p[P.mod_d], p[P.mod_s], p[P.mod_r]);
-    const cut = p[P.f_cutoff] + (1 - p[P.f_keytrk]) * Math.log2(261.63 / f0) + p[P.f_env] * mod +
-      p[P.lfo_cut] * this.lfo + p[P.f_vel] * (vc.vel - 1);
-    filterGains(Math.round(p[P.f_type]), cut, p[P.f_slope], p[P.f_res], this.fg);
+    // LFO 2 moves its target by up to ± AMOUNT × half the target's range
+    const t2 = LFO2_T[Math.round(p[P.lfo2_target])];
+    const d2 = p[P.lfo2_amt] * this.lfo2 * 0.5 * (SPEC.PARAMS[t2].max - SPEC.PARAMS[t2].min);
+    const cut = lfo2Value(p, P.f_cutoff, t2, d2) + (1 - lfo2Value(p, P.f_keytrk, t2, d2)) * Math.log2(261.63 / f0) +
+      lfo2Value(p, P.f_env, t2, d2) * mod + p[P.lfo_cut] * this.lfo + lfo2Value(p, P.f_vel, t2, d2) * (vc.vel - 1);
+    filterGains(Math.round(p[P.f_type]), cut, lfo2Value(p, P.f_slope, t2, d2), lfo2Value(p, P.f_res, t2, d2), this.fg);
 
     // Engine B: drawbars, tilt and scale envelope
     let norm = 0;
@@ -620,10 +646,10 @@ function WSCoreFactory(SPEC) {
     vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
     vc.fresh = false;
 
-    let pc = p[P.p_center] + p[P.lfo_pos] * this.lfo; pc -= Math.floor(pc);
+    let pc = lfo2Value(p, P.p_center, t2, d2) + p[P.lfo_pos] * this.lfo; pc -= Math.floor(pc);
     vc.pc = pc;
-    vc.pw = Math.min(1, Math.max(p[P.p_width], 16 * fTop / sr));
-    vc.pd = p[P.p_depth];
+    vc.pw = Math.min(1, Math.max(lfo2Value(p, P.p_width, t2, d2), 16 * fTop / sr));
+    vc.pd = lfo2Value(p, P.p_depth, t2, d2);
   };
 
   // Render one voice for n samples with table set t, accumulating into bufL/bufR.
@@ -753,6 +779,7 @@ function WSCoreFactory(SPEC) {
     const p = this.p, L = this.bufL, R = this.bufR;
     L.fill(0, 0, n); R.fill(0, 0, n);
     this.lfoTick(n);
+    this.lfo2Tick(n);
     let voices = 0;
     const fading = !!this.prev, fadeInc = fading ? 1 / 512 : 0, fade0 = fading ? this.fade : 1;
     // A/B MIX, smoothed (20 ms) so that turning the knob does not click

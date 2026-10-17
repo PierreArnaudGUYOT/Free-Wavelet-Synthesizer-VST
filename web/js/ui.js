@@ -105,6 +105,7 @@ class SynthUI {
       case 'knobL': case 'knobM': case 'knobS': case 'knobT': return this.knob(w, box);
       case 'seg': return this.seg(w, box);
       case 'step': return this.step(w, box);
+      case 'menu': return this.menu(w, box);
       case 'drawbar': return this.drawbar(w, box);
       case 'logo': return this.logo(box);
       case 'presets': return this.presets(box);
@@ -175,6 +176,10 @@ class SynthUI {
   // vertical drag, wheel and double-click shared by knobs and drawbars
   dragBehaviour(box, widget, i, p, range) {
     const stepped = p.curve === 'int' || p.curve === 'choice';
+    // beta 0.3: a knob with few positions (SUB OCT, shapes) moves 24 px per step, and a click without moving steps to the
+    // next value (round the end), so it never needs a long drag
+    const few = stepped && p.max - p.min <= 4;
+    if (few) range = 24 * (p.max - p.min);
     box.addEventListener('pointerenter', () => { widget.hover = true; widget.update(); });
     box.addEventListener('pointerleave', () => { widget.hover = false; if (!widget.drag) this.hideTip(); widget.update(); });
     box.addEventListener('pointerdown', (e) => {
@@ -182,7 +187,7 @@ class SynthUI {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) { this.host.begin(i); this.host.set(i, p.def); this.host.end(i); return; }   // Ctrl+click = default
       box.setPointerCapture(e.pointerId);
-      widget.drag = { y: e.clientY, n: this.C.toNorm(p, this.host.get(i)), shift: e.shiftKey };
+      widget.drag = { y: e.clientY, n: this.C.toNorm(p, this.host.get(i)), shift: e.shiftKey, moved: false };
       box.classList.add('active');
       this.host.begin(i);
       widget.update();
@@ -190,7 +195,8 @@ class SynthUI {
     box.addEventListener('pointermove', (e) => {
       if (!widget.drag) return;
       const dy = (e.clientY - widget.drag.y) / this.scale;
-      const sens = e.shiftKey ? range * 5 : range;
+      if (Math.abs(dy) > 3) widget.drag.moved = true;
+      const sens = e.shiftKey && !few ? range * 5 : range;
       let n = clamp(widget.drag.n - dy / sens, 0, 1);
       if (e.shiftKey !== widget.drag.shift) { widget.drag = { y: e.clientY, n: this.C.toNorm(p, this.host.get(i)), shift: e.shiftKey }; return; }
       const v = this.C.toPlain(p, n);
@@ -198,6 +204,10 @@ class SynthUI {
     });
     const end = (e) => {
       if (!widget.drag) return;
+      if (few && !widget.drag.moved && e.type === 'pointerup') {   // a click: the next value
+        const n = p.max - p.min + 1;
+        this.host.set(i, ((Math.round(this.host.get(i)) - p.min + 1) % n) + p.min);
+      }
       widget.drag = null;
       box.classList.remove('active');
       try { box.releasePointerCapture(e.pointerId); } catch (_) { /* already released */ }
@@ -255,6 +265,39 @@ class SynthUI {
     widget.update();
   }
 
+  // beta 0.3: a choice parameter as a small drop-down menu (LFO 2 TARGET): the current choice and ▾; click opens the list
+  menu(w, box) {
+    const i = this.P[w.param], p = this.params[i];
+    box.classList.add('menu');
+    box.title = p.name;
+    const btn = el('button', '', box);
+    const set = (k) => { this.host.begin(i); this.host.set(i, k); this.host.end(i); };
+    const close = () => { if (this.mpop) { this.mpop.remove(); this.mpop = null; } };
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (this.mpop) { close(); return; }
+      const pop = el('div', 'mpop', box);
+      const cur = Math.round(this.host.get(i));
+      p.choices.forEach((c, k) => {
+        const it = el('div', 'it' + (k === cur ? ' cur' : ''), pop);
+        it.textContent = c;
+        it.onclick = (ev) => { ev.stopPropagation(); set(k); close(); };
+      });
+      this.mpop = pop;
+    };
+    if (!this.menuCloser) {
+      this.menuCloser = true;
+      document.addEventListener('pointerdown', (e) => { if (this.mpop && !this.mpop.parentNode.contains(e.target)) { this.mpop.remove(); this.mpop = null; } });
+    }
+    box.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      set(clamp(Math.round(this.host.get(i)) + (e.deltaY < 0 ? -1 : 1), p.min, p.max));
+    }, { passive: false });
+    const widget = { w, p, i, el: box, update: () => { btn.innerHTML = `${p.choiceShort[Math.round(this.host.get(i))]}<span>▾</span>`; } };
+    this.reg(w.param, widget);
+    widget.update();
+  }
+
   drawbar(w, box) {
     const i = this.P[w.param], p = this.params[i];
     box.classList.add('drawbar');
@@ -283,7 +326,7 @@ class SynthUI {
     const mark = el('div', 'mark', box);
     mark.innerHTML = '<svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 16h5l3-9 4 18 4-13 3 7h7" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
     const t = el('div', 'txt', box);
-    t.innerHTML = '<b>WAVELET</b><span>SYNTHESIZER</span>';
+    t.innerHTML = '<b>OKTOWAVE</b><span>WAVELET SYNTHESIZER</span>';   // beta 0.3
   }
 
   presets(box) {

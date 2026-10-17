@@ -1,11 +1,11 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Developer check of the USER BANK of the plug-in editor (beta 0.3). Loads the VST3 like a host (one thread: window
-// messages + audio blocks), opens the editor in an off-screen window and drives the bank as a player would: a knob
-// turned with the mouse, "Save to user bank" (the save window is filled by a helper thread), loading a bank sound,
-// replacing, exporting, deleting, the name kept in the controller state, a folder that cannot be written. The preset-menu
-// commands are sent as WM_APP + 1 (the popup menu itself is a modal Windows menu). The bank goes to <outdir>\bank
-// (WS_BANK_FILE, WS_BANK_EXPORT): never the player's own bank.
+// Developer check of the PRESET LIBRARY of the plug-in editor (beta 0.3): the preset browser, SAVE PRESET (a factory
+// preset adjusted and renamed, RESTORE), the user bank (save, rename, delete, export), the presets file read again after
+// the plug-in is unloaded and loaded, the beta 0.3 bank file taken over, SUB OCT by a click, the LFO 2 menu, a folder
+// that cannot be written. The plug-in is loaded like a host (one thread: window messages + audio blocks), its editor in an
+// off-screen window; the save windows and message boxes are answered by a helper thread. The presets file goes to
+// <outdir>\lib (WS_PRESETS_FILE, WS_PRESETS_EXPORT): never the player's own file.
 //   x86_64-w64-mingw32-clang++ -std=c++17 -O2 -static -municode -DUNICODE -D_UNICODE -DNOMINMAX -I vst/external -I vst/src
 //     vst/devtest/bank_session.cpp vst/src/iids.cpp vst/external/pluginterfaces/base/funknown.cpp -o bank_session.exe
 //     -lgdiplus -lgdi32 -luser32 -lole32 -luuid
@@ -236,171 +236,319 @@ static std::string u8(const std::wstring& w) {
 }
 static LRESULT CALLBACK topProc(HWND h, UINT m, WPARAM w, LPARAM l) { return DefWindowProcW(h, m, w, l); }
 
+// one plug-in instance with its editor in an off-screen window (wide enough for the preset browser)
+struct Session {
+  Host h; IConnectionPoint *cpA = nullptr, *cpB = nullptr;
+  bool open(IPluginFactory* fac) {
+    PClassInfo ci0, ci1; fac->getClassInfo(0, &ci0); fac->getClassInfo(1, &ci1);
+    fac->createInstance(ci0.cid, IComponent::iid, (void**)&h.comp);
+    fac->createInstance(ci1.cid, IEditController::iid, (void**)&h.ctrl);
+    if (!h.comp || !h.ctrl) return false;
+    h.comp->initialize(nullptr); h.ctrl->initialize(nullptr);
+    h.comp->queryInterface(IAudioProcessor::iid, (void**)&h.proc);
+    h.comp->queryInterface(IConnectionPoint::iid, (void**)&cpA); h.ctrl->queryInterface(IConnectionPoint::iid, (void**)&cpB);
+    cpA->connect(cpB); cpB->connect(cpA);
+    h.ctrl->setComponentHandler(&h.handler);
+    SpeakerArrangement st = SpeakerArr::kStereo;
+    h.proc->setBusArrangements(nullptr, 0, &st, 1);
+    ProcessSetup ps{kRealtime, kSample32, BLOCK, (SampleRate)SR};
+    h.proc->setupProcessing(ps);
+    h.comp->setActive(true); h.proc->setProcessing(true);
+    h.top = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"WsBankTestTop", L"bank test", WS_POPUP | WS_VISIBLE, -4000, 0, 1480, 720, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+    h.view = h.ctrl->createView(ViewType::kEditor);
+    IPlugViewContentScaleSupport* sc = nullptr;
+    if (h.view->queryInterface(IPlugViewContentScaleSupport::iid, (void**)&sc) == kResultOk && sc) { sc->setContentScaleFactor(1.0f); sc->release(); }
+    if (h.view->attached(h.top, kPlatformTypeHWND) != kResultOk) return false;
+    h.ed = FindWindowExW(h.top, nullptr, L"WaveletSynthesizerEditorWnd", nullptr);
+    h.run(0.3);
+    return h.ed != nullptr;
+  }
+  void close() {
+    h.view->removed(); h.view->release();
+    DestroyWindow(h.top);
+    h.proc->setProcessing(false); h.comp->setActive(false);
+    cpA->disconnect(cpB); cpB->disconnect(cpA); cpA->release(); cpB->release();
+    h.ctrl->setComponentHandler(nullptr);
+    h.proc->release(); h.ctrl->terminate(); h.comp->terminate(); h.ctrl->release(); h.comp->release();
+  }
+};
+static void clickAt(Host& h, float x, float y) {
+  const LPARAM p = MAKELPARAM((int)std::lround(x), (int)std::lround(y));
+  SendMessageW(h.ed, WM_MOUSEMOVE, 0, p);
+  SendMessageW(h.ed, WM_LBUTTONDOWN, MK_LBUTTON, p);
+  SendMessageW(h.ed, WM_LBUTTONUP, 0, p);
+  h.pump();
+}
+// a click that opens a modal window (save window, message box): posted, the helper thread answers it
+static void clickPosted(Host& h, float x, float y) {
+  const LPARAM p = MAKELPARAM((int)std::lround(x), (int)std::lround(y));
+  PostMessageW(h.ed, WM_MOUSEMOVE, 0, p);
+  PostMessageW(h.ed, WM_LBUTTONDOWN, MK_LBUTTON, p);
+  PostMessageW(h.ed, WM_LBUTTONUP, 0, p);
+}
+static int clientW(Host& h) { RECT rc; GetClientRect(h.ed, &rc); return rc.right; }
+// the browser geometry of the editor (logical = pixels at 100 %): card 1104..1452
+static const float CAT_X = 1175, ROW_X = 1340;
+static float catY(int i) { return 92 + 26.0f * i; }
+static float rowY(int j) { return 117 + 22.0f * j; }   // the sound list, below its header
+static const float UP_X = 1402, DOWN_X = 1428, MOVE_Y = 90;   // ▲ ▼ above the list
+static float btnX(int b) { return 1116 + b * 65.8f + 30.4f; }   // TO BANK, RESTORE, DELETE, EXPORT, FILE
+static const float BTN_Y = 675, TAB_Y = 55, TAB0_X = 1197, TAB1_X = 1359, HIDE_X = 1411, HIDE_Y = 24;
+static const float SAVE_X = 834, SAVE_Y = 24, NAME_X = 680, NAME_Y = 24;
+// the block of one factory preset in the presets file
+static std::string factoryBlock(const std::string& txt, const std::string& orig) {
+  const size_t f = txt.find("\r\nFactory: " + orig + "\r\n");
+  if (f == std::string::npos) return "";
+  const size_t a = txt.rfind("Preset: ", f), b = txt.find("\r\n\r\n", f);
+  return txt.substr(a, b == std::string::npos ? std::string::npos : b - a);
+}
+
 int wmain(int argc, wchar_t** argv) {
   if (argc < 3) { std::printf("usage: bank_session.exe <plugin dll> <outdir>\n"); return 2; }
-  const std::wstring dll = argv[1], out = argv[2], dir = out + L"\\bank", bank = dir + L"\\Wavelet Synthesizer user bank.txt",
-                     exported = out + L"\\exported bank.txt";
+  setvbuf(stdout, nullptr, _IONBF, 0);
+  const std::wstring dll = argv[1], out = argv[2], dir = out + L"\\lib", lib = dir + L"\\OKTOWAVE presets.txt",
+                     exported = out + L"\\exported presets.txt";
   CreateDirectoryW(out.c_str(), nullptr); CreateDirectoryW(dir.c_str(), nullptr);
-  DeleteFileW(bank.c_str()); DeleteFileW(exported.c_str());
-  SetEnvironmentVariableW(L"WS_BANK_FILE", bank.c_str());
-  SetEnvironmentVariableW(L"WS_BANK_EXPORT", exported.c_str());
+  DeleteFileW(lib.c_str()); DeleteFileW(exported.c_str());
+  SetEnvironmentVariableW(L"WS_PRESETS_FILE", lib.c_str());
+  SetEnvironmentVariableW(L"WS_PRESETS_EXPORT", exported.c_str());
+  {   // a user bank of the first beta 0.3 build: it is taken over while the presets file does not exist
+    FILE* f = _wfopen((lib + L".oldbank").c_str(), L"wb");
+    const char* old = "Wavelet Synthesizer - user bank\r\n\r\n== Pad ==\r\n\r\nPreset: Old Pad\r\nFrom: A \xC2\xB7 Warm Pad\r\n"
+                      "  engine: 0   (Engine: A)\r\n  ab_mix: 0   (A/B Mix: A)\r\n  f_cutoff: 3   (Cutoff: band 3.0)\r\n";
+    std::fwrite(old, 1, std::strlen(old), f); std::fclose(f);
+  }
   G::GdiplusStartupInput gi; ULONG_PTR gt; G::GdiplusStartup(&gt, &gi, nullptr);
   SetProcessDPIAware();
-
-  HMODULE mod = LoadLibraryW(dll.c_str());
-  if (!mod) { std::printf("cannot load %ls\n", dll.c_str()); return 2; }
-  auto getFactory = (IPluginFactory * (PLUGIN_API*)())GetProcAddress(mod, "GetPluginFactory");
-  if (auto initDll = (bool (*)())GetProcAddress(mod, "InitDll")) initDll();
-  IPluginFactory* fac = getFactory();
-  PClassInfo ci0, ci1; fac->getClassInfo(0, &ci0); fac->getClassInfo(1, &ci1);
-  Host h;
-  fac->createInstance(ci0.cid, IComponent::iid, (void**)&h.comp);
-  fac->createInstance(ci1.cid, IEditController::iid, (void**)&h.ctrl);
-  h.comp->initialize(nullptr); h.ctrl->initialize(nullptr);
-  h.comp->queryInterface(IAudioProcessor::iid, (void**)&h.proc);
-  IConnectionPoint *cpA = nullptr, *cpB = nullptr;
-  h.comp->queryInterface(IConnectionPoint::iid, (void**)&cpA); h.ctrl->queryInterface(IConnectionPoint::iid, (void**)&cpB);
-  cpA->connect(cpB); cpB->connect(cpA);
-  h.ctrl->setComponentHandler(&h.handler);
-  SpeakerArrangement st = SpeakerArr::kStereo;
-  h.proc->setBusArrangements(nullptr, 0, &st, 1);
-  ProcessSetup ps{kRealtime, kSample32, BLOCK, (SampleRate)SR};
-  h.proc->setupProcessing(ps);
-  h.comp->setActive(true); h.proc->setProcessing(true);
-
   WNDCLASSW wc{}; wc.lpfnWndProc = topProc; wc.hInstance = GetModuleHandleW(nullptr); wc.lpszClassName = L"WsBankTestTop";
   RegisterClassW(&wc);
-  h.top = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, wc.lpszClassName, L"bank test", WS_POPUP | WS_VISIBLE, -4000, 0, 1100, 720, nullptr, nullptr, wc.hInstance, nullptr);
-  h.view = h.ctrl->createView(ViewType::kEditor);
-  IPlugViewContentScaleSupport* sc = nullptr;
-  if (h.view->queryInterface(IPlugViewContentScaleSupport::iid, (void**)&sc) == kResultOk && sc) { sc->setContentScaleFactor(1.0f); sc->release(); }
-  check(h.view->attached(h.top, kPlatformTypeHWND) == kResultOk, "editor attached");
-  h.ed = FindWindowExW(h.top, nullptr, L"WaveletSynthesizerEditorWnd", nullptr);
-  check(h.ed != nullptr, "editor window found");
-  h.run(0.3);
-  const int kSaw = presetIndex("A \xC2\xB7 Deep Saw Bass"), kOrgan = presetIndex("B \xC2\xB7 Theatre Organ"), kPad = presetIndex("A \xC2\xB7 Warm Pad");
-  check(kSaw >= 0 && kOrgan >= 0 && kPad >= 0, "test presets exist");
+  const int kSaw = presetIndex("A \xC2\xB7 Deep Saw Bass"), kPad = presetIndex("A \xC2\xB7 Warm Pad");
+  check(kSaw >= 0 && kPad >= 0, "test presets exist");
+  const std::string sawX = "A \xC2\xB7 Deep Saw Bass X", sawZ = "A \xC2\xB7 Deep Saw Bass Z";
+  double cutZ = 0;
 
-  setvbuf(stdout, nullptr, _IONBF, 0);
-  std::printf("1. a preset changed with the mouse, saved to the section Chords under a new name\n");
-  h.command(100 + kSaw);
-  h.run(0.2);
-  h.drag(50, 408, -45);   // CUTOFF knob of the SCALE FILTER
-  h.run(0.2);
-  const double cut = h.plain(P_F_CUTOFF);
-  check(cut > kPresets[kSaw].v[P_F_CUTOFF] + 0.5, "cutoff changed with the mouse", fmt("%.3f -> %.3f", kPresets[kSaw].v[P_F_CUTOFF], cut));
-  std::wstring proposed; int proposedSec = -1;
-  Responder r;
-  r.start({{L"Save to user bank", [&](HWND d) {
-    wchar_t b[128] = {}; GetDlgItemTextW(d, 101, b, 128); proposed = b;
-    proposedSec = (int)SendDlgItemMessageW(d, 102, CB_GETCURSEL, 0, 0);
-    SetDlgItemTextW(d, 101, L"My Deep Bass");
-    SendDlgItemMessageW(d, 102, CB_SETCURSEL, 9, 0);   // Chords
-    press(d, IDOK);
-  }}});
-  h.command(900);
-  r.wait(h);
-  check(u8(proposed) == "A \xC2\xB7 Deep Saw Bass" && proposedSec == 0, "save window proposes the preset's name and its section (Bass)",
-        u8(proposed) + " / section " + std::to_string(proposedSec));
-  std::string txt = readFile(bank);
-  check(has(txt, "== Chords ==\r\n\r\nPreset: My Deep Bass\r\nFrom: A \xC2\xB7 Deep Saw Bass (modified)\r\n"), "bank file: section, name, origin");
-  check(has(txt, "  f_cutoff: 5.5   (Cutoff: band 5.5)") && has(txt, "  engine: 0   (") && has(txt, "  ab_mix: 0   ("), "bank file: changed cutoff, engine and A/B mix written");
-  check(has(txt, "== Bass ==\r\n(empty)") && has(txt, "Presets: 1"), "the other sections are empty");
-  int dirty = -1;
-  check(h.stateName(&dirty) == "USER \xC2\xB7 My Deep Bass" && dirty == 0, "browser shows USER \xC2\xB7 My Deep Bass, not modified", h.stateName() + " / " + std::to_string(dirty));
-  h.shot(out + L"\\1_saved.png");
-
-  std::printf("2. another preset saved with the proposed name and section\n");
-  h.command(100 + kOrgan);
-  h.run(0.2);
-  Responder r2;
-  r2.start({{L"Save to user bank", [&](HWND d) { press(d, IDOK); }}});
-  h.command(900);
-  r2.wait(h);
-  txt = readFile(bank);
-  check(has(txt, "== Organ ==\r\n\r\nPreset: B \xC2\xB7 Theatre Organ\r\nFrom: B \xC2\xB7 Theatre Organ\r\n") && has(txt, "Presets: 2"), "Theatre Organ saved in Organ (proposed name, unmodified)");
-
-  std::printf("3. a bank sound loaded back\n");
-  h.command(100 + kPad);
-  h.run(0.2);
-  h.command(1001);   // the bank in file order: Organ (0), then Chords (1)
-  h.run(0.3);
-  bool same = true;
-  for (int i = 0; i < kNumParams; i++) {
-    if (kParams[i].hidden) continue;
-    const double want = i == P_F_CUTOFF ? 5.5 : kPresets[kSaw].v[i];
-    if (std::fabs(h.plain(i) - want) > 1e-6 * std::max(1.0, std::fabs(want))) { same = false; std::printf("     %s %g != %g\n", kParams[i].key, h.plain(i), want); }
-  }
-  check(same, "every parameter of the saved sound is back (Deep Saw Bass + cutoff 5.5)");
-  check(h.stateName(&dirty) == "USER \xC2\xB7 My Deep Bass" && dirty == 0, "browser: USER \xC2\xB7 My Deep Bass");
-  h.shot(out + L"\\2_loaded.png");
-
-  std::printf("4. saved again under the same name: replace\n");
-  h.drag(50, 408, 20);
-  h.run(0.2);
-  const double cut2 = h.plain(P_F_CUTOFF);
-  Responder r3;
-  r3.start({{L"Save to user bank", [&](HWND d) {
-    wchar_t b[128] = {}; GetDlgItemTextW(d, 101, b, 128); proposed = b;
-    proposedSec = (int)SendDlgItemMessageW(d, 102, CB_GETCURSEL, 0, 0);
-    press(d, IDOK);
-  }}, {L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
-  h.command(900);
-  r3.wait(h);
-  txt = readFile(bank);
-  check(u8(proposed) == "My Deep Bass" && proposedSec == 9, "a bank sound proposes its own name and section", u8(proposed) + " / " + std::to_string(proposedSec));
-  check(r3.seen.size() == 2 && has(u8(r3.seen[1]), "already exists in Chords. Replace it?"), "asks before replacing", r3.seen.size() > 1 ? u8(r3.seen[1]) : "");
-  check(count(txt, "Preset: My Deep Bass") == 1 && has(txt, "From: My Deep Bass (modified)") && cut2 < cut, "replaced (one entry, the new cutoff)", fmt("cutoff %.3f", cut2));
-
-  std::printf("5. export\n");
-  h.command(901);
-  const std::string ex = readFile(exported);
-  check(!ex.empty() && noSaved(ex) == noSaved(readFile(bank)), "the exported .txt holds the bank");
-
-  std::printf("6. delete\n");
-  Responder r4;
-  r4.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
-  h.command(3000);   // the first entry: Theatre Organ
-  r4.wait(h);
-  txt = readFile(bank);
-  check(!r4.seen.empty() && has(u8(r4.seen[0]), "Delete \xE2\x80\x9C" "B \xC2\xB7 Theatre Organ"), "asks before deleting", r4.seen.empty() ? "" : u8(r4.seen[0]));
-  check(!has(txt, "Theatre Organ") && has(txt, "== Organ ==\r\n(empty)") && has(txt, "Presets: 1"), "deleted");
-
-  std::printf("7. the name kept with the project (controller state)\n");
-  Stream saved; h.ctrl->getState(&saved);
-  h.command(100 + kPad);
-  h.run(0.2);
-  check(h.stateName() == "A \xC2\xB7 Warm Pad", "a factory preset again", h.stateName());
-  saved.pos = 0; h.ctrl->setState(&saved);
-  check(h.stateName() == "USER \xC2\xB7 My Deep Bass", "setState gives the bank sound's name back", h.stateName());
+  // ================================================================ first run of the plug-in
   {
-    Stream bad; uint32_t magic = 0x32435357; float z = 1; int32_t dt = 0; const std::string nm = "Some unknown name"; uint32_t len = (uint32_t)nm.size();
-    bad.write(&magic, 4, nullptr); bad.write(&z, 4, nullptr); bad.write(&dt, 4, nullptr); bad.write(&len, 4, nullptr); bad.write((void*)nm.data(), (int32)len, nullptr);
-    h.command(100 + kPad); h.run(0.1);
-    bad.pos = 0; h.ctrl->setState(&bad);
-    check(h.stateName() == "A \xC2\xB7 Warm Pad", "an unknown name without USER \xC2\xB7 is ignored (factory preset kept)", h.stateName());
+    HMODULE mod = LoadLibraryW(dll.c_str());
+    if (!mod) { std::printf("cannot load %ls\n", dll.c_str()); return 2; }
+    auto getFactory = (IPluginFactory * (PLUGIN_API*)())GetProcAddress(mod, "GetPluginFactory");
+    if (auto initDll = (bool (*)())GetProcAddress(mod, "InitDll")) initDll();
+    Session S;
+    check(S.open(getFactory()), "editor attached");
+    Host& h = S.h;
+
+    std::printf("0. the browser, open by default; the old user bank taken over\n");
+    check(clientW(h) == 1460, "the editor is 1460 px wide with the browser (1100 without)", std::to_string(clientW(h)));
+    h.command(1000);   // the first bank sound (the bank read again)
+    h.run(0.2);
+    check(h.stateName() == "USER \xC2\xB7 Old Pad" && std::fabs(h.plain(P_F_CUTOFF) - 3) < 1e-9, "the beta 0.3 bank sound 'Old Pad' is there", h.stateName());
+    h.shot(out + L"\\1_browser.png");
+
+    std::printf("1. browsing: Bass, then its 5th sound\n");
+    clickAt(h, TAB0_X, TAB_Y);
+    clickAt(h, CAT_X, catY(1));   // Bass (after ★ Favourites)
+    clickAt(h, ROW_X, rowY(4));   // its 4 favourites first, then A · Deep Saw Bass
+    h.run(0.2);
+    check(h.stateName() == "A \xC2\xB7 Deep Saw Bass", "a click on a sound loads it", h.stateName());
+    h.shot(out + L"\\2_bass.png");
+
+    std::printf("2. SAVE PRESET: the factory preset adjusted, under a new name\n");
+    h.drag(50, 408, -45);   // CUTOFF
+    h.run(0.2);
+    const double cut = h.plain(P_F_CUTOFF);
+    std::wstring proposed; bool combo = true;
+    Responder r1;
+    r1.start({{L"Save preset", [&](HWND d) {
+      wchar_t b[128] = {}; GetDlgItemTextW(d, 101, b, 128); proposed = b; combo = GetDlgItem(d, 102) != nullptr;
+      SetDlgItemTextW(d, 101, L"A · Deep Saw Bass X");
+      press(d, IDOK);
+    }}});
+    clickPosted(h, SAVE_X, SAVE_Y);
+    r1.wait(h);
+    std::string txt = readFile(lib), blk = factoryBlock(txt, "A \xC2\xB7 Deep Saw Bass");
+    check(u8(proposed) == "A \xC2\xB7 Deep Saw Bass" && !combo, "the save window proposes the name (no section for a factory preset)", u8(proposed));
+    check(has(blk, "Preset: " + sawX + "\r\nFactory: A \xC2\xB7 Deep Saw Bass\r\nAdjusted: yes\r\n") && has(blk, "  f_cutoff: 5.5   ("),
+          "presets file: the preset adjusted, renamed, its new cutoff", fmt("cutoff %.3f", cut));
+    check(count(txt, "Adjusted: no") == kNumPresets - 1 && has(txt, "######## USER BANK ########") && has(txt, "Preset: Old Pad"),
+          "presets file: every other factory preset and the user bank");
+    int dirty = -1;
+    check(h.stateName(&dirty) == sawX && dirty == 0, "the preset name now, not modified", h.stateName());
+
+    std::printf("3. a name already used by another preset is refused\n");
+    Responder r2;
+    r2.start({{L"Save preset", [&](HWND d) { SetDlgItemTextW(d, 101, L"A · Warm Pad"); press(d, IDOK); }},
+              {L"Wavelet Synthesizer", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+    clickPosted(h, SAVE_X, SAVE_Y);
+    r2.wait(h);
+    check(r2.seen.size() == 2 && has(u8(r2.seen[1]), "already called"), "refused with a message", r2.seen.size() > 1 ? u8(r2.seen[1]) : "");
+    check(has(readFile(lib), "Preset: " + sawX), "the file keeps the adjusted preset");
+
+    std::printf("4. TO BANK (browser), then the user tab\n");
+    Responder r3;
+    r3.start({{L"Save to user bank", [&](HWND d) {
+      SetDlgItemTextW(d, 101, L"My Bass X"); SendDlgItemMessageW(d, 102, CB_SETCURSEL, 9, 0); press(d, IDOK); }}});
+    clickPosted(h, btnX(0), BTN_Y);
+    r3.wait(h);
+    txt = readFile(lib);
+    check(has(txt, "== Chords ==\r\n\r\nPreset: My Bass X\r\nFrom: " + sawX + "\r\n"), "saved in the user bank (Chords)");
+    clickAt(h, TAB1_X, TAB_Y);
+    clickAt(h, CAT_X, catY(9));   // Chords
+    clickAt(h, ROW_X, rowY(0));
+    h.run(0.2);
+    check(h.stateName() == "USER \xC2\xB7 My Bass X", "the user tab lists and loads it", h.stateName());
+    h.shot(out + L"\\3_user.png");
+
+    std::printf("5. SAVE PRESET on a bank sound: renamed in place\n");
+    Responder r4;
+    r4.start({{L"Save preset", [&](HWND d) { SetDlgItemTextW(d, 101, L"My Bass Y"); press(d, IDOK); }}});
+    clickPosted(h, SAVE_X, SAVE_Y);
+    r4.wait(h);
+    txt = readFile(lib);
+    check(has(txt, "Preset: My Bass Y") && !has(txt, "Preset: My Bass X") && h.stateName() == "USER \xC2\xB7 My Bass Y", "renamed in the bank", h.stateName());
+
+    std::printf("6. DELETE (browser, user tab)\n");
+    Responder r5;
+    r5.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    clickPosted(h, btnX(2), BTN_Y);
+    r5.wait(h);
+    check(!has(readFile(lib), "My Bass Y") && !r5.seen.empty() && has(u8(r5.seen[0]), "Delete"), "deleted after a question");
+
+    std::printf("7. RESTORE (browser, factory tab)\n");
+    clickAt(h, TAB0_X, TAB_Y);
+    clickAt(h, CAT_X, catY(1));
+    clickAt(h, ROW_X, rowY(4));
+    h.run(0.2);
+    check(h.stateName() == sawX && std::fabs(h.plain(P_F_CUTOFF) - cut) < 1e-9, "the adjusted preset loads with its new sound", h.stateName());
+    Responder r6;
+    r6.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    clickPosted(h, btnX(1), BTN_Y);
+    r6.wait(h);
+    h.run(0.2);
+    blk = factoryBlock(readFile(lib), "A \xC2\xB7 Deep Saw Bass");
+    check(has(blk, "Preset: A \xC2\xB7 Deep Saw Bass\r\nFactory: A \xC2\xB7 Deep Saw Bass\r\nAdjusted: no"), "the file has the original again");
+    check(h.stateName() == "A \xC2\xB7 Deep Saw Bass" && std::fabs(h.plain(P_F_CUTOFF) - kPresets[kSaw].v[P_F_CUTOFF]) < 1e-9, "the original sound plays", h.stateName());
+
+    std::printf("8. adjusted again (kept for the next run), exported\n");
+    h.drag(50, 408, -30);
+    h.run(0.2);
+    cutZ = h.plain(P_F_CUTOFF);
+    Responder r7;
+    r7.start({{L"Save preset", [&](HWND d) { SetDlgItemTextW(d, 101, L"A · Deep Saw Bass Z"); press(d, IDOK); }}});
+    clickPosted(h, SAVE_X, SAVE_Y);
+    r7.wait(h);
+    clickAt(h, btnX(3), BTN_Y);   // EXPORT (WS_PRESETS_EXPORT: no dialog)
+    check(!readFile(exported).empty() && noSaved(readFile(exported)) == noSaved(readFile(lib)), "EXPORT writes the whole presets file");
+
+    std::printf("8b. TOP Sounds; DELETE a factory preset, the arrows skip it, it comes back\n");
+    clickAt(h, CAT_X, catY(0));   // TOP Sounds
+    clickAt(h, ROW_X, rowY(15));  // after the 15 favourites: the best vote (10, A · Wave Robot)
+    h.run(0.2);
+    check(h.stateName() == "A \xC2\xB7 Wave Robot", "TOP Sounds: the favourites, then the best voted (Wave Robot, 10)", h.stateName());
+    clickAt(h, CAT_X, catY(1));   // Bass
+    clickAt(h, ROW_X, rowY(5));   // after Deep Saw Bass: A · Wave Morph Bass
+    h.run(0.2);
+    const std::string victim = h.stateName();
+    const int kVictim = presetIndex(victim.c_str());
+    Responder r9;
+    r9.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    clickPosted(h, btnX(2), BTN_Y);
+    r9.wait(h);
+    h.run(0.2);
+    std::string vb = factoryBlock(readFile(lib), victim);
+    check(kVictim >= 0 && has(vb, "Adjusted: no\r\nDeleted: yes"), "the file marks it \"Deleted: yes\"", victim);
+    check(h.stateName() != victim && !h.stateName().empty(), "the next sound of the list plays", h.stateName());
+    h.command(100 + kVictim - 1);   // the preset before it, then ▶
+    h.run(0.1);
+    clickAt(h, 566 + 228 - 15, 24);   // ▶ of the preset box
+    h.run(0.1);
+    check(h.stateName() != victim, "▶ skips the deleted preset", h.stateName());
+    h.command(5000 + kVictim);   // the menu's "Deleted presets": back
+    check(!has(factoryBlock(readFile(lib), victim), "Deleted: yes"), "brought back", victim);
+
+    std::printf("9. SUB OCT by a click, LFO 2 target by the wheel\n");
+    const double oct0 = h.plain(P_SUB_OCT);
+    clickAt(h, 144, 657);   // SUB OSC: OCT
+    h.run(0.1);
+    const double oct1 = h.plain(P_SUB_OCT);
+    clickAt(h, 144, 657);
+    h.run(0.1);
+    check(oct1 != oct0 && h.plain(P_SUB_OCT) == oct0, "a click switches OCT, a second click switches it back", fmt("%.0f -> %.0f", oct0, oct1));
+    {
+      POINT pt{447, 632}; ClientToScreen(h.ed, &pt);
+      SendMessageW(h.ed, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), MAKELPARAM(pt.x, pt.y));
+      h.pump();
+    }
+    check(h.plain(P_LFO2_TARGET) == 1, "the wheel on the LFO 2 menu: CUTOFF -> SLOPE", fmt("%.0f", h.plain(P_LFO2_TARGET)));
+    h.shot(out + L"\\4_lfo2.png");
+
+    std::printf("10. HIDE and back; the state keeps it\n");
+    clickAt(h, HIDE_X, HIDE_Y);
+    check(clientW(h) == 1100, "HIDE: the editor is 1100 px wide", std::to_string(clientW(h)));
+    { Stream s; h.ctrl->getState(&s); uint32_t len; std::memcpy(&len, &s.data[12], 4);
+      check(s.data.size() == 16 + len + 4, "the state says the browser is closed", std::to_string(s.data.size())); }
+    h.shot(out + L"\\5_hidden.png");
+    clickAt(h, NAME_X, NAME_Y);
+    check(clientW(h) == 1460, "a click on the preset name opens the browser again", std::to_string(clientW(h)));
+    { Stream s; h.ctrl->getState(&s); uint32_t len; std::memcpy(&len, &s.data[12], 4);
+      check(s.data.size() == 16 + len, "open: the state has no extra bytes (as before)", std::to_string(s.data.size())); }
+
+    std::printf("10b. MOVE UP in a category and in the user bank\n");
+    clickAt(h, TAB0_X, TAB_Y);
+    clickAt(h, CAT_X, catY(1));   // Bass
+    clickAt(h, ROW_X, rowY(4));   // A · Deep Saw Bass Z
+    h.run(0.1);
+    clickAt(h, UP_X, MOVE_Y);
+    txt = readFile(lib);
+    check(has(txt, "== Bass ==\r\n1. A \xC2\xB7 Haar Bass\r\n2. A \xC2\xB7 Infra Sub Bass\r\n3. A \xC2\xB7 Fuzz Bass\r\n4. A \xC2\xB7 Deep Saw Bass   (now: " + sawZ + ")\r\n5. B \xC2\xB7 Mirror Sub Bass\r\n"),
+          "▲: the list order in the file (4th now)");
+    check(h.stateName() == sawZ, "the same sound still plays", h.stateName());
+    Responder r10;
+    r10.start({{L"Save to user bank", [&](HWND d) { SetDlgItemTextW(d, 101, L"Pad Two"); SendDlgItemMessageW(d, 102, CB_SETCURSEL, 4, 0); press(d, IDOK); }}});
+    clickPosted(h, btnX(0), BTN_Y);   // TO BANK, section Pad (after "Old Pad")
+    r10.wait(h);
+    clickAt(h, UP_X, MOVE_Y);         // the user tab is shown, Pad Two playing
+    txt = readFile(lib);
+    const size_t pu = txt.find("######## USER BANK");
+    check(pu != std::string::npos && txt.find("Preset: Pad Two", pu) < txt.find("Preset: Old Pad", pu), "▲ in the user bank: Pad Two before Old Pad");
+    h.shot(out + L"\\7_order.png");
+
+    std::printf("11. a folder that cannot be written\n");
+    h.command(100 + kPad);   // a factory preset: SAVE PRESET adjusts it
+    h.run(0.1);
+    SetEnvironmentVariableW(L"WS_PRESETS_FILE", (out + L"\\no such folder\\p.txt").c_str());
+    Responder r8;
+    r8.start({{L"Save preset", [&](HWND d) { press(d, IDOK); }}, {L"Wavelet Synthesizer", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+    clickPosted(h, SAVE_X, SAVE_Y);
+    r8.wait(h);
+    check(r8.seen.size() == 2 && has(u8(r8.seen[1]), "Could not save the preset") && has(u8(r8.seen[1]), "no such folder"), "clear message with the path",
+          r8.seen.size() > 1 ? u8(r8.seen[1]).substr(0, 120) : "");
+    SetEnvironmentVariableW(L"WS_PRESETS_FILE", lib.c_str());
+    check(h.handler.badNesting == 0, "every performEdit inside beginEdit/endEdit");
+    S.close();
+    if (auto exitDll = (bool (*)())GetProcAddress(mod, "ExitDll")) exitDll();
+    FreeLibrary(mod);
   }
 
-  std::printf("8. a folder that cannot be written\n");
-  SetEnvironmentVariableW(L"WS_BANK_FILE", (out + L"\\no such folder\\bank.txt").c_str());
-  Responder r5;
-  // (a message box with a single OK button closes on IDCANCEL, as with the Esc key)
-  r5.start({{L"Save to user bank", [&](HWND d) { press(d, IDOK); }}, {L"Wavelet Synthesizer", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
-  h.command(900);
-  r5.wait(h);
-  check(r5.seen.size() == 2 && has(u8(r5.seen[1]), "Could not save the user bank") && has(u8(r5.seen[1]), "no such folder"), "clear message with the path",
-        r5.seen.size() > 1 ? u8(r5.seen[1]).substr(0, 160) : "");
-  check(h.stateName() == "A \xC2\xB7 Warm Pad", "the sound is not marked as a bank sound", h.stateName());
-  SetEnvironmentVariableW(L"WS_BANK_FILE", bank.c_str());
-  check(h.handler.badNesting == 0, "every performEdit inside beginEdit/endEdit");
-
-  h.view->removed(); h.view->release();
-  DestroyWindow(h.top);
-  h.proc->setProcessing(false); h.comp->setActive(false);
-  cpA->disconnect(cpB); cpB->disconnect(cpA); cpA->release(); cpB->release();
-  h.ctrl->setComponentHandler(nullptr);
-  h.proc->release(); h.ctrl->terminate(); h.comp->terminate(); h.ctrl->release(); h.comp->release();
-  std::printf("\nbank file:\n%s\n", readFile(bank).c_str());
+  // ================================================================ the plug-in loaded again (Ableton reopened)
+  std::printf("12. reopened: the adjusted preset is still there\n");
+  {
+    HMODULE mod = LoadLibraryW(dll.c_str());
+    auto getFactory = (IPluginFactory * (PLUGIN_API*)())GetProcAddress(mod, "GetPluginFactory");
+    if (auto initDll = (bool (*)())GetProcAddress(mod, "InitDll")) initDll();
+    Session S;
+    check(S.open(getFactory()), "editor attached again");
+    Host& h = S.h;
+    clickAt(h, TAB0_X, TAB_Y);
+    clickAt(h, CAT_X, catY(1));   // Bass: the order moved before the reload
+    clickAt(h, ROW_X, rowY(3));
+    h.run(0.2);
+    check(h.stateName() == sawZ && std::fabs(h.plain(P_F_CUTOFF) - cutZ) < 1e-6, "the adjusted preset, its name, sound and place in Bass, after a reload",
+          h.stateName() + fmt("  cutoff %.3f", h.plain(P_F_CUTOFF)));
+    h.shot(out + L"\\6_reopened.png");
+    S.close();
+    FreeLibrary(mod);
+  }
+  std::printf("\npresets file (start):\n%s\n", readFile(lib).substr(0, 700).c_str());
   std::printf(gFails ? "%d FAILED\n" : "ALL PASS\n", gFails);
   return gFails ? 1 : 0;
 }

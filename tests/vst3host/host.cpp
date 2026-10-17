@@ -4190,7 +4190,11 @@ struct EditorSession
 	{
 		RECT rc;
 		GetClientRect (container, &rc);
-		return {(LONG)std::lround (p1x.x * rc.right / baseW), (LONG)std::lround (p1x.y * rc.bottom / baseH)};
+		// beta 0.3: the editor is wider than the 1100 x 720 layout while its preset browser is open (at the right), so
+		// one scale, from the height, maps the layout points
+		(void)baseW;
+		const double s = rc.bottom / baseH;
+		return {(LONG)std::lround (p1x.x * s), (LONG)std::lround (p1x.y * s)};
 	}
 	HWND targetAt (POINT pc, POINT& local)
 	{
@@ -4415,9 +4419,10 @@ static void testEditor (Instance& in, AudioCtx& ac)
 				lastEdits[kv.first] = kv.second;
 		}
 		{
-			// preset browsing from the header (spec 'presets' widget: x 566..866, y 9..39)
+			// preset browsing from the header (spec 'presets' widget x 566..866, y 9..39; beta 0.3: the VST box ends at x 794,
+			// SAVE PRESET follows it, so its next arrow is at x 779)
 			int changed = 0;
-			for (auto& ar : std::vector<std::pair<const char*, LONG>> {{"next", 852}, {"previous", 580}})
+			for (auto& ar : std::vector<std::pair<const char*, LONG>> {{"next", 779}, {"previous", 580}})
 			{
 				size_t m = in.handler->mark ();
 				s1.click (s1.scaled ({ar.second, 24}));
@@ -4673,7 +4678,7 @@ static void testPresetParity (Instance& in, AudioCtx& ac)
 	std::vector<std::string> bad;
 	for (size_t k = 0; k < n + 1; k++)
 	{
-		e.click (e.scaled ({852, 24})); // next-preset arrow
+		e.click (e.scaled ({779, 24})); // next-preset arrow
 		pump (150);
 		if (start < 0)
 		{
@@ -4845,7 +4850,7 @@ struct Crop
 	int w = 0, h = 0;
 	std::vector<uint32_t> px;
 };
-// The editor's preset name field (between the arrows: layout 598..834 x 11..37 of 1100 x 720), saved as PNG.
+// The editor's preset name field (between the arrows: layout 598..764 x 11..37 of 1100 x 720 since beta 0.3), saved as PNG.
 static Crop presetFieldCrop (EditorSession& e, const std::string& png)
 {
 	Crop c;
@@ -4870,7 +4875,7 @@ static Crop presetFieldCrop (EditorSession& e, const std::string& png)
 	if (!PrintWindow (e.top, mdc, PW_CLIENTONLY | PW_RENDERFULLCONTENT))
 		BitBlt (mdc, 0, 0, w, h, wdc, 0, 0, SRCCOPY);
 	GdiFlush ();
-	POINT a = e.scaled ({598, 11}), b = e.scaled ({834, 37});
+	POINT a = e.scaled ({598, 11}), b = e.scaled ({764, 37});
 	a.x = std::max<LONG> (0, a.x);
 	a.y = std::max<LONG> (0, a.y);
 	b.x = std::min<LONG> (w, b.x);
@@ -5351,7 +5356,7 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 		}
 		pump (400);
 		const int baseW = er.size.getWidth (), baseH = er.size.getHeight ();
-		const POINT prev = er.scaled ({581, 24}), next = er.scaled ({852, 24});
+		const POINT prev = er.scaled ({581, 24}), next = er.scaled ({779, 24});
 		for (int k = 0; k < 10; k++)
 		{
 			er.click (prev);

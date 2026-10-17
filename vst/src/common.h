@@ -72,6 +72,10 @@ struct EditorHost {
   // beta 0.3: a sound of the USER BANK (bank.h), loaded like a preset and shown as kUserPrefix + its name
   virtual void loadUserSound(const double* plain, const std::string& shownName) = 0;
   virtual std::string userPresetName() = 0;   // "" while the sound is a factory preset
+  // beta 0.3: the factory preset just saved (SAVE PRESET) is the sound shown, unmodified; the preset browser panel
+  virtual void presetStored(int index) = 0;
+  virtual bool browserOpen() = 0;
+  virtual void setBrowserOpen(bool open) = 0;
   virtual double zoom() = 0;
   virtual void setZoom(double z) = 0;
   virtual void editorClosed() = 0;

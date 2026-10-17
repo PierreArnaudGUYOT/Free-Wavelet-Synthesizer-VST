@@ -11,7 +11,10 @@ Drums & Perc); both open on "A · Warm Pad".
 Its two engines can play **alone or mixed** (the **A/B MIX** knob), and a **string-machine triple chorus** widens pads,
 strings and organs. The **WAVELET MORPH** (beta 0.3) builds the sound with a second wavelet too and moves between the two
 with a knob, the LFO or the envelope. In each category the presets OktoPierre rated best in his listening test come first.
-In the VST plug-in, a **user bank** keeps your own sounds by section (the factory types + Chords) and exports them as .txt.
+A second LFO (**LFO 2**) moves any parameter of the scale filter or the position window. In the VST plug-in, a **preset
+browser** (TOP Sounds and the sound types) sits at the right of the panel; **SAVE PRESET** adjusts a factory preset,
+**DELETE** clears out the ones you do not want, ▲ ▼ reorder the lists, and a **user bank** keeps your own sounds — all in
+one readable text file, `OKTOWAVE presets.txt`, kept next to the plug-in.
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.

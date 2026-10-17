@@ -26,6 +26,7 @@
 #include "pluginterfaces/vst/vstspeaker.h"
 #include "pluginterfaces/vst/vsttypes.h"
 #include "common.h"
+#include "bank.h"
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -203,7 +204,9 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
 
   Processor() {
     // a new instance opens on the default preset (A · Wavelet Lead)
-    for (int i = 0; i < kNumParams; i++) plain[i].store(kPresets[kDefaultPreset].v[i]);
+    double v[kNumParams];
+    Library::get().values(kDefaultPreset, v);   // as the player may have adjusted it (beta 0.3)
+    for (int i = 0; i < kNumParams; i++) plain[i].store(v[i]);
     for (auto& s : setState_) s.store(kFree);
   }
   virtual ~Processor() { stopWorker(); if (sharedId) unregisterShared(sharedId); if (hostContext) hostContext->release(); if (peer) peer->release(); }
@@ -512,7 +515,11 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
  public:
   WS_REFCOUNT
 
-  Controller() { for (int i = 0; i < kNumParams; i++) norm[i] = toNorm(kParams[i], kPresets[kDefaultPreset].v[i]); }
+  Controller() {
+    double v[kNumParams];
+    Library::get().values(kDefaultPreset, v);
+    for (int i = 0; i < kNumParams; i++) norm[i] = toNorm(kParams[i], v[i]);
+  }
   virtual ~Controller() { if (handler) handler->release(); if (peer) peer->release(); if (hostContext) hostContext->release(); }
 
   tresult PLUGIN_API queryInterface(const TUID _iid, void** obj) override {
@@ -565,6 +572,8 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
             if (k < 0 && std::strncmp(name, kUserPrefix, std::strlen(kUserPrefix)) == 0 && len > std::strlen(kUserPrefix)) {
               userName = name; dirty = dt != 0;
             }
+            int32_t closed = 0;
+            browserOpen_ = !(readAll(state, &closed, 4) && closed == 1);
           }
         }
       } else {
@@ -580,11 +589,13 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   tresult PLUGIN_API getState(IBStream* state) override {
     if (!state) return kInvalidArgument;
     uint32_t magic = kCtlMagic2; float z = zoomFactor; int32_t dt = dirty ? 1 : 0;
-    const char* name = !userName.empty() ? userName.c_str() : presetIdx >= 0 && presetIdx < kNumPresets ? kPresets[presetIdx].name : "";
-    uint32_t len = (uint32_t)std::strlen(name);
+    const std::string name = !userName.empty() ? userName : presetIdx >= 0 && presetIdx < kNumPresets ? Library::get().name(presetIdx) : "";
+    uint32_t len = (uint32_t)name.size();
     if (!writeAll(state, &magic, 4) || !writeAll(state, &z, 4) || !writeAll(state, &dt, 4) || !writeAll(state, &len, 4) ||
-        (len && !writeAll(state, name, (int32)len)))
+        (len && !writeAll(state, name.c_str(), (int32)len)))
       return kResultFalse;
+    const int32_t closed = 1;   // beta 0.3: the preset browser was closed (absent = open)
+    if (!browserOpen_ && !writeAll(state, &closed, 4)) return kResultFalse;
     return kResultOk;
   }
 
@@ -694,7 +705,9 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   bool presetDirty() override { return dirty; }
   void loadPreset(int index) override {
     if (index < 0 || index >= kNumPresets) return;
-    applySound(kPresets[index].v);
+    double v[kNumParams];
+    Library::get().values(index, v);   // as the player may have adjusted it
+    applySound(v);
     presetIdx = index; dirty = false; userName.clear(); version++;
   }
   void loadUserSound(const double* pv, const std::string& shownName) override {
@@ -702,6 +715,12 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
     dirty = false; userName = shownName; version++;   // presetIdx stays: the ◀ ▶ arrows go on from the last factory preset
   }
   std::string userPresetName() override { return userName; }
+  void presetStored(int index) override {
+    if (index >= 0 && index < kNumPresets) presetIdx = index;
+    dirty = false; userName.clear(); version++;
+  }
+  bool browserOpen() override { return browserOpen_; }
+  void setBrowserOpen(bool open) override { browserOpen_ = open; }
   double zoom() override { return zoomFactor; }
   void setZoom(double z) override { zoomFactor = (float)z; }
   void editorClosed() override {}
@@ -715,6 +734,7 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   std::atomic<uint32_t> version{1};
   int presetIdx = kDefaultPreset; bool dirty = false;
   std::string userName;   // the sound of the user bank shown in the browser ("" = the factory preset presetIdx)
+  bool browserOpen_ = true;   // the preset browser panel of the editor (beta 0.3)
   float zoomFactor = 1.0f;
 
   // every non-hidden parameter to these plain values, sent to the host as one group edit
@@ -733,16 +753,18 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   }
 
   int exactPreset() const {   // the factory preset whose sound is exactly the current one (ENGINE = panel shown), or -1
+    std::vector<std::array<double, kNumParams>> lib(kNumPresets);   // as the player may have adjusted them
+    for (int k = 0; k < kNumPresets; k++) Library::get().values(k, lib[k].data());
     for (int k = 0; k < kNumPresets; k++) {
       bool same = true;
       for (int i = 0; i < kNumParams && same; i++)
-        if (!kParams[i].hidden && i != P_ENGINE && std::fabs(toNorm(kParams[i], kPresets[k].v[i]) - norm[i]) > 1e-6) same = false;
+        if (!kParams[i].hidden && i != P_ENGINE && std::fabs(toNorm(kParams[i], lib[k][i]) - norm[i]) > 1e-6) same = false;
       if (same) return k;
     }
     return -1;
   }
   static int findPreset(const char* name) {
-    for (int k = 0; k < kNumPresets; k++) if (std::strcmp(kPresets[k].name, name) == 0) return k;
+    if (*name) return Library::get().find(name);   // its name now, else its built-in name
     return -1;
   }
 };

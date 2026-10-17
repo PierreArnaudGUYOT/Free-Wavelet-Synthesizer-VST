@@ -11,9 +11,12 @@ Pre-release to test the integration in Ableton Live; the official page and relea
   150 new sounds: every preset he rated **7 to 10 stars out of 10**, with the changes he recorded while listening. In each
   category they come **first, the best rated first**; his 15 favourites stay at the top of the list.
 - **Sound engine**: new **WAVELET MORPH** — a second wavelet and a crossfade between the two, set by a knob, moved by the
-  LFO or by the mod envelope.
-- **User bank** (VST plug-in): save your own sounds in 12 sections (the factory types + Chords), load them from the preset
-  menu, export the bank as a .txt file.
+  LFO or by the mod envelope — and a second LFO, **LFO 2**, on any parameter of the SCALE FILTER or the POSITION window.
+- **Plug-in**: a **preset browser** at the right of the panel (TOP Sounds and the sound types, one click loads a sound,
+  can be hidden), **SAVE PRESET** to adjust a factory preset (and rename it), **DELETE** to clear out the presets you do
+  not want, **▲ ▼** to reorder every list, and a **user bank**; all of it in one readable text file, `OKTOWAVE presets.txt`,
+  kept when Live is closed and read back to make the next version. The panel's name reads **OKTOWAVE** · Wavelet
+  Synthesizer.
 
 **WAVELET MORPH**
 - The sound is also built with **WAVELET 2** and crossfaded with the main one, per voice: **MORPH** (0 % = WAVELET,
@@ -28,19 +31,43 @@ Pre-release to test the integration in Ableton Live; the official page and relea
 **New presets** (★ = OktoPierre's vote, * = changed by him while listening; levels matched to the favourites):
 Bass (5): A · Deep Saw Bass 8★*, A · Wave Morph Bass 8★, A · Acid Line 7★*, A · Fat Unison Bass 7★*, A · Wave Wobble Bass 7★*; Lead (7): A · Screaming Lead 9★, A · Wave Attack Lead 9★, A · Wave Pulse Lead 9★*, AB · Duo Lead 8★, B · Flute Lead 8★, A · Wave Window Lead 8★, A · Wave S/H Lead 7★*; Keys (2): A · Dyno Keys 9★, AB · Wurli Bark 8★; Organ (3): B · Theatre Organ 9★, AB · Gospel Mix Organ 8★, B · Full Drawbar Organ 7★; Pad (7): A · Noise Wash Pad 9★*, B · Choir Pad 8★*, AB · Glass Choir 8★*, A · Sweep Pad 7★, A · Analog Brass Pad 7★, A · Wave Morph Pad 7★, AB · Wave Atom Choir 7★*; Strings (8): A · Solo Violin 9★*, A · Cello Section 8★, AB · Silk Strings 8★, A · Spiccato Strings 8★, A · Shimmering Strings 8★*, A · Ensemble Strings 7★, B · Vox Strings 7★, A · Wave Tremolo Strings 7★*; Brass & Wind (3): A · Wave Brass 8★*, A · French Horn 7★, A · Brass Section Stab 7★; Pluck (1): A · Steel Pluck 7★*; Bells & Mallets (1): B · Xylophone 7★; FX (9): A · Wave Robot 10★, A · Siren Sweep 9★*, A · Wave Riser 9★*, A · Wave Laser 9★*, B · Wave Random Computer 7★, A · UFO 7★, A · Wave Atom Scanner 7★*, B · Wave Reverse Bands 7★, A · Wave Glitch Morph 7★*.
 
-**User bank (VST plug-in)**
-- Your own sounds in a **USER BANK** with 12 sections — Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck,
-  Bells & Mallets, **Chords**, FX, Drums & Perc — empty at first. In the preset menu: **Save to user bank…** (a small window
-  proposes the current preset's name, editable, and its section; asks before replacing a name), the **USER BANK** submenu
-  (load a sound, **Delete**, **Export the bank (.txt)…**, **Show the bank file**). A loaded bank sound shows as
-  "USER · name" and is remembered with the Live Set.
-- The bank is one readable text file, `Wavelet Synthesizer user bank.txt`, next to the `WaveletSynthesizer.vst3` folder
-  (kept when a new version replaces that folder), shared by every instance; each sound lists the parameters that differ
-  from the defaults, like the factory presets. A folder that cannot be written (the VST3 system folder needs
-  administrator rights) gives a clear message.
+**LFO 2** (both products)
+- A second free-running LFO in its own card next to CHORUS: SHAPE (the five shapes of LFO 1), RATE (0.05–20 Hz), AMOUNT
+  (±100 % = ± half the target's range: ±6 bands of CUTOFF, ±180° of POSITION…) and the TARGET menu next to its title:
+  CUTOFF, SLOPE, RESO, KEY TRK, ENV AMT, VEL AMT, POSITION, WIDTH or DEPTH. The on-screen keyboard is a little narrower
+  (still C2–C7).
+- Compatibility: four parameters appended (AMOUNT 0 by default): older presets and Live Sets sound exactly as before.
+
+**Knobs with few positions** (both products): SUB OCT and the SHAPE knobs move with a short drag (24 px per step), and a
+click goes to the next value.
+
+**Presets in the plug-in**
+- **Preset browser**, at the right of the panel: FACTORY and USER BANK tabs; the sound types with their count — first
+  **TOP Sounds** (OktoPierre's 15 favourites, then the sounds he rated 8 to 10) — and the sounds of the type selected (a
+  click loads one; engine letters, ★ for a favourite, his vote, "ADJ" for an adjusted preset). ▲ ▼ move the sound playing
+  in its list. Buttons TO BANK…, RESTORE, DELETE, EXPORT…, FILE. **HIDE** folds it away (the window gets narrower); a
+  click on the preset name brings it back; a right-click opens the classic menu. Live Sets remember whether it is open.
+- **SAVE PRESET** (left of MANUAL A) overwrites the preset playing: a factory preset is **adjusted** in place (a small
+  window proposes its name, which can be changed; RESTORE brings the original back), a sound of the user bank is
+  replaced.
+- **DELETE** takes a factory preset out of the lists and the ◀ ▶ arrows (the menu's "Deleted presets" brings it back).
+- **User bank**: your own sounds in 12 sections (Bass … Bells & Mallets, **Chords**, FX, Drums & Perc), empty at first.
+- **One text file**, `OKTOWAVE presets.txt`, next to the `WaveletSynthesizer.vst3` folder (kept when a new version
+  replaces that folder), shared by every instance and read back when Live opens again: every factory preset ("Adjusted:
+  yes" with its name now, "Deleted: yes"), the order of every list ("LIST ORDER"), and the user bank — each sound as the
+  parameters that differ from the defaults. EXPORT… writes a copy. A folder that cannot be written (the VST3 system
+  folder needs administrator rights) gives a clear message. The user bank of the first beta 0.3 build is taken over.
+
+**Panel**: the name at the top left reads **OKTOWAVE** · WAVELET SYNTHESIZER (the plug-in keeps its name in Live).
 
 **Plug-in**: version 0.3.0 everywhere (VST3 class info and DLL version info agree).
 
+**Quality**: C++ = JavaScript within 2.38e-7 on the 153 presets and on LFO 2 driving each of its 9 targets; VST3 host
+suite (its editor clicks now scale from the window height: the browser makes the window wider), VST2 smoke test,
+`vst/devtest/bank_session.cpp` (the browser, SAVE PRESET, RESTORE, DELETE, ▲ ▼, the user bank, the presets file read
+back after the plug-in is reloaded), web app suites.
+
+## beta 0.2 — 2026-10-15
 
 **In short**
 - **Sound engine**: the two engines can now be **mixed** (new A/B MIX knob: subtractive engine A, additive engine B, or both together in one sound), and a new **triple chorus** gives the wide, lush ensemble sound of 1970s string machines.
