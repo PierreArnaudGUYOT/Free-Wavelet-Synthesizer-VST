@@ -40,7 +40,7 @@ echo [3/4] linking
 if not exist "%BUNDLE%\Contents\x86_64-win" mkdir "%BUNDLE%\Contents\x86_64-win"
 x86_64-w64-mingw32-clang++ -shared -static -s -o "%BUNDLE%\Contents\x86_64-win\WaveletSynthesizer.vst3" ^
   "%OBJ%\plugin.o" "%OBJ%\editor.o" "%OBJ%\iids.o" "%OBJ%\vst2.o" "%OBJ%\funknown.o" "%OBJ%\version.o" ^
-  -lgdiplus -lgdi32 -luser32 -lshell32 -lole32 -luuid || exit /b 1
+  -lgdiplus -lgdi32 -luser32 -lshell32 -lole32 -luuid -lcomdlg32 || exit /b 1
 rem the same DLL as a VST2 plug-in: hosts scanning a VST2 folder find this .dll inside the bundle folder
 copy /Y "%BUNDLE%\Contents\x86_64-win\WaveletSynthesizer.vst3" "%BUNDLE%\Contents\x86_64-win\WaveletSynthesizer.dll" >nul || exit /b 1
 

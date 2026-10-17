@@ -541,7 +541,7 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
     // the preset shown in the browser: the factory preset with exactly these values, else the current one, modified
     // (the host then calls setState, which restores the saved preset name and flag)
     const int k = exactPreset();
-    if (k >= 0) { presetIdx = k; dirty = false; } else dirty = true;
+    if (k >= 0) { presetIdx = k; dirty = false; userName.clear(); } else dirty = true;
     version++;
     return kResultOk;
   }
@@ -555,17 +555,24 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
       if (std::isfinite(z)) zoomFactor = std::min(2.0f, std::max(0.5f, z));
       int k = -1;
       if (magic == kCtlMagic2) {
-        uint32_t len = 0; char name[128];
+        uint32_t len = 0; char name[512];
         if (readAll(state, &dt, 4) && readAll(state, &len, 4) && len < sizeof name && (len == 0 || readAll(state, name, (int32)len))) {
           name[len] = 0;
-          k = findPreset(name);
+          // a stored name never holds a NUL byte (a padded or hostile state is ignored, as with the old 128-byte limit)
+          if (std::strlen(name) == len) {
+            k = findPreset(name);
+            // a sound of the user bank (beta 0.3): its name only, the sound itself is in the processor state
+            if (k < 0 && std::strncmp(name, kUserPrefix, std::strlen(kUserPrefix)) == 0 && len > std::strlen(kUserPrefix)) {
+              userName = name; dirty = dt != 0;
+            }
+          }
         }
       } else {
         int32_t pi = -1;
         if (readAll(state, &pi, 4) && readAll(state, &dt, 4) && pi >= 0 && pi < (int32_t)(sizeof kBeta01Order / sizeof *kBeta01Order))
           k = findPreset(kBeta01Order[pi]);
       }
-      if (k >= 0) { presetIdx = k; dirty = dt != 0; }
+      if (k >= 0) { presetIdx = k; dirty = dt != 0; userName.clear(); }
     }
     version++;
     return kResultOk;
@@ -573,7 +580,7 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   tresult PLUGIN_API getState(IBStream* state) override {
     if (!state) return kInvalidArgument;
     uint32_t magic = kCtlMagic2; float z = zoomFactor; int32_t dt = dirty ? 1 : 0;
-    const char* name = presetIdx >= 0 && presetIdx < kNumPresets ? kPresets[presetIdx].name : "";
+    const char* name = !userName.empty() ? userName.c_str() : presetIdx >= 0 && presetIdx < kNumPresets ? kPresets[presetIdx].name : "";
     uint32_t len = (uint32_t)std::strlen(name);
     if (!writeAll(state, &magic, 4) || !writeAll(state, &z, 4) || !writeAll(state, &dt, 4) || !writeAll(state, &len, 4) ||
         (len && !writeAll(state, name, (int32)len)))
@@ -687,19 +694,14 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   bool presetDirty() override { return dirty; }
   void loadPreset(int index) override {
     if (index < 0 || index >= kNumPresets) return;
-    IComponentHandler2* h2 = nullptr;
-    if (handler) handler->queryInterface(IComponentHandler2::iid, (void**)&h2);
-    if (h2) h2->startGroupEdit();
-    for (int i = 0; i < kNumParams; i++) {
-      if (kParams[i].hidden) continue;
-      double v = toNorm(kParams[i], kPresets[index].v[i]);
-      if (norm[i] == v) continue;
-      norm[i] = v;
-      if (handler) { handler->beginEdit(i); handler->performEdit(i, v); handler->endEdit(i); }
-    }
-    if (h2) { h2->finishGroupEdit(); h2->release(); }
-    presetIdx = index; dirty = false; version++;
+    applySound(kPresets[index].v);
+    presetIdx = index; dirty = false; userName.clear(); version++;
   }
+  void loadUserSound(const double* pv, const std::string& shownName) override {
+    applySound(pv);
+    dirty = false; userName = shownName; version++;   // presetIdx stays: the ◀ ▶ arrows go on from the last factory preset
+  }
+  std::string userPresetName() override { return userName; }
   double zoom() override { return zoomFactor; }
   void setZoom(double z) override { zoomFactor = (float)z; }
   void editorClosed() override {}
@@ -712,7 +714,23 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   std::shared_ptr<SharedState> shared;
   std::atomic<uint32_t> version{1};
   int presetIdx = kDefaultPreset; bool dirty = false;
+  std::string userName;   // the sound of the user bank shown in the browser ("" = the factory preset presetIdx)
   float zoomFactor = 1.0f;
+
+  // every non-hidden parameter to these plain values, sent to the host as one group edit
+  void applySound(const double* pv) {
+    IComponentHandler2* h2 = nullptr;
+    if (handler) handler->queryInterface(IComponentHandler2::iid, (void**)&h2);
+    if (h2) h2->startGroupEdit();
+    for (int i = 0; i < kNumParams; i++) {
+      if (kParams[i].hidden) continue;
+      double v = toNorm(kParams[i], pv[i]);
+      if (norm[i] == v) continue;
+      norm[i] = v;
+      if (handler) { handler->beginEdit(i); handler->performEdit(i, v); handler->endEdit(i); }
+    }
+    if (h2) { h2->finishGroupEdit(); h2->release(); }
+  }
 
   int exactPreset() const {   // the factory preset whose sound is exactly the current one (ENGINE = panel shown), or -1
     for (int k = 0; k < kNumPresets; k++) {

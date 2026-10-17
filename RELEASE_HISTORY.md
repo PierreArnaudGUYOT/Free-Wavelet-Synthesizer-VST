@@ -12,6 +12,8 @@ Pre-release to test the integration in Ableton Live; the official page and relea
   category they come **first, the best rated first**; his 15 favourites stay at the top of the list.
 - **Sound engine**: new **WAVELET MORPH** — a second wavelet and a crossfade between the two, set by a knob, moved by the
   LFO or by the mod envelope.
+- **User bank** (VST plug-in): save your own sounds in 12 sections (the factory types + Chords), load them from the preset
+  menu, export the bank as a .txt file.
 
 **WAVELET MORPH**
 - The sound is also built with **WAVELET 2** and crossfaded with the main one, per voice: **MORPH** (0 % = WAVELET,
@@ -25,6 +27,17 @@ Pre-release to test the integration in Ableton Live; the official page and relea
 
 **New presets** (★ = OktoPierre's vote, * = changed by him while listening; levels matched to the favourites):
 Bass (5): A · Deep Saw Bass 8★*, A · Wave Morph Bass 8★, A · Acid Line 7★*, A · Fat Unison Bass 7★*, A · Wave Wobble Bass 7★*; Lead (7): A · Screaming Lead 9★, A · Wave Attack Lead 9★, A · Wave Pulse Lead 9★*, AB · Duo Lead 8★, B · Flute Lead 8★, A · Wave Window Lead 8★, A · Wave S/H Lead 7★*; Keys (2): A · Dyno Keys 9★, AB · Wurli Bark 8★; Organ (3): B · Theatre Organ 9★, AB · Gospel Mix Organ 8★, B · Full Drawbar Organ 7★; Pad (7): A · Noise Wash Pad 9★*, B · Choir Pad 8★*, AB · Glass Choir 8★*, A · Sweep Pad 7★, A · Analog Brass Pad 7★, A · Wave Morph Pad 7★, AB · Wave Atom Choir 7★*; Strings (8): A · Solo Violin 9★*, A · Cello Section 8★, AB · Silk Strings 8★, A · Spiccato Strings 8★, A · Shimmering Strings 8★*, A · Ensemble Strings 7★, B · Vox Strings 7★, A · Wave Tremolo Strings 7★*; Brass & Wind (3): A · Wave Brass 8★*, A · French Horn 7★, A · Brass Section Stab 7★; Pluck (1): A · Steel Pluck 7★*; Bells & Mallets (1): B · Xylophone 7★; FX (9): A · Wave Robot 10★, A · Siren Sweep 9★*, A · Wave Riser 9★*, A · Wave Laser 9★*, B · Wave Random Computer 7★, A · UFO 7★, A · Wave Atom Scanner 7★*, B · Wave Reverse Bands 7★, A · Wave Glitch Morph 7★*.
+
+**User bank (VST plug-in)**
+- Your own sounds in a **USER BANK** with 12 sections — Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck,
+  Bells & Mallets, **Chords**, FX, Drums & Perc — empty at first. In the preset menu: **Save to user bank…** (a small window
+  proposes the current preset's name, editable, and its section; asks before replacing a name), the **USER BANK** submenu
+  (load a sound, **Delete**, **Export the bank (.txt)…**, **Show the bank file**). A loaded bank sound shows as
+  "USER · name" and is remembered with the Live Set.
+- The bank is one readable text file, `Wavelet Synthesizer user bank.txt`, next to the `WaveletSynthesizer.vst3` folder
+  (kept when a new version replaces that folder), shared by every instance; each sound lists the parameters that differ
+  from the defaults, like the factory presets. A folder that cannot be written (the VST3 system folder needs
+  administrator rights) gives a clear message.
 
 **Plug-in**: version 0.3.0 everywhere (VST3 class info and DLL version info agree).
 

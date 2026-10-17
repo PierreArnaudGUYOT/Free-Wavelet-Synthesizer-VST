@@ -69,11 +69,17 @@ struct EditorHost {
   virtual int presetIndex() = 0;
   virtual bool presetDirty() = 0;
   virtual void loadPreset(int index) = 0;
+  // beta 0.3: a sound of the USER BANK (bank.h), loaded like a preset and shown as kUserPrefix + its name
+  virtual void loadUserSound(const double* plain, const std::string& shownName) = 0;
+  virtual std::string userPresetName() = 0;   // "" while the sound is a factory preset
   virtual double zoom() = 0;
   virtual void setZoom(double z) = 0;
   virtual void editorClosed() = 0;
   void setPlainGesture(int id, double v) { beginEdit(id); performEditPlain(id, v); endEdit(id); }
 };
+
+// The preset browser shows a sound of the user bank as "USER · <name>"; the controller state stores it so.
+inline constexpr const char* kUserPrefix = "USER \xC2\xB7 ";
 
 Steinberg::IPlugView* createEditor(EditorHost* host, Steinberg::FUnknown* keepAlive);
 

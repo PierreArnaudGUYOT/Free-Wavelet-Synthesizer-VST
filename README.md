@@ -11,6 +11,7 @@ Drums & Perc); both open on "A · Warm Pad".
 Its two engines can play **alone or mixed** (the **A/B MIX** knob), and a **string-machine triple chorus** widens pads,
 strings and organs. The **WAVELET MORPH** (beta 0.3) builds the sound with a second wavelet too and moves between the two
 with a knob, the LFO or the envelope. In each category the presets OktoPierre rated best in his listening test come first.
+In the VST plug-in, a **user bank** keeps your own sounds by section (the factory types + Chords) and exports them as .txt.
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.

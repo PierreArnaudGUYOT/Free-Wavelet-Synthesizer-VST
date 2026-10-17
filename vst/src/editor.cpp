@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <shellapi.h>
+#include <commdlg.h>
 #include <algorithm>
 namespace Gdiplus { using std::min; using std::max; }
 #include <gdiplus.h>
@@ -18,6 +19,7 @@ namespace Gdiplus { using std::min; using std::max; }
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "common.h"
+#include "bank.h"
 
 using namespace Steinberg;
 namespace G = Gdiplus;
@@ -751,7 +753,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
     text(g, L"◀", R{r.x, r.y, 30, r.h}, 11, false, rgb(kDim));
     text(g, L"▶", R{r.x + r.w - 30, r.y, 30, r.h}, 11, false, rgb(kDim));
     int pi = host->presetIndex();
-    std::wstring name = pi >= 0 && pi < kNumPresets ? toW(kPresets[pi].name) : L"User sound";
+    const std::string user = host->userPresetName();
+    std::wstring name = !user.empty() ? toW(user) : pi >= 0 && pi < kNumPresets ? toW(kPresets[pi].name) : L"User sound";
     if (host->presetDirty()) name += L"  •";
     text(g, name + L"  ▾", R{r.x + 30, r.y, r.w - 60, r.h}, 12.5f, true, rgb(0xeef2f7));
   }
@@ -933,11 +936,193 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       esc += L"	" + std::to_wstring(n);
       AppendMenuW(m, MF_POPUP | MF_STRING | (here ? MF_CHECKED : 0), (UINT_PTR)sub, esc.c_str());
     }
+    // beta 0.3: the USER BANK (bank.h), read again each time (another instance may have changed it)
+    menuBank = bankRead(bankPath(thisModule()));
+    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    const std::string user = host->userPresetName();
+    HMENU ub = CreatePopupMenu(), del = CreatePopupMenu();
+    bool inBank = false;
+    for (int sec = 0; sec < kNumBankSections; sec++) {
+      HMENU sub = CreatePopupMenu(), dsub = CreatePopupMenu();
+      int n = 0; bool here = false;
+      for (size_t i = 0; i < menuBank.size(); i++) {
+        if (menuBank[i].section != sec) continue;
+        const bool cur = !user.empty() && user == kUserPrefix + menuBank[i].name;
+        AppendMenuW(sub, MF_STRING | (cur ? MF_CHECKED : 0), kCmdBankLoad + (UINT)i, menuText(menuBank[i].name).c_str());
+        AppendMenuW(dsub, MF_STRING, kCmdBankDelete + (UINT)i, menuText(menuBank[i].name).c_str());
+        n++; here = here || cur;
+      }
+      if (!n) AppendMenuW(sub, MF_STRING | MF_GRAYED, 0, L"(empty)");
+      const std::wstring label = menuText(kBankSections[sec]) + L"	" + std::to_wstring(n);
+      AppendMenuW(ub, MF_POPUP | MF_STRING | (here ? MF_CHECKED : 0), (UINT_PTR)sub, label.c_str());
+      if (n) AppendMenuW(del, MF_POPUP | MF_STRING, (UINT_PTR)dsub, label.c_str()); else DestroyMenu(dsub);
+      inBank = inBank || here;
+    }
+    AppendMenuW(ub, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(ub, MF_STRING, kCmdBankSave, L"Save the current sound…");
+    if (!menuBank.empty()) AppendMenuW(ub, MF_POPUP | MF_STRING, (UINT_PTR)del, L"Delete"); else DestroyMenu(del);
+    AppendMenuW(ub, MF_STRING | (menuBank.empty() ? MF_GRAYED : 0), kCmdBankExport, L"Export the bank (.txt)…");
+    AppendMenuW(ub, MF_STRING | (menuBank.empty() ? MF_GRAYED : 0), kCmdBankShow, L"Show the bank file");
+    AppendMenuW(m, MF_POPUP | MF_STRING | (inBank ? MF_CHECKED : 0), (UINT_PTR)ub, (L"USER BANK	" + std::to_wstring(menuBank.size())).c_str());
+    AppendMenuW(m, MF_STRING, kCmdBankSave, L"Save to user bank…");
     POINT pt{(LONG)((it.r.x + 30) * scale()), (LONG)((it.r.y + it.r.h) * scale())};
     ClientToScreen(hwnd, &pt);
     int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
     DestroyMenu(m);
+    menuCommand(cmd);
+  }
+
+  // ---------------------------------------------------------------- user bank (beta 0.3)
+  static constexpr UINT kCmdBankSave = 900, kCmdBankExport = 901, kCmdBankShow = 902, kCmdBankLoad = 1000, kCmdBankDelete = 3000;
+  std::vector<BankPreset> menuBank;   // the bank as shown by the last preset menu (its commands index it)
+  static std::wstring menuText(const std::string& s) {   // '&' would be a menu mnemonic
+    std::wstring out;
+    for (wchar_t c : toW(s)) { if (c == L'&') out += L'&'; out += c; }
+    return out;
+  }
+  // a command of the preset menu (also sent by the developer test as WM_APP + 1, with the bank read again)
+  void menuCommand(int cmd) {
     if (cmd >= 100 && cmd < 100 + kNumPresets) host->loadPreset(cmd - 100);
+    else if (cmd == (int)kCmdBankSave) bankSave();
+    else if (cmd == (int)kCmdBankExport) bankExport();
+    else if (cmd == (int)kCmdBankShow) bankShow();
+    else if (cmd >= (int)kCmdBankLoad && cmd < (int)kCmdBankLoad + (int)menuBank.size()) {
+      const BankPreset& p = menuBank[cmd - kCmdBankLoad];
+      host->loadUserSound(p.v, kUserPrefix + p.name);
+    } else if (cmd >= (int)kCmdBankDelete && cmd < (int)kCmdBankDelete + (int)menuBank.size()) bankDelete(menuBank[cmd - kCmdBankDelete]);
+    else return;
+    onTimer(); InvalidateRect(hwnd, nullptr, FALSE);
+  }
+  bool bankWrite(const std::vector<BankPreset>& bank) {
+    const std::wstring path = bankPath(thisModule()), e = bankWriteText(path, bankText(bank));
+    if (e.empty()) return true;
+    MessageBoxW(hwnd, (L"Could not save the user bank:\n" + path + L"\n\n" + e + L".\n\nThe bank is kept next to the "
+                L"WaveletSynthesizer.vst3 folder: that folder must allow writing (the VST3 system folder, C:\\Program Files"
+                L"\\Common Files\\VST3, needs administrator rights).").c_str(), L"Wavelet Synthesizer", MB_OK | MB_ICONWARNING);
+    return false;
+  }
+  void bankSave() {
+    SaveDlg d;
+    const std::string user = host->userPresetName();
+    const int pi = host->presetIndex();
+    std::vector<BankPreset> bank = bankRead(bankPath(thisModule()));
+    if (!user.empty()) {   // a sound of the bank: its name and section
+      d.name = toW(user.substr(std::strlen(kUserPrefix)));
+      for (const BankPreset& p : bank) if (kUserPrefix + p.name == user) { d.section = p.section; break; }
+    } else if (pi >= 0 && pi < kNumPresets) {
+      d.name = toW(kPresets[pi].name);
+      d.section = std::max(0, bankSectionOf(kPresets[pi].cat));
+    }
+    if (!saveDialog(d)) return;
+    BankPreset np;
+    np.section = d.section; np.name = fromW(d.name);
+    currentParams(np.v);
+    for (int i = 0; i < kNumParams; i++) if (kParams[i].hidden) np.v[i] = kParams[i].def;
+    np.from = !user.empty() ? user.substr(std::strlen(kUserPrefix)) : pi >= 0 && pi < kNumPresets ? kPresets[pi].name : "";
+    if (!np.from.empty() && host->presetDirty()) np.from += " (modified)";
+    bank = bankRead(bankPath(thisModule()));   // again: the dialog may have stayed open while another instance saved
+    auto same = std::find_if(bank.begin(), bank.end(), [&](const BankPreset& p) { return p.section == np.section && p.name == np.name; });
+    if (same != bank.end()) {
+      if (MessageBoxW(hwnd, (L"“" + d.name + L"” already exists in " + toW(kBankSections[np.section]) + L". Replace it?").c_str(),
+                      L"Wavelet Synthesizer", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+      *same = np;
+    } else bank.push_back(np);
+    if (bankWrite(bank)) host->loadUserSound(np.v, kUserPrefix + np.name);   // the sound is now this bank entry
+  }
+  void bankDelete(const BankPreset& p) {
+    if (MessageBoxW(hwnd, (L"Delete “" + toW(p.name) + L"” from the user bank (" + toW(kBankSections[p.section]) + L")?").c_str(),
+                    L"Wavelet Synthesizer", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+    std::vector<BankPreset> bank = bankRead(bankPath(thisModule()));
+    bank.erase(std::remove_if(bank.begin(), bank.end(), [&](const BankPreset& q) { return q.section == p.section && q.name == p.name; }), bank.end());
+    bankWrite(bank);
+  }
+  void bankExport() {
+    wchar_t b[MAX_PATH * 2] = {};
+    const DWORD n = GetEnvironmentVariableW(L"WS_BANK_EXPORT", b, MAX_PATH * 2);   // developer test: no dialog
+    std::wstring path;
+    if (n > 0 && n < MAX_PATH * 2) path = b;
+    else {
+      wcscpy(b, L"Wavelet Synthesizer user bank.txt");
+      OPENFILENAMEW o{};
+      o.lStructSize = sizeof o; o.hwndOwner = GetAncestor(hwnd, GA_ROOT);
+      o.lpstrFilter = L"Text file (*.txt)\0*.txt\0"; o.lpstrFile = b; o.nMaxFile = MAX_PATH * 2; o.lpstrDefExt = L"txt";
+      o.lpstrTitle = L"Export the user bank"; o.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_HIDEREADONLY;
+      if (!GetSaveFileNameW(&o)) return;
+      path = b;
+    }
+    const std::wstring e = bankWriteText(path, bankText(bankRead(bankPath(thisModule()))));
+    if (!e.empty()) MessageBoxW(hwnd, (L"Could not export the user bank:\n" + path + L"\n\n" + e + L".").c_str(), L"Wavelet Synthesizer", MB_OK | MB_ICONWARNING);
+  }
+  void bankShow() {
+    const std::wstring path = bankPath(thisModule());
+    ShellExecuteW(nullptr, L"open", L"explorer.exe", (L"/select,\"" + path + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
+  }
+
+  // The "Save to user bank" window: name (proposed, editable) and section. A dialog template built in memory (no
+  // resource file in the plug-in).
+  struct SaveDlg { std::wstring name; int section = 0; };
+  static std::string fromW(const std::wstring& w) {
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
+    std::string s(n, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
+    return s;
+  }
+  static INT_PTR CALLBACK saveDlgProc(HWND d, UINT msg, WPARAM wp, LPARAM lp) {
+    SaveDlg* s = (SaveDlg*)GetWindowLongPtrW(d, DWLP_USER);
+    if (msg == WM_INITDIALOG) {
+      s = (SaveDlg*)lp;
+      SetWindowLongPtrW(d, DWLP_USER, (LONG_PTR)s);
+      SendDlgItemMessageW(d, 101, EM_LIMITTEXT, 48, 0);
+      SetDlgItemTextW(d, 101, s->name.c_str());
+      for (int i = 0; i < kNumBankSections; i++) SendDlgItemMessageW(d, 102, CB_ADDSTRING, 0, (LPARAM)toW(kBankSections[i]).c_str());
+      SendDlgItemMessageW(d, 102, CB_SETCURSEL, (WPARAM)s->section, 0);
+      SetFocus(GetDlgItem(d, 101));
+      SendDlgItemMessageW(d, 101, EM_SETSEL, 0, -1);
+      return FALSE;   // the focus is set
+    }
+    if (msg == WM_COMMAND && LOWORD(wp) == IDOK && s) {
+      wchar_t b[64] = {};
+      GetDlgItemTextW(d, 101, b, 64);
+      std::wstring n = b;
+      while (!n.empty() && iswspace(n.back())) n.pop_back();
+      while (!n.empty() && iswspace(n.front())) n.erase(n.begin());
+      if (n.empty()) { MessageBeep(MB_ICONWARNING); SetFocus(GetDlgItem(d, 101)); return TRUE; }
+      s->name = n;
+      s->section = std::max(0, (int)SendDlgItemMessageW(d, 102, CB_GETCURSEL, 0, 0));
+      EndDialog(d, IDOK);
+      return TRUE;
+    }
+    if (msg == WM_COMMAND && LOWORD(wp) == IDCANCEL) { EndDialog(d, IDCANCEL); return TRUE; }
+    return FALSE;
+  }
+  bool saveDialog(SaveDlg& d) {
+    std::vector<WORD> t;
+    auto words = [&t](const void* p, size_t bytes) { const WORD* w = (const WORD*)p; t.insert(t.end(), w, w + bytes / 2); };
+    auto str = [&t](const wchar_t* s) { do t.push_back((WORD)*s); while (*s++); };
+    auto item = [&](DWORD style, short x, short y, short cx, short cy, WORD id, WORD cls, const wchar_t* txt) {
+      if (t.size() % 2) t.push_back(0);   // each item starts on a DWORD boundary
+      DLGITEMTEMPLATE it{};
+      it.style = style | WS_CHILD | WS_VISIBLE; it.x = x; it.y = y; it.cx = cx; it.cy = cy; it.id = id;
+      words(&it, sizeof it);
+      t.push_back(0xFFFF); t.push_back(cls);   // predefined class: 0x80 button, 0x81 edit, 0x82 static, 0x85 combo box
+      str(txt);
+      t.push_back(0);   // no creation data
+    };
+    DLGTEMPLATE h{};
+    h.style = DS_MODALFRAME | DS_SETFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU; h.cdit = 6; h.cx = 236; h.cy = 80;
+    words(&h, sizeof h);
+    t.push_back(0); t.push_back(0);   // no menu, default class
+    str(L"Save to user bank");
+    t.push_back(9); str(L"Segoe UI");
+    item(SS_LEFT, 8, 11, 40, 10, 0xFFFF, 0x82, L"Name:");
+    item(ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 50, 9, 178, 13, 101, 0x81, L"");
+    item(SS_LEFT, 8, 32, 40, 10, 0xFFFF, 0x82, L"Section:");
+    item(CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 50, 30, 178, 160, 102, 0x85, L"");
+    item(BS_DEFPUSHBUTTON | WS_TABSTOP, 122, 56, 50, 16, IDOK, 0x80, L"Save");
+    item(BS_PUSHBUTTON | WS_TABSTOP, 178, 56, 50, 16, IDCANCEL, 0x80, L"Cancel");
+    std::vector<DWORD> mem((t.size() + 1) / 2 + 1);   // DWORD-aligned copy
+    std::memcpy(mem.data(), t.data(), t.size() * sizeof(WORD));
+    return DialogBoxIndirectParamW(thisModule(), (LPCDLGTEMPLATEW)mem.data(), GetAncestor(hwnd, GA_ROOT), saveDlgProc, (LPARAM)&d) == IDOK;
   }
 
   void zoomMenu(const Item& it) {
@@ -975,6 +1160,10 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport {
       case WM_ERASEBKGND: return 1;
       case WM_SIZE: InvalidateRect(h, nullptr, FALSE); return 0;
       case WM_TIMER: e->onTimer(); return 0;
+      case WM_APP + 1:   // developer test (vst/devtest/bank_session.cpp): a preset-menu command, the bank read again
+        e->menuBank = bankRead(bankPath(thisModule()));
+        e->menuCommand((int)wp);
+        return 0;
       case WM_LBUTTONDOWN: e->logical(lp, x, y); e->mouseDown(x, y, false); return 0;
       case WM_LBUTTONDBLCLK: e->logical(lp, x, y); e->mouseDown(x, y, true); return 0;
       case WM_MOUSEMOVE: e->logical(lp, x, y); e->mouseMove(x, y); return 0;

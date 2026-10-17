@@ -157,6 +157,14 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   = zoom, modified flag, **preset name** (older `"WSC1"` index states are translated through `kBeta01Order`).
 - `editor.cpp`: Win32 child window + GDI+, drawn from the layout tables, DPI-aware, zoom menu, preset popup, manual
   buttons (open `Contents/Resources/manual/*.html` next to the DLL).
+- **User bank** (beta 0.3, VST only): `bank.h` (12 sections `kBankSections`, text format = export format: `== Section ==`,
+  `Preset:`, `From:`, then `  key: value   (Name: shown)` for the parameters that differ from the defaults, ENGINE and A/B MIX
+  always; parsing ignores unknown lines and clamps values). File `Wavelet Synthesizer user bank.txt` next to the
+  `.vst3` bundle folder (`bankPath`; `WS_BANK_FILE` / `WS_BANK_EXPORT` for tests), re-read before every use (several
+  instances), written atomically. Editor: preset menu → *Save to user bank…* (in-memory dialog template: name + section),
+  *USER BANK* submenu (load, Delete, Export, Show); commands also reachable as `WM_APP + 1` (test hook). Controller:
+  `loadUserSound` (group edit, keeps `presetIdx` for ◀ ▶), `userPresetName()`; the state `"WSC2"` stores
+  `"USER · name"` (name buffer 512; an unknown name is taken only with that prefix).
 - `vst2.cpp`: `VSTPluginMain` with VST 2.4 declarations written from the public binary layout (no Steinberg VST2 file).
   It hosts the same Processor + Controller in-process (parameter queues, event list, chunk `"WSV2"` = both states,
   programs = factory presets, editor via `IPlugView` + `IPlugFrame`).
@@ -182,6 +190,8 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
   state, controller state, offline, presets, sub, portamento, high notes, attribute list, editor screenshots, reload).
 - `tests/web/test_web.js`, `tests/web/test_demo.js [--smoke]`: browser suites through `tests/web/cdp.js`.
 - `vst/devtest/vst2_smoke.cpp`, `tools/dsp_compare.js`, `tools/dsp_selftest.js`; `tests/quick.js` (fast check).
+- `vst/devtest/bank_session.cpp` (beta 0.3): the user bank driven through the editor like a player (save window filled by
+  a helper thread, load, replace, export, delete, state name, unwritable folder).
 - **Headless Edge must always run with `--mute-audio`** (otherwise test audio plays on the user's speakers) and be
   closed in `finally`; check that no `msedge --headless` process is left.
 - beta 0.2: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour
