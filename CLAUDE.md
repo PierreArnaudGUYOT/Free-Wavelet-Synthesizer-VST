@@ -48,6 +48,8 @@ products identical. Read it before changing the DSP, the parameters or the prese
   The VST stores the preset by name, so reordering never breaks saved Live Sets.
   Names start with `A · `, `B · ` or `AB · ` (both engines mixed); the UI colours those letters.
   Presets without `ab_mix` get `ab_mix = engine` (compatibility rule, §3.3). `DEFAULT_PRESET` is the opening sound.
+  beta 0.3: presets from OktoPierre's listening test carry `stars` (his vote, 7–10); inside each category the list is
+  sorted by `stars` (stable sort: the best voted first, equal votes and older presets keep their list order).
   Values are validated against the ranges at generation time; preset values are stored as doubles in both products.
 
 ## 3. The sound engine
@@ -93,6 +95,18 @@ products identical. Read it before changing the DSP, the parameters or the prese
 - **Compatibility**: everything saved before beta 0.2 lacks `ab_mix` → it gets `ab_mix = engine`: in the spec presets,
   in the web `applyKeyed` (user presets, imports), in the VST `readState` (processor state and controller sync).
   Switching the engine tab never marks a preset as modified (web `setParam`, VST `performEditPlain`, `exactPreset`).
+
+### 3.3b WAVELET MORPH (beta 0.3)
+- Parameters `wav2` (structural), `wmorph`, `lfo_wav`, `env_wav` (appended; all default 0). `morphNeeded(params)` =
+  (`wmorph > 0 || lfo_wav > 0 || env_wav ≠ 0`) and `wav2 ≠ wavelet`. Then `buildTables` also builds the whole sound
+  (`buildSound`, with its own alt set when A and B are mixed) with `wavelet = wav2`: JS `tb.w2 = {mode, mips, rms, alt}`,
+  C++ `Tables::w2*` / `TableRef::w2*`.
+- Per voice, `control()` computes the morph position `clamp(wmorph + lfo_wav·lfo + env_wav·mod, 0, 1)` at the end of the
+  block (`wm1`, from `wm0`); `renderMorph` renders the main set with share 1 − wm and the WAVELET 2 set with share wm
+  (`renderSetK`, ramped per sample, sub oscillator only once). Without WAVELET 2 tables `renderMorph` is exactly
+  `renderSet`: **bit-identical** sound when the morph is off.
+- Rebuild when `morphNeeded` changes: web `setParam`, VST `process` (`morphEnds`: one of the three amounts leaves or
+  reaches 0; `wav2` is structural).
 
 ### 3.4 Table rebuilds
 - Structural changes rebuild tables **off the audio thread** and switch with a 512-sample crossfade (`setTables`).
@@ -173,6 +187,8 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
 - beta 0.2: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour
   against `WS_TEST.demoTour` and the agreed sequence `EXPECTED_TOUR`; `quick.js` waits up to 2 s for slow attacks.
   `tests/web/test_web.js` and the full VST host run were not re-run for beta 0.2 (quick + demo smoke + VST2 smoke were).
+- beta 0.3 pre-release: the 46 new presets come from the TEST branch (`preset-test`, votes file of the listening test);
+  their values were checked equal to the TEST presets plus the recorded changes, and the 107 older presets unchanged.
 
 ## 9. Common changes — checklist
 - **New parameter**: append in `tools/spec.js` (never insert), choose `structural`, place a widget in the layout, run

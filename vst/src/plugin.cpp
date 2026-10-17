@@ -342,7 +342,9 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
             engine.setParam((int)id, pv);
             // A/B MIX rebuilds the tables only when it reaches or leaves one end (engine A or B alone)
             const bool mixEnds = id == (ParamID)P_AB_MIX && ((old < 1) != (pv < 1) || (old > 0) != (pv > 0));
-            if (kParams[id].structural || mixEnds) structVersion.fetch_add(1);
+            // WAVELET MORPH needs (or no longer needs) the WAVELET 2 tables when one of its amounts leaves 0
+            const bool morphEnds = (id == (ParamID)P_WMORPH || id == (ParamID)P_LFO_WAV || id == (ParamID)P_ENV_WAV) && ((old == 0) != (pv == 0));
+            if (kParams[id].structural || mixEnds || morphEnds) structVersion.fetch_add(1);
           }
         }
       }

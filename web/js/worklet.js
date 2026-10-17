@@ -20,7 +20,7 @@ function WSWorkletMain() {
         switch (m.t) {
           case 'p': eng.setParam(m.i, m.v); break;
           case 'all': for (let i = 0; i < m.v.length; i++) eng.setParam(i, m.v[i]); break;
-          case 'tables': eng.setTables({ mode: m.mode, mips: m.mips, rms: m.rms, alt: m.alt || null }); break;
+          case 'tables': eng.setTables({ mode: m.mode, mips: m.mips, rms: m.rms, alt: m.alt || null, w2: m.w2 || null }); break;
           case 'on': eng.noteOn(m.n, m.v); break;
           case 'off': eng.noteOff(m.n); break;
           case 'alloff': eng.allNotesOff(); break;

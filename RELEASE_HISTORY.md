@@ -2,7 +2,32 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
-## beta 0.2 — 2026-10-15
+## beta 0.3 (pre-release) — 2026-10-16
+
+Pre-release to test the integration in Ableton Live; the official page and release stay on beta 0.2.
+
+**In short**
+- **Presets**: **153 factory presets** (46 new). The new ones are OktoPierre's best candidates from his listening test of
+  150 new sounds: every preset he rated **7 to 10 stars out of 10**, with the changes he recorded while listening. In each
+  category they come **first, the best rated first**; his 15 favourites stay at the top of the list.
+- **Sound engine**: new **WAVELET MORPH** — a second wavelet and a crossfade between the two, set by a knob, moved by the
+  LFO or by the mod envelope.
+
+**WAVELET MORPH**
+- The sound is also built with **WAVELET 2** and crossfaded with the main one, per voice: **MORPH** (0 % = WAVELET,
+  100 % = WAVELET 2) + LFO × **LFO→WAVELET** + mod envelope × **ENV>WAV**. It is heard where the wavelet shapes the sound:
+  the scale filter (CUTOFF, RESO), SPARSITY, the POSITION window, and all of engine B.
+- Panel: WAVELET 2, MORPH and ENV>WAV in the engine A section (the atom display is a little smaller), LFO→WAVELET in the
+  LFO section.
+- Compatibility: four parameters appended (WAVELET 2, MORPH, LFO→WAVELET, ENV>WAV, default 0): presets, user presets and
+  Live Sets saved before sound exactly as before (bit-identical: the WAVELET 2 tables are only built when the morph can
+  move away from WAVELET).
+
+**New presets** (★ = OktoPierre's vote, * = changed by him while listening; levels matched to the favourites):
+Bass (5): A · Deep Saw Bass 8★*, A · Wave Morph Bass 8★, A · Acid Line 7★*, A · Fat Unison Bass 7★*, A · Wave Wobble Bass 7★*; Lead (7): A · Screaming Lead 9★, A · Wave Attack Lead 9★, A · Wave Pulse Lead 9★*, AB · Duo Lead 8★, B · Flute Lead 8★, A · Wave Window Lead 8★, A · Wave S/H Lead 7★*; Keys (2): A · Dyno Keys 9★, AB · Wurli Bark 8★; Organ (3): B · Theatre Organ 9★, AB · Gospel Mix Organ 8★, B · Full Drawbar Organ 7★; Pad (7): A · Noise Wash Pad 9★*, B · Choir Pad 8★*, AB · Glass Choir 8★*, A · Sweep Pad 7★, A · Analog Brass Pad 7★, A · Wave Morph Pad 7★, AB · Wave Atom Choir 7★*; Strings (8): A · Solo Violin 9★*, A · Cello Section 8★, AB · Silk Strings 8★, A · Spiccato Strings 8★, A · Shimmering Strings 8★*, A · Ensemble Strings 7★, B · Vox Strings 7★, A · Wave Tremolo Strings 7★*; Brass & Wind (3): A · Wave Brass 8★*, A · French Horn 7★, A · Brass Section Stab 7★; Pluck (1): A · Steel Pluck 7★*; Bells & Mallets (1): B · Xylophone 7★; FX (9): A · Wave Robot 10★, A · Siren Sweep 9★*, A · Wave Riser 9★*, A · Wave Laser 9★*, B · Wave Random Computer 7★, A · UFO 7★, A · Wave Atom Scanner 7★*, B · Wave Reverse Bands 7★, A · Wave Glitch Morph 7★*.
+
+**Plug-in**: version 0.3.0 everywhere (VST3 class info and DLL version info agree).
+
 
 **In short**
 - **Sound engine**: the two engines can now be **mixed** (new A/B MIX knob: subtractive engine A, additive engine B, or both together in one sound), and a new **triple chorus** gives the wide, lush ensemble sound of 1970s string machines.

@@ -1,15 +1,16 @@
 # Wavelet Synthesizer
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.2** (2026-10-15), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.3 pre-release** (2026-10-16), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
 It comes as a **web application** and a **VST3 / VST2 instrument for Ableton Live** (Windows x64). Both share
-the same engine, panel layout and 107 factory presets: OktoPierre's 15 favourite sounds first, then the others sorted by
+the same engine, panel layout and 153 factory presets: OktoPierre's 15 favourite sounds first, then the others sorted by
 category like a hardware synthesizer (Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck, Bells & Mallets, FX,
 Drums & Perc); both open on "A · Warm Pad".
 Its two engines can play **alone or mixed** (the **A/B MIX** knob), and a **string-machine triple chorus** widens pads,
-strings and organs.
+strings and organs. The **WAVELET MORPH** (beta 0.3) builds the sound with a second wavelet too and moves between the two
+with a knob, the LFO or the envelope. In each category the presets OktoPierre rated best in his listening test come first.
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.
@@ -123,7 +124,7 @@ node tools/dsp_selftest.js --wav # engine self-test; --wav writes build/test-aud
 ```
 To cross-check the C++ port, compile `vst/devtest/dsp_render.cpp` and run `node tools/dsp_compare.js <dir>`.
 To check the VST2 entry point like a VST2 host, compile and run `vst/devtest/vst2_smoke.cpp` (build line at its top).
-The difference between the two engines is below 2.4e-7 for all 107 presets.
+The difference between the two engines is below 2.4e-7 for all 153 presets.
 
 ## Licence
 

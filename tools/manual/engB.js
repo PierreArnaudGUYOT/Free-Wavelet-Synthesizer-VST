@@ -104,6 +104,7 @@ const engRows = [
   ['b_pattern', 'Writes every atom of the 11 bands — see <a href="#patterns">Atom patterns</a>.', 'The pattern sets the harmonic structure; the drawbars set the balance.'],
   ['b_seed', `Chooses one of 100 repeatable random patterns. Only active with ${ctl('RANDOM')} (greyed out otherwise).`, 'Hover and roll the mouse wheel to audition seeds one by one.'],
   [{ key: 'wavelet', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'The shape of the atoms — see <a href="#wavelets">The wavelet chooses the atom</a>. Shared with engine A.', 'Haar = square-wave bands; Daubechies 20 = sine-like bands.'],
+  [{ key: 'wav2', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'WAVELET MORPH (beta 0.3) also acts on engine B: its bands are built with WAVELET 2 as well and crossfaded by MORPH, the LFO (LFO→WAVELET) and the mod envelope (ENV>WAV). WAVELET 2, MORPH and ENV>WAV are on the engine A panel.', 'Show the engine A panel to set them; LFO→WAVELET is in the LFO section.'],
   [{ key: 'b_bar1', label: '1 … 11', range: '0 – 100 % each', def: '100 %', host: 'Band 1 Level … Band 11 Level' }, 'The eleven drawbars: the level of each band, from band 1 (the fundamental, left) to band 11 (the finest atoms, right).', 'Drag vertically or use the mouse wheel; double-click resets a drawbar to 100 %.'],
   ['b_tilt', 'A slope across the drawbars: band <i>b</i> gets TILT × (<i>b</i> − 1) dB extra. 0 = flat; −6 dB/band halves the level from band to band (the sawtooth law); positive values favour the fine bands.', '−3 for bright, −9 to −12 for mellow sounds.'],
   ['b_atk', 'Attack time of the SCALE ENVELOPE for the middle band (band 6). SPREAD derives the other bands’ attack times from it.', ''],
@@ -286,6 +287,17 @@ const presetDesc = {
   'AB · Crystal Bell': ['medium', 'A 30 · B 70: WALSH bell atoms (B) over a pure sine (A), a 3 s decay, light chorus, echoes and reverb.'],
   'B · Sci-Fi Burble': ['heavy', 'Retro computer: RANDOM atoms (SEED 61) behind a narrow position window that a SAMPLE & HOLD LFO moves to a new place nine times a second, through 60 % feedback echoes.'],
   'B · Wood Block': ['none', 'Wood block one octave up: drawbars 1, 3 and 5 decaying in a quarter of a second — a hollow, pitched knock. Two keys make a temple-block pattern.'],
+  'B · Flute Lead': ['light', 'Breathy flute: almost only the fundamental band, soft attack, vibrato.'],
+  'B · Full Drawbar Organ': ['medium', 'Nine drawbars out, vibrato and chorus: full and bright.'],
+  'B · Theatre Organ': ['medium', 'Mirror atoms, deep vibrato, chorus and hall.'],
+  'AB · Gospel Mix Organ': ['medium', 'A 40 · B 60: Drawbars (B) plus a square (A), drive and fast vibrato.'],
+  'B · Choir Pad': ['heavy', 'Vowel-like drawbars on mirror atoms with unison and slow vibrato, chorus and a large reverb — edited by OktoPierre with an immediate attack and a very short release, so it speaks like a choir organ.'],
+  'AB · Glass Choir': ['heavy', 'A 40 · B 60: Edited by OktoPierre: a sine (A) with random atoms (B: Daubechies 2, seed 61, tilt −8 dB/band, bands 10–11 off) through a steep low-pass at band 10.6, a fast attack and a 106 ms release — a glassy choir with chorus and a big hall.'],
+  'B · Vox Strings': ['medium', 'Mirror atoms with unison and chorus: string-machine voices.'],
+  'B · Xylophone': ['light', 'Dry, short xylophone one octave up.'],
+  'B · Wave Random Computer': ['medium', 'Haar random atoms scanned by a sample & hold window: 70s computer.'],
+  'B · Wave Reverse Bands': ['medium', 'High bands enter first, the body comes after: a reversed-sounding attack.'],
+  'AB · Wave Atom Choir': ['heavy', 'A 40 · B 60: Edited by OktoPierre: mirror atoms (B) on Haar, through a resonant low-pass at band 5 that the envelope opens by 8.4 bands (velocity 2 more), a 0.69 Hz LFO on the pitch (±6 cents), the cutoff (±3.5 bands), the window and the WAVELET MORPH towards Symlet 8 — choir-like, in a large hall.'],
 };
 const presetCount = SPEC.PRESETS.filter(p => p.values[C.P.engine] === 1).length;
 const presets = `<p>${presetCount} factory presets show what engine B can do, from clean sounds to extreme effects. Load one, play, then look at the panel to see how it is made — the table lists every setting that differs from the defaults. In the instrument’s preset menu OktoPierre’s favourite sounds come first, then all the presets by category (bass, lead, keys, organ, pad, strings, brass &amp; wind, pluck, bells &amp; mallets, FX, drums &amp; percussion). This table lists, category by category, the presets that open on engine B’s panel (★ = one of OktoPierre’s favourites), including the “AB · …” presets that mix both engines (their settings show both engines). The drum and percussion presets are pitched: play them on different keys. The <b>Effects</b> column rates how much each preset relies on effects and movement (delay, reverb, saturation, unison, LFO, sub oscillator): <span class="fxl fxl-none">none</span> <span class="fxl fxl-light">light</span> <span class="fxl fxl-medium">medium</span> <span class="fxl fxl-heavy">heavy</span> <span class="fxl fxl-extreme">extreme</span>.</p>

@@ -229,11 +229,27 @@ function WSCoreFactory(SPEC) {
   function buildTables(params, withMips) {
     const view = Math.round(params[P.engine]);
     if (!withMips) return buildSet(params, view, false);
+    const out = buildSound(params, view);
+    // WAVELET MORPH (beta 0.3): the same sound built with WAVELET 2, crossfaded with the main one in renderMorph
+    if (morphNeeded(params)) {
+      const p2 = Float64Array.from(params); p2[P.wavelet] = params[P.wav2];
+      const w2 = buildSound(p2, view);
+      out.w2 = { mode: w2.mode, mips: w2.mips, rms: w2.rms, alt: w2.alt || null };
+    }
+    return out;
+  }
+  function buildSound(params, view) {
     const need = tableNeeds(params);
     if (need !== 3) return buildSet(params, need === 1 ? 0 : 1, true);
     const out = buildSet(params, view, true), alt = buildSet(params, 1 - view, true);
     out.alt = { mode: alt.mode, mips: alt.mips, rms: alt.rms };
     return out;
+  }
+  // The morph needs the WAVELET 2 tables when it can move away from WAVELET (MORPH, LFO or envelope to the wavelet)
+  // and WAVELET 2 is another wavelet.
+  function morphNeeded(params) {
+    return (params[P.wmorph] > 0 || params[P.lfo_wav] > 0 || params[P.env_wav] !== 0) &&
+      Math.round(params[P.wav2]) !== Math.round(params[P.wavelet]);
   }
 
   function buildSet(params, mode, withMips) {
@@ -374,6 +390,7 @@ function WSCoreFactory(SPEC) {
     this.gB = new Float64Array(NB); this.dB = new Float64Array(NB);
     this.tA = new Float64Array(NB); this.tB = new Float64Array(NB);
     this.fresh = true;
+    this.wm0 = 0; this.wm1 = 0;   // WAVELET MORPH position
   }
 
   function Engine(sr) {
@@ -597,6 +614,10 @@ function WSCoreFactory(SPEC) {
       vc.tA[b] = tA; vc.tB[b] = tB;
       vc.dA[b] = (tA - vc.gA[b]) / n; vc.dB[b] = (tB - vc.gB[b]) / n;
     }
+    // WAVELET MORPH position of this voice (0 = WAVELET, 1 = WAVELET 2): MORPH + LFO + mod envelope, moving from wm0 to
+    // wm1 across the block
+    const wm = Math.min(1, Math.max(0, p[P.wmorph] + p[P.lfo_wav] * this.lfo + p[P.env_wav] * mod));
+    vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
     vc.fresh = false;
 
     let pc = p[P.p_center] + p[P.lfo_pos] * this.lfo; pc -= Math.floor(pc);
@@ -703,6 +724,21 @@ function WSCoreFactory(SPEC) {
     this.renderVoice(vc, n, t.alt, fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
   };
 
+  // WAVELET MORPH: without WAVELET 2 tables exactly renderSet (bit-identical sound when the morph is off); with them, the sound of WAVELET (share
+  // 1 - morph) and the same sound built with WAVELET 2 (share morph), the voice's morph moving from wm0 to wm1.
+  E.renderMorph = function (vc, n, t, fade0, fadeInc, invert, m0, m1) {
+    if (!t.w2) { this.renderSet(vc, n, t, fade0, fadeInc, invert, m0, m1); return; }
+    this.renderSetK(vc, n, t, fade0, fadeInc, invert, m0, m1, 1 - vc.wm0, 1 - vc.wm1, true);
+    this.renderSetK(vc, n, t.w2, fade0, fadeInc, invert, m0, m1, vc.wm0, vc.wm1, false);
+  };
+  // renderSet with an extra share k (k0 -> k1 across the block) and the sub oscillator only when withSub
+  E.renderSetK = function (vc, n, t, fade0, fadeInc, invert, m0, m1, k0, k1, withSub) {
+    if (!t.alt) { this.renderVoice(vc, n, t, fade0, fadeInc, invert, k0, (k1 - k0) / n, withSub); return; }
+    const s0 = t.mode === 0 ? 1 - m0 : m0, s1 = t.mode === 0 ? 1 - m1 : m1;
+    this.renderVoice(vc, n, t, fade0, fadeInc, invert, s0 * k0, (s1 * k1 - s0 * k0) / n, withSub);
+    this.renderVoice(vc, n, t.alt, fade0, fadeInc, invert, (1 - s0) * k0, ((1 - s1) * k1 - (1 - s0) * k0) / n, false);
+  };
+
   // Process n samples (any n) into outL/outR (overwrites).
   E.process = function (outL, outR, n) {
     let done = 0;
@@ -727,8 +763,8 @@ function WSCoreFactory(SPEC) {
       const vc = this.voices[k];
       if (!vc.active || !this.cur) continue;
       this.control(vc, n);
-      if (fading) this.renderSet(vc, n, this.prev, fade0, fadeInc, true, m0, m1);
-      this.renderSet(vc, n, this.cur, fade0, fadeInc, false, m0, m1);
+      if (fading) this.renderMorph(vc, n, this.prev, fade0, fadeInc, true, m0, m1);
+      this.renderMorph(vc, n, this.cur, fade0, fadeInc, false, m0, m1);
       // commit end-of-block state
       vc.amp.level = this.endLevel; vc.amp.stage = this.endStage;
       for (let u = 0; u < 4; u++) vc.phase[u] = this.endPhase[u];
@@ -867,7 +903,7 @@ function WSCoreFactory(SPEC) {
   return {
     N, NB, NL, DRY, NMIP, TW, CTRL, MAXV, P, NP,
     rng, toPlain, toNorm, format, parse, defaults,
-    FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables, tableNeeds,
+    FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables, tableNeeds, morphNeeded,
     filterGains, windowValue, staticGains, displayCycle, atomShape, Engine,
   };
 }

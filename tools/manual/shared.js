@@ -201,6 +201,7 @@ function lfoSection(E) {
     ['lfo_pitch', 'Vibrato depth: the pitch moves by up to ± this many cents (100 = ± one semitone).', 'The mod wheel adds up to 50 cents of extra depth.'],
     ['lfo_cut', 'Moves the cutoff by up to ± this many bands.', a ? '1–2 bands on a resonant filter = a slow “wah”.' : 'With the default CUTOFF 12 there is little to sweep: lower CUTOFF first.'],
     ['lfo_pos', 'Moves the POSITION window by up to ± this many degrees; ±180° travels all the way round the cycle. Only audible when DEPTH is above 0 %.', a ? 'Try it with a narrow window on a saw: see the “Scanning edge” recipe.' : 'See the “Focus sweep” recipe.'],
+    ['lfo_wav', 'WAVELET MORPH (beta 0.3): moves the morph between WAVELET and WAVELET 2 by up to this amount, around the MORPH position (kept within 0–100 %). Needs a WAVELET 2 different from WAVELET.', 'With the same LFO on CUTOFF, the timbre and the filter move together (preset “A · Wave Wobble Bass”).'],
   ];
   return `<p>One LFO is shared by all voices. It runs freely and is not restarted by new notes, so in a chord every voice moves together — ideal for pads and vibrato. For a movement that starts with each note, use the MOD ENVELOPE instead.</p>
 ${controls(rows)}
@@ -633,6 +634,7 @@ const PLABEL = {
   fx_drive: 'DRIVE', fx_dtime: 'DLY TIME', fx_dfb: 'FEEDBACK', fx_dmix: 'DLY MIX', fx_rsize: 'REV SIZE', fx_rmix: 'REV MIX', master: 'VOLUME',
   sub_level: 'SUB LEVEL', sub_oct: 'SUB', sub_shape: 'SUB SHAPE',
   ab_mix: 'A/B MIX', ch_mix: 'CHORUS', ch_rate: 'CHORUS RATE', ch_depth: 'CHORUS DEPTH',
+  wav2: 'WAVELET 2', wmorph: 'MORPH', lfo_wav: 'LFO→WAVELET', env_wav: 'ENV→WAVELET',
 };
 function presetSettings(pr) {
   const out = [], v = pr.values, idx = k => SPEC.PARAMS.findIndex(p => p.key === k);

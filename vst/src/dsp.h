@@ -257,6 +257,9 @@ struct Tables {
   // engines A and B mixed: the other engine's mip tables (mode altMode)
   bool hasAlt = false; int altMode = 0;
   std::vector<float> altMips, altRms;
+  // WAVELET MORPH (beta 0.3): the same sound built with WAVELET 2 (and its alt set when engines A and B are mixed)
+  bool hasW2 = false; int w2Mode = 0; std::vector<float> w2Mips, w2Rms;
+  bool w2HasAlt = false; int w2AltMode = 0; std::vector<float> w2AltMips, w2AltRms;
   Tables() : layers((size_t)NL * N), coeffs(N) {}
   const double* layer(int l) const { return layers.data() + (size_t)l * N; }
 };
@@ -271,16 +274,36 @@ inline void buildSet(const double* params, int mode, bool withMips, Tables& t);
 
 // withMips=false: the engine shown on the panel (displays). withMips=true: what the sound needs, engine A or B
 // alone, or both when mixed (the engine shown on the panel is the main set, the other one the alt set).
-inline void buildTables(const double* params, bool withMips, Tables& t) {
-  const int view = (int)jsRound(params[P_ENGINE]);
-  t.hasAlt = false; t.altMips.clear(); t.altRms.clear();
-  if (!withMips) { buildSet(params, view, false, t); return; }
+// WAVELET MORPH: the morph needs the WAVELET 2 tables when it can move away from WAVELET and WAVELET 2 is another wavelet.
+inline bool morphNeeded(const double* params) {
+  return (params[P_WMORPH] > 0 || params[P_LFO_WAV] > 0 || params[P_ENV_WAV] != 0) &&
+         (int)jsRound(params[P_WAV2]) != (int)jsRound(params[P_WAVELET]);
+}
+
+inline void buildSound(const double* params, int view, Tables& t) {
   const int need = tableNeeds(params);
   if (need != 3) { buildSet(params, need == 1 ? 0 : 1, true, t); return; }
   buildSet(params, view, true, t);
   Tables a;
   buildSet(params, 1 - view, true, a);
   t.hasAlt = true; t.altMode = a.mode; t.altMips.swap(a.mips); t.altRms.swap(a.rms);
+}
+
+inline void buildTables(const double* params, bool withMips, Tables& t) {
+  const int view = (int)jsRound(params[P_ENGINE]);
+  t.hasAlt = false; t.altMips.clear(); t.altRms.clear();
+  t.hasW2 = false; t.w2HasAlt = false; t.w2Mips.clear(); t.w2Rms.clear(); t.w2AltMips.clear(); t.w2AltRms.clear();
+  if (!withMips) { buildSet(params, view, false, t); return; }
+  buildSound(params, view, t);
+  if (morphNeeded(params)) {   // WAVELET MORPH
+    double p2[kNumParams];
+    std::memcpy(p2, params, sizeof p2);
+    p2[P_WAVELET] = params[P_WAV2];
+    Tables w;
+    buildSound(p2, view, w);
+    t.hasW2 = true; t.w2Mode = w.mode; t.w2Mips.swap(w.mips); t.w2Rms.swap(w.rms);
+    if (w.hasAlt) { t.w2HasAlt = true; t.w2AltMode = w.altMode; t.w2AltMips.swap(w.altMips); t.w2AltRms.swap(w.altRms); }
+  }
 }
 
 inline void buildSet(const double* params, int mode, bool withMips, Tables& t) {
@@ -447,16 +470,24 @@ struct Voice {
   double scale[NB] = {}; bool scaleAtk[NB] = {};
   double gA[NB] = {}, dA[NB] = {}, gB[NB] = {}, dB[NB] = {}, tA[NB] = {}, tB[NB] = {};
   double pc = 0, pw = 1, pd = 0;
+  double wm0 = 0, wm1 = 0;   // WAVELET MORPH position at the start / end of the block
 };
 
 struct TableRef {
   int mode = 0; const float* mips = nullptr; const float* rms = nullptr; const void* owner = nullptr;
   int altMode = 0; const float* altMips = nullptr; const float* altRms = nullptr;   // engines A and B mixed
+  // WAVELET MORPH, the tables of WAVELET 2 (w2Mips == nullptr: no morph)
+  int w2Mode = 0; const float* w2Mips = nullptr; const float* w2Rms = nullptr;
+  int w2AltMode = 0; const float* w2AltMips = nullptr; const float* w2AltRms = nullptr;
 };
 inline TableRef tableRef(const Tables& t) {
   TableRef r;
   r.mode = t.mode; r.mips = t.mips.data(); r.rms = t.rms.data(); r.owner = &t;
   if (t.hasAlt) { r.altMode = t.altMode; r.altMips = t.altMips.data(); r.altRms = t.altRms.data(); }
+  if (t.hasW2) {
+    r.w2Mode = t.w2Mode; r.w2Mips = t.w2Mips.data(); r.w2Rms = t.w2Rms.data();
+    if (t.w2HasAlt) { r.w2AltMode = t.w2AltMode; r.w2AltMips = t.w2AltMips.data(); r.w2AltRms = t.w2AltRms.data(); }
+  }
   return r;
 }
 
@@ -717,6 +748,9 @@ class Engine {
       vc.tA[b] = tA; vc.tB[b] = tB;
       vc.dA[b] = (tA - vc.gA[b]) / n; vc.dB[b] = (tB - vc.gB[b]) / n;
     }
+    // WAVELET MORPH position of this voice (0 = WAVELET, 1 = WAVELET 2): MORPH + LFO + mod envelope
+    const double wm = std::min(1.0, std::max(0.0, p[P_WMORPH] + p[P_LFO_WAV] * lfo + p[P_ENV_WAV] * mod));
+    vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
     vc.fresh = false;
     double pc = p[P_P_CENTER] + p[P_LFO_POS] * lfo; pc -= std::floor(pc);
     vc.pc = pc;
@@ -816,6 +850,22 @@ class Engine {
     renderVoice(vc, n, t.altMode, t.altMips, t.altRms, fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
   }
 
+  // WAVELET MORPH. Without WAVELET 2 tables exactly renderSet (bit-identical sound when the morph is off); with them, the sound of WAVELET (share
+  // 1 - morph) and the same sound built with WAVELET 2 (share morph), the voice's morph moving from wm0 to wm1.
+  void renderMorph(const Voice& vc, int n, const TableRef& t, double fade0, double fadeInc, bool invert, double m0, double m1) {
+    if (!t.w2Mips) { renderSet(vc, n, t, fade0, fadeInc, invert, m0, m1); return; }
+    renderSetK(vc, n, t.mode, t.mips, t.rms, t.altMode, t.altMips, t.altRms, fade0, fadeInc, invert, m0, m1, 1 - vc.wm0, 1 - vc.wm1, true);
+    renderSetK(vc, n, t.w2Mode, t.w2Mips, t.w2Rms, t.w2AltMode, t.w2AltMips, t.w2AltRms, fade0, fadeInc, invert, m0, m1, vc.wm0, vc.wm1, false);
+  }
+  // renderSet with an extra share k (k0 -> k1 across the block) and the sub oscillator only when withSub
+  void renderSetK(const Voice& vc, int n, int mode, const float* mips, const float* rms, int altMode, const float* altMips,
+                  const float* altRms, double fade0, double fadeInc, bool invert, double m0, double m1, double k0, double k1, bool withSub) {
+    if (!altMips) { renderVoice(vc, n, mode, mips, rms, fade0, fadeInc, invert, k0, (k1 - k0) / n, withSub); return; }
+    const double s0 = mode == 0 ? 1 - m0 : m0, s1 = mode == 0 ? 1 - m1 : m1;
+    renderVoice(vc, n, mode, mips, rms, fade0, fadeInc, invert, s0 * k0, (s1 * k1 - s0 * k0) / n, withSub);
+    renderVoice(vc, n, altMode, altMips, altRms, fade0, fadeInc, invert, (1 - s0) * k0, ((1 - s1) * k1 - (1 - s0) * k0) / n, false);
+  }
+
   void block(float* outL, float* outR, int o, int n) {
     std::fill(bufL, bufL + n, 0.0f); std::fill(bufR, bufR + n, 0.0f);
     lfoTick(n);
@@ -830,8 +880,8 @@ class Engine {
       Voice& vc = voices[k];
       if (!vc.active || !hasCur) continue;
       control(vc, n);
-      if (fading) renderSet(vc, n, prev, fade0, fadeInc, true, m0, m1);
-      renderSet(vc, n, cur, fade0, fadeInc, false, m0, m1);
+      if (fading) renderMorph(vc, n, prev, fade0, fadeInc, true, m0, m1);
+      renderMorph(vc, n, cur, fade0, fadeInc, false, m0, m1);
       vc.amp.level = endLevel; vc.amp.stage = endStage;
       for (int u = 0; u < 4; u++) vc.phase[u] = endPhase[u];
       vc.subPhase = endSubPhase;
