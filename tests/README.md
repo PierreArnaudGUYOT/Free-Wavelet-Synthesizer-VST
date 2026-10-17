@@ -258,7 +258,7 @@ browser; the demo suite uses it to test the one-tab-plays-at-a-time audio lifecy
 
 The demo suite (`test_demo.js`) also checks:
 - the split button: `.demo-btn` plays the default demo, `.demo-arrow` opens the menu;
-- the default demo is a preset tour, starting at 'A · Square Mod 2' and following menu order;
+- the default demo is a preset tour (TOUR_APPASSIONATA in web/js/demo.js), starting at 'B · Clarinet';
 - the values forced or capped during the tour;
 - the preset label during demos;
 - the audio lifecycle with two tabs: starting tab B pauses tab A and shows the overlay, 'Click to play here'

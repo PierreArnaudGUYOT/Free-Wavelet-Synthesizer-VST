@@ -359,7 +359,7 @@ class SynthUI {
     // Groups fold like the banks of a hardware synth: favourites, user presets and the group of the current preset
     // start open; a click on a group title opens or closes it (remembered while the page is open).
     const cur = list.find(x => x.current);
-    if (!this.openGroups) this.openGroups = new Set(['★ FAVOURITES', 'USER PRESETS']);
+    if (!this.openGroups) this.openGroups = new Set(['★ TOP SOUNDS', 'USER PRESETS']);
     if (cur) this.openGroups.add(cur.group);
     const counts = {};
     for (const x of list) counts[x.group] = (counts[x.group] || 0) + 1;
@@ -445,24 +445,39 @@ class SynthUI {
   }
 
   // ---------------------------------------------------------------- preset browser (beta 0.3)
-  // Same layout as the VST plug-in's: FACTORY / USER PRESETS tabs, the sound types with their number of sounds (TOP
-  // Sounds = OktoPierre's favourites, then the sounds he rated 8 to 10, best first), and the sounds of the type selected;
-  // one click plays a sound. Selection only: saving stays in the status bar (Save preset / Export / Import).
+  // Same layout as the VST plug-in's: FACTORY / USER PRESETS tabs, the sound types with their number of sounds (beta 0.5:
+  // TOP Sounds = OktoPierre's selection, the first presets; then the categories, Source Phase first, each in his order),
+  // and the sounds of the type selected; one click plays a sound, the arrow keys too (↑ ↓ sounds, ← → categories).
+  // Selection only: saving stays in the status bar (Save preset / Export / Import).
   bLists() {
-    const S = this.SPEC, fav = S.FAVOURITES, P = S.PRESETS;
-    const voted = [];
-    for (let k = fav; k < P.length; k++) if ((P[k].stars || 0) >= 8) voted.push(k);
-    voted.sort((a, b) => P[b].stars - P[a].stars || a - b);
-    const lists = [{ label: 'TOP Sounds', presets: [...Array(Math.min(fav, P.length)).keys(), ...voted] }];
-    const cats = [];
-    for (let k = fav; k < P.length; k++) if (!cats.includes(P[k].cat)) cats.push(P[k].cat);
-    for (const c of cats) {
+    const S = this.SPEC, P = S.PRESETS;
+    const lists = [{ label: 'TOP Sounds', presets: [...Array(Math.min(S.TOP, P.length)).keys()] }];
+    for (const c of S.CATEGORIES) {
       const l = [];
-      for (let k = 0; k < fav; k++) if (P[k].cat === c) l.push(k);
-      for (let k = fav; k < P.length; k++) if (P[k].cat === c) l.push(k);
+      for (let k = 0; k < P.length; k++) if (P[k].cat === c) l.push(k);
+      l.sort((a, b) => P[a].rank - P[b].rank);
       lists.push({ label: c, presets: l });
     }
     return lists;
+  }
+  // beta 0.5: an arrow key while the browser is open ('up' / 'down' play the sound above / below, 'left' / 'right' show the
+  // category above / below); true when used
+  browserKey(dir) {
+    if (!this.bOpen || !this.browser) return false;
+    const lists = this.bLists();
+    if (dir === 'left' || dir === 'right') {
+      const n = this.bTab === 0 ? lists.length : 1;
+      this.bCat = Math.max(0, Math.min(n - 1, this.bCat + (dir === 'left' ? -1 : 1)));
+      this.renderBrowser();
+      return true;
+    }
+    const all = this.host.presetList(), cur = all.find(x => x.current);
+    const ids = this.bTab === 0 ? (lists[this.bCat] || lists[0]).presets.map(k => 'f:' + k) : all.filter(x => x.id.startsWith('u:')).map(x => x.id);
+    if (!ids.length) return true;
+    const at = cur ? ids.indexOf(cur.id) : -1;
+    const to = at < 0 ? (dir === 'down' ? 0 : ids.length - 1) : Math.max(0, Math.min(ids.length - 1, at + (dir === 'down' ? 1 : -1)));
+    if (to !== at) this.host.loadPreset(ids[to]);
+    return true;
   }
   makeBrowser() {
     const b = el('div', 'browser', this.dev.parentElement);
@@ -512,7 +527,7 @@ class SynthUI {
       r.onclick = () => { this.bCat = i; this.renderBrowser(); };
     });
     const items = this.bTab === 0
-      ? (lists[this.bCat] || lists[0]).presets.map(k => ({ id: 'f:' + k, name: P[k].name, fav: k < this.SPEC.FAVOURITES, stars: P[k].stars || 0 }))
+      ? (lists[this.bCat] || lists[0]).presets.map(k => ({ id: 'f:' + k, name: P[k].name, fav: k < this.SPEC.TOP, stars: P[k].stars || 0 }))
       : user.map(x => ({ id: x.id, name: x.name, fav: false, stars: 0 }));
     b.querySelector('.bhd').textContent = `${(this.bTab === 0 ? (lists[this.bCat] || lists[0]).label : 'My presets').toUpperCase()}  ·  ${items.length}`;
     const list = b.querySelector('.blist');
@@ -523,7 +538,7 @@ class SynthUI {
       const r = el('div', 'bsnd' + (cur && cur.id === it.id ? ' cur' : ''), list);
       const m = /^(A|B|AB) · (.*)$/.exec(it.name);
       const eng = m ? `<span class="eng">${m[1].split('').map(c => `<span class="${c.toLowerCase()}">${c}</span>`).join('')} · </span>` : '';
-      const mark = it.fav ? '<span class="mk" title="One of OktoPierre’s favourite sounds">★</span>'
+      const mark = it.fav ? '<span class="mk" title="In TOP Sounds, OktoPierre’s selection">★</span>'
         : it.stars ? `<span class="mk vote" title="OktoPierre’s vote in his listening test">${it.stars} ★</span>` : '';
       r.innerHTML = `${eng}<span class="nm">${esc(m ? m[2] : it.name)}</span>${mark}`;
       r.title = it.name;

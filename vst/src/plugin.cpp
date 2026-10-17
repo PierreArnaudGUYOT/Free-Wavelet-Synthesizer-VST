@@ -600,7 +600,7 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
     // the preset shown in the browser: the factory preset with exactly these values, else the current one, modified
     // (the host then calls setState, which restores the saved preset name and flag)
     const int k = exactPreset();
-    if (k >= 0) { presetIdx = k; dirty = false; userName.clear(); } else dirty = true;
+    if (k >= 0) { presetIdx = k; dirty = false; userName.clear(); formerName.clear(); } else dirty = true;
     version++;
     return kResultOk;
   }
@@ -622,7 +622,9 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
             k = findPreset(name);
             // a sound of the user bank (beta 0.3): its name only, the sound itself is in the processor state
             if (k < 0 && std::strncmp(name, kUserPrefix, std::strlen(kUserPrefix)) == 0 && len > std::strlen(kUserPrefix)) {
-              userName = name; dirty = dt != 0;
+              userName = name; formerName.clear(); dirty = dt != 0;
+            } else if (k < 0 && leftOut(name)) {   // beta 0.5: a factory preset of an older version, left out since
+              formerName = name; userName.clear(); dirty = dt != 0;
             }
             int32_t closed = 0;
             browserOpen_ = !(readAll(state, &closed, 4) && closed == 1);
@@ -630,10 +632,12 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
         }
       } else {
         int32_t pi = -1;
-        if (readAll(state, &pi, 4) && readAll(state, &dt, 4) && pi >= 0 && pi < (int32_t)(sizeof kBeta01Order / sizeof *kBeta01Order))
+        if (readAll(state, &pi, 4) && readAll(state, &dt, 4) && pi >= 0 && pi < (int32_t)(sizeof kBeta01Order / sizeof *kBeta01Order)) {
           k = findPreset(kBeta01Order[pi]);
+          if (k < 0 && leftOut(kBeta01Order[pi])) { formerName = kBeta01Order[pi]; userName.clear(); dirty = dt != 0; }   // beta 0.5
+        }
       }
-      if (k >= 0) { presetIdx = k; dirty = dt != 0; userName.clear(); }
+      if (k >= 0) { presetIdx = k; dirty = dt != 0; userName.clear(); formerName.clear(); }
     }
     version++;
     return kResultOk;
@@ -641,7 +645,8 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   tresult PLUGIN_API getState(IBStream* state) override {
     if (!state) return kInvalidArgument;
     uint32_t magic = kCtlMagic2; float z = zoomFactor; int32_t dt = dirty ? 1 : 0;
-    const std::string name = !userName.empty() ? userName : presetIdx >= 0 && presetIdx < kNumPresets ? Library::get().name(presetIdx) : "";
+    const std::string name = !userName.empty() ? userName : !formerName.empty() ? formerName :
+                             presetIdx >= 0 && presetIdx < kNumPresets ? Library::get().name(presetIdx) : "";
     uint32_t len = (uint32_t)name.size();
     if (!writeAll(state, &magic, 4) || !writeAll(state, &z, 4) || !writeAll(state, &dt, 4) || !writeAll(state, &len, 4) ||
         (len && !writeAll(state, name.c_str(), (int32)len)))
@@ -760,16 +765,17 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
     double v[kNumParams];
     Library::get().values(index, v);   // as the player may have adjusted it
     applySound(v);
-    presetIdx = index; dirty = false; userName.clear(); version++;
+    presetIdx = index; dirty = false; userName.clear(); formerName.clear(); version++;
   }
   void loadUserSound(const double* pv, const std::string& shownName) override {
     applySound(pv);
-    dirty = false; userName = shownName; version++;   // presetIdx stays: the ◀ ▶ arrows go on from the last factory preset
+    dirty = false; userName = shownName; formerName.clear(); version++;   // presetIdx stays: ◀ ▶ go on from the last factory preset
   }
   std::string userPresetName() override { return userName; }
+  std::string formerPresetName() override { return formerName; }
   void presetStored(int index) override {
     if (index >= 0 && index < kNumPresets) presetIdx = index;
-    dirty = false; userName.clear(); version++;
+    dirty = false; userName.clear(); formerName.clear(); version++;
   }
   bool browserOpen() override { return browserOpen_; }
   void setBrowserOpen(bool open) override { browserOpen_ = open; }
@@ -786,6 +792,7 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   std::atomic<uint32_t> version{1};
   int presetIdx = kDefaultPreset; bool dirty = false;
   std::string userName;   // the sound of the user bank shown in the browser ("" = the factory preset presetIdx)
+  std::string formerName;   // beta 0.5: a factory preset of an older version, no longer in this one (its saved name)
   bool browserOpen_ = true;   // the preset browser panel of the editor (beta 0.3)
   float zoomFactor = 1.0f;
 
@@ -818,6 +825,10 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
   static int findPreset(const char* name) {
     if (*name) return Library::get().find(name);   // its name now, else its built-in name
     return -1;
+  }
+  static bool leftOut(const char* name) {   // beta 0.5: a factory preset of an earlier version
+    for (int i = 0; i < kNumLeftOut; i++) if (std::strcmp(name, kLeftOutPresets[i]) == 0) return true;
+    return false;
   }
 };
 

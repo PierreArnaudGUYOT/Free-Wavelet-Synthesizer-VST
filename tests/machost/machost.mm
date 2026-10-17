@@ -420,14 +420,25 @@ int main(int argc, char** argv) {
     for (int i = 0; i < nParams; i++) { ParameterInfo pi; p.ctl->getParameterInfo(i, pi); before[pi.id] = p.ctl->getParamNormalized(pi.id); }
     auto changedParams = [&]() { int n = 0; for (auto& kv : before) if (std::fabs(p.ctl->getParamNormalized(kv.first) - kv.second) > 1e-9) n++; return n; };
     if (vr.getWidth() == 1460) {
-      const float cx = 1100 + 4 + 12 + 30, catY0 = 8 + 72 + 12;   // the category column: TOP Sounds, Bass, ...
-      click(pv, cx, catY0 + 26);                                    // Bass
+      const float cx = 1100 + 4 + 12 + 30, catY0 = 8 + 72 + 12;   // the category column: TOP Sounds, Source Phase, Bass, ...
+      click(pv, cx, catY0 + 26 * 2);                                // Bass (beta 0.5: Source Phase is second)
       const float rowX = 1100 + 4 + 136 + 60, rowY0 = 8 + 98 + 11;
       click(pv, rowX, rowY0 + 22 * 4);                              // its 5th sound
       pump(0.3);
       const int ch = changedParams();
       check(ch > 0, "browser: Bass, 5th sound -> the sound changes", fmt("%d parameters changed", ch));
       shot(pv, out + "/mac_browser_bass.png");
+      // beta 0.5: the click in the browser gave the view the keyboard; the arrow key ↓ plays the next sound of the list
+      check(pv.window && pv.window.firstResponder == pv, "a click in the browser: the editor view takes the keyboard (first responder)");
+      for (auto& kv : before) kv.second = p.ctl->getParamNormalized(kv.first);
+      NSString* down = [NSString stringWithFormat:@"%C", (unichar)NSDownArrowFunctionKey];
+      NSEvent* kd = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0
+                                 windowNumber:pv.window.windowNumber context:nil characters:down charactersIgnoringModifiers:down
+                                    isARepeat:NO keyCode:125];
+      [pv keyDown:kd];
+      pump(0.3);
+      const int chk = changedParams();
+      check(chk > 0, "arrow key down: the next sound of the list plays", fmt("%d parameters changed", chk));
     }
     // the engine tab B
     const Spot eng = find(ws::W_SEG, ws::P_ENGINE);

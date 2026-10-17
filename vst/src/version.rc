@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <winver.h>
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 0,4,0,0
-PRODUCTVERSION 0,4,0,0
+FILEVERSION 0,5,0,0
+PRODUCTVERSION 0,5,0,0
 FILEOS VOS_NT_WINDOWS32
 FILETYPE VFT_DLL
 BEGIN
@@ -12,12 +12,12 @@ BEGIN
     BLOCK "040904b0"
     BEGIN
       VALUE "CompanyName", "OktoPierre"
-      VALUE "Comments", "Created by Pierre Arnaud GUYOT. Release beta 0.4. Free software under the GNU GPL v3 or later, without any warranty."
+      VALUE "Comments", "Created by Pierre Arnaud GUYOT. Release beta 0.5. Free software under the GNU GPL v3 or later, without any warranty."
       VALUE "FileDescription", "Wavelet Synthesizer (VST3 / VST2 instrument) - created by OktoPierre"
       VALUE "LegalCopyright", "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). GPL-3.0-or-later"
-      VALUE "FileVersion", "0.4.0 beta"
+      VALUE "FileVersion", "0.5.0 beta"
       VALUE "ProductName", "Wavelet Synthesizer"
-      VALUE "ProductVersion", "0.4 beta"
+      VALUE "ProductVersion", "0.5 beta"
       VALUE "OriginalFilename", "WaveletSynthesizer.vst3"
     END
   END

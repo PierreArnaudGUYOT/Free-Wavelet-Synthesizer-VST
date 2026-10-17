@@ -2,6 +2,36 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.5 — 2026-10-17 (OktoPierre's sort)
+
+**In short**
+- **150 presets** instead of 253: OktoPierre went through all of them in the plug-in (his presets file "OKTOWAVE presets
+  V4.txt") and kept 150; the 103 others are left out (listed below). His six adjustments are now the factory presets:
+  B · Focus Sweep (unison 2), A · Laser Sweep (LFO 0.37 Hz, sub oscillator 26 %), A · Acid Sub (octave −2, unison 2),
+  A · Wave Pulse Lead (octave −3, unison 4), A · Wavelet Lead Shift (octave −1), A · Focus Sweep Shift (octave −2).
+- **TOP Sounds** (37): his TOP list and the first 15 sounds of Source Phase, one in two, the best first. They also open
+  the factory order (◀ ▶, the plug-in's programs, the web app's preset list). Each category lists its sounds in his order.
+- **Source Phase** is the second section of the browser and the menus, after TOP Sounds (44 sounds).
+- **Moving presets** (plug-in): drag a sound of the browser onto another category — onto TOP Sounds it is added there — or
+  right-click it: *Move to ▸*, *Back to* its own category, *Add to / Remove from TOP Sounds*. In the USER BANK tab a sound
+  dragged onto a section moves to that section. All of it is kept in the presets file ("LIST ORDER v2") and travels with
+  EXPORT / IMPORT; ★ marks the sounds that are in TOP Sounds.
+- **Arrow keys** (plug-in and web app): ↑ ↓ play the sound above / below in the list shown, ← → show the category above /
+  below; with the browser hidden, the previous / next preset. In the plug-in, click in the browser first so that it has
+  the keyboard (other keys still go to the host).
+- **Your projects and presets**: a Live Set keeps its sound (it is in the plug-in's state). One saved with a preset that is
+  left out shows its name (SAVE PRESET then keeps it in the user bank). In your presets file the adjusted and deleted
+  presets and the user bank are kept; the list order of a beta 0.3 / 0.4 file is not read (the lists were rebuilt).
+- **The web app’s demo** (Appassionata): after B · Clarinet, the first eleven TOP Sounds; the five beta 0.2 sounds left out
+  are replaced by kept ones of the same type (AB · Analog Strings, A · Ladder Bass, A · Wave Wobble Bass, AB · Silk Strings,
+  AB · Wobble Bass).
+
+**Checked**: the 144 presets kept unchanged are sample-identical with beta 0.4; the 6 adjusted ones differ only in the
+values OktoPierre changed; every kept preset has exactly the values of his file. The plug-in matches the web engine on
+all 150 presets.
+
+**Left out** (103, beta 0.4 order): A · Square Mod 2; A · Haar Bass; A · Edge Pluck; B · Soft Flute; A · Infra Sub Bass; A · Fuzz Bass; A · Sparse Keys; A · Square Mod; A · Deep Saw Bass; A · Wave Morph Bass; A · Acid Line; A · Fat Unison Bass; A · Sub Saw Bass; B · Sub Organ Bass; A · Deep Sub Pluck; AB · Sub Hybrid Bass; B · Pluck Bass; A · Rubber Bass; A · Octave Bass; A · Screaming Lead; AB · Duo Lead; A · Wave Window Lead; B · Chip Walsh; B · Chip Echo; AB · Chip Hybrid; A · Pulse Lead; A · Dyno Keys; AB · Wurli Bark; AB · Gospel Mix Organ; A · Cathedral Saw; A · Dark Pad; A · Solo Violin; AB · Hybrid Strings; AB · Space Strings; A · Chamber Strings; A · Synth Brass; A · Brass Stab; AB · Breathy Flute; B · Impulse Pluck; AB · Shimmer Pluck; B · Koto; B · Walsh Bells; A · Wave Laser; B · Wave Random Computer; B · Wave Reverse Bands; A · Wave Glitch Morph; A · Scanning Edge; A · Haar Bass Shift; A · Edge Pluck Shift; A · Soft Flute Shift; A · Infra Sub Bass Shift; A · Dub Echo Lead Shift; A · Fuzz Bass Shift; A · Sparse Keys Shift; A · Screaming Lead Shift; A · Wave Attack Lead Shift; A · Dyno Keys Shift; A · Theatre Organ Shift; A · Deep Saw Bass Shift; A · Wave Morph Bass Shift; A · Duo Lead Shift; A · Wurli Bark Shift; A · Gospel Mix Organ Shift; A · Silk Strings Shift; A · Spiccato Strings Shift; A · Wave Brass Shift; A · Fat Unison Bass Shift; A · Wave S/H Lead Shift; A · Sweep Pad Shift; A · Phase Pair Bass 0°; A · Phase Pair Bass 67°; A · Shifted Reese; A · Haar Grit Bass; A · Rubber Phase Bass; A · Phase Sub Pluck; A · S&H Phase Bass; A · Phase Pair Lead 0°; A · Phase Pair Lead 2°; A · Phase Scream; A · Shift Lead; A · Phase Sync Lead; A · Morph Phase Lead; A · Chip Phase; A · Phase E-Piano; A · Shifted Clav; A · Phase Bell Keys; A · Glass Phase Keys; A · Tine Shift; A · Lo-Fi Phase Keys; A · Phase Organ; A · Rotary Phase Organ; A · Reed Phase Organ; A · Phase Choir; A · Phase Is The Sound; A · Shifted Cellos; A · Phase Viola; A · Phase Brass; A · Phase Pluck; A · Shift Harp; A · Phase Bells; A · Phase Mallet; A · Phase Hat; A · Phase Snare.
+
 ## beta 0.4 — 2026-10-17 (Source Phase)
 
 **In short**

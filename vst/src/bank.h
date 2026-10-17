@@ -7,15 +7,17 @@
 //   new name; "Adjusted: yes" in the file; only those override the built-in presets when the file is read back), or
 //   DELETED it ("Deleted: yes": hidden from the browser, the menu and the arrows, to be dropped from the next version);
 // - the USER BANK: the player's own sounds in 12 sections (the factory types + Chords), in the player's order;
-// - the LIST ORDER of the preset browser: TOP Sounds (OktoPierre's favourites, then the presets he rated 8 to 10) and
-//   each category, as the player arranged them with MOVE UP / DOWN (built-in names, one per line).
+// - the LIST ORDER of the preset browser: TOP Sounds and each category, as the player arranged them with MOVE UP / DOWN
+//   (built-in names, one per line). beta 0.5 ("LIST ORDER v2"): the lists also say which presets they hold — the player
+//   moves a preset to another category and adds or removes TOP Sounds; a preset the file does not know (a newer version's)
+//   goes to its default places. Older files' lists are not read (beta 0.5 rebuilt the factory lists).
 // The file is shared by every instance and Live Set, read again whenever it changes on disk, written atomically, and is
 // meant to be read back to make the next version's factory presets. Format (one block per preset; the parameters that
 // differ from the defaults, ENGINE and A/B MIX always, as in tools/spec.js):
 //   ######## FACTORY PRESETS ########
 //   == Bass ==
-//   Preset: A · Deep Saw Bass 2        (its name now)
-//   Factory: A · Deep Saw Bass         (its built-in name: the key)
+//   Preset: A · Acid Sub 2             (its name now)
+//   Factory: A · Acid Sub              (its built-in name: the key)
 //   Adjusted: yes
 //     f_cutoff: 5.5   (Cutoff: band 5.5)
 //   ######## USER BANK ########
@@ -174,6 +176,55 @@ class Library {
       if (!t.del[v[j]]) { std::swap(v[at], v[j]); return commit(t); }
     return L"";   // already at that end
   }
+  // beta 0.5: the category a factory preset is in now (its index in lists(), 1..), and its built-in one
+  int categoryOf(int k) { std::lock_guard<std::mutex> l(m); refreshLocked(); return catOf(s, k); }
+  static int defaultCategory(int k) {
+    const auto& labels = listLabels();
+    for (size_t i = 1; i < labels.size(); i++) if (k >= 0 && k < kNumPresets && labels[i] == kPresets[k].cat) return (int)i;
+    return -1;
+  }
+  bool inTop(int k) { std::lock_guard<std::mutex> l(m); refreshLocked(); return std::count(s.lists[0].begin(), s.lists[0].end(), k) > 0; }
+  // beta 0.5: preset k into the category list `to` (1..): at the end of it, or at its own place when it goes back to its
+  // built-in category; "" when done or already there
+  std::wstring moveToCategory(int k, int to) {
+    std::lock_guard<std::mutex> l(m); refreshLocked();
+    if (k < 0 || k >= kNumPresets || to < 1 || to >= (int)s.lists.size()) return L"no such preset or category";
+    if (catOf(s, k) == to) return L"";
+    State t = s;
+    for (size_t i = 1; i < t.lists.size(); i++) t.lists[i].erase(std::remove(t.lists[i].begin(), t.lists[i].end(), k), t.lists[i].end());
+    std::vector<int>& v = t.lists[to];
+    auto at = v.end();
+    if (to == defaultCategory(k))
+      at = std::find_if(v.begin(), v.end(), [&](int j) { return defaultCategory(j) == to && kPresetRank[j] > kPresetRank[k]; });
+    v.insert(at, k);
+    return commit(t);
+  }
+  // beta 0.5: preset k added to TOP Sounds (at the end) or taken out of it
+  std::wstring setTop(int k, bool on) {
+    std::lock_guard<std::mutex> l(m); refreshLocked();
+    if (k < 0 || k >= kNumPresets) return L"no such preset";
+    State t = s;
+    std::vector<int>& v = t.lists[0];
+    const bool in = std::count(v.begin(), v.end(), k) > 0;
+    if (in == on) return L"";
+    if (on) v.push_back(k); else v.erase(std::remove(v.begin(), v.end(), k), v.end());
+    return commit(t);
+  }
+  // beta 0.5: a sound of the user bank into another section (at its end); the editor checks first that no sound of that
+  // section has its name
+  std::wstring moveUserTo(int section, const std::string& n, int to) {
+    std::lock_guard<std::mutex> l(m); refreshLocked();
+    if (to < 0 || to >= kNumBankSections) return L"no such section";
+    State t = s;
+    auto it = std::find_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) { return q.section == section && q.name == n; });
+    if (it == t.user.end()) return L"not in the bank";
+    if (section == to) return L"";
+    BankPreset p = *it;
+    p.section = to;
+    t.user.erase(it);
+    t.user.push_back(p);
+    return commit(t);
+  }
   // MOVE UP / DOWN in the user bank: the sound swaps with the next one of its section
   std::wstring moveUser(int section, const std::string& n, int dir) {
     std::lock_guard<std::mutex> l(m); refreshLocked();
@@ -248,30 +299,31 @@ class Library {
     }
     t.lists = defaultLists();
   }
-  // TOP Sounds, then the factory categories (in factory order: they are consecutive after the favourites)
+  // TOP Sounds, then the factory categories (beta 0.5: kCategories, Source Phase second)
   static const std::vector<std::string>& listLabels() {
     static const std::vector<std::string> labels = [] {
       std::vector<std::string> l{"TOP Sounds"};
-      for (int k = kNumFavourites; k < kNumPresets; k++) if (l.back() != kPresets[k].cat) l.push_back(kPresets[k].cat);
+      for (int i = 0; i < kNumCategories; i++) l.push_back(kCategories[i]);
       return l;
     }();
     return labels;
   }
-  // TOP Sounds = OktoPierre's favourites, then the presets he rated 8 to 10 (best first); each category = its favourites
-  // (the browser marks them ★), then its presets in factory order
+  // beta 0.5: TOP Sounds = the first kNumTop presets, in their order; each category = its presets in OktoPierre's order
+  // (kPresetRank; TOP Sounds included, the browser marks them ★)
   static std::vector<std::vector<int>> defaultLists() {
     const std::vector<std::string>& labels = listLabels();
     std::vector<std::vector<int>> v(labels.size());
-    for (int k = 0; k < kNumFavourites && k < kNumPresets; k++) v[0].push_back(k);
-    std::vector<int> voted;
-    for (int k = kNumFavourites; k < kNumPresets; k++) if (kPresetStars[k] >= 8) voted.push_back(k);
-    std::stable_sort(voted.begin(), voted.end(), [](int a, int b) { return kPresetStars[a] > kPresetStars[b]; });
-    v[0].insert(v[0].end(), voted.begin(), voted.end());
+    for (int k = 0; k < kNumTop && k < kNumPresets; k++) v[0].push_back(k);
     for (size_t i = 1; i < labels.size(); i++) {
-      for (int f = 0; f < kNumFavourites; f++) if (labels[i] == kPresets[f].cat) v[i].push_back(f);
-      for (int k = kNumFavourites; k < kNumPresets; k++) if (labels[i] == kPresets[k].cat) v[i].push_back(k);
+      for (int k = 0; k < kNumPresets; k++) if (labels[i] == kPresets[k].cat) v[i].push_back(k);
+      std::stable_sort(v[i].begin(), v[i].end(), [](int a, int b) { return kPresetRank[a] < kPresetRank[b]; });
     }
     return v;
+  }
+  // the category list (1..) holding preset k, or -1
+  static int catOf(const State& t, int k) {
+    for (size_t i = 1; i < t.lists.size(); i++) if (std::count(t.lists[i].begin(), t.lists[i].end(), k)) return (int)i;
+    return -1;
   }
   static std::wstring pathOf() {
     const std::wstring e = envPath(L"WS_PRESETS_FILE");
@@ -312,7 +364,9 @@ class Library {
   static void parse(const std::string& all, State& t) {
     int part = 0;   // 0 = before any marker (a beta 0.3 user-bank file), 1 = factory presets, 2 = user bank, 3 = list order
     int orderList = -1;
+    bool v2 = false;   // beta 0.5 lists (they say which presets they hold); older ones are not read
     std::vector<std::vector<int>> orders(listLabels().size());
+    std::vector<char> present(listLabels().size(), 0), known(kNumPresets, 0);
     int sec = -1;
     BankPreset* cur = nullptr;
     struct Fb { std::string name, orig; bool adj = false, del = false; double v[kNumParams]; } fb;
@@ -322,11 +376,17 @@ class Library {
       inFb = false;
       for (int k = 0; k < kNumPresets; k++)
         if (fb.orig == kPresets[k].name) {
+          known[k] = 1;
           t.del[k] = fb.del ? 1 : 0;
           if (!fb.adj) break;   // only the adjusted ones replace the built-in presets
           t.names[k] = fb.name.empty() ? fb.orig : fb.name;
           for (int i = 0; i < kNumParams; i++) t.vals[k][i] = fb.v[i];
           t.adj[k] = 1;
+          // beta 0.5: an adjustment that became the factory preset itself (same name, same values) is no longer one
+          bool same = t.names[k] == kPresets[k].name;
+          for (int i = 0; i < kNumParams && same; i++)
+            same = kParams[i].hidden || std::fabs(fb.v[i] - kPresets[k].v[i]) <= 2e-6 * std::max(1.0, std::fabs(kPresets[k].v[i]));
+          if (same) { t.adj[k] = 0; for (int i = 0; i < kNumParams; i++) t.vals[k][i] = kPresets[k].v[i]; }
           break;
         }
     };
@@ -341,6 +401,7 @@ class Library {
         cur = nullptr; sec = -1;
         part = line.find("FACTORY") != std::string::npos ? 1 : line.find("USER BANK") != std::string::npos ? 2 :
                line.find("LIST ORDER") != std::string::npos ? 3 : 0;
+        if (part == 3) v2 = line.find("LIST ORDER v2") != std::string::npos;
         orderList = -1;
         continue;
       }
@@ -350,6 +411,7 @@ class Library {
           const auto& labels = listLabels();
           orderList = (int)(std::find(labels.begin(), labels.end(), lab) - labels.begin());
           if (orderList >= (int)labels.size()) orderList = -1;
+          if (orderList >= 0) present[orderList] = 1;
         } else if (orderList >= 0) {
           const size_t dot = line.find(". ");
           if (dot == std::string::npos || dot == 0 || dot > 4) continue;
@@ -385,15 +447,22 @@ class Library {
       else if (cur) parseParamLine(line, cur->v);
     }
     endFb();
-    // each list in the file's order: the members it names first, then the others (new presets) in their default place
-    for (size_t i = 0; i < orders.size() && i < t.lists.size(); i++) {
-      if (orders[i].empty()) continue;
-      std::vector<int> v;
-      for (int k : orders[i])
-        if (std::count(t.lists[i].begin(), t.lists[i].end(), k) && !std::count(v.begin(), v.end(), k)) v.push_back(k);
-      for (int k : t.lists[i]) if (!std::count(v.begin(), v.end(), k)) v.push_back(k);
-      t.lists[i] = v;
-    }
+    if (!v2) return;   // a beta 0.3 / 0.4 file: the default lists of this version
+    // beta 0.5: each list holds what the file names, in its order (a preset in one category only: the first named);
+    // a preset the file does not know, or a list it does not have, takes the default places; a known preset that no
+    // category names (an edited file) goes back to its own category
+    const int nl = (int)t.lists.size();
+    std::vector<std::vector<int>> v(nl);
+    std::vector<char> placed(kNumPresets, 0);
+    auto put = [&](int i, int k) {
+      if (std::count(v[i].begin(), v[i].end(), k)) return;
+      if (i > 0) { if (placed[k]) return; placed[k] = 1; }
+      v[i].push_back(k);
+    };
+    for (int i = 0; i < nl; i++) if (present[i]) for (int k : orders[i]) put(i, k);
+    for (int i = 0; i < nl; i++) for (int k : t.lists[i]) if (!known[k] || !present[i]) put(i, k);
+    for (int k = 0; k < kNumPresets; k++) if (!placed[k] && defaultCategory(k) > 0) put(defaultCategory(k), k);
+    t.lists = v;
   }
 
   static std::string text(const State& t) {
@@ -403,7 +472,7 @@ class Library {
     const LocalTime tm = localNow();
     int adj = 0, del = 0; for (char a : t.adj) adj += a; for (char d : t.del) del += d;
     L("OKTOWAVE Wavelet Synthesizer - presets");
-    L("Saved by the VST plug-in (beta 0.3): every factory preset (those you adjusted with SAVE PRESET say \"Adjusted: yes\",");
+    L(std::string("Saved by the VST plug-in (") + kAppVersion + "): every factory preset (those you adjusted with SAVE PRESET say \"Adjusted: yes\",");
     L("with their name now; those you deleted say \"Deleted: yes\") and your user bank. Each preset: its name, then the");
     L("parameters that differ from the defaults.");
     L("Format: key: value   (name: shown value)");
@@ -414,7 +483,7 @@ class Library {
     L("######## FACTORY PRESETS ########");
     const char* lastCat = nullptr;
     for (int k = 0; k < kNumPresets; k++) {
-      const char* cat = k < kNumFavourites ? "\xE2\x98\x85 Favourites" : kPresets[k].cat;
+      const char* cat = k < kNumTop ? "TOP Sounds" : kPresets[k].cat;   // the factory order (its lists below)
       if (!lastCat || std::strcmp(cat, lastCat) != 0) { L(""); L(std::string("== ") + cat + " =="); lastCat = cat; }
       L("");
       L("Preset: " + t.names[k]);
@@ -424,7 +493,7 @@ class Library {
       paramLines(t.vals[k].data(), s);
     }
     L("");
-    L("######## LIST ORDER (the preset browser, as arranged with MOVE UP / DOWN; built-in names) ########");
+    L("######## LIST ORDER v2 (the preset browser: what each list holds, in its order; built-in names) ########");
     for (size_t i = 0; i < t.lists.size(); i++) {
       L("");
       L("== " + listLabels()[i] + " ==");

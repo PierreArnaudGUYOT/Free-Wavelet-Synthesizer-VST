@@ -18,7 +18,7 @@ namespace ws {
 
 #define WS_VENDOR "OktoPierre"
 #define WS_NAME "Wavelet Synthesizer"
-#define WS_VERSION "0.4.0"   // beta 0.4; also in vst/src/version.rc and tools/spec.js APP
+#define WS_VERSION "0.5.0"   // beta 0.5; also in vst/src/version.rc and tools/spec.js APP
 
 // Live state the audio thread publishes for the editor, plus a queue of notes
 // played on the on-screen keyboard. Shared through a process-wide registry
@@ -72,6 +72,9 @@ struct EditorHost {
   // beta 0.3: a sound of the USER BANK (bank.h), loaded like a preset and shown as kUserPrefix + its name
   virtual void loadUserSound(const double* plain, const std::string& shownName) = 0;
   virtual std::string userPresetName() = 0;   // "" while the sound is a factory preset
+  // beta 0.5: the name of a factory preset this version no longer has (a Live Set saved with an older one): the panel
+  // shows it, the sound itself is in the processor state; "" otherwise
+  virtual std::string formerPresetName() = 0;
   // beta 0.3: the factory preset just saved (SAVE PRESET) is the sound shown, unmodified; the preset browser panel
   virtual void presetStored(int index) = 0;
   virtual bool browserOpen() = 0;

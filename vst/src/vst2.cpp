@@ -65,6 +65,7 @@ enum : int32_t {   // plug-in opcodes (dispatcher)
   effGetChunk = 23, effSetChunk = 24, effProcessEvents = 25, effCanBeAutomated = 26, effString2Parameter = 27,
   effGetProgramNameIndexed = 29, effGetPlugCategory = 35, effGetEffectName = 45, effGetVendorString = 47,
   effGetProductString = 48, effGetVendorVersion = 49, effCanDo = 51, effGetTailSize = 52, effGetVstVersion = 58,
+  effEditKeyDown = 59, effEditKeyUp = 60,
   effGetNumMidiInputChannels = 78, effGetNumMidiOutputChannels = 79
 };
 enum : int32_t {   // host opcodes (callback)
@@ -428,7 +429,8 @@ class Instance {
       case effSetProgram: setProgram((int)value); return 0;
       case effGetProgram: return edHost->presetIndex();
       case effGetProgramName: {
-        const std::string user = edHost->userPresetName();
+        std::string user = edHost->userPresetName();
+        if (user.empty()) user = edHost->formerPresetName();   // beta 0.5: a preset of an older version
         copyAscii((char*)ptr, !user.empty() ? user.c_str() : edHost->presetIndex() >= 0 ? Library::get().name(edHost->presetIndex()).c_str() : "", kNameLen);
         return 1;
       }
@@ -465,6 +467,9 @@ class Instance {
       case effEditOpen: return editOpen(ptr);
       case effEditClose: closeEditor(); return 1;
       case effEditIdle: syncController(); return 0;
+      // beta 0.5: keys the host sends to the editor (value = virtual key, the same codes as VST3's): the arrow keys
+      case effEditKeyDown: return view && attached && view->onKeyDown((Steinberg::char16)index, (Steinberg::int16)value, (Steinberg::int16)opt) == Steinberg::kResultTrue;
+      case effEditKeyUp: return view && attached && view->onKeyUp((Steinberg::char16)index, (Steinberg::int16)value, (Steinberg::int16)opt) == Steinberg::kResultTrue;
       case effGetPlugCategory: return kPlugCategSynth;
       case effGetEffectName: copyAscii((char*)ptr, WS_NAME, 32); return 1;
       case effGetProductString: copyAscii((char*)ptr, WS_NAME, 64); return 1;

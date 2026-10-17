@@ -22,7 +22,7 @@ const TOP = { x: 20, y: 64, width: 1084, height: 268 };      // ENGINE section +
 const set = o => Object.entries(o).map(([k, v]) => `WS_TEST.setParam('${k}', ${v});`).join('');
 
 const jobs = [
-  { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Edge Pluck')}`, out: 'panel-a.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Mirror Sub Bass Shift')}`, out: 'panel-a.png' },
   { url: `${APP}#nobrowser&noaudio&preset=${pre('B · Random Glass')}`, out: 'panel-b.png' },
   { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 1, wavelet: 0, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'haar-square.png' },
   { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 1, wavelet: 6, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'db20-square.png' },

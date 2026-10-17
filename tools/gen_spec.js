@@ -9,20 +9,21 @@ const spec = require('./spec.js');
 const wav = JSON.parse(fs.readFileSync(path.join(__dirname, 'wavelets.json'), 'utf8'));
 
 const root = path.join(__dirname, '..');
-const { DEVICE, APP, DEFAULT_PRESET, PARAMS, INDEX, SECTIONS, PRESETS, FAVOURITES, CATEGORIES, LFO2_TARGETS } = spec;
+const { DEVICE, APP, DEFAULT_PRESET, PARAMS, INDEX, SECTIONS, PRESETS, TOP, CATEGORIES, LFO2_TARGETS, LEFT_OUT } = spec;
 const defaultPresetIndex = PRESETS.findIndex(p => p.name === DEFAULT_PRESET);
 
 const presetValues = PRESETS.map(pr => ({
   name: pr.name,
   cat: pr.cat,
-  ...(pr.stars ? { stars: pr.stars } : {}),   // beta 0.3: OktoPierre's vote (the preset browsers' TOP Sounds and marks)
+  rank: pr.rank,   // beta 0.5: its place in its category's list (the preset browsers' default order)
+  ...(pr.stars ? { stars: pr.stars } : {}),   // beta 0.3: OktoPierre's vote in his listening test (the browsers' marks)
   values: PARAMS.map(p => (pr.v[p.key] !== undefined ? pr.v[p.key] : p.def)),
 }));
 const wavelets = wav.order.map((n, i) => ({ id: n, name: PARAMS[INDEX.wavelet].choices[i], h: wav.h[n] }));
 
 // ---------------------------------------------------------------- web
 const web = {
-  DEVICE, APP, DEFAULT_PRESET: defaultPresetIndex, FAVOURITES, CATEGORIES, PARAMS, SECTIONS, WAVELETS: wavelets,
+  DEVICE, APP, DEFAULT_PRESET: defaultPresetIndex, TOP, CATEGORIES, PARAMS, SECTIONS, WAVELETS: wavelets,
   PRESETS: presetValues,
   LFO2_TARGETS: LFO2_TARGETS.map(k => INDEX[k]),   // beta 0.3: the parameters LFO 2 can move (lfo2_target order)
 };
@@ -99,9 +100,17 @@ h += 'inline constexpr PresetDef kPresets[] = {\n';
 for (const pr of presetValues) h += `  { ${q(pr.name)}, ${q(pr.cat)}, { ${pr.values.map(v => num(v)).join(', ')} } },\n`;
 h += '};\n';
 h += `inline constexpr int kNumPresets = ${presetValues.length};\n`;
-h += `inline constexpr int kNumFavourites = ${FAVOURITES};   // the first presets: OktoPierre's favourites\n`;
-h += `// beta 0.3: OktoPierre's vote of each preset in his listening test (0 = none); the browser's TOP Sounds = favourites + 8..10\n`;
+h += `inline constexpr int kNumTop = ${TOP};   // beta 0.5: the first presets are TOP Sounds, in their order\n`;
+h += `// beta 0.3: OktoPierre's vote of each preset in his listening test (0 = none; a mark in the browser)\n`;
 h += `inline constexpr int kPresetStars[] = { ${PRESETS.map(p => p.stars || 0).join(', ')} };\n`;
+h += `// beta 0.5: each preset's place in its category's list (the preset browser's default order)\n`;
+h += `inline constexpr int kPresetRank[] = { ${PRESETS.map(p => p.rank).join(', ')} };\n`;
+h += `// the factory categories, in browser and menu order (after TOP Sounds)\n`;
+h += `inline constexpr const char* kCategories[] = { ${CATEGORIES.map(q).join(', ')} };\n`;
+h += `inline constexpr int kNumCategories = ${CATEGORIES.length};\n`;
+h += `// beta 0.5: factory presets of earlier versions, left out (a Live Set saved with one shows its name)\n`;
+h += `inline constexpr const char* kLeftOutPresets[] = { ${LEFT_OUT.map(q).join(', ')} };\n`;
+h += `inline constexpr int kNumLeftOut = ${LEFT_OUT.length};\n`;
 h += `inline constexpr int kDefaultPreset = ${defaultPresetIndex};   // ${DEFAULT_PRESET}\n\n`;
 h += `// beta 0.3: the parameters LFO 2 can move, in the order of the lfo2_target choices\n`;
 h += `inline constexpr int kLfo2Targets[] = { ${LFO2_TARGETS.map(k => `P_${k.toUpperCase()}`).join(', ')} };\n\n`;

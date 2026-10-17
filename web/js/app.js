@@ -94,9 +94,9 @@
   // ---------------------------------------------------------------- presets
   function presetList() {
     const list = [];
-    // ★ FAVOURITES (OktoPierre's sounds, first in the factory order), then one group per category.
+    // ★ TOP SOUNDS (OktoPierre's selection, first in the factory order; beta 0.5), then one group per category.
     SPEC.PRESETS.forEach((pr, k) => list.push({
-      id: 'f:' + k, name: pr.name, group: k < SPEC.FAVOURITES ? '★ FAVOURITES' : pr.cat.toUpperCase(),
+      id: 'f:' + k, name: pr.name, group: k < SPEC.TOP ? '★ TOP SOUNDS' : pr.cat.toUpperCase(),
       current: presetId === 'f:' + k, deletable: false,
     }));
     userPresets.forEach((pr, k) => list.push({ id: 'u:' + k, name: pr.name, group: 'USER PRESETS', current: presetId === 'u:' + k, deletable: true }));
@@ -338,6 +338,15 @@
     if (learn >= 0 && e.key === 'Escape') { stopLearn('MIDI learn cancelled'); return; }
     if (learn >= 0 && (e.key === 'Delete' || e.key === 'Backspace')) { linkCC(0, learn, true); e.preventDefault(); return; }
     if (e.key === 'Escape') { if ($('manual-overlay').hidden && demo && demo.running()) demo.stop(); closeManual(); return; }
+    // beta 0.5: the arrow keys choose presets (in the browser's list when it is open, else the previous / next preset); held,
+    // they go on
+    const arrow = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.key];
+    if (arrow && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) &&
+        $('manual-overlay').hidden && !(demo && demo.running())) {
+      if (!ui.browserKey(arrow)) presetStep(arrow === 'up' || arrow === 'left' ? -1 : 1);
+      e.preventDefault();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     if (!$('manual-overlay').hidden) return;

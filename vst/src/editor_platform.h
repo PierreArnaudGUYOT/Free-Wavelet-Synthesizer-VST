@@ -76,8 +76,10 @@ struct EditorEvents {
   virtual void mouseUp() = 0;
   virtual void mouseLeave() = 0;
   virtual void wheel(float x, float y, int dir) = 0;
+  virtual bool key(int k) = 0;   // beta 0.5: an arrow key (kKeyLeft .. kKeyDown); true when the editor used it
   virtual void testCommand(int cmd) = 0;   // developer tests: a preset-menu command
 };
+enum : int { kKeyLeft = 1, kKeyUp, kKeyRight, kKeyDown };
 
 // the system window, as the editor sees it
 struct EditorWindow {
@@ -86,6 +88,7 @@ struct EditorWindow {
   virtual void invalidateAll() = 0;
   virtual void setSize(int w, int h) = 0;
   virtual void capture(bool on) = 0;   // the mouse while dragging
+  virtual void takeFocus() = 0;   // beta 0.5: the keyboard to the editor (a click in the preset browser: the arrow keys)
   virtual bool shiftDown() = 0;
   virtual bool ctrlDown() = 0;   // Ctrl (Windows) or Cmd (macOS): a click resets a knob
   virtual int popupMenu(const std::vector<MenuItem>& items, float x, float y) = 0;   // logical point; the command or 0

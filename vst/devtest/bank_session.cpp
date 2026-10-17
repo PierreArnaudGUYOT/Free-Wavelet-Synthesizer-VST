@@ -25,6 +25,7 @@ namespace Gdiplus { using std::min; using std::max; }
 #include <vector>
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/base/ipluginbase.h"
+#include "pluginterfaces/base/keycodes.h"
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
@@ -287,6 +288,36 @@ static void clickPosted(Host& h, float x, float y) {
   PostMessageW(h.ed, WM_LBUTTONUP, 0, p);
 }
 static int clientW(Host& h) { RECT rc; GetClientRect(h.ed, &rc); return rc.right; }
+// beta 0.5: a drag from one point to another (a sound of the browser onto a category)
+static void dragTo(Host& h, float x0, float y0, float x1, float y1) {
+  SendMessageW(h.ed, WM_MOUSEMOVE, 0, MAKELPARAM((int)x0, (int)y0));
+  SendMessageW(h.ed, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM((int)x0, (int)y0));
+  for (int k = 1; k <= 12; k++)
+    SendMessageW(h.ed, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM((int)std::lround(x0 + (x1 - x0) * k / 12), (int)std::lround(y0 + (y1 - y0) * k / 12)));
+  SendMessageW(h.ed, WM_LBUTTONUP, 0, MAKELPARAM((int)x1, (int)y1));
+  h.pump();
+}
+// beta 0.5: an arrow key sent to the editor window (as Windows does once the browser was clicked)
+static void keyTo(Host& h, WPARAM vk) {
+  SendMessageW(h.ed, WM_KEYDOWN, vk, 1);
+  SendMessageW(h.ed, WM_KEYUP, vk, 0xC0000001);
+  h.run(0.05);
+}
+// a value as the presets file writes it (up to 6 decimals, no trailing zeros)
+static std::string num6(double v) {
+  char b[64]; std::snprintf(b, sizeof b, "%.6f", v);
+  std::string x = b;
+  while (!x.empty() && x.back() == '0') x.pop_back();
+  if (!x.empty() && x.back() == '.') x.pop_back();
+  return x;
+}
+// the lines of one list of the presets file's LIST ORDER ("" when missing)
+static std::string listOf(const std::string& txt, const std::string& label) {
+  const size_t lo = txt.find("######## LIST ORDER"), a = txt.find("== " + label + " ==\r\n", lo);
+  if (lo == std::string::npos || a == std::string::npos) return "";
+  const size_t b = txt.find("\r\n\r\n", a);
+  return txt.substr(a, b == std::string::npos ? std::string::npos : b - a);
+}
 // the browser geometry of the editor (logical = pixels at 100 %): card 1104..1452
 static const float CAT_X = 1175, ROW_X = 1340;
 static float catY(int i) { return 92 + 26.0f * i; }
@@ -322,9 +353,9 @@ int wmain(int argc, wchar_t** argv) {
   SetProcessDPIAware();
   WNDCLASSW wc{}; wc.lpfnWndProc = topProc; wc.hInstance = GetModuleHandleW(nullptr); wc.lpszClassName = L"WsBankTestTop";
   RegisterClassW(&wc);
-  const int kSaw = presetIndex("A \xC2\xB7 Deep Saw Bass"), kPad = presetIndex("A \xC2\xB7 Warm Pad");
+  const int kSaw = presetIndex("A \xC2\xB7 Reese Sub"), kPad = presetIndex("A \xC2\xB7 Warm Pad");
   check(kSaw >= 0 && kPad >= 0, "test presets exist");
-  const std::string sawX = "A \xC2\xB7 Deep Saw Bass X", sawZ = "A \xC2\xB7 Deep Saw Bass Z";
+  const std::string sawX = "A \xC2\xB7 Reese Sub X", sawZ = "A \xC2\xB7 Reese Sub Z";
   double cutZ = 0;
 
   // ================================================================ first run of the plug-in
@@ -346,10 +377,10 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("1. browsing: Bass, then its 5th sound\n");
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(1));   // Bass (after ★ Favourites)
-    clickAt(h, ROW_X, rowY(4));   // its 4 favourites first, then A · Deep Saw Bass
+    clickAt(h, CAT_X, catY(2));   // Bass (after TOP Sounds and Source Phase, beta 0.5)
+    clickAt(h, ROW_X, rowY(2));   // its third sound: A · Reese Sub
     h.run(0.2);
-    check(h.stateName() == "A \xC2\xB7 Deep Saw Bass", "a click on a sound loads it", h.stateName());
+    check(h.stateName() == "A \xC2\xB7 Reese Sub", "a click on a sound loads it", h.stateName());
     h.shot(out + L"\\2_bass.png");
 
     std::printf("2. SAVE PRESET: the factory preset adjusted, under a new name\n");
@@ -360,14 +391,14 @@ int wmain(int argc, wchar_t** argv) {
     Responder r1;
     r1.start({{L"Save preset", [&](HWND d) {
       wchar_t b[128] = {}; GetDlgItemTextW(d, 101, b, 128); proposed = b; combo = GetDlgItem(d, 102) != nullptr;
-      SetDlgItemTextW(d, 101, L"A · Deep Saw Bass X");
+      SetDlgItemTextW(d, 101, L"A · Reese Sub X");
       press(d, IDOK);
     }}});
     clickPosted(h, SAVE_X, SAVE_Y);
     r1.wait(h);
-    std::string txt = readFile(lib), blk = factoryBlock(txt, "A \xC2\xB7 Deep Saw Bass");
-    check(u8(proposed) == "A \xC2\xB7 Deep Saw Bass" && !combo, "the save window proposes the name (no section for a factory preset)", u8(proposed));
-    check(has(blk, "Preset: " + sawX + "\r\nFactory: A \xC2\xB7 Deep Saw Bass\r\nAdjusted: yes\r\n") && has(blk, "  f_cutoff: 5.5   ("),
+    std::string txt = readFile(lib), blk = factoryBlock(txt, "A \xC2\xB7 Reese Sub");
+    check(u8(proposed) == "A \xC2\xB7 Reese Sub" && !combo, "the save window proposes the name (no section for a factory preset)", u8(proposed));
+    check(has(blk, "Preset: " + sawX + "\r\nFactory: A \xC2\xB7 Reese Sub\r\nAdjusted: yes\r\n") && has(blk, "  f_cutoff: " + num6(cut) + "   ("),
           "presets file: the preset adjusted, renamed, its new cutoff", fmt("cutoff %.3f", cut));
     check(count(txt, "Adjusted: no") == kNumPresets - 1 && has(txt, "######## USER BANK ########") && has(txt, "Preset: Old Pad"),
           "presets file: every other factory preset and the user bank");
@@ -415,8 +446,8 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("7. RESTORE (browser, factory tab)\n");
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(1));
-    clickAt(h, ROW_X, rowY(4));
+    clickAt(h, CAT_X, catY(2));
+    clickAt(h, ROW_X, rowY(2));
     h.run(0.2);
     check(h.stateName() == sawX && std::fabs(h.plain(P_F_CUTOFF) - cut) < 1e-9, "the adjusted preset loads with its new sound", h.stateName());
     Responder r6;
@@ -424,16 +455,16 @@ int wmain(int argc, wchar_t** argv) {
     clickPosted(h, btnX(1), BTN_Y);
     r6.wait(h);
     h.run(0.2);
-    blk = factoryBlock(readFile(lib), "A \xC2\xB7 Deep Saw Bass");
-    check(has(blk, "Preset: A \xC2\xB7 Deep Saw Bass\r\nFactory: A \xC2\xB7 Deep Saw Bass\r\nAdjusted: no"), "the file has the original again");
-    check(h.stateName() == "A \xC2\xB7 Deep Saw Bass" && std::fabs(h.plain(P_F_CUTOFF) - kPresets[kSaw].v[P_F_CUTOFF]) < 1e-9, "the original sound plays", h.stateName());
+    blk = factoryBlock(readFile(lib), "A \xC2\xB7 Reese Sub");
+    check(has(blk, "Preset: A \xC2\xB7 Reese Sub\r\nFactory: A \xC2\xB7 Reese Sub\r\nAdjusted: no"), "the file has the original again");
+    check(h.stateName() == "A \xC2\xB7 Reese Sub" && std::fabs(h.plain(P_F_CUTOFF) - kPresets[kSaw].v[P_F_CUTOFF]) < 1e-9, "the original sound plays", h.stateName());
 
     std::printf("8. adjusted again (kept for the next run), exported\n");
     h.drag(50, 408, -30);
     h.run(0.2);
     cutZ = h.plain(P_F_CUTOFF);
     Responder r7;
-    r7.start({{L"Save preset", [&](HWND d) { SetDlgItemTextW(d, 101, L"A · Deep Saw Bass Z"); press(d, IDOK); }}});
+    r7.start({{L"Save preset", [&](HWND d) { SetDlgItemTextW(d, 101, L"A · Reese Sub Z"); press(d, IDOK); }}});
     clickPosted(h, SAVE_X, SAVE_Y);
     r7.wait(h);
     clickAt(h, btnX(3), BTN_Y);   // EXPORT (WS_PRESETS_EXPORT: no dialog)
@@ -441,11 +472,11 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("8b. TOP Sounds; DELETE a factory preset, the arrows skip it, it comes back\n");
     clickAt(h, CAT_X, catY(0));   // TOP Sounds
-    clickAt(h, ROW_X, rowY(15));  // after the 15 favourites: the best vote (10, A · Wave Robot)
+    clickAt(h, ROW_X, rowY(2));   // beta 0.5: its third sound, the third of the factory order
     h.run(0.2);
-    check(h.stateName() == "A \xC2\xB7 Wave Robot", "TOP Sounds: the favourites, then the best voted (Wave Robot, 10)", h.stateName());
-    clickAt(h, CAT_X, catY(1));   // Bass
-    clickAt(h, ROW_X, rowY(5));   // after Deep Saw Bass: A · Wave Morph Bass
+    check(h.stateName() == kPresets[2].name, "TOP Sounds: OktoPierre's selection, in the factory order", h.stateName());
+    clickAt(h, CAT_X, catY(2));   // Bass
+    clickAt(h, ROW_X, rowY(4));   // A · Ladder Bass
     h.run(0.2);
     const std::string victim = h.stateName();
     const int kVictim = presetIndex(victim.c_str());
@@ -494,13 +525,13 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("10b. MOVE UP in a category and in the user bank\n");
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(1));   // Bass
-    clickAt(h, ROW_X, rowY(4));   // A · Deep Saw Bass Z
+    clickAt(h, CAT_X, catY(2));   // Bass
+    clickAt(h, ROW_X, rowY(2));   // A · Reese Sub Z
     h.run(0.1);
     clickAt(h, UP_X, MOVE_Y);
     txt = readFile(lib);
-    check(has(txt, "== Bass ==\r\n1. A \xC2\xB7 Haar Bass\r\n2. A \xC2\xB7 Infra Sub Bass\r\n3. A \xC2\xB7 Fuzz Bass\r\n4. A \xC2\xB7 Deep Saw Bass   (now: " + sawZ + ")\r\n5. B \xC2\xB7 Mirror Sub Bass\r\n"),
-          "▲: the list order in the file (4th now)");
+    check(has(txt, "== Bass ==\r\n1. B \xC2\xB7 Mirror Sub Bass\r\n2. A \xC2\xB7 Reese Sub   (now: " + sawZ + ")\r\n3. A \xC2\xB7 Wave Wobble Bass\r\n4. A \xC2\xB7 Acid Sub\r\n"),
+          "▲: the list order in the file (2nd now)");
     check(h.stateName() == sawZ, "the same sound still plays", h.stateName());
     Responder r10;
     r10.start({{L"Save to user bank", [&](HWND d) { SetDlgItemTextW(d, 101, L"Pad Two"); SendDlgItemMessageW(d, 102, CB_SETCURSEL, 4, 0); press(d, IDOK); }}});
@@ -539,31 +570,35 @@ int wmain(int argc, wchar_t** argv) {
     check(S.open(getFactory()), "editor attached again");
     Host& h = S.h;
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(1));   // Bass: the order moved before the reload
-    clickAt(h, ROW_X, rowY(3));
+    clickAt(h, CAT_X, catY(2));   // Bass: the order moved before the reload
+    clickAt(h, ROW_X, rowY(1));
     h.run(0.2);
     check(h.stateName() == sawZ && std::fabs(h.plain(P_F_CUTOFF) - cutZ) < 1e-6, "the adjusted preset, its name, sound and place in Bass, after a reload",
           h.stateName() + fmt("  cutoff %.3f", h.plain(P_F_CUTOFF)));
     h.shot(out + L"\\6_reopened.png");
 
-    std::printf("13. the scroll bar (beta 0.4): the 100 sounds of Source Phase, the thumb dragged, the bar clicked\n");
+    std::printf("13. the scroll bar (beta 0.4): the 44 sounds of Source Phase, the thumb dragged, the bar clicked\n");
+    std::vector<int> spk;
+    for (int k = 0; k < kNumPresets; k++) if (std::strcmp(kPresets[k].cat, "Source Phase") == 0) spk.push_back(k);
+    std::sort(spk.begin(), spk.end(), [](int a, int b) { return kPresetRank[a] < kPresetRank[b]; });   // the browser's order
     std::vector<std::string> sp;
-    for (int k = 0; k < kNumPresets; k++) if (std::strcmp(kPresets[k].cat, "Source Phase") == 0) sp.push_back(kPresets[k].name);
+    for (int k : spk) sp.push_back(kPresets[k].name);
+    const size_t nsp = sp.size();
     const float BAR_X = 1104 + 136 + 186 + 2 + 6, BAR_TOP = 8 + 98, BAR_H = 548;   // the bar right of the list
-    clickAt(h, CAT_X, catY(13));   // Source Phase: TOP Sounds, the 11 types, Init, then Source Phase
+    clickAt(h, CAT_X, catY(1));   // Source Phase (beta 0.5: second, after TOP Sounds)
     h.drag(BAR_X, BAR_TOP + 10, BAR_H);   // the thumb from the top to the bottom
     clickAt(h, ROW_X, rowY(0));
     h.run(0.2);
-    check(sp.size() == 100 && h.stateName() == sp[100 - 24], "thumb dragged to the bottom: the first row shown is the 77th sound", h.stateName());
-    clickAt(h, BAR_X, BAR_TOP + BAR_H / 2);   // a click in the middle of the bar: the thumb is centred there
+    check(nsp == 44 && h.stateName() == sp[nsp - 24], "thumb dragged to the bottom: the first row shown is the 21st sound", h.stateName());
+    clickAt(h, BAR_X, BAR_TOP + 20);   // a click on the bar above the thumb: the thumb goes there (the top)
     clickAt(h, ROW_X, rowY(0));
     h.run(0.2);
-    check(h.stateName() == sp[38], "a click on the bar puts the thumb there (row 39 first)", h.stateName());
+    check(h.stateName() == sp[0], "a click on the bar above the thumb scrolls back to the top", h.stateName());
     h.shot(out + L"\\8_scroll.png");
 
     std::printf("14. IMPORT (beta 0.4): another presets file replaces the library, a backup copy is kept\n");
     const std::wstring imp = out + L"\\import me.txt", bad = out + L"\\not presets.txt";
-    std::string itxt = readFile(exported);   // the export of step 8 (Deep Saw Bass Z, the bank with Old Pad)
+    std::string itxt = readFile(exported);   // the export of step 8 (Reese Sub Z, the bank with Old Pad)
     const size_t op = itxt.find("Preset: Old Pad");
     if (op != std::string::npos) itxt.replace(op, 15, "Preset: Imported Pad");
     { FILE* f = _wfopen(imp.c_str(), L"wb"); std::fwrite(itxt.data(), 1, itxt.size(), f); std::fclose(f); }
@@ -602,6 +637,67 @@ int wmain(int argc, wchar_t** argv) {
       if (fh != INVALID_HANDLE_VALUE) { do { nb++; if (readFile(dir + L"\\" + fd.cFileName) == before) firstKept = true; } while (FindNextFileW(fh, &fd)); FindClose(fh); } }
     check(nb == 2 && firstKept, "a second import: a second backup copy, the first one (the presets before any import) kept", std::to_string(nb) + " backups");
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", nullptr);
+
+    std::printf("15. beta 0.5: a sound dragged to another category, its menu, TOP Sounds, the arrow keys, a bank sound moved\n");
+    const std::string mss = "A \xC2\xB7 Mirror Sub Bass Shift", ck = "A \xC2\xB7 Clean Keys", hk = "AB \xC2\xB7 Hybrid Keys",
+                      to1 = "B \xC2\xB7 Theatre Organ";
+    std::string txt;
+    clickAt(h, TAB0_X, TAB_Y);
+    clickAt(h, CAT_X, catY(1));   // Source Phase
+    dragTo(h, ROW_X, rowY(0), CAT_X, catY(2));   // its first sound onto Bass
+    h.run(0.2);
+    txt = readFile(lib);
+    check(h.stateName() == mss, "the sound pressed plays", h.stateName());
+    check(has(txt, "######## LIST ORDER v2") && has(listOf(txt, "Bass"), "7. " + mss) && !has(listOf(txt, "Source Phase"), mss),
+          "dragged onto Bass: the file's Bass list ends with it, Source Phase no longer has it", listOf(txt, "Bass"));
+    clickAt(h, CAT_X, catY(2));
+    clickAt(h, ROW_X, rowY(6));
+    h.run(0.2);
+    check(h.stateName() == mss, "Bass shows it (7th)", h.stateName());
+    h.shot(out + L"\\9_moved.png");
+    h.command(7000 + 1);   // the sound menu: Move to / Back to Source Phase (list 1)
+    txt = readFile(lib);
+    check(has(listOf(txt, "Source Phase"), "== Source Phase ==\r\n1. " + mss + "\r\n") && !has(listOf(txt, "Bass"), mss),
+          "back to Source Phase, at its own place (first)", listOf(txt, "Source Phase").substr(0, 80));
+    clickAt(h, CAT_X, catY(4));   // Keys
+    {   // A · Clean Keys onto TOP Sounds, with a picture while it is dragged (the category under it lit, its name)
+      const auto lp = [](float x, float y) { return MAKELPARAM((int)std::lround(x), (int)std::lround(y)); };
+      SendMessageW(h.ed, WM_MOUSEMOVE, 0, lp(ROW_X, rowY(0)));
+      SendMessageW(h.ed, WM_LBUTTONDOWN, MK_LBUTTON, lp(ROW_X, rowY(0)));
+      for (int k = 1; k <= 12; k++)
+        SendMessageW(h.ed, WM_MOUSEMOVE, MK_LBUTTON, lp(ROW_X + (CAT_X - ROW_X) * k / 12, rowY(0) + (catY(0) - rowY(0)) * k / 12));
+      h.pump();
+      h.shot(out + L"\\9b_dragging.png");
+      SendMessageW(h.ed, WM_LBUTTONUP, 0, lp(CAT_X, catY(0)));
+      h.pump();
+    }
+    h.run(0.2);
+    txt = readFile(lib);
+    check(h.stateName() == ck && has(listOf(txt, "TOP Sounds"), std::to_string(kNumTop + 1) + ". " + ck) && has(listOf(txt, "Keys"), "1. " + ck),
+          "dragged onto TOP Sounds: added at its end, still in Keys", h.stateName());
+    h.command(7101);   // the sound menu: Remove from TOP Sounds
+    txt = readFile(lib);
+    check(!has(listOf(txt, "TOP Sounds"), ck) && has(listOf(txt, "Keys"), "1. " + ck), "taken out of TOP Sounds again (still in Keys)");
+    keyTo(h, VK_DOWN);   // Keys is shown, Clean Keys playing
+    check(h.stateName() == hk, "↓: the next sound of the list plays", h.stateName());
+    keyTo(h, VK_UP);
+    check(h.stateName() == ck, "↑: the sound above", h.stateName());
+    keyTo(h, VK_RIGHT);   // the next category: Organ
+    check(h.stateName() == ck, "→ shows the next category without changing the sound", h.stateName());
+    keyTo(h, VK_DOWN);
+    check(h.stateName() == to1, "↓ there: its first sound (B · Theatre Organ)", h.stateName());
+    h.view->onKeyDown(0, KEY_DOWN, 0);   // VST3: the key as a host passes it
+    h.run(0.05);
+    check(h.stateName() == "B \xC2\xB7 Full Drawbar Organ", "IPlugView::onKeyDown(KEY_DOWN): the next one", h.stateName());
+    check(h.view->onKeyDown('a', 0, 0) == kResultFalse, "another key is left to the host");
+    clickAt(h, TAB1_X, TAB_Y);    // the user bank: Imported Pad (Pad)
+    clickAt(h, CAT_X, catY(4));   // Pad
+    dragTo(h, ROW_X, rowY(0), CAT_X, catY(1));   // onto Lead
+    h.run(0.2);
+    txt = readFile(lib);
+    check(has(txt, "== Lead ==\r\n\r\nPreset: Imported Pad\r\n") && h.stateName() == "USER \xC2\xB7 Imported Pad", "a bank sound dragged onto Lead moves there",
+          h.stateName());
+    h.shot(out + L"\\10_bank_moved.png");
     S.close();
     FreeLibrary(mod);
   }

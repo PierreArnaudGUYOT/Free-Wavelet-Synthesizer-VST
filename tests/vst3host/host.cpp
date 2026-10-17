@@ -4945,9 +4945,17 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 			s += x + "; ";
 		return s;
 	};
-	const std::string kSM2 = "A · Square Mod 2", kMSB = "B · Mirror Sub Bass", kHaar = "A · Haar Bass", kFlute = "B · Soft Flute",
-	                  kWarm = "A · Warm Pad", kBInit = "B · Init", kAInit = "A · Init", kFocus = "B · Focus Sweep";
-	for (auto& n : {kSM2, kMSB, kHaar, kFlute, kWarm, kBInit, kAInit, kFocus})
+	// beta 0.5: OktoPierre left 103 presets out ("A · Square Mod 2", old index 4, among them): kWL is the beta 0.1 preset the
+	// WSC1 checks load, kSM2 the left-out one whose name a project keeps
+	const std::string kSM2 = "A · Square Mod 2", kWL = "A · Wavelet Lead", kMSB = "B · Mirror Sub Bass", kHaar = "A · Reese Sub",
+	                  kFlute = "B · Chorus Flute", kWarm = "A · Warm Pad", kBInit = "B · Init", kAInit = "A · Init", kFocus = "B · Focus Sweep";
+	const int kOldWL = 8, kOldSM2 = 4;   // their indices in the beta 0.1 order (WSC1)
+	if (spec (kSM2))
+	{
+		fail ("controller state: 'A · Square Mod 2' is left out of tools/spec.js (beta 0.5)");
+		return;
+	}
+	for (auto& n : {kWL, kMSB, kHaar, kFlute, kWarm, kBInit, kAInit, kFocus})
 		if (!spec (n))
 		{
 			fail ("controller state: preset '" + n + "' exists in tools/spec.js");
@@ -5139,14 +5147,26 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 			Instance* W = fresh ("W");
 			if (!W)
 				return;
-			const SpecPreset* sm2 = spec (kSM2);
-			load (W, exact[kSM2]);
-			tresult r = ctlSet (*W, makeWSC1 (1.0f, 4, 0));
+			const SpecPreset* wl = spec (kWL);
+			load (W, exact[kWL]);
+			tresult r = ctlSet (*W, makeWSC1 (1.0f, kOldWL, 0));
 			CtlState s = ctlNow (*W);
-			auto off = valuesOff (W, *sm2, (ParamID)-1);
-			check (r == kResultOk && s.parsed && s.name == kSM2 && s.dirty == 0 && sm2->index == 0 && off.empty (),
-			       "WSC1 old index 4, flag 0 -> 'A · Square Mod 2' (new index 0), unmodified, with its values",
-			       strf ("setState %d; %s; new index %d ", r, s.str ().c_str (), sm2->index) + join (off));
+			auto off = valuesOff (W, *wl, (ParamID)-1);
+			check (r == kResultOk && s.parsed && s.name == kWL && s.dirty == 0 && off.empty (),
+			       strf ("WSC1 old index %d, flag 0 -> '%s' (new index %d), unmodified, with its values", kOldWL, kWL.c_str (), wl->index),
+			       strf ("setState %d; %s ", r, s.str ().c_str ()) + join (off));
+			// beta 0.5: a preset left out since (old index 4, 'A · Square Mod 2'): the project keeps its name, as saved
+			load (W, modHaar);
+			r = ctlSet (*W, makeWSC1 (1.0f, kOldSM2, 0));
+			s = ctlNow (*W);
+			check (r == kResultOk && s.parsed && s.name == kSM2 && s.dirty == 0,
+			       "WSC1 old index 4 -> 'A · Square Mod 2', left out in beta 0.5: its name is kept (the sound is the loaded one)", s.str ());
+			r = ctlSet (*W, makeWSC2 (1.0f, 1, "A · Haar Bass"));
+			std::vector<uint8_t> gl;
+			ctlGet (*W, gl);
+			s = parseCtlState (gl);
+			check (r == kResultOk && gl == makeWSC2 (1.0f, 1, "A · Haar Bass"),
+			       "WSC2 with a left-out preset ('A · Haar Bass', modified): setState then getState gives the same bytes", s.str ());
 			load (W, modMirror);
 			r = ctlSet (*W, makeWSC1 (1.0f, 1, 1));
 			s = ctlNow (*W);
@@ -5356,33 +5376,40 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 		}
 		pump (400);
 		const int baseW = er.size.getWidth (), baseH = er.size.getHeight ();
+		// beta 0.5: the factory order starts with TOP Sounds, 'B · Mirror Sub Bass' first; 'A · Warm Pad' (the opening
+		// preset) and 'A · Wavelet Lead' are further on
 		const POINT prev = er.scaled ({581, 24}), next = er.scaled ({779, 24});
-		for (int k = 0; k < 10; k++)
+		const int iWarm = spec (kWarm)->index, iWL = spec (kWL)->index;
+		for (int k = 0; k < iWarm; k++)
 		{
 			er.click (prev);
 			pump (100);
 		}
 		CtlState s = ctlNow (*R);
-		check (s.parsed && s.name == kSM2 && s.dirty == 0, "editor: 10 x previous from 'A · Warm Pad' -> 'A · Square Mod 2' (first in the menu)", s.str ());
-		Crop refSM2 = presetFieldCrop (er, "ctlstate_ref_square_mod_2.png");
+		check (s.parsed && s.name == kMSB && s.dirty == 0 && spec (kMSB)->index == 0,
+		       strf ("editor: %d x previous from 'A · Warm Pad' -> 'B · Mirror Sub Bass' (first in the menu)", iWarm), s.str ());
+		Crop refMSB = presetFieldCrop (er, "ctlstate_ref_mirror_sub_bass.png");
 		er.click (prev);
 		pump (100);
 		s = ctlNow (*R);
-		// the last preset of the factory order (since beta 0.4 the Source Phase section follows Init)
-		const std::string kLast = g_specPresets.list.empty () ? kBInit : g_specPresets.list.back ().name;
+		const std::string kLast = g_specPresets.list.empty () ? kBInit : g_specPresets.list.back ().name;   // the last of the factory order
 		check (s.parsed && s.name == kLast, "editor: previous on the first preset wraps to the last ('" + kLast + "')", s.str ());
-		for (int k = 0; k < 12; k++)
+		Crop refLast = presetFieldCrop (er, "ctlstate_ref_last.png");
+		for (int k = 0; k <= iWL; k++)
 		{
 			er.click (next);
 			pump (100);
 		}
 		s = ctlNow (*R);
-		check (s.parsed && s.name == kMSB && s.dirty == 0, "editor: then 12 x next -> 'B · Mirror Sub Bass' (index 11)", s.str ());
-		Crop refMSB = presetFieldCrop (er, "ctlstate_ref_mirror_sub_bass.png");
+		check (s.parsed && s.name == kWL && s.dirty == 0, strf ("editor: then %d x next -> '%s' (index %d)", iWL + 1, kWL.c_str (), iWL), s.str ());
+		Crop refWL = presetFieldCrop (er, "ctlstate_ref_wavelet_lead.png");
+		R->setComponentStateOnController (exact[kMSB]);
+		s = ctlNow (*R);
+		check (s.parsed && s.name == kMSB && s.dirty == 0, "editor: exact 'B · Mirror Sub Bass' values -> that preset", s.str ());
 		R->setComponentStateOnController (modMirror);
 		s = ctlNow (*R);
 		Crop refMSBmod = presetFieldCrop (er, "ctlstate_ref_mirror_sub_bass_modified.png");
-		const double dm = cropDiff (refMSB, refMSBmod), dd = cropDiff (refSM2, refMSB);
+		const double dm = cropDiff (refMSB, refMSBmod), dd = cropDiff (refLast, refMSB);
 		check (s.dirty == 1 && dm > 0.003, "editor marks the preset modified when non-factory values arrive (field changes)",
 		       s.str () + "; " + cropDiffStr (dm));
 		check (dd > 0.01, "sanity: the preset field differs between two presets", cropDiffStr (dd));
@@ -5392,15 +5419,22 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 		Instance* L1 = fresh ("L1");
 		if (!L1)
 			return;
-		load (L1, exact[kSM2]);
-		ctlSet (*L1, makeWSC1 (1.0f, 4, 0));
+		load (L1, exact[kWL]);
+		ctlSet (*L1, makeWSC1 (1.0f, kOldWL, 0));
 		{
 			EditorSession e1;
 			if (e1.open (*L1, 1.0, false, "reloaded WSC1 editor"))
 			{
-				Crop c = presetFieldCrop (e1, "ctlstate_reload_wsc1_square_mod_2.png");
-				double d = cropDiff (c, refSM2);
-				check (same (d), "editor after reloading a beta 0.1 project (WSC1 index 4) shows 'A · Square Mod 2'", cropDiffStr (d));
+				Crop c = presetFieldCrop (e1, "ctlstate_reload_wsc1_wavelet_lead.png");
+				double d = cropDiff (c, refWL);
+				check (same (d), strf ("editor after reloading a beta 0.1 project (WSC1 index %d) shows '%s'", kOldWL, kWL.c_str ()), cropDiffStr (d));
+				// beta 0.5: a project saved with a preset left out since: the field shows its name, not another preset's
+				load (L1, modHaar);
+				ctlSet (*L1, makeWSC1 (1.0f, kOldSM2, 0));
+				Crop cf = presetFieldCrop (e1, "ctlstate_reload_wsc1_square_mod_2_left_out.png");
+				const double df = std::min ({cropDiff (cf, refWL), cropDiff (cf, refMSB), cropDiff (cf, refLast)});
+				check (ctlNow (*L1).name == kSM2 && df > 0.01, "editor after reloading WSC1 index 4 shows the left-out 'A · Square Mod 2' (its own name)",
+				       ctlNow (*L1).str () + "; " + cropDiffStr (df));
 				load (L1, modMirror);
 				ctlSet (*L1, makeWSC2 (1.0f, 1, kMSB));
 				Crop c2 = presetFieldCrop (e1, "ctlstate_open_editor_mirror_sub_bass_modified.png");

@@ -93,13 +93,16 @@ function WSDemo(api) {
   // factory presets or a new menu order do not change the demo. The demo starts at song.origin (7.8 s: its opening
   // chords are cut), so it begins with "B · Clarinet", the preset playing there; the first two are not heard.
   const TOUR_APPASSIONATA = ['A · Warm Pad', 'A · Wavelet Lead',
-    // the opening of the demo (OktoPierre's choice), then his favourite sounds
-    'B · Clarinet', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute', 'A · Infra Sub Bass',
-    'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'B · Mirror Sub Bass', 'A · Sparse Keys', 'B · Space Choir',
-    // beta 0.2: chorus, sub oscillator, engines A + B mixed
-    'A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ', 'AB · Bell Pad',
-    'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'B · Sub Organ Bass', 'AB · Hybrid Keys', 'A · Poly Chorus Pad',
-    'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Space Strings', 'AB · Sub Hybrid Bass', 'A · Chorus Square Lead'];
+    // the opening of the demo (OktoPierre's choice), then (beta 0.5) the first eleven of his TOP Sounds (the piece has room
+    // for 30 presets after the cut)
+    'B · Clarinet', 'B · Mirror Sub Bass', 'A · Mirror Sub Bass Shift', 'B · Theatre Organ', 'A · Wave Riser Shift',
+    'A · Noise Wash Pad', 'A · Wave Atom Choir Shift', 'A · Siren Sweep', 'A · Focus Sweep Shift', 'B · Space Choir',
+    'A · Wave Wobble Bass Shift', 'A · Wavelet Lead',
+    // beta 0.2: chorus, sub oscillator, engines A + B mixed (beta 0.5: the five sounds left out are replaced by kept ones of
+    // the same type: Analog Strings, Ladder Bass, Wave Wobble Bass, Silk Strings, Wobble Bass)
+    'A · String Machine', 'AB · Analog Strings', 'A · Ladder Bass', 'AB · Dream Pad', 'B · Ensemble Organ', 'AB · Bell Pad',
+    'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'A · Wave Wobble Bass', 'AB · Hybrid Keys', 'A · Poly Chorus Pad',
+    'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Silk Strings', 'AB · Wobble Bass', 'A · Chorus Square Lead'];
 
   const STYLE = {
     toccata: { scenes: TOCCATA },

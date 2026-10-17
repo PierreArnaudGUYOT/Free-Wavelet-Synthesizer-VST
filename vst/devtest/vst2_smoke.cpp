@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
   std::memset(buf, 0, sizeof buf); D(fx, 8, P_F_CUTOFF, 0, buf); check(buf[0] != 0 && std::strlen(buf) < 24, "parameter name (cutoff)", buf);
   std::memset(buf, 0, sizeof buf); D(fx, 7, P_F_CUTOFF, 0, buf); check(buf[0] != 0 && std::strlen(buf) < 24, "parameter display (cutoff)", buf);
   std::memset(buf, 0, sizeof buf); D(fx, 5, 0, 0, buf); check(!std::strcmp(buf, "A - Warm Pad"), "starts on program 'A - Warm Pad'", buf);
-  std::memset(buf, 0, sizeof buf); D(fx, 29, 0, 0, buf); check(!std::strcmp(buf, "A - Square Mod 2"), "program 0 name", buf);
+  std::memset(buf, 0, sizeof buf); D(fx, 29, 0, 0, buf); check(!std::strcmp(buf, "B - Mirror Sub Bass"), "program 0 name (beta 0.5: the first TOP Sound)", buf);
   check(D(fx, 29, kNumPresets, 0, buf) == 0, "program name out of range is refused");
 
   D(fx, 10, 0, 0, nullptr, 48000.0f); D(fx, 11, 0, 512); D(fx, 12, 0, 1);

@@ -267,12 +267,25 @@ class MacWindow : public EditorWindow {
     } else if (dy != 0) ev->wheel((float)p.x, (float)p.y, dy > 0 ? 1 : -1);
   }
   void testCommand(int cmd) { ev->testCommand(cmd); }
+  // beta 0.5: the arrow keys (the view takes the keyboard after a click in the preset browser); false: the key goes on
+  // up the responder chain (the host)
+  bool key(NSEvent* e) {
+    if (e.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption)) return false;
+    NSString* s = e.charactersIgnoringModifiers;
+    if (s.length != 1) return false;
+    const unichar c = [s characterAtIndex:0];
+    const int k = c == NSLeftArrowFunctionKey ? kKeyLeft : c == NSUpArrowFunctionKey ? kKeyUp : c == NSRightArrowFunctionKey ? kKeyRight :
+                  c == NSDownArrowFunctionKey ? kKeyDown : 0;
+    return k && ev->key(k);
+  }
+  bool wantsKeys = false;   // the view accepts to be first responder once the preset browser was clicked
 
   // EditorWindow
   void invalidate(int left, int top, int right, int bottom) override { [view setNeedsDisplayInRect:NSMakeRect(left, top, right - left, bottom - top)]; }
   void invalidateAll() override { [view setNeedsDisplay:YES]; }
   void setSize(int w, int h) override { [view setFrameSize:NSMakeSize(w, h)]; [view setNeedsDisplay:YES]; }
   void capture(bool) override {}   // a view receives the drag events of a click that started on it
+  void takeFocus() override { wantsKeys = true; if (view.window && view.window.firstResponder != view) [view.window makeFirstResponder:view]; }
   // the keys held with the mouse event being handled
   bool shiftDown() override { return (mods & NSEventModifierFlagShift) != 0; }
   bool ctrlDown() override { return (mods & NSEventModifierFlagCommand) != 0; }   // Cmd-click resets
@@ -414,6 +427,13 @@ static void viewMouseUp(id self, SEL, NSEvent* e) { if (MacWindow* w = ownerOf(s
 static void viewMouseExited(id self, SEL, NSEvent*) { if (MacWindow* w = ownerOf(self)) w->mouseLeave(); }
 static void viewScrollWheel(id self, SEL, NSEvent* e) { if (MacWindow* w = ownerOf(self)) w->scroll(e); }
 static void viewTestCommand(id self, SEL, NSInteger cmd) { if (MacWindow* w = ownerOf(self)) w->testCommand((int)cmd); }   // developer tests
+static BOOL viewAcceptsFirstResponder(id self, SEL) { MacWindow* w = ownerOf(self); return w && w->wantsKeys; }
+static void viewKeyDown(id self, SEL cmd, NSEvent* e) {
+  MacWindow* w = ownerOf(self);
+  if (w && w->key(e)) return;
+  struct objc_super sup = {self, [NSView class]};   // not an arrow key for the editor: up the responder chain
+  ((void (*)(struct objc_super*, SEL, NSEvent*))objc_msgSendSuper)(&sup, cmd, e);
+}
 
 static Class viewClass() {
   static Class cls = nil;
@@ -435,6 +455,8 @@ static Class viewClass() {
     add(@selector(mouseUp:), (IMP)viewMouseUp);
     add(@selector(mouseExited:), (IMP)viewMouseExited);
     add(@selector(scrollWheel:), (IMP)viewScrollWheel);
+    add(@selector(acceptsFirstResponder), (IMP)viewAcceptsFirstResponder);
+    add(@selector(keyDown:), (IMP)viewKeyDown);
     class_addMethod(c, sel_registerName("wsTestCommand:"), (IMP)viewTestCommand, "v@:q");
     objc_registerClassPair(c);
   }

@@ -190,7 +190,7 @@ console.log('9. no stuck note when a preset changes VOICES while a key is held (
   const load = (eng, vals) => { vals.forEach((v, i) => eng.setParam(i, v)); eng.setTables(C.buildTables(Float64Array.from(vals), true)); };
   const run = (eng, secs) => { const n = 128, L = new Float32Array(n), R = new Float32Array(n); let pk = 0;
     for (let b = 0; b < secs * sr / n; b++) { eng.process(L, R, n); for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i])); } return pk; };
-  const poly = byName('A · Warm Pad'), mono = byName('A · Haar Bass');
+  const poly = byName('A · Warm Pad'), mono = byName('A · Acid Sub');   // VOICES 8 / VOICES 1 (beta 0.5)
   check(poly[C.P.v_voices] > 1 && mono[C.P.v_voices] === 1, 'test presets: one polyphonic, one mono');
   // poly -> mono between note on and note off: before the fix the second voice was never released
   let eng = new C.Engine(sr); load(eng, poly);

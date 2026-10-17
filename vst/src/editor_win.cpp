@@ -156,6 +156,7 @@ class WinWindow : public EditorWindow {
   void invalidateAll() override { InvalidateRect(hwnd, nullptr, FALSE); }
   void setSize(int w, int h) override { SetWindowPos(hwnd, nullptr, 0, 0, w, h, SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE); }
   void capture(bool on) override { if (on) SetCapture(hwnd); else ReleaseCapture(); }
+  void takeFocus() override { if (GetFocus() != hwnd) SetFocus(hwnd); }
   bool shiftDown() override { return (GetKeyState(VK_SHIFT) & 0x8000) != 0; }
   bool ctrlDown() override { return (GetKeyState(VK_CONTROL) & 0x8000) != 0; }
   int popupMenu(const std::vector<MenuItem>& items, float x, float y) override {
@@ -319,6 +320,17 @@ class WinWindow : public EditorWindow {
         double s = e->scale(); const float lx = (float)(pt.x / s), ly = (float)(pt.y / s);
         e->wheel(lx, ly, GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 1 : -1);
         return 0;
+      }
+      // beta 0.5: the arrow keys choose presets while the editor has the keyboard (after a click in the preset browser);
+      // every other key goes on to the host's window (its computer keyboard, its shortcuts)
+      case WM_GETDLGCODE: return DLGC_WANTARROWS;
+      case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR: case WM_SYSKEYDOWN: case WM_SYSKEYUP: case WM_SYSCHAR: {
+        const int k = wp == VK_LEFT ? kKeyLeft : wp == VK_UP ? kKeyUp : wp == VK_RIGHT ? kKeyRight : wp == VK_DOWN ? kKeyDown : 0;
+        if (k && (msg == WM_KEYDOWN || msg == WM_KEYUP) && !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)) {
+          if (msg == WM_KEYUP || e->key(k)) return 0;
+        }
+        if (HWND p = GetParent(h)) return SendMessageW(p, msg, wp, lp);
+        break;
       }
       default: break;
     }

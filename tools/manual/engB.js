@@ -166,14 +166,14 @@ ${recipe('r-organ', 'Drawbar organ', 'Start from: B · Octave Organ (or B · Ini
   `LFO: ${ctl('SINE')}, ${P('lfo_rate')} 6 Hz, ${P('lfo_pitch')} 6 cents — or leave PITCH at 0 and use the mod wheel. ${P('fx_rmix')} 20 %.`,
   `For a percussion accent: ${P('b_sus')} 60 %, ${P('b_body')} 20 s, ${P('b_bright')} 250 ms — the upper bands start loud and settle quickly, the body stays.`,
 ], `<b>Try next:</b> Haar turns every band into a square wave for a reedy organ; ${ctl('WALSH')} gives a hollow combo-organ colour.`)}
-${recipe('r-chip', 'Chip-tune Walsh lead', 'Start from: B · Chip Walsh', [
+${recipe('r-chip', 'Chip-tune Walsh lead', 'Start from: B · Init', [
   `${P('b_pattern')} ${ctl('WALSH')}, ${P('wavelet')} Haar, ${P('b_tilt')} 0 dB/band.`,
   'Drawbars: 1 at 100 %, 2 at 50 %, 3 at 70 %, 5 at 40 %, all others at 0 %.',
   `AMP ENVELOPE: ATTACK 1 ms, DECAY 200 ms, SUSTAIN 60 %, RELEASE 50 ms. ${ctl('VOLUME')} −6 dB.`,
   `${P('v_voices')} 1 and ${P('v_glide')} 30 ms for chip-style slides.`,
   `For a fast trill: LFO ${ctl('SQR')}, ${P('lfo_rate')} 12 Hz, ${P('lfo_pitch')} 50 cents (the pitch flips between −50 and +50 cents).`,
 ], `<b>Try next:</b> move drawbars 2 and 3 to change the Walsh “duty cycle”; add ${P('fx_drive')} 20 %.`)}
-${recipe('r-bell', 'Bell with per-band decays', 'Start from: B · Walsh Bells', [
+${recipe('r-bell', 'Bell with per-band decays', 'Start from: B · Init', [
   `${P('b_pattern')} ${ctl('WALSH')}, ${P('wavelet')} Symlet 8, ${P('b_tilt')} −3 dB/band.`,
   `SCALE ENVELOPE: ${P('b_atk')} 2 ms, ${P('b_spread')} 0 %, ${P('b_body')} 3 s, ${P('b_bright')} 0.4 s, ${P('b_sus')} 0 %.`,
   'AMP ENVELOPE: DECAY 4 s, SUSTAIN 0 %, RELEASE 2 s.',
@@ -187,7 +187,7 @@ ${recipe('r-swell', 'Swelling pad with SPREAD', 'Start from: B · Mirror Pad', [
   `${P('v_unison')} 4, ${P('v_detune')} 18 cents, ${P('v_width')} 70 %. ${P('fx_rmix')} 50 %, ${ctl('VOLUME')} −6 dB.`,
   'Hold a chord: the body is there after about 0.4 s, the finest bands only after 6 s — the pad opens slowly without any filter.',
 ], `<b>Try next:</b> ${P('b_spread')} −100 %: detail first, body last — a reversed, breathy swell.`)}
-${recipe('r-pluck', 'Impulse pluck', 'Start from: B · Impulse Pluck', [
+${recipe('r-pluck', 'Impulse pluck', 'Start from: B · Init', [
   `${P('b_pattern')} ${ctl('IMPULSE')}, ${P('wavelet')} Daubechies 4, ${P('b_tilt')} −2 dB/band.`,
   `SCALE ENVELOPE: ${P('b_atk')} 5 ms, ${P('b_body')} 1.2 s, ${P('b_bright')} 80 ms, ${P('b_sus')} 0 %.`,
   'AMP ENVELOPE: ATTACK 1 ms, DECAY 1.5 s, SUSTAIN 0 %, RELEASE 500 ms.',
@@ -220,7 +220,7 @@ ${recipe('r-filter', 'Filter pluck on an additive source', 'Start from: B · Ini
   'MOD ENVELOPE: DECAY 400 ms, SUSTAIN 0 %. AMP ENVELOPE: DECAY 1 s, SUSTAIN 40 %.',
   `${P('f_vel')} +2 bands for dynamics.`,
 ], '<b>Listen for:</b> the classic subtractive pluck — but because each RAMP band is one octave partial, the resonance steps from one octave partial to the next as the envelope closes.')}
-${recipe('r-legato', 'Legato flute', 'Start from: B · Soft Flute', [
+${recipe('r-legato', 'Legato flute', 'Start from: B · Chorus Flute', [
   `${P('v_voices')} 1 (mono), portamento selector ${ctl('LEGATO')}, ${P('v_glide')} 80 ms.`,
   `Keep the preset’s scale envelope (${P('b_atk')} 80 ms, ${P('b_spread')} +60 %): the upper bands bloom a little after the body, like breath.`,
   'Play slurred phrases (press each key before releasing the previous one): the notes slide into each other without a new attack, as a flautist slurs.',
@@ -244,30 +244,22 @@ ${recipe('r-sub', 'Pedal organ with a 32′ sub', 'Start from: B · Octave Organ
 const presetDesc = {
   'B · Init': ['none', 'The Haar sawtooth: RAMP pattern, all drawbars up and TILT −6 dB/band — eleven square waves an octave apart that add up to a staircase saw.'],
   'B · Octave Organ': ['light', 'Drawbar organ: Daubechies 20 RAMP bands are almost pure octave partials (8′ 4′ 2′ 1′ …), registered 100/80/60/70/30/50/20, with an organ-style envelope, 6 Hz vibrato and light reverb.'],
-  'B · Chip Walsh': ['none', '8-bit lead: Haar Walsh functions on bands 1, 2, 3 and 5 with a snappy envelope — square-wave chip-tune colour.'],
-  'B · Walsh Bells': ['medium', 'Bell: the Walsh pattern through Symlet 8; the finest band decays in 0.4 s while band 1 rings for 3 s, with a long amp decay and reverb.'],
-  'B · Impulse Pluck': ['light', 'Plucked string: one atom per band at the start of every cycle (a click train); the bright bands vanish in 80 ms, the body in 1.2 s; delay.'],
   'B · Random Glass': ['medium', 'Shimmering pad: random atoms (SEED 17), fine bands that swell in later (SPREAD +50 %) and settle at 40 %, a slow LFO moving a 60 %-deep focus window, three-copy unison and reverb.'],
   'B · Mirror Pad': ['heavy', 'Opening pad: the MIRROR pattern (odd harmonics only) through Daubechies 20; with SPREAD +100 % the fine bands arrive up to four times later than the 1.5 s centre attack; four-copy unison and a big reverb.'],
-  'B · Focus Sweep': ['medium', 'A Haar staircase whose detail lives only inside a 30 % window that a 0.5 Hz LFO sweeps around the cycle; delay and reverb.'],
-  'B · Mirror Sub Bass': ['medium', 'By OktoPierre, derived from B · Chip Walsh: a bass two octaves down built from MIRROR atoms through Symlet 8 (drawbars 1–5, TILT +4.2 dB/band), with a steep, very resonant low-pass (21.6 dB) that the mod envelope “blips” open by 7.5 bands on every note, a triangle sub one octave lower at 65 %, LEGATO portamento (GLIDE is 0 — raise it to slide), slow 1.3 Hz vibrato and light delay and reverb.'],
-  'B · Soft Flute': ['light', 'Breathy flute: a few smooth octave partials falling steeply (TILT −9 dB/band), upper bands arriving slightly later, gentle 5 Hz vibrato.'],
+  'B · Focus Sweep': ['medium', 'A Haar staircase whose detail lives only inside a 30 % window that a 0.5 Hz LFO sweeps around the cycle; two unison copies (beta 0.5), delay and reverb.'],
+  'B · Mirror Sub Bass': ['medium', 'By OktoPierre, derived from B · Chip Walsh (a beta 0.1 preset): a bass two octaves down built from MIRROR atoms through Symlet 8 (drawbars 1–5, TILT +4.2 dB/band), with a steep, very resonant low-pass (21.6 dB) that the mod envelope “blips” open by 7.5 bands on every note, a triangle sub one octave lower at 65 %, LEGATO portamento (GLIDE is 0 — raise it to slide), slow 1.3 Hz vibrato and light delay and reverb.'],
   'B · Music Box': ['medium', 'Music box one octave up: Walsh bands through Symlet 8 whose bright bands die in 0.2 s, with echoes and reverb.'],
   'B · Space Choir': ['heavy', 'Huge choir-like pad: odd-harmonic MIRROR bands opening over seconds (SPREAD +100 %), four detuned copies, a slowly moving focus window and a vast reverb.'],
-  'B · Chip Echo': ['heavy', 'Chip-tune lead with loud ping-pong echoes (250 ms, 65 % feedback, 60 % mix).'],
   'B · Distorted Organ': ['heavy', 'Rock organ: a full octave registration through 70 % saturation, with a fast 6.5 Hz vibrato.'],
   'B · Alien Texture': ['extreme', 'Random atoms (SEED 42) chopped by a 7 Hz sample-and-hold LFO that throws the focus window and the cutoff around, detail arriving before the body, long echoes and reverb.'],
   'B · Ensemble Organ': ['medium', 'The Octave Organ registration through the triple CHORUS at 70 % — the classic ensemble organ of the 1970s.'],
   'B · Glass Ensemble': ['heavy', 'IMPULSE atoms through Daubechies 8 that swell in (SPREAD +40 %) and settle at 60 %, through a slow, deep chorus and a large reverb.'],
   'B · Chorus Flute': ['light', 'The Soft Flute with a gentle chorus (55 %, 0.7 Hz) that widens and animates it.'],
-  'B · Sub Organ Bass': ['light', 'Mono organ bass one octave down: the four lowest Daubechies 20 RAMP bands and a sine sub two octaves below at 80 %.'],
   'AB · Wavelet Choir': ['heavy', 'A 45 · B 55: MIRROR atoms opening over almost a second (B) with a soft triangle (A), three unison copies, a slow position LFO, chorus and a large hall.'],
   'AB · Bell Pad': ['medium', 'A 55 · B 45: Walsh bells whose fine bands ring out in 0.6 s (B) over a filtered Symlet 8 sawtooth pad (A), with chorus, echoes and reverb.'],
   'AB · Organ Lead': ['medium', 'A 65 · B 35: the organ registration (B) with a resonant Daubechies 20 sawtooth (A), mono legato glide, 7-cent vibrato, drive and delay.'],
   'AB · Glass Keys': ['light', 'A 40 · B 60: an IMPULSE pattern whose bright bands die in 0.25 s (B) over a pure SINE (A) — glassy electric-piano keys with light chorus.'],
-  'AB · Chip Hybrid': ['medium', 'A 50 · B 50: Haar Walsh chip bands (B) and a Haar SQUARE (A), mono with a short glide and fast echoes.'],
   // beta 0.2: the library by category
-  'B · Pluck Bass': ['light', 'Mono bass one octave down: RAMP atoms on the five lowest drawbars, the bright bands dying in 0.1 s and the body in 0.9 s to half level (SCALE SUSTAIN 50 %), with a sine sub at 50 %.'],
   'AB · Hybrid Lead': ['medium', 'A 50 · B 50: a resonant Symlet 8 SQUARE (A) layered with MIRROR atoms on the six lowest drawbars (B), mono legato with a 60 ms glide, vibrato, drive and echo.'],
   'B · Reed Piano': ['light', 'Reed electric piano: MIRROR atoms (odd harmonics) on the five lowest drawbars, the bright bands fading in 0.3 s, velocity-sensitive, with 25 % drive for the bark.'],
   'B · Toy Piano': ['light', 'Toy piano one octave up: WALSH atoms whose bright bands fade in 0.25 s and body in 1.2 s, with a short decay and reverb.'],
@@ -278,8 +270,6 @@ const presetDesc = {
   'B · Flute Organ': ['light', 'Flute stop: almost only the fundamental band (drawbars 100 / 30 / 15), a soft attack, gentle vibrato and reverb.'],
   'B · Halo Pad': ['heavy', 'Airy pad: MIRROR atoms whose bands fade in one after another over 2.5 s, three unison copies, a slow, wide CHORUS (60 %, 0.35 Hz) and a very large reverb.'],
   'B · Clarinet': ['light', 'Clarinet: MIRROR atoms (odd harmonics, like the clarinet’s closed pipe) on the four lowest drawbars, a 50 ms breathy attack, 5 Hz vibrato and reverb.'],
-  'AB · Breathy Flute': ['light', 'A 20 · B 80: a flute tone from RAMP atoms on four drawbars with a −9 dB/band tilt (B) and a little filtered NOISE (A) for the breath; soft attack, vibrato and reverb.'],
-  'B · Koto': ['light', 'Koto: RAMP atoms on seven drawbars, the bright bands dying in 0.15 s and the body in 1.2 s, with a slight vibrato and reverb.'],
   'B · Glockenspiel': ['light', 'Glockenspiel one octave up: drawbars 1, 4 and 6 only (bright, widely spaced partials), a long 2.5 s body and reverb.'],
   'B · Vibraphone': ['medium', 'Vibraphone: drawbars 1, 3 and 5 for a soft, bell-like tone, a 3.5 s decay and a fast 2.5 Hz CHORUS in place of the motor-driven tremolo, with reverb.'],
   'B · Marimba': ['light', 'Marimba: the fundamental band with a little of band 3, a short 0.7 s body and room reverb — wooden and round.'],
@@ -290,13 +280,10 @@ const presetDesc = {
   'B · Flute Lead': ['light', 'Breathy flute: almost only the fundamental band, soft attack, vibrato.'],
   'B · Full Drawbar Organ': ['medium', 'Nine drawbars out, vibrato and chorus: full and bright.'],
   'B · Theatre Organ': ['medium', 'Mirror atoms, deep vibrato, chorus and hall.'],
-  'AB · Gospel Mix Organ': ['medium', 'A 40 · B 60: Drawbars (B) plus a square (A), drive and fast vibrato.'],
   'B · Choir Pad': ['heavy', 'Vowel-like drawbars on mirror atoms with unison and slow vibrato, chorus and a large reverb — edited by OktoPierre with an immediate attack and a very short release, so it speaks like a choir organ.'],
   'AB · Glass Choir': ['heavy', 'A 40 · B 60: Edited by OktoPierre: a sine (A) with random atoms (B: Daubechies 2, seed 61, tilt −8 dB/band, bands 10–11 off) through a steep low-pass at band 10.6, a fast attack and a 106 ms release — a glassy choir with chorus and a big hall.'],
   'B · Vox Strings': ['medium', 'Mirror atoms with unison and chorus: string-machine voices.'],
   'B · Xylophone': ['light', 'Dry, short xylophone one octave up.'],
-  'B · Wave Random Computer': ['medium', 'Haar random atoms scanned by a sample & hold window: 70s computer.'],
-  'B · Wave Reverse Bands': ['medium', 'High bands enter first, the body comes after: a reversed-sounding attack.'],
   'AB · Wave Atom Choir': ['heavy', 'A 40 · B 60: Edited by OktoPierre: mirror atoms (B) on Haar, through a resonant low-pass at band 5 that the envelope opens by 8.4 bands (velocity 2 more), a 0.69 Hz LFO on the pitch (±6 cents), the cutoff (±3.5 bands), the window and the WAVELET MORPH towards Symlet 8 — choir-like, in a large hall.'],
 };
 const presetCount = SPEC.PRESETS.filter(p => p.values[C.P.engine] === 1).length;

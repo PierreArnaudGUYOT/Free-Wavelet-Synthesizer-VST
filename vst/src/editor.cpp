@@ -7,11 +7,13 @@
 // Same layout as the web UI (generated from tools/spec.js).
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <map>
 #include <string>
 #include <vector>
+#include "pluginterfaces/base/keycodes.h"
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "common.h"
@@ -89,8 +91,16 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     else if (hover >= 0) wheelOn(hover, distance > 0 ? 1 : -1);
     return kResultTrue;
   }
-  tresult PLUGIN_API onKeyDown(char16, int16, int16) override { return kResultFalse; }
-  tresult PLUGIN_API onKeyUp(char16, int16, int16) override { return kResultFalse; }
+  // beta 0.5: keys the host passes to the editor (VST3, and VST2's effEditKeyDown): the arrow keys
+  tresult PLUGIN_API onKeyDown(char16, int16 keyCode, int16 mods) override {
+    if (mods & (kCommandKey | kAlternateKey | kControlKey)) return kResultFalse;
+    const int k = keyCode == KEY_LEFT ? kKeyLeft : keyCode == KEY_UP ? kKeyUp : keyCode == KEY_RIGHT ? kKeyRight : keyCode == KEY_DOWN ? kKeyDown : 0;
+    return k && key(k) ? kResultTrue : kResultFalse;
+  }
+  tresult PLUGIN_API onKeyUp(char16, int16 keyCode, int16 mods) override {
+    if (mods & (kCommandKey | kAlternateKey | kControlKey)) return kResultFalse;
+    return keyCode == KEY_LEFT || keyCode == KEY_UP || keyCode == KEY_RIGHT || keyCode == KEY_DOWN ? kResultTrue : kResultFalse;
+  }
   tresult PLUGIN_API getSize(ViewRect* size) override {
     if (!size) return kInvalidArgument;
     if (!win && !hostScale) dpiScale = systemScale();
@@ -774,8 +784,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       default: return;
     }
   }
-  // right-click (or Control-click on a Mac) on the preset name: the classic menu
+  // right-click (or Control-click on a Mac) on the preset name: the classic menu; on a sound of the browser: its menu
   void rightDown(float x, float y) override {
+    if (host->browserOpen() && x >= kDeviceW) { browserRightClick(x, y); return; }
     const int idx = hit(x, y);
     if (idx >= 0 && items[idx].w->type == W_PRESETS) { presetMenu(items[idx]); onTimer(); invalidateAll(); }
   }
@@ -789,6 +800,16 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
 
   bool mouseMove(float x, float y) override {
     if (bDrag) { bScrollTo(y - bDragOff, (int)bRows().size()); return false; }
+    if (rowDrag >= 0) {   // beta 0.5: a sound of the browser dragged towards a category
+      if (!rowMoving && std::hypot(x - rowX0, y - rowY0) > 6) rowMoving = true;
+      if (rowMoving) {
+        int c = -1;
+        for (int i = 0; i < bNumCats(); i++) if (bCatR(i).has(x, y)) c = i;
+        dropCat = c; rowX = x; rowY = y;
+        invalidateLogical(bCard());
+      }
+      return false;
+    }
     if (drag >= 0) {
       const Item& it = items[drag];
       if (it.w->type == W_KEYBOARD) {
@@ -823,6 +844,15 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
 
   void mouseUp() override {
     if (bDrag) { bDrag = false; if (win) win->capture(false); invalidateLogical(bCard()); return; }
+    if (rowDrag >= 0) {   // beta 0.5: dropped on a category: the sound moves there
+      const int row = rowDrag, c = dropCat, tab = bTab;
+      const bool moved = rowMoving;
+      rowDrag = -1; rowMoving = false; dropCat = -1;
+      if (win) win->capture(false);
+      if (moved && c >= 0) { if (tab == 0) moveFactory(row, c); else moveBank(row, c); }
+      onTimer(); invalidateAll();
+      return;
+    }
     if (drag < 0) return;
     const Item& it = items[drag];
     if (it.w->type == W_KEYBOARD) { if (mouseNote >= 0) noteOff(mouseNote); mouseNote = -1; }
@@ -851,10 +881,56 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (bHover >= 0) { bHover = -1; invalidateLogical(bCard()); }
   }
 
-  // developer test (vst/devtest/bank_session.cpp, tests/machost): a preset-menu command, the bank read again
+  // developer test (vst/devtest/bank_session.cpp, tests/machost): a preset-menu command, the bank read again; the sound
+  // menu's commands (move, TOP Sounds) act on the sound playing
   void testCommand(int cmd) override {
     menuBank = Library::get().bank();
+    ctxRow = -1; ctxTab = host->userPresetName().empty() ? 0 : 1;
     menuCommand(cmd);
+  }
+
+  // beta 0.5: the arrow keys. Browser open: ↑ ↓ play the sound above / below in the list shown, ← → show the category
+  // above / below; browser hidden: the previous / next preset, as ◀ ▶. A key the host also passed on by another way
+  // (its window procedure and IPlugView::onKeyDown) within a few milliseconds counts once.
+  bool key(int k) override {
+    if (k < kKeyLeft || k > kKeyDown) return false;
+    const auto now = std::chrono::steady_clock::now();
+    if (k == lastKey && now - lastKeyAt < std::chrono::milliseconds(12)) return true;
+    lastKey = k; lastKeyAt = now;
+    if (!host->browserOpen()) {
+      const int to = stepPreset(host->presetIndex(), k == kKeyLeft || k == kKeyUp ? -1 : 1);
+      if (to >= 0) host->loadPreset(to);
+      onTimer(); invalidateAll();
+      return true;
+    }
+    buildCategories();
+    menuBank = Library::get().bank();
+    if (k == kKeyLeft || k == kKeyRight) {
+      const int c = std::max(0, std::min(bNumCats() - 1, bCat + (k == kKeyLeft ? -1 : 1)));
+      if (c != bCat) {
+        bCat = c; bScroll = 0;
+        const std::vector<int> rows = bRows();
+        for (int j = 0; j < (int)rows.size(); j++)
+          if (bRowIsCurrent(rows[j])) bScroll = std::max(0, std::min(j - bVisibleRows() / 2, (int)rows.size() - bVisibleRows()));
+      }
+      invalidateAll();
+      return true;
+    }
+    const std::vector<int> rows = bRows();
+    if (rows.empty()) return true;
+    int at = -1;
+    for (int j = 0; j < (int)rows.size(); j++) if (bRowIsCurrent(rows[j])) at = j;
+    const int n = (int)rows.size();
+    const int to = at < 0 ? (k == kKeyDown ? 0 : n - 1) : std::max(0, std::min(n - 1, at + (k == kKeyDown ? 1 : -1)));
+    if (to != at) {
+      if (bTab == 0) host->loadPreset(rows[to]);
+      else host->loadUserSound(menuBank[rows[to]].v, kUserPrefix + menuBank[rows[to]].name);
+      bStatus.clear();
+      const int vis = bVisibleRows();
+      if (to < bScroll) bScroll = to; else if (to >= bScroll + vis) bScroll = to - vis + 1;
+    }
+    onTimer(); invalidateAll();
+    return true;
   }
 
   // ================================================================ presets: menu, library, browser (beta 0.3)
@@ -866,7 +942,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   // "Deleted presets" brings it back).
   static constexpr int kCmdBankSave = 900, kCmdBankExport = 901, kCmdBankShow = 902, kCmdSavePreset = 910, kCmdRestore = 911,
                        kCmdBrowser = 912, kCmdDelete = 913, kCmdBankLoad = 1000, kCmdBankDelete = 3000, kCmdUndelete = 5000,
-                       kCmdBankImport = 903;   // beta 0.4
+                       kCmdBankImport = 903,   // beta 0.4
+                       kCmdMoveTo = 7000, kCmdTopAdd = 7100, kCmdTopRemove = 7101;   // beta 0.5: the sound menu (ctxRow)
   static constexpr float kBrowserW = 360;                  // logical width added at the right while the browser is open
   static constexpr R kSaveBtn{800, 9, 68, 30};             // SAVE PRESET, left of MANUAL A (the preset box is shorter)
   std::vector<BankPreset> menuBank;                        // the bank as listed by the last menu / browser (commands index it)
@@ -874,6 +951,10 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   std::vector<BCat> fCats;                                 // TOP Sounds, then the categories in factory order
   int bTab = 0, bCat = 0, bScroll = 0, bHover = -1;        // tab (0 factory, 1 user bank), category row, first row, hover
   bool bDrag = false; float bDragOff = 0;                  // dragging the scroll bar's thumb (grabbed bDragOff below its top)
+  // beta 0.5: a sound of the list pressed (a factory preset, or an index into menuBank), dragged onto a category
+  int rowDrag = -1, dropCat = -1; bool rowMoving = false; float rowX0 = 0, rowY0 = 0, rowX = 0, rowY = 0;
+  int ctxRow = -1, ctxTab = 0;                             // the sound a sound-menu command acts on (-1: the one playing)
+  int lastKey = 0; std::chrono::steady_clock::time_point lastKeyAt{};
   uint32_t libVer = 0; int libTick = 0;
   std::wstring bStatus;                                    // last browser message
 
@@ -882,12 +963,16 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     fCats.clear();
     for (const auto& l : Library::get().lists()) fCats.push_back(BCat{toW(l.first), l.second});
   }
-  std::string shownName() {   // the preset browser's text: the bank sound, else the factory preset as named now
+  // the preset box's text: the bank sound, a preset of an older version (beta 0.5), else the factory preset as named now
+  std::string shownName() {
     const std::string user = host->userPresetName();
     if (!user.empty()) return user;
+    const std::string former = host->formerPresetName();
+    if (!former.empty()) return former;
     const int pi = host->presetIndex();
     return pi >= 0 && pi < kNumPresets ? Library::get().name(pi) : "User sound";
   }
+  bool factoryShown() { return host->userPresetName().empty() && host->formerPresetName().empty(); }   // presetIndex() plays
 
   // ---------------------------------------------------------------- classic menu (right-click on the preset name)
   void presetMenu(const Item& it) {
@@ -895,22 +980,24 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     std::vector<MenuItem> m;
     const int cur = host->presetIndex();
     const std::string user = host->userPresetName();
-    m.push_back(MenuItem::item(L"★ Favourites", 0, false, true));
-    for (int k = 0; k < kNumFavourites && k < kNumPresets; k++)
-      if (!lib.deleted(k)) m.push_back(MenuItem::item(toW(lib.name(k)), 100 + k, k == cur && user.empty()));
+    const bool fac = factoryShown();
+    // beta 0.5: the browser's lists as the library keeps them (TOP Sounds, then the categories, presets moved included)
+    const auto lists = lib.lists();
+    m.push_back(MenuItem::item(L"TOP Sounds", 0, false, true));
+    for (int k : lists[0].second)
+      if (!lib.deleted(k)) m.push_back(MenuItem::item(toW(lib.name(k)), 100 + k, k == cur && fac));
     m.push_back(MenuItem::sep());
-    for (int k = kNumFavourites; k < kNumPresets;) {
-      const char* cat = kPresets[k].cat;
+    for (size_t i = 1; i < lists.size(); i++) {
       std::vector<MenuItem> sub;
       bool here = false;
       int n = 0;
-      for (; k < kNumPresets && std::strcmp(kPresets[k].cat, cat) == 0; k++) {
+      for (int k : lists[i].second) {
         if (lib.deleted(k)) continue;
-        sub.push_back(MenuItem::item(toW(lib.name(k)), 100 + k, k == cur && user.empty()));
-        if (k == cur && user.empty()) here = true;
+        sub.push_back(MenuItem::item(toW(lib.name(k)), 100 + k, k == cur && fac));
+        here = here || (k == cur && fac);
         n++;
       }
-      m.push_back(MenuItem::popup(toW(cat) + L"\t" + std::to_wstring(n), std::move(sub), here));
+      m.push_back(MenuItem::popup(toW(lists[i].first) + L"\t" + std::to_wstring(n), std::move(sub), here));
     }
     menuBank = lib.bank();
     m.push_back(MenuItem::sep());
@@ -939,8 +1026,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     m.push_back(MenuItem::sep());
     m.push_back(MenuItem::item(L"Save preset (overwrite)…", kCmdSavePreset));
     m.push_back(MenuItem::item(L"Save to user bank…", kCmdBankSave));
-    if (user.empty() && lib.adjusted(cur)) m.push_back(MenuItem::item(L"Restore the original preset", kCmdRestore));
-    if (user.empty() && !lib.deleted(cur)) m.push_back(MenuItem::item(L"Delete this preset from the list…", kCmdDelete));
+    if (fac && lib.adjusted(cur)) m.push_back(MenuItem::item(L"Restore the original preset", kCmdRestore));
+    if (fac && !lib.deleted(cur)) m.push_back(MenuItem::item(L"Delete this preset from the list…", kCmdDelete));
     if (lib.deletedCount() > 0) {   // bring a deleted factory preset back
       std::vector<MenuItem> dm;
       for (int k = 0; k < kNumPresets; k++) if (lib.deleted(k)) dm.push_back(MenuItem::item(toW(lib.name(k)), kCmdUndelete + k));
@@ -972,7 +1059,17 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       const BankPreset& p = menuBank[cmd - kCmdBankLoad];
       host->loadUserSound(p.v, kUserPrefix + p.name);
     } else if (cmd >= kCmdBankDelete && cmd < kCmdBankDelete + (int)menuBank.size()) bankDelete(menuBank[cmd - kCmdBankDelete]);
-    else return;
+    else if (cmd >= kCmdMoveTo && cmd < kCmdMoveTo + 100) {   // beta 0.5: the sound menu (ctxRow, else the sound playing)
+      if (ctxTab == 0) moveFactory(ctxRow >= 0 ? ctxRow : factoryShown() ? host->presetIndex() : -1, cmd - kCmdMoveTo);
+      else moveBank(ctxRow >= 0 ? ctxRow : currentBankIndex(), cmd - kCmdMoveTo);
+    } else if (cmd == kCmdTopAdd || cmd == kCmdTopRemove) {
+      const int k = ctxRow >= 0 ? ctxRow : factoryShown() ? host->presetIndex() : -1;
+      if (cmd == kCmdTopAdd) moveFactory(k, 0);
+      else if (k >= 0 && !libError(Library::get().setTop(k, false), L"Could not save the presets file:")) {
+        bStatus = L"“" + toW(Library::get().name(k)) + L"” taken out of TOP Sounds.";
+        bClamp();
+      }
+    } else return;
     onTimer(); invalidateAll();
   }
 
@@ -1011,6 +1108,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       bStatus = L"Saved “" + d.name + L"” in the user bank.";
       return;
     }
+    if (!host->formerPresetName().empty()) { bankSave(); return; }   // beta 0.5: no longer a factory preset: to the user bank
     const int k = host->presetIndex();
     if (k < 0 || k >= kNumPresets) return;
     SaveDlg d; d.name = toW(lib.name(k));
@@ -1034,7 +1132,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (!ask(L"Restore the original factory preset “" + toW(kPresets[k].name) + L"”? Your adjustments of “" +
              toW(lib.name(k)) + L"” are lost.")) return;
     if (libError(lib.restore(k), L"Could not save the presets file:")) return;
-    if (host->userPresetName().empty() && host->presetIndex() == k) host->loadPreset(k);   // the original sound again
+    if (factoryShown() && host->presetIndex() == k) host->loadPreset(k);   // the original sound again
     bStatus = L"Restored “" + toW(kPresets[k].name) + L"”.";
   }
   // DELETE (factory tab): the preset leaves the lists (kept in the file as "Deleted: yes"); the next one of the list plays
@@ -1069,20 +1167,24 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     Library& lib = Library::get();
     lib.refresh();
     SaveDlg d;
-    const std::string user = host->userPresetName();
+    const std::string user = host->userPresetName(), former = host->formerPresetName();
     const int pi = host->presetIndex();
     if (!user.empty()) {
       d.name = toW(user.substr(std::strlen(kUserPrefix)));
       for (const BankPreset& p : lib.bank()) if (kUserPrefix + p.name == user) { d.section = p.section; break; }
+    } else if (!former.empty()) {
+      d.name = toW(former);   // beta 0.5: a preset of an older version
     } else if (pi >= 0 && pi < kNumPresets) {
       d.name = toW(lib.name(pi));
-      d.section = std::max(0, bankSectionOf(kPresets[pi].cat));
+      const int c = lib.categoryOf(pi);   // beta 0.5: its category now
+      const auto lists = lib.lists();
+      d.section = std::max(0, bankSectionOf(c > 0 && c < (int)lists.size() ? lists[c].first : kPresets[pi].cat));
     }
     if (!win || !win->saveDialog(d, L"Save to user bank", true, nullptr)) return;
     BankPreset np;
     np.section = d.section; np.name = fromW(d.name);
     currentSound(np.v);
-    np.from = !user.empty() ? user.substr(std::strlen(kUserPrefix)) : pi >= 0 && pi < kNumPresets ? lib.name(pi) : "";
+    np.from = !user.empty() ? user.substr(std::strlen(kUserPrefix)) : !former.empty() ? former : pi >= 0 && pi < kNumPresets ? lib.name(pi) : "";
     if (!np.from.empty() && host->presetDirty()) np.from += " (modified)";
     const std::vector<BankPreset> bank = lib.bank();
     if (std::any_of(bank.begin(), bank.end(), [&](const BankPreset& p) { return p.section == np.section && p.name == np.name; }) &&
@@ -1184,7 +1286,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     Library& lib = Library::get();
     const std::string user = host->userPresetName();
     std::wstring e;
-    if (bTab == 0) { if (!user.empty()) return; e = lib.moveInList(bCat, host->presetIndex(), dir); }
+    if (bTab == 0) { if (!factoryShown()) return; e = lib.moveInList(bCat, host->presetIndex(), dir); }
     else { if (user.empty()) return; e = lib.moveUser(bCat, user.substr(std::strlen(kUserPrefix)), dir); }
     if (libError(e, L"Could not save the presets file:")) return;
     buildCategories();
@@ -1222,7 +1324,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   bool bRowIsCurrent(int row) {
     const std::string user = host->userPresetName();
-    if (bTab == 0) return user.empty() && row == host->presetIndex();
+    if (bTab == 0) return factoryShown() && row == host->presetIndex();
     return row >= 0 && row < (int)menuBank.size() && user == kUserPrefix + menuBank[row].name;
   }
   // hover / click ids: 1 HIDE, 10 + t tab, 100 + i category, 1000 + j visible sound row, 500 + b button
@@ -1238,14 +1340,15 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     return -1;
   }
   bool bBtnEnabled(int b) {
-    const bool factory = host->userPresetName().empty();
+    const bool factory = factoryShown(), bank = !host->userPresetName().empty();
     if (b == 1) return bTab == 0 && factory && Library::get().adjusted(host->presetIndex());   // RESTORE
-    if (b == 2) return bTab == 0 ? factory && !Library::get().deleted(host->presetIndex()) : !factory;   // DELETE
+    if (b == 2) return bTab == 0 ? factory && !Library::get().deleted(host->presetIndex()) : bank;   // DELETE
     return true;
   }
   void browserClick(float x, float y) {
     buildCategories();
     menuBank = Library::get().bank();
+    if (win) win->takeFocus();   // beta 0.5: the arrow keys choose sounds from now on
     const int h = bHit(x, y);
     if (h == 1) { setBrowser(false); return; }
     if (h == 20 || h == 21) { if (bMoveEnabled()) bMove(h == 20 ? -1 : 1); invalidateAll(); return; }
@@ -1271,6 +1374,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         else host->loadUserSound(menuBank[rows[j]].v, kUserPrefix + menuBank[rows[j]].name);
         bStatus.clear();
         onTimer();
+        // beta 0.5: it may be dragged onto a category (mouseMove / mouseUp)
+        rowDrag = rows[j]; rowMoving = false; dropCat = -1; rowX0 = rowX = x; rowY0 = rowY = y;
+        if (win) win->capture(true);
       }
     } else if (h >= 500 && h < 500 + kBtns && bBtnEnabled(h - 500)) {
       const int b = h - 500;
@@ -1286,6 +1392,82 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       onTimer();
     }
     invalidateAll();
+  }
+  // beta 0.5: the sound menu (right-click on a sound of the list): move it to another category / section, TOP Sounds
+  void browserRightClick(float x, float y) {
+    buildCategories();
+    menuBank = Library::get().bank();
+    const int h = bHit(x, y);
+    if (h < 1000) return;
+    const std::vector<int> rows = bRows();
+    const int j = h - 1000 + bScroll;
+    if (j >= (int)rows.size()) return;
+    Library& lib = Library::get();
+    const int row = rows[j];
+    std::vector<MenuItem> m, sub;
+    if (bTab == 0) {
+      const int cur = lib.categoryOf(row), def = Library::defaultCategory(row);
+      m.push_back(MenuItem::item(toW(lib.name(row)), 0, false, true));
+      for (size_t i = 1; i < fCats.size(); i++) sub.push_back(MenuItem::item(fCats[i].label, kCmdMoveTo + (int)i, (int)i == cur, (int)i == cur));
+      m.push_back(MenuItem::popup(L"Move to", std::move(sub)));
+      if (def > 0 && def != cur && def < (int)fCats.size()) m.push_back(MenuItem::item(L"Back to " + fCats[def].label, kCmdMoveTo + def));
+      m.push_back(lib.inTop(row) ? MenuItem::item(L"Remove from TOP Sounds", kCmdTopRemove) : MenuItem::item(L"Add to TOP Sounds", kCmdTopAdd));
+    } else {
+      const BankPreset& p = menuBank[row];
+      m.push_back(MenuItem::item(toW(p.name), 0, false, true));
+      for (int s = 0; s < kNumBankSections; s++) sub.push_back(MenuItem::item(toW(kBankSections[s]), kCmdMoveTo + s, s == p.section, s == p.section));
+      m.push_back(MenuItem::popup(L"Move to", std::move(sub)));
+    }
+    ctxRow = row; ctxTab = bTab;
+    const int cmd = win ? win->popupMenu(m, x, y) : 0;
+    menuCommand(cmd);
+    ctxRow = -1;
+    onTimer(); invalidateAll();
+  }
+  // beta 0.5: factory preset k into category list `list` of the browser (0 = TOP Sounds: added there)
+  void moveFactory(int k, int list) {
+    Library& lib = Library::get();
+    buildCategories();
+    if (k < 0 || k >= kNumPresets || list < 0 || list >= (int)fCats.size()) return;
+    const std::wstring nm = L"“" + toW(lib.name(k)) + L"”";
+    if (list == 0) {
+      if (lib.inTop(k)) { bStatus = nm + L" is already in TOP Sounds."; return; }
+      if (libError(lib.setTop(k, true), L"Could not save the presets file:")) return;
+      bStatus = nm + L" added to TOP Sounds.";
+    } else {
+      if (lib.categoryOf(k) == list) { bStatus = nm + L" is already in " + fCats[list].label + L"."; return; }
+      if (libError(lib.moveToCategory(k, list), L"Could not save the presets file:")) return;
+      bStatus = nm + L" moved to " + fCats[list].label + L".";
+    }
+    bClamp();
+  }
+  // beta 0.5: a sound of the user bank (menuBank index) into another section
+  void moveBank(int idx, int sec) {
+    Library& lib = Library::get();
+    menuBank = lib.bank();
+    if (idx < 0 || idx >= (int)menuBank.size() || sec < 0 || sec >= kNumBankSections) return;
+    const BankPreset p = menuBank[idx];
+    const std::wstring nm = L"“" + toW(p.name) + L"”", to = toW(kBankSections[sec]);
+    if (p.section == sec) { bStatus = nm + L" is already in " + to + L"."; return; }
+    for (const BankPreset& q : menuBank)
+      if (q.section == sec && q.name == p.name) {
+        if (win) win->message(L"A sound called " + nm + L" is already in " + to + L": rename one of them first.", false);
+        return;
+      }
+    if (libError(lib.moveUserTo(p.section, p.name, sec), L"Could not save the user bank:")) return;
+    menuBank = lib.bank();
+    bStatus = nm + L" moved to " + to + L".";
+    bClamp();
+  }
+  int currentBankIndex() {
+    const std::string user = host->userPresetName();
+    for (size_t i = 0; i < menuBank.size(); i++) if (!user.empty() && kUserPrefix + menuBank[i].name == user) return (int)i;
+    return -1;
+  }
+  void bClamp() {   // the list shown may be shorter now
+    buildCategories();
+    const int n = (int)bRows().size();
+    bScroll = std::max(0, std::min(bScroll, n - bVisibleRows()));
   }
   void browserWheel(int dir) {
     buildCategories();
@@ -1345,6 +1527,10 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       else { for (const BankPreset& p : menuBank) n += p.section == i; label = toW(kBankSections[i]); }
       if (sel || hot) fillRR(g, R{r.x, r.y, r.w, r.h}, 5, sel ? rgb(accent(), 46) : rgb(0xffffff, 10));
       if (sel) g.fillRect(R{r.x, r.y + 4, 2.5f, r.h - 8}, rgb(accent()));
+      if (rowMoving && i == dropCat) {   // beta 0.5: where the sound being dragged would go
+        fillRR(g, r, 5, rgb(accent(), 70));
+        strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 5, rgb(accent()));
+      }
       const Col col = sel ? rgb(0xeef2f7) : n ? rgb(hot ? kText : 0xaeb7c4) : rgb(kFaint);
       text(g, label, R{r.x + 8, r.y, r.w - 34, r.h}, 11, sel, col, 0);
       text(g, std::to_wstring(n), R{r.x + r.w - 30, r.y, 24, r.h}, 9.5f, false, rgb(n ? kDim : kFaint), 2);
@@ -1379,7 +1565,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       std::string name;
       bool fav = false, adj = false;
       int vote = 0;
-      if (bTab == 0) { name = lib.name(row); fav = row < kNumFavourites; adj = lib.adjusted(row); vote = kPresetStars[row]; }
+      if (bTab == 0) { name = lib.name(row); fav = lib.inTop(row); adj = lib.adjusted(row); vote = kPresetStars[row]; }   // ★ = in TOP Sounds
       else name = menuBank[row].name;
       float right = r.x + r.w - 6;
       if (adj) {   // adjusted by the player
@@ -1412,10 +1598,18 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     }
     // status: the last message, else the library in one line
     std::wstring st = bStatus;
+    if (rowMoving) st = bTab == 0 ? L"Drop it on a category: it moves there (on TOP Sounds: added to it)." : L"Drop it on a section: it moves there.";
     if (st.empty())
       st = std::to_wstring(lib.adjustedCount()) + L" adjusted \u00B7 " + std::to_wstring(lib.deletedCount()) + L" deleted \u00B7 " +
            std::to_wstring(menuBank.size()) + L" in the user bank \u00B7 OKTOWAVE presets.txt";
     g.textEllipsis(st, R{c.x + 12, c.y + 684, c.w - 24, 14}, 9, false, rgb(kFaint), false);
+    if (rowMoving && rowDrag >= 0) {   // beta 0.5: the sound being dragged, under the pointer (inside the browser)
+      const std::string nm = bTab == 0 ? lib.name(rowDrag) : rowDrag < (int)menuBank.size() ? menuBank[rowDrag].name : "";
+      const float w = std::min(c.w - 8, g.textWidth(toW(nm), 11, true) + 20);
+      const R gr{std::max(c.x + 4, std::min(rowX + 14, c.x + c.w - w - 4)), std::max(c.y + 4, std::min(rowY - 10, c.y + c.h - 24)), w, 20};
+      fillRR(g, gr, 5, rgb(accent(), 225));
+      g.textEllipsis(toW(nm), R{gr.x + 10, gr.y, gr.w - 14, gr.h}, 11, true, rgb(0x0d1014), true);
+    }
   }
   void starShape(Canvas& g, float cx, float cy, float r, Col c) {
     Pt p[10];

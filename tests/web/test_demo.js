@@ -59,13 +59,14 @@ const SCHED = [
 const TOL_T = 0.3; // s: scene clock vs. parameter update (rAF) tolerance
 const TOUR_STEP = 4; // s per preset in the tour (TOL_T = 0.3 s leaves a 3.4 s checked window per preset)
 const TOUR_START = 'B · Clarinet'; // first preset of the tour (the opening chords of the piece are cut)
-// the agreed preset sequence of the default demo (beta 0.2): Clarinet, OktoPierre's favourites, then beta 0.2 presets
-const EXPECTED_TOUR = ['B · Clarinet', 'A · Haar Bass', 'A · Edge Pluck', 'B · Focus Sweep', 'B · Soft Flute',
-  'A · Infra Sub Bass', 'A · Dub Echo Lead', 'A · Fuzz Bass', 'A · Laser Sweep', 'B · Mirror Sub Bass', 'A · Sparse Keys',
-  'B · Space Choir', 'A · String Machine', 'AB · Hybrid Strings', 'A · Sub Saw Bass', 'AB · Dream Pad', 'B · Ensemble Organ',
-  'AB · Bell Pad', 'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'B · Sub Organ Bass', 'AB · Hybrid Keys',
-  'A · Poly Chorus Pad', 'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Space Strings', 'AB · Sub Hybrid Bass',
-  'A · Chorus Square Lead'];
+// the agreed preset sequence of the default demo (beta 0.5): Clarinet, the first eleven TOP Sounds, then beta 0.2 presets
+// (the five left out in beta 0.5 replaced by kept sounds of the same type)
+const EXPECTED_TOUR = ['B · Clarinet', 'B · Mirror Sub Bass', 'A · Mirror Sub Bass Shift', 'B · Theatre Organ',
+  'A · Wave Riser Shift', 'A · Noise Wash Pad', 'A · Wave Atom Choir Shift', 'A · Siren Sweep', 'A · Focus Sweep Shift',
+  'B · Space Choir', 'A · Wave Wobble Bass Shift', 'A · Wavelet Lead', 'A · String Machine',
+  'AB · Analog Strings', 'A · Ladder Bass', 'AB · Dream Pad', 'B · Ensemble Organ', 'AB · Bell Pad', 'A · Reese Sub',
+  'A · Solina Cellos', 'AB · Wavelet Choir', 'A · Wave Wobble Bass', 'AB · Hybrid Keys', 'A · Poly Chorus Pad',
+  'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Silk Strings', 'AB · Wobble Bass', 'A · Chorus Square Lead'];
 // base preset of the Toccata scenes (label shows it with the modified dot)
 const TOC_PRESETS = [[0, 'B · Octave Organ'], [11.5, 'A · Init'], [68.8, 'B · Init'], [105.6, 'B · Octave Organ']];
 const FORCED = { v_voices: 16, v_oct: 0, v_glide: 0 }; // + caps: amp_a <= 0.08, fx_dmix <= 0.1, fx_dfb <= 0.3
@@ -573,7 +574,7 @@ async function main() {
     check(B.errors().length === 0, 'no console errors during the default demo', short(B.errors()));
 
     // ---- a modified preset as baseline from here on
-    const iSparse = names.indexOf('A · Sparse Keys');
+    const iSparse = names.indexOf('A · Clean Keys');   // beta 0.5 (A · Sparse Keys was left out)
     if (iSparse >= 0) await ev(`WS_TEST.loadPreset(${iSparse})`);
     await ev(`WS_TEST.setParam('f_cutoff', 5.5); WS_TEST.setParam('fx_rmix', 0.33); true`);
     await sleep(200);

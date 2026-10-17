@@ -2,25 +2,26 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23431760.svg)](https://doi.org/10.5281/zenodo.23431760)
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.4** (2026-10-17), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.5** (2026-10-17), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
 It comes as a **web application** and a **VST3 / VST2 instrument for Ableton Live** (Windows x64), also as a **VST3 for
 macOS** (Apple silicon and Intel). They share
-the same engine, panel layout and 253 factory presets: OktoPierre's 15 favourite sounds first, then the others sorted by
-category like a hardware synthesizer (Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck, Bells & Mallets, FX,
-Drums & Perc, and the Source Phase section of beta 0.4); both open on "A · Warm Pad".
+the same engine, panel layout and 150 factory presets (beta 0.5: OktoPierre's sort of the 253 of beta 0.4): his 37 **TOP
+Sounds** first, then the others sorted by category like a hardware synthesizer (Source Phase, Bass, Lead, Keys, Organ, Pad,
+Strings, Brass & Wind, Pluck, Bells & Mallets, FX, Drums & Perc); both open on "A · Warm Pad".
 Its two engines can play **alone or mixed** (the **A/B MIX** knob), and a **string-machine triple chorus** widens pads,
 strings and organs. The **WAVELET MORPH** (beta 0.3) builds the sound with a second wavelet too and moves between the two
-with a knob, the LFO or the envelope. In each category the presets OktoPierre rated best in his listening test come first.
+with a knob, the LFO or the envelope. Each category lists its presets in OktoPierre's order.
 A second LFO (**LFO 2**) moves any parameter of the scale filter or the position window. **SOURCE PHASE** (beta 0.4) moves
 engine A's source wave inside the cycle before the wavelet transform: because the transform is shift-variant, the scale
 filter then acts on other atoms and the timbre changes — something no Fourier filter can do; LFO 2 can sweep it, and the
-100 presets of the Source Phase section are built on it. In the VST plug-in, a **preset
+44 presets of the Source Phase section are built on it. In the VST plug-in, a **preset
 browser** (TOP Sounds and the sound types) sits at the right of the panel; **SAVE PRESET** adjusts a factory preset,
-**DELETE** clears out the ones you do not want, ▲ ▼ reorder the lists, and a **user bank** keeps your own sounds — all in
-one readable text file, `OKTOWAVE presets.txt`, kept next to the plug-in.
+**DELETE** clears out the ones you do not want, ▲ ▼ reorder the lists, a sound **dragged onto a category** moves there (or
+joins TOP Sounds), the **arrow keys** choose sounds, and a **user bank** keeps your own sounds — all in one readable text
+file, `OKTOWAVE presets.txt`, kept next to the plug-in; EXPORT / IMPORT share it.
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.
@@ -31,7 +32,8 @@ a hardware keyboard, sequencer or controller plays it directly, no DAW needed).
 [Releases](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases) page of the
 [GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST) —
 *V0.3* for **Windows** 64-bit (VST3 / VST2), *V0.3 for Mac* for **macOS** 10.13 or later (VST3, one universal plug-in for
-Apple silicon and Intel Macs; `INSTALL-mac.txt` in the zip explains the first start). The web app also works offline:
+Apple silicon and Intel Macs; `INSTALL-mac.txt` in the zip explains the first start); the pre-release *V0.5 (beta)*, this
+version, has both zips on the same page. The web app also works offline:
 download the repository and open `web/index.html`.
 
 **MIDI without a DAW (web app):** all inputs, notes, pitch bend, mod wheel, sustain; a channel selector in the status
@@ -54,11 +56,11 @@ Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or ins
   - letter rows = chromatic piano (A W S E D F T G Y H U J K O L P)
   - **Z** / **X** = octave down / up
 - Presets: the **preset browser** at the right of the panel (as in the VST): TOP Sounds and the sound types, one click
-  plays a sound (HIDE folds it away; a click on the preset name brings it back). ◀ ▶ and the preset name's menu work as
-  before. **Save preset / Export / Import** are in the status bar.
+  plays a sound, the **arrow keys** too (↑ ↓ sounds, ← → categories; HIDE folds the browser away and a click on the preset
+  name brings it back). ◀ ▶ and the preset name's menu work as before. **Save preset / Export / Import** are in the status bar.
 - Works directly from the file (no web server needed).
 - **▶ DEMO** (header, web app) plays Beethoven's *Appassionata* (III) from the phrase after its opening chords while touring 30 presets:
-  a new preset about every 4 s, on a change of chord, starting with "B · Clarinet", then OktoPierre's favourites, then the beta 0.2
+  a new preset about every 4 s, on a change of chord, starting with "B · Clarinet", then OktoPierre's TOP Sounds, then the beta 0.2
   chorus / sub / A + B presets (played polyphonic at their normal octave); the preset browser shows the preset being played. **▾** opens the list: J. S. Bach's *Toccata in D minor* or one of the virtuoso Beethoven piano works
   (*Appassionata* III, *Moonlight* III, *Rage over a Lost Penny*, Symphony No. 5 I (piano), *Pathétique* I, *The Tempest* I, Sonata Op. 111 I) —
   or **Load a MIDI file…** of your own. The demo animates the important parameters and a small window explains in English
@@ -157,7 +159,7 @@ node tools/dsp_selftest.js --wav # engine self-test; --wav writes build/test-aud
 ```
 To cross-check the C++ port, compile `vst/devtest/dsp_render.cpp` and run `node tools/dsp_compare.js <dir>`.
 To check the VST2 entry point like a VST2 host, compile and run `vst/devtest/vst2_smoke.cpp` (build line at its top).
-The difference between the two engines is below 2.4e-7 for all 153 presets.
+The difference between the two engines is below 3.4e-7 for all 150 presets.
 
 ## How to cite
 
