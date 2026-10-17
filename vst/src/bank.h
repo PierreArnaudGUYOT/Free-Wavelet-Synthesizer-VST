@@ -189,6 +189,41 @@ class Library {
     std::lock_guard<std::mutex> l(m); refreshLocked();
     return writeTextFile(to, text(s));
   }
+  // IMPORT (beta 0.4): the presets of another file (an EXPORT, someone's "OKTOWAVE presets.txt", a beta 0.3 user bank)
+  // replace the library — adjusted and deleted presets, list order, user bank. The file is read and checked first; the
+  // current file is then kept as "OKTOWAVE presets (backup <date> <time>).txt" next to it (`backup`, "" when there was
+  // none). Returns "" or the error (the library is then unchanged).
+  std::wstring importFrom(const std::wstring& from, std::wstring& backup) {
+    std::lock_guard<std::mutex> l(m); refreshLocked();
+    backup.clear();
+    bool found = false;
+    const std::string all = readTextFile(from, found);
+    if (!found) return L"the file cannot be read";
+    if (all.find("\nPreset: ") == std::string::npos && all.compare(0, 8, "Preset: ") != 0)
+      return L"it holds no preset of the Wavelet Synthesizer (no \"Preset:\" line)";
+    State t;
+    builtIn(t);
+    parse(all, t);
+    if (existed) {
+      bool had = false;
+      const std::string cur = readTextFile(pathOf(), had);
+      if (had) {
+        std::wstring dir = pathOf();
+        pathUp(dir);
+        const LocalTime tm = localNow();
+        char b[64];
+        for (int k = 1; k < 1000; k++) {   // never over an earlier backup (two imports in the same minute: "... 1644 2")
+          if (k == 1) std::snprintf(b, sizeof b, " (backup %04d-%02d-%02d %02d%02d)", tm.wYear, tm.wMonth, tm.wDay, tm.wHour, tm.wMinute);
+          else std::snprintf(b, sizeof b, " (backup %04d-%02d-%02d %02d%02d %d)", tm.wYear, tm.wMonth, tm.wDay, tm.wHour, tm.wMinute, k);
+          backup = dir + kPathSep + L"OKTOWAVE presets" + std::wstring(b, b + std::strlen(b)) + L".txt";
+          if (!fileExists(backup)) break;
+        }
+        const std::wstring e = writeTextFile(backup, cur);
+        if (!e.empty()) { backup.clear(); return L"the backup copy could not be written: " + e; }
+      }
+    }
+    return commit(t);
+  }
 
  private:
   struct State {

@@ -663,23 +663,22 @@ class Engine {
     return pick;
   }
 
+  // beta 0.4 fix: a note is released whatever VOICES is now — a preset change between its note on and its note off may
+  // have switched mono <-> poly (before, the note off then missed its voice, which played on for ever)
   void noteOff(int note) {
     if (note < 0 || note > 127) return;
     keys[note] = 0;
     bool hold = p[P_HOLD] >= 0.5;
+    removeFromStack(note);   // the mono list keeps held keys only
     if ((int)jsRound(p[P_V_VOICES]) <= 1) {
-      removeFromStack(note);
       Voice& vc = voices[0];
-      if (vc.active && vc.note == note) {
-        if (stackN) {
-          int n = stack[stackN - 1];
-          vc.note = n; vc.target = n; vc.glide = (int)jsRound(p[P_V_PORTA]) != 0;
-          if (!vc.glide || p[P_V_GLIDE] <= 0) vc.pitch = n;
-          lastPitch = n;
-        } else if (hold) vc.held = true;
-        else { vc.gate = false; vc.amp.gate(false); vc.mod.gate(false); }
+      if (vc.active && vc.gate && vc.note == note && stackN) {   // mono legato: back to the last key held
+        int n = stack[stackN - 1];
+        vc.note = n; vc.target = n; vc.glide = (int)jsRound(p[P_V_PORTA]) != 0;
+        if (!vc.glide || p[P_V_GLIDE] <= 0) vc.pitch = n;
+        lastPitch = n;
+        return;
       }
-      return;
     }
     for (auto& vc : voices) if (vc.active && vc.gate && vc.note == note) {
       if (hold) vc.held = true; else { vc.gate = false; vc.amp.gate(false); vc.mod.gate(false); }

@@ -21,6 +21,18 @@ Created by **Pierre Arnaud GUYOT** ("OktoPierre").
   rendered with the beta 0.3 and beta 0.4 engines and are sample-identical; states, Live Sets, user presets and the presets
   file saved before beta 0.4 get PHASE 0. The older presets keep their place and number (the new section is last).
 
+**From the testers’ reports** (the same beta 0.4, rebuilt)
+- **Fixed: a note that never stopped.** A key held while a preset with another VOICES setting was loaded (mono ↔ poly) was
+  then released on the wrong voice, and kept sounding until the plug-in was removed and reloaded. A note off now releases
+  that note whatever VOICES is (plug-in and web app); the mono list of held keys forgets released keys; mono legato plays
+  as before.
+- **IMPORT…** in the preset browser (in place of FILE; “Show the presets file” is in the right-click menu, with the new
+  “Import presets (.txt), replacing yours…”): an EXPORT copy or someone’s `OKTOWAVE presets.txt` replaces your adjusted and
+  deleted presets, list order and user bank, after a question. Your previous file is kept next to it as
+  `OKTOWAVE presets (backup <date> <time>).txt`; a file without presets is refused and nothing changes.
+- **A wide scroll bar** for the long lists of the preset browser (12 px instead of a 3 px line): drag it or click the bar,
+  easy with a trackpad, no mouse wheel needed. The web app’s list has the same wider bar.
+
 **Measured** (`tools/phase_effect.js`: the preset’s cycle at middle C at phase 0 and at its phase, harmonics 1–64 within 50 dB
 of the strongest): every phased preset changes some harmonic by 6 dB or more (lowest 6.1 dB, median 22.6 dB) and the loud
 harmonics — within 20 dB of the strongest — by 4 dB or more (lowest 4.4 dB, median 17.8 dB). Loudness matched to the
@@ -39,6 +51,11 @@ up to 5 dB quieter so that their peaks stay under 0 dBFS, the hat sits at −31 
 (measured): 12 table sets per engine-A sound, 12.4 MB instead of 1.0 (24.8 MB with WAVELET MORPH); a table build of 38 ms in
 the plug-in and 77 ms in the web app instead of 3 and 8 ms (68 / 159 ms with the morph); about 1.5 times the voice CPU.
 Nothing of this when LFO 2 does not move the phase.
+
+**Acknowledgments**
+- Thanks to Jeremi Palmigani (aka Saoul Machine) and Flo (aka Go Tiger) for testing the synth and providing valuable
+  feedback and improvement suggestions.
+- Thanks to Arnaud Grignard for the technical review of the concept.
 
 ## beta 0.3 for macOS — 2026-10-17
 

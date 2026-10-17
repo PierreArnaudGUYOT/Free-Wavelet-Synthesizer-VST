@@ -85,7 +85,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   tresult PLUGIN_API removed() override { cleanup(); return kResultOk; }
   tresult PLUGIN_API onWheel(float distance) override {
-    if (bHover >= 1000) browserWheel(distance > 0 ? 1 : -1);
+    if (bHover >= 1000 || bHover == 30) browserWheel(distance > 0 ? 1 : -1);
     else if (hover >= 0) wheelOn(hover, distance > 0 ? 1 : -1);
     return kResultTrue;
   }
@@ -708,7 +708,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     gesture(id, v);
   }
   void wheel(float x, float y, int dir) override {
-    if (host->browserOpen() && bList().has(x, y)) { browserWheel(dir); return; }
+    if (host->browserOpen() && (bList().has(x, y) || bScrollR().has(x, y))) { browserWheel(dir); return; }
     int idx = hit(x, y);
     if (idx >= 0) wheelOn(idx, dir);
   }
@@ -788,6 +788,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
 
   bool mouseMove(float x, float y) override {
+    if (bDrag) { bScrollTo(y - bDragOff, (int)bRows().size()); return false; }
     if (drag >= 0) {
       const Item& it = items[drag];
       if (it.w->type == W_KEYBOARD) {
@@ -821,6 +822,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
 
   void mouseUp() override {
+    if (bDrag) { bDrag = false; if (win) win->capture(false); invalidateLogical(bCard()); return; }
     if (drag < 0) return;
     const Item& it = items[drag];
     if (it.w->type == W_KEYBOARD) { if (mouseNote >= 0) noteOff(mouseNote); mouseNote = -1; }
@@ -863,13 +865,15 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   // reads it again first. DELETE hides a factory preset from the lists (the file keeps it, "Deleted: yes"; the menu's
   // "Deleted presets" brings it back).
   static constexpr int kCmdBankSave = 900, kCmdBankExport = 901, kCmdBankShow = 902, kCmdSavePreset = 910, kCmdRestore = 911,
-                       kCmdBrowser = 912, kCmdDelete = 913, kCmdBankLoad = 1000, kCmdBankDelete = 3000, kCmdUndelete = 5000;
+                       kCmdBrowser = 912, kCmdDelete = 913, kCmdBankLoad = 1000, kCmdBankDelete = 3000, kCmdUndelete = 5000,
+                       kCmdBankImport = 903;   // beta 0.4
   static constexpr float kBrowserW = 360;                  // logical width added at the right while the browser is open
   static constexpr R kSaveBtn{800, 9, 68, 30};             // SAVE PRESET, left of MANUAL A (the preset box is shorter)
   std::vector<BankPreset> menuBank;                        // the bank as listed by the last menu / browser (commands index it)
   struct BCat { std::wstring label; std::vector<int> presets; };   // a factory category of the browser
   std::vector<BCat> fCats;                                 // TOP Sounds, then the categories in factory order
   int bTab = 0, bCat = 0, bScroll = 0, bHover = -1;        // tab (0 factory, 1 user bank), category row, first row, hover
+  bool bDrag = false; float bDragOff = 0;                  // dragging the scroll bar's thumb (grabbed bDragOff below its top)
   uint32_t libVer = 0; int libTick = 0;
   std::wstring bStatus;                                    // last browser message
 
@@ -943,6 +947,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       m.push_back(MenuItem::popup(L"Deleted presets (click to bring back)\t" + std::to_wstring(lib.deletedCount()), std::move(dm)));
     }
     m.push_back(MenuItem::item(L"Export all presets (.txt)…", kCmdBankExport));
+    m.push_back(MenuItem::item(L"Import presets (.txt), replacing yours…", kCmdBankImport));
     m.push_back(MenuItem::item(L"Show the presets file", kCmdBankShow));
     m.push_back(MenuItem::item(host->browserOpen() ? L"Hide the preset browser" : L"Show the preset browser", kCmdBrowser));
     const int cmd = win ? win->popupMenu(m, it.r.x + 30, it.r.y + it.r.h) : 0;
@@ -954,6 +959,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     else if (cmd == kCmdBankSave) bankSave();
     else if (cmd == kCmdBankExport) bankExport();
     else if (cmd == kCmdBankShow) bankShow();
+    else if (cmd == kCmdBankImport) bankImport();
     else if (cmd == kCmdSavePreset) savePreset();
     else if (cmd == kCmdRestore) restorePreset(host->presetIndex());
     else if (cmd == kCmdBrowser) setBrowser(!host->browserOpen());
@@ -1103,6 +1109,27 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (!e.empty()) { if (win) win->message(L"Could not export the presets:\n" + path + L"\n\n" + e + L".", true); }
     else bStatus = L"Exported to " + path.substr(path.find_last_of(L"\\/") + 1) + L".";
   }
+  // IMPORT (beta 0.4): the presets of another file replace yours (adjusted and deleted presets, list order, user bank); the
+  // current file is kept as a dated backup copy next to it
+  void bankImport() {
+    std::wstring path = envPath(L"WS_PRESETS_IMPORT");   // developer tests: no file window
+    if (path.empty()) {
+      if (!win) return;
+      path = win->openFileDialog(L"Import presets (they replace yours; your file is kept as a backup copy)");
+      if (path.empty()) return;
+    }
+    const std::wstring name = path.substr(path.find_last_of(L"\\/") + 1);
+    if (!ask(L"Replace your presets — adjusted and deleted factory presets, list order and user bank — with those of “" + name +
+             L"”?\n\nYour current presets file is kept as a backup copy next to it.")) return;
+    std::wstring backup;
+    Library::get().refresh();
+    const std::wstring e = Library::get().importFrom(path, backup);
+    if (!e.empty()) { if (win) win->message(L"Could not import the presets:\n" + path + L"\n\n" + e + L".", true); return; }
+    buildCategories();
+    menuBank = Library::get().bank();
+    bReveal();
+    bStatus = L"Imported " + name + (backup.empty() ? L"." : L" (backup: " + backup.substr(backup.find_last_of(L"\\/") + 1) + L").");
+  }
   void bankShow() {
     const std::wstring path = Library::get().path();
     if (!fileExists(path)) {
@@ -1117,13 +1144,28 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   R bHide() const { const R c = bCard(); return R{c.x + c.w - 70, c.y + 6, 58, 20}; }
   R bTabR(int t) const { const R c = bCard(); const float w = (c.w - 24) / 2; return R{c.x + 12 + t * w, c.y + 34, w, 26}; }
   R bCatR(int i) const { const R c = bCard(); return R{c.x + 12, c.y + 72 + i * 26.0f, 118, 24}; }
-  R bList() const { const R c = bCard(); return R{c.x + 136, c.y + 98, c.w - 148, 548}; }
+  R bList() const { const R c = bCard(); return R{c.x + 136, c.y + 98, c.w - 162, 548}; }
+  R bScrollR() const { const R l = bList(); return R{l.x + l.w + 2, l.y, 12, l.h}; }   // the list's scroll bar (beta 0.4)
+  // its thumb for n rows, at least 28 px high so that it is easy to grab
+  R bThumb(int n) const {
+    const R s = bScrollR(); const int vis = bVisibleRows();
+    const float th = std::max(28.0f, s.h * vis / std::max(1, n)), ty = s.y + (s.h - th) * bScroll / std::max(1, n - vis);
+    return R{s.x, ty, s.w, th};
+  }
+  // scrolls so that the thumb's top is at `top`
+  void bScrollTo(float top, int n) {
+    const R s = bScrollR(), t = bThumb(n); const int vis = bVisibleRows();
+    const float range = s.h - t.h;
+    const int v = range > 0 ? (int)std::lround((top - s.y) / range * (n - vis)) : 0;
+    const int ns = std::max(0, std::min(std::max(0, n - vis), v));
+    if (ns != bScroll) { bScroll = ns; invalidateLogical(bList()); invalidateLogical(bScrollR()); }
+  }
   R bListHead() const { const R c = bCard(); return R{c.x + 136, c.y + 72, c.w - 148, 20}; }   // its name, ▲ ▼
   R bMoveR(int dir) const { const R h = bListHead(); return R{h.x + h.w - (dir < 0 ? 52 : 26), h.y, 24, 20}; }
   static constexpr float kRowH = 22;
   int bVisibleRows() const { return (int)(bList().h / kRowH); }
   R bRowR(int j) const { const R l = bList(); return R{l.x, l.y + j * kRowH, l.w, kRowH - 1}; }
-  static constexpr int kBtns = 5;   // TO BANK, RESTORE, DELETE, EXPORT, FILE
+  static constexpr int kBtns = 5;   // TO BANK, RESTORE, DELETE, EXPORT, IMPORT (beta 0.4; FILE is in the right-click menu)
   R bBtnR(int b) const { const R c = bCard(); const float w = (c.w - 24 - 4 * 5) / kBtns; return R{c.x + 12 + b * (w + 5), c.y + 654, w, 26}; }
   int bNumCats() const { return bTab == 0 ? (int)fCats.size() : kNumBankSections; }
   // the rows of the selected category: factory preset indices, or indices into menuBank
@@ -1191,6 +1233,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     for (int t = 0; t < 2; t++) if (bTabR(t).has(x, y)) return 10 + t;
     for (int i = 0; i < bNumCats(); i++) if (bCatR(i).has(x, y)) return 100 + i;
     for (int j = 0; j < bVisibleRows(); j++) if (bRowR(j).has(x, y)) return 1000 + j;
+    if (bScrollR().has(x, y) && (int)bRows().size() > bVisibleRows()) return 30;   // the scroll bar
     for (int b = 0; b < kBtns; b++) if (bBtnR(b).has(x, y)) return 500 + b;
     return -1;
   }
@@ -1206,6 +1249,15 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     const int h = bHit(x, y);
     if (h == 1) { setBrowser(false); return; }
     if (h == 20 || h == 21) { if (bMoveEnabled()) bMove(h == 20 ? -1 : 1); invalidateAll(); return; }
+    if (h == 30) {   // the scroll bar: drag its thumb, or a click on the bar puts the thumb there
+      const int n = (int)bRows().size(); const R t = bThumb(n);
+      bDragOff = t.has(x, y) ? y - t.y : t.h / 2;
+      bDrag = true;
+      if (win) win->capture(true);
+      bScrollTo(y - bDragOff, n);
+      invalidateLogical(bCard());
+      return;
+    }
     if (h == 10 || h == 11) {   // a tab; it shows the sound playing only when that sound belongs to it
       bTab = h - 10; bCat = 0; bScroll = 0;
       if ((bTab == 0) == host->userPresetName().empty()) bReveal();
@@ -1229,7 +1281,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         const std::string user = host->userPresetName();
         for (const BankPreset& p : Library::get().bank()) if (kUserPrefix + p.name == user) { bankDelete(p); break; }
       } else if (b == 3) bankExport();
-      else bankShow();
+      else bankImport();
       menuBank = Library::get().bank();
       onTimer();
     }
@@ -1314,7 +1366,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         text(g, d < 0 ? L"\u25B2" : L"\u25BC", b, 9, false, en ? rgb(hot ? kText : kDim) : rgb(kFaint));
       }
     }
-    inset(g, R{l.x - 4, l.y - 4, l.w + 8, l.h + 8}, 7);
+    inset(g, R{l.x - 4, l.y - 4, l.w + 22, l.h + 8}, 7);   // the list and its scroll bar
     const int vis = bVisibleRows();
     if (rows.empty())
       text(g, bTab == 1 ? L"Empty — SAVE TO BANK keeps the sound you hear here." : L"No preset.", R{l.x + 8, l.y + 8, l.w - 16, 18}, 10, false, rgb(kFaint), 0);
@@ -1344,12 +1396,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       }
       nameText(g, name, R{r.x + 8, r.y, right - r.x - 10, r.h}, 11.5f, cur, cur ? rgb(0xffffff) : rgb(0xd5dce6), 255);
     }
-    if ((int)rows.size() > vis) {   // scroll bar
-      const float th = l.h * vis / rows.size(), ty = l.y + (l.h - th) * bScroll / std::max(1, (int)rows.size() - vis);
-      fillRR(g, R{l.x + l.w + 1, ty, 3, th}, 1.5f, rgb(0xffffff, 40));
+    if ((int)rows.size() > vis) {   // scroll bar (beta 0.4: wide enough for a trackpad; drag the thumb or click the bar)
+      const R s = bScrollR(), t = bThumb((int)rows.size());
+      fillRR(g, s, 4, rgb(0xffffff, 16));
+      fillRR(g, R{t.x + 1, t.y + 1, t.w - 2, t.h - 2}, 4, rgb(0xffffff, bHover == 30 || bDrag ? 110 : 70));
     }
     // buttons
-    const wchar_t* labels[kBtns] = {L"TO BANK\u2026", L"RESTORE", L"DELETE", L"EXPORT\u2026", L"FILE"};
+    const wchar_t* labels[kBtns] = {L"TO BANK\u2026", L"RESTORE", L"DELETE", L"EXPORT\u2026", L"IMPORT\u2026"};
     for (int b = 0; b < kBtns; b++) {
       const R r = bBtnR(b);
       const bool en = bBtnEnabled(b), hot = en && bHover == 500 + b;

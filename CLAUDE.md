@@ -83,6 +83,9 @@ products identical. Read it before changing the DSP, the parameters or the prese
   Nyquist are silent, notes are bounded 0–127.
 - Polyphony 1–16 (mono = legato with last-note priority); portamento modes Off / Poly (each voice glides from its own
   last pitch, glide-aware voice allocation) / Legato only.
+- **noteOff never depends on VOICES** (beta 0.4 fix, both engines): a preset can switch mono <-> poly between a note on
+  and its note off. The key leaves the mono list first; the mono legato branch is taken only when voice 0 plays that
+  note and another key is held; otherwise every gated voice playing that note is released (a stuck note before).
 
 ### 3.3 A/B MIX (beta 0.2)
 - `ab_mix` 0 = engine A only, 1 = engine B only, in between both. **The `engine` parameter is only the panel shown**
@@ -209,19 +212,23 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
     `wsTestCommand:` = the Windows `WM_APP + 1` test hook.
 - **Preset library** (beta 0.3, VST only): `bank.h`, `Library::get()` (one per process, mutex, reads the file again
   when its write time or size changes: several instances). One text file `OKTOWAVE presets.txt` next to the `.vst3`
-  bundle folder (`libraryFolder`; `WS_PRESETS_FILE` / `WS_PRESETS_EXPORT` for tests), written atomically after every
+  bundle folder (`libraryFolder`; `WS_PRESETS_FILE` / `WS_PRESETS_EXPORT` / `WS_PRESETS_IMPORT` for tests), written atomically after every
   edit (an error leaves the state unchanged): `######## FACTORY PRESETS` (every preset: `Preset:` its name now,
   `Factory:` its built-in name = the key, `Adjusted: yes|no`, optional `Deleted: yes`, then `  key: value   (Name: shown)`
   for the parameters that differ from the defaults, ENGINE and A/B MIX always; only adjusted blocks override the built-in
   values), `######## LIST ORDER` (TOP Sounds — favourites + `kPresetStars` ≥ 8 — and each category, `N. built-in name`;
   missing members keep their default place), `######## USER BANK` (12 `kBankSections`, `Preset:`, `From:`, values). A
   beta 0.3 user-bank file (`Wavelet Synthesizer user bank.txt`) is read when the library file does not exist. Parsing
-  ignores unknown lines and clamps values. The controller takes factory values and names from the library (`loadPreset`,
+  ignores unknown lines and clamps values. `importFrom` (beta 0.4 IMPORT) reads and checks another file (a `Preset:` line), parses it
+  over the built-in state, keeps the current file as `OKTOWAVE presets (backup YYYY-MM-DD HHMM[ n]).txt` (never over an
+  earlier backup), then commits; an error leaves the library unchanged. The controller takes factory values and names from the library (`loadPreset`,
   `exactPreset`, `findPreset` = name now or built-in name, new instances' default preset, VST2 program names).
 - **Editor, presets** (beta 0.3): the **preset browser** (`kBrowserW` = 360 logical px added at the right while open;
   `browserOpen` kept by the controller, written in `"WSC2"` as a trailing int32 only when closed, so other states stay
   byte-identical): FACTORY / USER BANK tabs, the lists of the library, one click loads, ▲ ▼ `moveInList` / `moveUser`,
-  buttons TO BANK, RESTORE, DELETE, EXPORT, FILE; **SAVE PRESET** (`kSaveBtn`, the preset box is shorter) adjusts the
+  buttons TO BANK, RESTORE, DELETE, EXPORT, IMPORT (beta 0.4, `bankImport`, `kCmdBankImport` 903, `openFileDialog`:
+  GetOpenFileNameW / NSOpenPanel; FILE = "Show the presets file" in the right-click menu); the list's scroll bar
+  (beta 0.4, `bScrollR` 12 px, `bThumb` ≥ 28 px, hit code 30: drag the thumb, a click on the bar centres it there); **SAVE PRESET** (`kSaveBtn`, the preset box is shorter) adjusts the
   factory preset (`Library::adjust`, then `presetStored`) or replaces the bank sound; DELETE = `setDeleted` (lists and
   ◀ ▶ skip it; the right-click menu's "Deleted presets" brings it back). The preset name opens the browser, a right-click
   the classic menu. Save window: an in-memory dialog template (name, optional section and note). Commands also reachable
@@ -265,19 +272,20 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
 - `vst/devtest/vst2_smoke.cpp`, `tools/dsp_compare.js`, `tools/dsp_selftest.js`; `tests/quick.js` (fast check).
 - `vst/devtest/bank_session.cpp` (beta 0.3): the preset library driven through the editor like a player (browser clicks,
   SAVE PRESET / rename / refused name, RESTORE, DELETE and back, ▲ ▼, the user bank, EXPORT, OCT click, LFO 2 menu, HIDE,
-  unwritable folder, the file read back after the plug-in is unloaded and loaded). The save windows and message boxes are
+  unwritable folder, the file read back after the plug-in is unloaded and loaded; beta 0.4: the scroll bar dragged and
+  clicked on the 100 Source Phase sounds, IMPORT with its backup copies and a refused file). The save windows and message boxes are
   answered by a helper thread (a single-OK message box closes with IDCANCEL).
 - `tools/dsp_compare.js` / `dsp_render.cpp` also render LFO 2 on each of its targets, and (beta 0.4) four SOURCE PHASE
   variants: static (Haar saw, noise) and moved by LFO 2 with WAVELET MORPH and with A/B MIX (every phase-set slot).
 - beta 0.4: `node tools/phase_effect.js` measures every phased preset (phase 0 against its phase, static cycle at middle
   C); `dsp_selftest` 8 checks phase 0 = the beta 0.3 source, the Haar band-6 effect (> 10 dB), the noise shift, the phase
-  sets. The 153 older presets were checked bit-identical against beta 0.3 (old and new `core.js`, same scenario).
+  sets; `dsp_selftest` 9: no stuck note when a preset switches VOICES while a key is held. The 153 older presets were checked bit-identical against beta 0.3 (old and new `core.js`, same scenario).
 - `tests/vst3host`: `scaled()` maps layout points with the height scale (the browser makes the editor wider).
 - macOS (`.github/workflows/mac.yml`, `macos-14`, Apple silicon + Rosetta for Intel): `dsp_render.cpp` + `dsp_compare.js` on
   both architectures, then `tests/machost/machost <bundle> <outdir>` (built by `tests/machost/build.sh`): bundle and
   exports, sound, states, editor in a window (PNG screenshots, synthetic mouse events at logical points, Cmd-click), HIDE /
   browser, the zoom and preset menus (chosen through `NSMenuDidBeginTrackingNotification` + `performActionForItemAtIndex`),
-  SAVE PRESET / TO BANK / DELETE / undelete / EXPORT through `wsTestCommand:` with the NSAlert windows answered by a timer
+  SAVE PRESET / TO BANK / DELETE / undelete / EXPORT / IMPORT (903, `WS_PRESETS_IMPORT`) through `wsTestCommand:` with the NSAlert windows answered by a timer
   (`stopModalWithCode`). The presets file's header quotes "Adjusted: yes" / "Deleted: yes": look for them at a line start.
   Results: the run's page in the repository's Actions tab, or the Actions REST API (artifacts `WaveletSynthesizer-mac`
   = the release zip, `mac-test-output` = logs and screenshots).

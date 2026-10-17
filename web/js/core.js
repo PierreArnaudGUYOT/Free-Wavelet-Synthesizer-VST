@@ -557,22 +557,21 @@ function WSCoreFactory(SPEC) {
     return pick;
   };
 
+  // beta 0.4 fix: a note is released whatever VOICES is now — a preset change between its note on and its note off may
+  // have switched mono <-> poly (before, the note off then missed its voice, which played on for ever)
   E.noteOff = function (note) {
     this.keys[note] = 0;
     const hold = this.p[P.hold] >= 0.5;
+    const i = this.stack.indexOf(note); if (i >= 0) this.stack.splice(i, 1);   // the mono list keeps held keys only
     if (Math.round(this.p[P.v_voices]) <= 1) {
-      const i = this.stack.indexOf(note); if (i >= 0) this.stack.splice(i, 1);
       const vc = this.voices[0];
-      if (vc.active && vc.note === note) {
-        if (this.stack.length) {
-          const n = this.stack[this.stack.length - 1];
-          vc.note = n; vc.target = n; vc.glide = Math.round(this.p[P.v_porta]) !== 0;
-          if (!vc.glide || this.p[P.v_glide] <= 0) vc.pitch = n;
-          this.lastPitch = n;
-        } else if (hold) vc.held = true;
-        else { vc.gate = false; vc.amp.gate(false); vc.mod.gate(false); }
+      if (vc.active && vc.gate && vc.note === note && this.stack.length) {   // mono legato: back to the last key held
+        const n = this.stack[this.stack.length - 1];
+        vc.note = n; vc.target = n; vc.glide = Math.round(this.p[P.v_porta]) !== 0;
+        if (!vc.glide || this.p[P.v_glide] <= 0) vc.pitch = n;
+        this.lastPitch = n;
+        return;
       }
-      return;
     }
     for (const vc of this.voices) if (vc.active && vc.gate && vc.note === note) {
       if (hold) vc.held = true; else { vc.gate = false; vc.amp.gate(false); vc.mod.gate(false); }

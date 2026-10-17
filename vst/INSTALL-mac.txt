@@ -7,7 +7,9 @@ DOI 10.5281/zenodo.23431760 - https://doi.org/10.5281/zenodo.23431760 (record: h
 
 The same instrument as the Windows beta 0.4 (same sound, panel, 253 presets, preset browser and presets file).
 NEW IN BETA 0.4: SOURCE PHASE (the PHASE knob of engine A, also an LFO 2 target) and the 100 presets of the Source Phase
-section (see RELEASE_HISTORY.md on GitHub). It was built and tested automatically on Apple's Macs, but not yet in every DAW: please
+section (see RELEASE_HISTORY.md on GitHub); IMPORT... in the preset browser (another presets file replaces yours, a
+backup copy is kept), a wide scroll bar for its long lists (no mouse wheel needed), and a fix for a note that could keep
+sounding after a preset change (mono <-> poly). It was built and tested automatically on Apple's Macs, but not yet in every DAW: please
 report any problem at https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/issues
 
 INSTALL
@@ -31,4 +33,9 @@ ON A MAC
 - Control-click (or right-click) on the preset name: the classic preset menu. A click opens the preset browser.
 - The MANUAL A / MANUAL B buttons open the user manuals included in the plug-in, in your web browser.
 - Your adjusted presets, deleted presets and user bank are kept in "OKTOWAVE presets.txt", next to WaveletSynthesizer.vst3
-  (FILE in the preset browser shows it in the Finder).
+  ("Show the presets file" in the preset-name menu shows it in the Finder; IMPORT... reads another one).
+
+ACKNOWLEDGMENTS
+- Thanks to Jeremi Palmigani (aka Saoul Machine) and Flo (aka Go Tiger) for testing the synth and providing valuable
+  feedback and improvement suggestions.
+- Thanks to Arnaud Grignard for the technical review of the concept.

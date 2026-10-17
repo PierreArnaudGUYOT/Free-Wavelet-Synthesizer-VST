@@ -547,6 +547,27 @@ int main(int argc, char** argv) {
     pump(0.2);
     check(readFile(exported).find("CI Bank Sound") != std::string::npos, "EXPORT writes every preset and the user bank");
     shot(pv, out + "/mac_library.png");
+    // IMPORT (beta 0.4): an edited copy of the export replaces the library, after a question; the old file kept as a backup
+    {
+      std::string imp = readFile(exported);
+      const size_t at = imp.find("Preset: CI Bank Sound");
+      if (at != std::string::npos) imp.replace(at, 21, "Preset: CI Imported Sound");
+      const std::string impPath = out + "/import me.txt";
+      if (FILE* fo = std::fopen(impPath.c_str(), "wb")) { std::fwrite(imp.data(), 1, imp.size(), fo); std::fclose(fo); }
+      const std::string before = readFile(presets);
+      setenv("WS_PRESETS_IMPORT", impPath.c_str(), 1);
+      gAnswered = 0;
+      ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 903);
+      pump(0.3);
+      unsetenv("WS_PRESETS_IMPORT");
+      lib = readFile(presets);
+      std::string backup;
+      for (NSString* fn in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:[NSString stringWithUTF8String:out.c_str()] error:nil])
+        if ([fn hasPrefix:@"OKTOWAVE presets (backup "]) backup = readFile(out + "/" + fn.UTF8String);
+      check(gAnswered >= 1 && lib.find("Preset: CI Imported Sound") != std::string::npos && lib.find("Preset: CI Bank Sound") == std::string::npos,
+            "IMPORT: the question, then the library is the imported file", fmt("%d windows", gAnswered));
+      check(!backup.empty() && backup == before, "IMPORT: the previous presets file kept as a backup copy next to it", fmt("%zu bytes", backup.size()));
+    }
     CFRunLoopTimerInvalidate(answer); CFRelease(answer);
 
     // ---------------------------------------------------------------- zoom, close, reopen

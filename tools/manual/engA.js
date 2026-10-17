@@ -515,7 +515,7 @@ const sections = [
   { id: 'vst', num: '15', title: 'The VST3 plugin in Live', html: S.vstSection(E), subs: [{ id: 'vst-install', title: 'Installation' }, { id: 'vst-diff', title: 'Differences' }, { id: 'automation', title: 'Automation' }] },
   { id: 'trouble', num: '16', title: 'Tips & troubleshooting', html: S.troubleshooting(E, extraTrouble) },
   { id: 'glossary', title: 'Glossary', html: S.glossary(E) },
-  { id: 'about', title: 'About & release history', html: S.aboutSection(E), subs: [{ id: 'release-history', title: 'Release history' }] },
+  { id: 'about', title: 'About & release history', html: S.aboutSection(E), subs: [{ id: 'acknowledgments', title: 'Acknowledgments' }, { id: 'release-history', title: 'Release history' }] },
 ];
 
 const footer = `<footer class="foot"><span>Wavelet Synthesizer · Manual A — Engine A · Wavelet Subtractive</span><span>${SPEC.APP.name} — ${SPEC.APP.credit} (${SPEC.APP.author}). Version ${SPEC.APP.version} (${SPEC.APP.date}). ${SPEC.APP.copyright}. Free software under the GNU General Public License v3 or later, without any warranty.</span><a href="manual-b.html">Manual B — Engine B · Wavelet Additive →</a></footer>`;

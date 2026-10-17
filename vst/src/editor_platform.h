@@ -93,6 +93,7 @@ struct EditorWindow {
   virtual bool ask(const std::wstring& text) = 0;   // Yes / No
   virtual bool saveDialog(SaveDlg& d, const wchar_t* title, bool withSection, const wchar_t* note) = 0;
   virtual std::wstring saveFileDialog(const wchar_t* title, const wchar_t* defaultName) = 0;   // "" when cancelled
+  virtual std::wstring openFileDialog(const wchar_t* title) = 0;   // a .txt file to read (beta 0.4 IMPORT); "" when cancelled
   virtual void reveal(const std::wstring& path) = 0;   // shows the file in Explorer / the Finder
   virtual void openDocument(const std::wstring& path) = 0;   // opens it with its application (the manual: a browser)
 };

@@ -194,3 +194,10 @@ Created by Pierre Arnaud GUYOT ("OktoPierre").
   Beethoven *Moonlight* Sonata Op. 27/2 III typeset by Stewart Holmes — **CC BY-SA 2.5**.
 - VST3 interface headers: Steinberg Media Technologies, MIT licence (`vst/external/pluginterfaces/LICENSE.txt`).
 - Wavelet filter coefficients were generated with PyWavelets (MIT licence) and are stored in `tools/wavelets.json`.
+
+## Acknowledgments
+
+Thanks to Jeremi Palmigani (aka Saoul Machine) and Flo (aka Go Tiger) for testing the synth and providing valuable
+feedback and improvement suggestions.
+
+Thanks to Arnaud Grignard for the technical review of the concept.

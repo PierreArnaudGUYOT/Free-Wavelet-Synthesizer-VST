@@ -354,6 +354,20 @@ class MacWindow : public EditorWindow {
     if ([p runModal] != NSModalResponseOK || !p.URL) return L"";
     return wide(p.URL.path);
   }
+  std::wstring openFileDialog(const wchar_t* title) override {
+    NSOpenPanel* p = [NSOpenPanel openPanel];
+    p.title = ns(title);
+    p.message = ns(title);
+    p.canChooseFiles = YES;
+    p.canChooseDirectories = NO;
+    p.allowsMultipleSelection = NO;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    p.allowedFileTypes = @[@"txt"];
+#pragma clang diagnostic pop
+    if ([p runModal] != NSModalResponseOK || !p.URL) return L"";
+    return wide(p.URL.path);
+  }
   void reveal(const std::wstring& path) override { [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[[NSURL fileURLWithPath:ns(path)]]]; }
   void openDocument(const std::wstring& path) override { [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:ns(path)]]; }
 

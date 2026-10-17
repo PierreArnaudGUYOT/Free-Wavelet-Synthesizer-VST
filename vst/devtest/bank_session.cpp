@@ -545,6 +545,63 @@ int wmain(int argc, wchar_t** argv) {
     check(h.stateName() == sawZ && std::fabs(h.plain(P_F_CUTOFF) - cutZ) < 1e-6, "the adjusted preset, its name, sound and place in Bass, after a reload",
           h.stateName() + fmt("  cutoff %.3f", h.plain(P_F_CUTOFF)));
     h.shot(out + L"\\6_reopened.png");
+
+    std::printf("13. the scroll bar (beta 0.4): the 100 sounds of Source Phase, the thumb dragged, the bar clicked\n");
+    std::vector<std::string> sp;
+    for (int k = 0; k < kNumPresets; k++) if (std::strcmp(kPresets[k].cat, "Source Phase") == 0) sp.push_back(kPresets[k].name);
+    const float BAR_X = 1104 + 136 + 186 + 2 + 6, BAR_TOP = 8 + 98, BAR_H = 548;   // the bar right of the list
+    clickAt(h, CAT_X, catY(13));   // Source Phase: TOP Sounds, the 11 types, Init, then Source Phase
+    h.drag(BAR_X, BAR_TOP + 10, BAR_H);   // the thumb from the top to the bottom
+    clickAt(h, ROW_X, rowY(0));
+    h.run(0.2);
+    check(sp.size() == 100 && h.stateName() == sp[100 - 24], "thumb dragged to the bottom: the first row shown is the 77th sound", h.stateName());
+    clickAt(h, BAR_X, BAR_TOP + BAR_H / 2);   // a click in the middle of the bar: the thumb is centred there
+    clickAt(h, ROW_X, rowY(0));
+    h.run(0.2);
+    check(h.stateName() == sp[38], "a click on the bar puts the thumb there (row 39 first)", h.stateName());
+    h.shot(out + L"\\8_scroll.png");
+
+    std::printf("14. IMPORT (beta 0.4): another presets file replaces the library, a backup copy is kept\n");
+    const std::wstring imp = out + L"\\import me.txt", bad = out + L"\\not presets.txt";
+    std::string itxt = readFile(exported);   // the export of step 8 (Deep Saw Bass Z, the bank with Old Pad)
+    const size_t op = itxt.find("Preset: Old Pad");
+    if (op != std::string::npos) itxt.replace(op, 15, "Preset: Imported Pad");
+    { FILE* f = _wfopen(imp.c_str(), L"wb"); std::fwrite(itxt.data(), 1, itxt.size(), f); std::fclose(f); }
+    { FILE* f = _wfopen(bad.c_str(), L"wb"); std::fputs("just a text file\r\n", f); std::fclose(f); }
+    const std::string before = readFile(lib);
+    SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", imp.c_str());
+    Responder r11;
+    r11.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    clickPosted(h, btnX(4), BTN_Y);   // IMPORT (WS_PRESETS_IMPORT: no file window)
+    r11.wait(h);
+    const std::string after = readFile(lib);
+    std::string bk;
+    { WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((dir + L"\\OKTOWAVE presets (backup *).txt").c_str(), &fd);
+      if (fh != INVALID_HANDLE_VALUE) { bk = readFile(dir + L"\\" + fd.cFileName); FindClose(fh); } }
+    check(!r11.seen.empty() && has(u8(r11.seen[0]), "Replace your presets"), "a question first", r11.seen.empty() ? "" : u8(r11.seen[0]).substr(0, 60));
+    check(has(after, "Preset: Imported Pad") && !has(after, "Preset: Old Pad") && !has(after, "Preset: Pad Two") && has(after, "Preset: " + sawZ),
+          "the library is now the imported one (its bank, its adjusted preset)");
+    check(!bk.empty() && noSaved(bk) == noSaved(before), "the previous file is kept as a backup copy next to it");
+    h.command(1000);   // the first bank sound, the bank read again
+    h.run(0.2);
+    check(h.stateName() == "USER \xC2\xB7 Imported Pad", "the imported bank sound loads", h.stateName());
+    SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", bad.c_str());
+    Responder r12;
+    r12.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}, {L"Wavelet Synthesizer", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+    clickPosted(h, btnX(4), BTN_Y);
+    r12.wait(h);
+    check(r12.seen.size() == 2 && has(u8(r12.seen[1]), "Could not import") && readFile(lib) == after, "a file without presets is refused, the library unchanged",
+          r12.seen.size() > 1 ? u8(r12.seen[1]).substr(0, 100) : "");
+    SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", imp.c_str());   // imported again (the same minute): a second backup, the first kept
+    Responder r13;
+    r13.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    clickPosted(h, btnX(4), BTN_Y);
+    r13.wait(h);
+    int nb = 0; bool firstKept = false;
+    { WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((dir + L"\\OKTOWAVE presets (backup *).txt").c_str(), &fd);
+      if (fh != INVALID_HANDLE_VALUE) { do { nb++; if (readFile(dir + L"\\" + fd.cFileName) == before) firstKept = true; } while (FindNextFileW(fh, &fd)); FindClose(fh); } }
+    check(nb == 2 && firstKept, "a second import: a second backup copy, the first one (the presets before any import) kept", std::to_string(nb) + " backups");
+    SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", nullptr);
     S.close();
     FreeLibrary(mod);
   }

@@ -185,6 +185,16 @@ class WinWindow : public EditorWindow {
     if (!GetSaveFileNameW(&o)) return L"";
     return b;
   }
+  std::wstring openFileDialog(const wchar_t* title) override {
+    wchar_t b[MAX_PATH * 2] = {};
+    OPENFILENAMEW o{};
+    o.lStructSize = sizeof o; o.hwndOwner = GetAncestor(hwnd, GA_ROOT);
+    o.lpstrFilter = L"Text file (*.txt)\0*.txt\0All files\0*.*\0"; o.lpstrFile = b; o.nMaxFile = MAX_PATH * 2;
+    o.lpstrTitle = title;
+    o.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_HIDEREADONLY;
+    if (!GetOpenFileNameW(&o)) return L"";
+    return b;
+  }
   void reveal(const std::wstring& path) override {
     ShellExecuteW(nullptr, L"open", L"explorer.exe", (L"/select,\"" + path + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
   }

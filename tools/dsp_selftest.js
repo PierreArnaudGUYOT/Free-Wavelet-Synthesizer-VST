@@ -184,5 +184,31 @@ console.log('8. SOURCE PHASE (beta 0.4)');
   check(!off.ph && on.ph && on.ph.length === C.PHASE_K - 1, `LFO 2 -> PHASE builds ${on.ph ? on.ph.length : 0} more table sets (amount 0: none) in ${ms} ms`);
 }
 
+console.log('9. no stuck note when a preset changes VOICES while a key is held (beta 0.4 fix)');
+{
+  const byName = n => SPEC.PRESETS.find(p => p.name === n).values;
+  const load = (eng, vals) => { vals.forEach((v, i) => eng.setParam(i, v)); eng.setTables(C.buildTables(Float64Array.from(vals), true)); };
+  const run = (eng, secs) => { const n = 128, L = new Float32Array(n), R = new Float32Array(n); let pk = 0;
+    for (let b = 0; b < secs * sr / n; b++) { eng.process(L, R, n); for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i])); } return pk; };
+  const poly = byName('A · Warm Pad'), mono = byName('A · Haar Bass');
+  check(poly[C.P.v_voices] > 1 && mono[C.P.v_voices] === 1, 'test presets: one polyphonic, one mono');
+  // poly -> mono between note on and note off: before the fix the second voice was never released
+  let eng = new C.Engine(sr); load(eng, poly);
+  eng.noteOn(60, 0.8); eng.noteOn(64, 0.8); run(eng, 0.3);
+  load(eng, mono); eng.noteOff(60); eng.noteOff(64);
+  const pk1 = run(eng, 6);
+  check(eng.voices.every(v => !v.active), `poly -> mono, then note off: every voice ends (peak ${pk1.toExponential(1)} while released)`);
+  // mono -> poly -> mono: the mono list of held keys forgets a key released under the poly preset
+  eng = new C.Engine(sr); load(eng, mono);
+  eng.noteOn(60, 0.8); run(eng, 0.2);
+  load(eng, poly); eng.noteOff(60); run(eng, 1);
+  load(eng, mono); eng.noteOn(67, 0.8); run(eng, 0.2); eng.noteOff(67); run(eng, 6);
+  check(eng.stack.length === 0 && eng.voices.every(v => !v.active), `mono -> poly -> mono: no key left held (list ${JSON.stringify(eng.stack)}), every voice ends`);
+  // normal mono legato is unchanged: releasing the top key goes back to the key still held
+  eng = new C.Engine(sr); load(eng, mono);
+  eng.noteOn(48, 0.8); run(eng, 0.1); eng.noteOn(55, 0.8); run(eng, 0.1); eng.noteOff(55);
+  check(eng.voices[0].gate && eng.voices[0].note === 48, `mono legato: back to the key still held (note ${eng.voices[0].note})`);
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL PASS');
 process.exit(fails ? 1 : 0);
