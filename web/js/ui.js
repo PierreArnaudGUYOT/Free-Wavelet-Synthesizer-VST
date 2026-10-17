@@ -55,7 +55,13 @@ class SynthUI {
     this.atomCache = new Map();
     this.cycle = new Float64Array(C.N);
     this.mouseNotes = new Map();
+    // beta 0.3: the preset browser at the right of the panel (as in the VST plug-in; here to select presets only).
+    // "#nobrowser" in the address leaves it out (the manual's screenshots of the panel alone).
+    this.browserOn = !/nobrowser/.test(location.hash);
+    this.bOpen = this.browserOn;
+    try { if (localStorage.getItem('ws.browser') === 'closed') this.bOpen = false; } catch (_) { /* storage unavailable */ }
     this.build();
+    if (this.browserOn) this.makeBrowser();
     window.addEventListener('resize', () => this.fit());
     this.fit();
     const loop = () => { this.frame(); requestAnimationFrame(loop); };
@@ -337,12 +343,14 @@ class SynthUI {
     const next = el('button', 'arrow', box); next.textContent = '▶'; next.title = 'Next preset';
     prev.onclick = () => this.host.presetStep(-1);
     next.onclick = () => this.host.presetStep(1);
-    name.onclick = (e) => { e.stopPropagation(); this.togglePresetMenu(box); };
+    // the name opens the preset browser when it is hidden, else the classic menu
+    name.onclick = (e) => { e.stopPropagation(); if (this.browser && !this.bOpen) this.setBrowser(true); else this.togglePresetMenu(box); };
     this.presetNameEl = name;
     document.addEventListener('pointerdown', (e) => { if (this.pmenu && !this.pmenu.contains(e.target)) this.closePresetMenu(); });
   }
   setPresetName(nm, dirty) {
     if (this.presetNameEl) this.presetNameEl.innerHTML = `<span>${nm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>${dirty ? '<span class="dirty" title="Modified">•</span>' : ''}<span class="chev">▼</span>`;
+    if (this.browser) this.renderBrowser();   // the sound playing is highlighted there
   }
   togglePresetMenu(box) {
     if (this.pmenu) { this.closePresetMenu(); return; }
@@ -419,13 +427,112 @@ class SynthUI {
 
   fit() {
     const stage = this.dev.parentElement;
+    const W = 1100 + (this.browser && this.bOpen ? 360 : 0);   // the panel, and the preset browser at its right
     const aw = stage.clientWidth - 24, ah = stage.clientHeight - 24;
-    const s = clamp(Math.min(aw / 1100, ah / 720), 0.45, 2.5);
+    const s = clamp(Math.min(aw / W, ah / 720), 0.45, 2.5);
     this.scale = s;
+    const left = Math.max(0, (stage.clientWidth - W * s) / 2), top = Math.max(0, (stage.clientHeight - 720 * s) / 2);
     this.dev.style.transform = `scale(${s})`;
-    this.dev.style.left = Math.max(0, (stage.clientWidth - 1100 * s) / 2) + 'px';
-    this.dev.style.top = Math.max(0, (stage.clientHeight - 720 * s) / 2) + 'px';
+    this.dev.style.left = left + 'px';
+    this.dev.style.top = top + 'px';
+    if (this.browser) {
+      this.browser.style.display = this.bOpen ? '' : 'none';
+      this.browser.style.transform = `scale(${s})`;
+      this.browser.style.left = (left + 1104 * s) + 'px';
+      this.browser.style.top = (top + 8 * s) + 'px';
+    }
     this.sizeCanvases();
+  }
+
+  // ---------------------------------------------------------------- preset browser (beta 0.3)
+  // Same layout as the VST plug-in's: FACTORY / USER PRESETS tabs, the sound types with their number of sounds (TOP
+  // Sounds = OktoPierre's favourites, then the sounds he rated 8 to 10, best first), and the sounds of the type selected;
+  // one click plays a sound. Selection only: saving stays in the status bar (Save preset / Export / Import).
+  bLists() {
+    const S = this.SPEC, fav = S.FAVOURITES, P = S.PRESETS;
+    const voted = [];
+    for (let k = fav; k < P.length; k++) if ((P[k].stars || 0) >= 8) voted.push(k);
+    voted.sort((a, b) => P[b].stars - P[a].stars || a - b);
+    const lists = [{ label: 'TOP Sounds', presets: [...Array(Math.min(fav, P.length)).keys(), ...voted] }];
+    const cats = [];
+    for (let k = fav; k < P.length; k++) if (!cats.includes(P[k].cat)) cats.push(P[k].cat);
+    for (const c of cats) {
+      const l = [];
+      for (let k = 0; k < fav; k++) if (P[k].cat === c) l.push(k);
+      for (let k = fav; k < P.length; k++) if (P[k].cat === c) l.push(k);
+      lists.push({ label: c, presets: l });
+    }
+    return lists;
+  }
+  makeBrowser() {
+    const b = el('div', 'browser', this.dev.parentElement);
+    b.id = 'browser';
+    b.innerHTML = '<div class="bhead"><span class="btitle">PRESET BROWSER</span><button class="bhide" title="Hide the preset browser ' +
+      '(a click on the preset name brings it back)">HIDE ▸</button></div><div class="btabs"><button data-t="0"></button><button data-t="1"></button></div>' +
+      '<div class="bcols"><div class="bcats"></div><div class="bright"><div class="bhd"></div><div class="blist"></div></div></div><div class="bstatus"></div>';
+    this.browser = b;
+    this.bTab = 0; this.bCat = 0;
+    b.querySelector('.bhide').onclick = () => this.setBrowser(false);
+    b.querySelectorAll('.btabs button').forEach(t => { t.onclick = () => { this.bTab = +t.dataset.t; this.bCat = 0; if (this.bTab === 0) this.bReveal(); this.renderBrowser(); }; });
+    this.bReveal();
+    this.renderBrowser();
+  }
+  setBrowser(open) {
+    this.bOpen = open;
+    try { localStorage.setItem('ws.browser', open ? 'open' : 'closed'); } catch (_) { /* storage unavailable */ }
+    if (open) { this.bReveal(); this.renderBrowser(); }
+    this.fit();
+  }
+  // the category of the sound playing (TOP Sounds when it is there and already shown)
+  bReveal() {
+    const cur = this.host.presetList().find(x => x.current);
+    if (!cur) return;
+    if (cur.id.startsWith('u:')) { this.bTab = 1; this.bCat = 0; return; }
+    const k = +cur.id.slice(2), lists = this.bLists();
+    this.bTab = 0;
+    if (lists[this.bCat] && lists[this.bCat].presets.includes(k)) return;
+    const c = lists.findIndex((l, i) => i > 0 && l.presets.includes(k));
+    if (c >= 0) this.bCat = c;
+  }
+  renderBrowser() {
+    const b = this.browser;
+    if (!b) return;
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const all = this.host.presetList(), user = all.filter(x => x.id.startsWith('u:')), cur = all.find(x => x.current);
+    const lists = this.bLists(), P = this.SPEC.PRESETS;
+    const tabs = b.querySelectorAll('.btabs button');
+    tabs[0].textContent = `FACTORY  ${P.length}`; tabs[1].textContent = `USER PRESETS  ${user.length}`;
+    tabs.forEach((t, i) => t.classList.toggle('on', i === this.bTab));
+    const cats = b.querySelector('.bcats');
+    cats.innerHTML = '';
+    const rows = this.bTab === 0 ? lists.map(l => [l.label, l.presets.length]) : [['My presets', user.length]];
+    rows.forEach(([label, n], i) => {
+      const r = el('div', 'bcat' + (i === this.bCat ? ' sel' : '') + (n ? '' : ' empty'), cats);
+      r.innerHTML = `<span>${esc(label)}</span><span class="n">${n}</span>`;
+      r.onclick = () => { this.bCat = i; this.renderBrowser(); };
+    });
+    const items = this.bTab === 0
+      ? (lists[this.bCat] || lists[0]).presets.map(k => ({ id: 'f:' + k, name: P[k].name, fav: k < this.SPEC.FAVOURITES, stars: P[k].stars || 0 }))
+      : user.map(x => ({ id: x.id, name: x.name, fav: false, stars: 0 }));
+    b.querySelector('.bhd').textContent = `${(this.bTab === 0 ? (lists[this.bCat] || lists[0]).label : 'My presets').toUpperCase()}  ·  ${items.length}`;
+    const list = b.querySelector('.blist');
+    list.innerHTML = '';
+    if (!items.length) el('div', 'bnone', list).textContent = 'No user presets yet: “Save preset” in the status bar keeps the sound you hear.';
+    let curRow = null;
+    for (const it of items) {
+      const r = el('div', 'bsnd' + (cur && cur.id === it.id ? ' cur' : ''), list);
+      const m = /^(A|B|AB) · (.*)$/.exec(it.name);
+      const eng = m ? `<span class="eng">${m[1].split('').map(c => `<span class="${c.toLowerCase()}">${c}</span>`).join('')} · </span>` : '';
+      const mark = it.fav ? '<span class="mk" title="One of OktoPierre’s favourite sounds">★</span>'
+        : it.stars ? `<span class="mk vote" title="OktoPierre’s vote in his listening test">${it.stars} ★</span>` : '';
+      r.innerHTML = `${eng}<span class="nm">${esc(m ? m[2] : it.name)}</span>${mark}`;
+      r.title = it.name;
+      r.onclick = () => this.host.loadPreset(it.id);
+      if (cur && cur.id === it.id) curRow = r;
+    }
+    if (curRow) curRow.scrollIntoView({ block: 'nearest' });
+    b.querySelector('.bstatus').textContent = this.bTab === 0 ? `${P.length} factory presets · one click plays a sound`
+      : `${user.length} user preset(s) · Save preset / Export / Import in the status bar`;
   }
 
   showTip(anchor, html) {
@@ -456,6 +563,7 @@ class SynthUI {
     this.mode = m;
     this.dev.classList.toggle('mode-a', m === 0);
     this.dev.classList.toggle('mode-b', m === 1);
+    if (this.browser) this.browser.classList.toggle('mode-b', m === 1);
     for (const s of this.sections) {
       const hide = (s.spec.mode === 'A' && m !== 0) || (s.spec.mode === 'B' && m !== 1);
       s.el.classList.toggle('hidden', hide);

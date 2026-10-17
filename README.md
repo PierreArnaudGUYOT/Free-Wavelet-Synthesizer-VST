@@ -47,8 +47,9 @@ Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or ins
   - digits **1 2 3 4 5 6 7 8 9 0** (or the numeric keypad) = C D E F G A B C D E (do ré mi…)
   - letter rows = chromatic piano (A W S E D F T G Y H U J K O L P)
   - **Z** / **X** = octave down / up
-- Presets: ◀ ▶ or click the preset name: ★ FAVOURITES on top, then one folding group per category. **Save preset /
-  Export / Import** are in the status bar. (In the VST: favourites on top, then one submenu per category.)
+- Presets: the **preset browser** at the right of the panel (as in the VST): TOP Sounds and the sound types, one click
+  plays a sound (HIDE folds it away; a click on the preset name brings it back). ◀ ▶ and the preset name's menu work as
+  before. **Save preset / Export / Import** are in the status bar.
 - Works directly from the file (no web server needed).
 - **▶ DEMO** (header, web app) plays Beethoven's *Appassionata* (III) from the phrase after its opening chords while touring 30 presets:
   a new preset about every 4 s, on a change of chord, starting with "B · Clarinet", then OktoPierre's favourites, then the beta 0.2

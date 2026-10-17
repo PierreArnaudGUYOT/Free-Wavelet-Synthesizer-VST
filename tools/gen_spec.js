@@ -15,6 +15,7 @@ const defaultPresetIndex = PRESETS.findIndex(p => p.name === DEFAULT_PRESET);
 const presetValues = PRESETS.map(pr => ({
   name: pr.name,
   cat: pr.cat,
+  ...(pr.stars ? { stars: pr.stars } : {}),   // beta 0.3: OktoPierre's vote (the preset browsers' TOP Sounds and marks)
   values: PARAMS.map(p => (pr.v[p.key] !== undefined ? pr.v[p.key] : p.def)),
 }));
 const wavelets = wav.order.map((n, i) => ({ id: n, name: PARAMS[INDEX.wavelet].choices[i], h: wav.h[n] }));

@@ -151,6 +151,11 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   `tourScenes(..., origin)` computes the grid on the whole piece, then starts with the preset playing at the cut, so the
   cut changes nothing after it. `demo.tourPlan(i)` (`WS_TEST.demoTour`) returns the plan for tests and the manual.
   Other songs use animated scenes.
+- Preset browser (beta 0.3, `ui.makeBrowser` / `renderBrowser`): a `#browser` element beside `#device` (the panel keeps
+  its 1100 × 720 box: the test suites locate it by that shape), scaled with it by `fit()`; lists = TOP Sounds (favourites
+  + `stars` ≥ 8, the web spec carries `stars`) and the categories, as the plug-in's defaults; selection only. Open state
+  in `localStorage 'ws.browser'`; `#nobrowser` in the address leaves it out (manual screenshots, `tools/manual/shots.js`).
+  The preset name opens it when hidden, else the classic menu.
 - Test hooks: `window.WS_TEST` (used by the test suites).
 - Other storage keys: `ws.user` (user presets), `ws.state`.
 

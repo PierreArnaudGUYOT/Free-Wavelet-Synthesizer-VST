@@ -15,25 +15,26 @@ const pre = name => { const k = SPEC.PRESETS.findIndex(p => p.name === name); if
 const ROOT = path.resolve(__dirname, '..', '..');
 const IMG = path.join(ROOT, 'web', 'manual', 'img');
 const APP = pathToFileURL(path.join(ROOT, 'web', 'index.html')).href;
-// The 1100 x 720 panel is drawn at scale 1 in a 1124 x 782 window (12 px margin, 38 px status bar).
+// The 1100 x 720 panel is drawn at scale 1 in a 1124 x 782 window (12 px margin, 38 px status bar); "#nobrowser" leaves the
+// preset browser (beta 0.3) out, so the panel alone fills the window.
 // Clips are in CSS pixels of that window: panel coordinate + 12.
 const TOP = { x: 20, y: 64, width: 1084, height: 268 };      // ENGINE section + SCOPE · SCALOGRAM
 const set = o => Object.entries(o).map(([k, v]) => `WS_TEST.setParam('${k}', ${v});`).join('');
 
 const jobs = [
-  { url: `${APP}#noaudio&preset=${pre('A · Edge Pluck')}`, out: 'panel-a.png' },
-  { url: `${APP}#noaudio&preset=${pre('B · Random Glass')}`, out: 'panel-b.png' },
-  { url: `${APP}#noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 1, wavelet: 0, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'haar-square.png' },
-  { url: `${APP}#noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 1, wavelet: 6, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'db20-square.png' },
-  { url: `${APP}#noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 0, wavelet: 3, a_sparsity: 0.5, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'sparse-saw.png' },
-  { url: `${APP}#noaudio&preset=${pre('B · Octave Organ')}`, clip: TOP, out: 'organ.png' },
-  { url: `${APP}#noaudio&preset=${pre('B · Focus Sweep')}`, clip: TOP, out: 'focus-sweep.png' },
-  { url: `${APP}#noaudio`, eval: "document.querySelector('.presets .pname').click();", clip: { x: 570, y: 14, width: 316, height: 560 }, out: 'presets-menu.png' },
-  { url: `${APP}`, clip: { x: 157, y: 300, width: 810, height: 150 }, out: 'start-overlay.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Edge Pluck')}`, out: 'panel-a.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('B · Random Glass')}`, out: 'panel-b.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 1, wavelet: 0, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'haar-square.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 1, wavelet: 6, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'db20-square.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 0, wavelet: 3, a_sparsity: 0.5, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'sparse-saw.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('B · Octave Organ')}`, clip: TOP, out: 'organ.png' },
+  { url: `${APP}#nobrowser&noaudio&preset=${pre('B · Focus Sweep')}`, clip: TOP, out: 'focus-sweep.png' },
+  { url: `${APP}#nobrowser&noaudio`, eval: "document.querySelector('.presets .pname').click();", clip: { x: 570, y: 14, width: 316, height: 560 }, out: 'presets-menu.png' },
+  { url: `${APP}#nobrowser`, clip: { x: 157, y: 300, width: 810, height: 150 }, out: 'start-overlay.png' },
   // the ▾ demo menu (opens without starting audio)
-  { url: `${APP}#noaudio`, eval: "document.querySelector('.demo-arrow').click();", wait: 400, clip: { x: 226, y: 18, width: 384, height: 344 }, out: 'demo-menu.png' },
+  { url: `${APP}#nobrowser&noaudio`, eval: "document.querySelector('.demo-arrow').click();", wait: 400, clip: { x: 226, y: 18, width: 384, height: 344 }, out: 'demo-menu.png' },
   // the default DEMO (preset tour) about 9.5 s in (4 s per preset), on its third preset; the panel only, without the status bar
-  { url: `${APP}#noaudio`, eval: '(async () => { await WS_TEST.start(); WS_TEST.demoStart(); await new Promise(r => setTimeout(r, 9500)); })()',
+  { url: `${APP}#nobrowser&noaudio`, eval: '(async () => { await WS_TEST.start(); WS_TEST.demoStart(); await new Promise(r => setTimeout(r, 9500)); })()',
     clip: { x: 0, y: 0, width: 1124, height: 744 }, after: 'WS_TEST.demoStop()', out: 'demo.png' },
 ].map(j => Object.assign({ w: 1124, h: 782, dsf: 1.5 }, j, { out: path.join(IMG, j.out) }));
 

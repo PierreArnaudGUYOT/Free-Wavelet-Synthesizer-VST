@@ -3573,6 +3573,7 @@ var WS_SPEC = {
   {
    "name": "A · Deep Saw Bass",
    "cat": "Bass",
+   "stars": 8,
    "values": [
     0,
     1,
@@ -3660,6 +3661,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Morph Bass",
    "cat": "Bass",
+   "stars": 8,
    "values": [
     0,
     6,
@@ -3747,6 +3749,7 @@ var WS_SPEC = {
   {
    "name": "A · Acid Line",
    "cat": "Bass",
+   "stars": 7,
    "values": [
     0,
     2,
@@ -3834,6 +3837,7 @@ var WS_SPEC = {
   {
    "name": "A · Fat Unison Bass",
    "cat": "Bass",
+   "stars": 7,
    "values": [
     0,
     5,
@@ -3921,6 +3925,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Wobble Bass",
    "cat": "Bass",
+   "stars": 7,
    "values": [
     0,
     6,
@@ -4965,6 +4970,7 @@ var WS_SPEC = {
   {
    "name": "A · Screaming Lead",
    "cat": "Lead",
+   "stars": 9,
    "values": [
     0,
     3,
@@ -5052,6 +5058,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Attack Lead",
    "cat": "Lead",
+   "stars": 9,
    "values": [
     0,
     6,
@@ -5139,6 +5146,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Pulse Lead",
    "cat": "Lead",
+   "stars": 9,
    "values": [
     0,
     5,
@@ -5226,6 +5234,7 @@ var WS_SPEC = {
   {
    "name": "AB · Duo Lead",
    "cat": "Lead",
+   "stars": 8,
    "values": [
     0,
     4,
@@ -5313,6 +5322,7 @@ var WS_SPEC = {
   {
    "name": "B · Flute Lead",
    "cat": "Lead",
+   "stars": 8,
    "values": [
     1,
     6,
@@ -5400,6 +5410,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Window Lead",
    "cat": "Lead",
+   "stars": 8,
    "values": [
     0,
     3,
@@ -5487,6 +5498,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave S/H Lead",
    "cat": "Lead",
+   "stars": 7,
    "values": [
     0,
     0,
@@ -6357,6 +6369,7 @@ var WS_SPEC = {
   {
    "name": "A · Dyno Keys",
    "cat": "Keys",
+   "stars": 9,
    "values": [
     0,
     2,
@@ -6444,6 +6457,7 @@ var WS_SPEC = {
   {
    "name": "AB · Wurli Bark",
    "cat": "Keys",
+   "stars": 8,
    "values": [
     0,
     2,
@@ -7314,6 +7328,7 @@ var WS_SPEC = {
   {
    "name": "B · Theatre Organ",
    "cat": "Organ",
+   "stars": 9,
    "values": [
     1,
     4,
@@ -7401,6 +7416,7 @@ var WS_SPEC = {
   {
    "name": "AB · Gospel Mix Organ",
    "cat": "Organ",
+   "stars": 8,
    "values": [
     1,
     6,
@@ -7488,6 +7504,7 @@ var WS_SPEC = {
   {
    "name": "B · Full Drawbar Organ",
    "cat": "Organ",
+   "stars": 7,
    "values": [
     1,
     6,
@@ -8271,6 +8288,7 @@ var WS_SPEC = {
   {
    "name": "A · Noise Wash Pad",
    "cat": "Pad",
+   "stars": 9,
    "values": [
     0,
     6,
@@ -8358,6 +8376,7 @@ var WS_SPEC = {
   {
    "name": "B · Choir Pad",
    "cat": "Pad",
+   "stars": 8,
    "values": [
     1,
     6,
@@ -8445,6 +8464,7 @@ var WS_SPEC = {
   {
    "name": "AB · Glass Choir",
    "cat": "Pad",
+   "stars": 8,
    "values": [
     1,
     1,
@@ -8532,6 +8552,7 @@ var WS_SPEC = {
   {
    "name": "A · Sweep Pad",
    "cat": "Pad",
+   "stars": 7,
    "values": [
     0,
     6,
@@ -8619,6 +8640,7 @@ var WS_SPEC = {
   {
    "name": "A · Analog Brass Pad",
    "cat": "Pad",
+   "stars": 7,
    "values": [
     0,
     3,
@@ -8706,6 +8728,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Morph Pad",
    "cat": "Pad",
+   "stars": 7,
    "values": [
     0,
     6,
@@ -8793,6 +8816,7 @@ var WS_SPEC = {
   {
    "name": "AB · Wave Atom Choir",
    "cat": "Pad",
+   "stars": 7,
    "values": [
     1,
     0,
@@ -10011,6 +10035,7 @@ var WS_SPEC = {
   {
    "name": "A · Solo Violin",
    "cat": "Strings",
+   "stars": 9,
    "values": [
     0,
     4,
@@ -10098,6 +10123,7 @@ var WS_SPEC = {
   {
    "name": "A · Cello Section",
    "cat": "Strings",
+   "stars": 8,
    "values": [
     0,
     6,
@@ -10185,6 +10211,7 @@ var WS_SPEC = {
   {
    "name": "AB · Silk Strings",
    "cat": "Strings",
+   "stars": 8,
    "values": [
     0,
     6,
@@ -10272,6 +10299,7 @@ var WS_SPEC = {
   {
    "name": "A · Spiccato Strings",
    "cat": "Strings",
+   "stars": 8,
    "values": [
     0,
     3,
@@ -10359,6 +10387,7 @@ var WS_SPEC = {
   {
    "name": "A · Shimmering Strings",
    "cat": "Strings",
+   "stars": 8,
    "values": [
     0,
     6,
@@ -10446,6 +10475,7 @@ var WS_SPEC = {
   {
    "name": "A · Ensemble Strings",
    "cat": "Strings",
+   "stars": 7,
    "values": [
     0,
     6,
@@ -10533,6 +10563,7 @@ var WS_SPEC = {
   {
    "name": "B · Vox Strings",
    "cat": "Strings",
+   "stars": 7,
    "values": [
     1,
     6,
@@ -10620,6 +10651,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Tremolo Strings",
    "cat": "Strings",
+   "stars": 7,
    "values": [
     0,
     6,
@@ -11403,6 +11435,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Brass",
    "cat": "Brass & Wind",
+   "stars": 8,
    "values": [
     0,
     6,
@@ -11490,6 +11523,7 @@ var WS_SPEC = {
   {
    "name": "A · French Horn",
    "cat": "Brass & Wind",
+   "stars": 7,
    "values": [
     0,
     6,
@@ -11577,6 +11611,7 @@ var WS_SPEC = {
   {
    "name": "A · Brass Section Stab",
    "cat": "Brass & Wind",
+   "stars": 7,
    "values": [
     0,
     3,
@@ -12273,6 +12308,7 @@ var WS_SPEC = {
   {
    "name": "A · Steel Pluck",
    "cat": "Pluck",
+   "stars": 7,
    "values": [
     0,
     3,
@@ -12882,6 +12918,7 @@ var WS_SPEC = {
   {
    "name": "B · Xylophone",
    "cat": "Bells & Mallets",
+   "stars": 7,
    "values": [
     1,
     6,
@@ -13578,6 +13615,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Robot",
    "cat": "FX",
+   "stars": 10,
    "values": [
     0,
     0,
@@ -13665,6 +13703,7 @@ var WS_SPEC = {
   {
    "name": "A · Siren Sweep",
    "cat": "FX",
+   "stars": 9,
    "values": [
     0,
     2,
@@ -13752,6 +13791,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Riser",
    "cat": "FX",
+   "stars": 9,
    "values": [
     0,
     6,
@@ -13839,6 +13879,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Laser",
    "cat": "FX",
+   "stars": 9,
    "values": [
     0,
     6,
@@ -13926,6 +13967,7 @@ var WS_SPEC = {
   {
    "name": "B · Wave Random Computer",
    "cat": "FX",
+   "stars": 7,
    "values": [
     1,
     0,
@@ -14013,6 +14055,7 @@ var WS_SPEC = {
   {
    "name": "A · UFO",
    "cat": "FX",
+   "stars": 7,
    "values": [
     0,
     6,
@@ -14100,6 +14143,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Atom Scanner",
    "cat": "FX",
+   "stars": 7,
    "values": [
     0,
     3,
@@ -14187,6 +14231,7 @@ var WS_SPEC = {
   {
    "name": "B · Wave Reverse Bands",
    "cat": "FX",
+   "stars": 7,
    "values": [
     1,
     4,
@@ -14274,6 +14319,7 @@ var WS_SPEC = {
   {
    "name": "A · Wave Glitch Morph",
    "cat": "FX",
+   "stars": 7,
    "values": [
     0,
     1,

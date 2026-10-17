@@ -58,6 +58,10 @@ click goes to the next value.
 
 **Panel**: the name at the top left reads **OKTOWAVE** · WAVELET SYNTHESIZER (the plug-in keeps its name in Live).
 
+**Web app** (update of 2026-10-17): the same **preset browser** as the plug-in at the right of the panel — TOP Sounds and
+the sound types, ★ favourites and votes, FACTORY / USER PRESETS tabs, HIDE — to select sounds only (saving stays in the
+status bar). The panel itself keeps its 1100 × 720 layout; "#nobrowser" in the address leaves the browser out.
+
 **Plug-in**: version 0.3.0 everywhere (VST3 class info and DLL version info agree).
 
 **How to cite**: the code has a DOI on Zenodo, https://doi.org/10.5281/zenodo.23431760 (record
