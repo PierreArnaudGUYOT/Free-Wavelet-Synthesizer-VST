@@ -2,6 +2,26 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.3 for macOS — 2026-10-17
+
+**The first Mac version**: the beta 0.3 plug-in as a **VST3 for macOS 10.13 or later**, one universal binary for **Apple
+silicon and Intel** Macs (Ableton Live, Cubase, Bitwig Studio, Reaper, Studio One…; not Logic Pro or GarageBand, which load
+only Audio Units). Same sound, panel, 153 presets, preset browser, SAVE PRESET / DELETE / user bank and
+`OKTOWAVE presets.txt` file as the Windows beta 0.3, which is not changed (its release stays as tested).
+- **Install**: copy `WaveletSynthesizer.vst3` into `~/Library/Audio/Plug-Ins/VST3` (your own folder: the presets file is
+  written next to it). The plug-in is signed "ad hoc" (no paid Apple developer certificate): macOS blocks it once; one
+  Terminal line or *Privacy & Security → Open Anyway* allows it (`INSTALL-mac.txt` in the zip).
+- **On a Mac**: Cmd-click (or double-click) resets a knob, Shift-drag adjusts finely, Control-click (or right-click) on the
+  preset name opens the preset menu; the window sizes (70–150 %) are in points, so the panel is sharp on Retina screens.
+- **Code**: the editor is now shared by both systems — `editor.cpp` draws the panel through `editor_platform.h`;
+  `editor_win.cpp` keeps the Windows window (GDI+) unchanged, `editor_mac.mm` draws it with Core Graphics and Core Text.
+  `platform.h` holds the file and folder calls of both systems. The Windows plug-in built from this code passes the same
+  tests as the released one (VST3 host 254/254, presets library 37/37, VST2 38/0; its editor screenshots are identical).
+- **Tests**: GitHub's Macs build the plug-in on every push (`.github/workflows/mac.yml`), check that its sound equals the
+  web engine's on both architectures (153 presets + 9 LFO 2 variants, worst difference 2.38e-7, as on Windows) and run
+  `tests/machost`, a small macOS host: notes, states, the editor's screenshots, mouse (browser, engine tab, knobs, HIDE),
+  the menus, and SAVE PRESET / TO BANK / DELETE with their windows answered.
+
 ## beta 0.3 — 2026-10-17
 
 **In short**

@@ -2,7 +2,8 @@
 
 Wavelet Synthesizer is a polyphonic synthesizer based on the discrete wavelet transform, created by Pierre Arnaud GUYOT
 ("OktoPierre"), GPL-3.0-or-later. It ships as a **web app** (plain JavaScript, Web Audio AudioWorklet, no dependency)
-and a **VST3 / VST2 instrument** for Windows x64 (one self-contained DLL, native Win32/GDI+ editor). Both run the same
+and a **VST3 / VST2 instrument** for Windows x64 (one self-contained DLL, native Win32/GDI+ editor), also built as a
+**VST3 for macOS** (universal bundle, Cocoa / Core Graphics editor; Mac port of beta 0.3). They run the same
 engine, panel layout and presets. This file explains how the code is organised and the rules that keep the two
 products identical. Read it before changing the DSP, the parameters or the presets.
 
@@ -16,9 +17,11 @@ products identical. Read it before changing the DSP, the parameters or the prese
 | `web/js/core.js` | **Reference DSP** (`WSCoreFactory(SPEC)`): transforms, table building, `Engine`, formats. |
 | `vst/src/dsp.h` | **1:1 C++ port** of `core.js` (same algorithm, same operation order). |
 | `web/` | Web app: `index.html`, `css/synth.css`, `js/{spec,core,worklet,ui,app,demo,midi,demo_data}.js`, `manual/` (generated). |
-| `vst/src/` | Plugin: `plugin.cpp` (VST3 processor, controller, factory), `editor.cpp` (GUI), `vst2.cpp` (VST2 entry point), `common.h`, `iids.cpp`, `version.rc`. |
+| `vst/src/` | Plugin: `plugin.cpp` (VST3 processor, controller, factory), `editor.cpp` (GUI, every system) + `editor_platform.h` (its drawing / window interface) + `editor_win.cpp` (Win32, GDI+) + `editor_mac.mm` (Cocoa), `platform.h` (files, folders, text: Windows / macOS), `bank.h` (presets library), `vst2.cpp` (VST2 entry point, Windows), `common.h`, `iids.cpp`, `version.rc`. |
 | `vst/external/pluginterfaces/` | Steinberg VST3 interface headers (MIT, licence kept). No other SDK code is used. |
 | `vst/build.bat`, `vst/install.bat` | Build with the portable llvm-mingw toolchain (`-static`); install to the VST3 system folder (elevated, path never pasted into a command). |
+| `vst/build_mac.sh`, `vst/INSTALL-mac.txt` | macOS build (Xcode command line tools, universal arm64 + x86_64, ad-hoc signature) → `build/mac/`; the Mac zip's install guide. |
+| `.github/workflows/mac.yml`, `tests/machost/` | The Mac plug-in built and tested on GitHub's Macs at every push (artifacts: release zip, test output). |
 | `vst/devtest/` | Developer checks: `dsp_render.cpp` (C++ renders for the JS cross-check), `vst2_smoke.cpp` (VST2 host-like test). |
 | `tools/dsp_compare.js`, `tools/dsp_selftest.js` | C++ ↔ JS comparison; JS engine self-test. |
 | `tools/make_demo.js`, `tools/midi.js`, `tools/demo/` | Demo songs: MIDI files (+ `SOURCE.md` licences) → `web/js/demo_data.js`. |
@@ -167,8 +170,20 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   `SharedState` registry entry (`weak_ptr`, never a raw pointer): live display data and on-screen keyboard notes.
 - **State**: processor `"WSY1"` = (id, double) pairs, validated (count, id range, finite, clamped); controller `"WSC2"`
   = zoom, modified flag, **preset name** (older `"WSC1"` index states are translated through `kBeta01Order`).
-- `editor.cpp`: Win32 child window + GDI+, drawn from the layout tables, DPI-aware, zoom menu, preset popup, manual
-  buttons (open `Contents/Resources/manual/*.html` next to the DLL).
+- `editor.cpp`: the panel, drawn from the layout tables, zoom menu, preset popup, manual buttons (open
+  `Contents/Resources/manual/*.html` of the bundle) — the same code on both systems. It draws through `Canvas`
+  (`editor_platform.h`: rectangles, rounded rectangles, ellipses, arcs, lines, polygons, linear gradients, text with
+  GDI+'s layout — 1/6 em margins —, a nearest-neighbour image) and talks to the system window through `EditorWindow`
+  (invalidate, size, capture, modifier keys, pop-up menus as a `MenuItem` tree, message / Yes-No / save windows, save-file
+  dialog, reveal, open). The window calls back through `EditorEvents` (paint, timer, mouse, wheel, `testCommand`).
+  - `editor_win.cpp`: Win32 child window + GDI+ into a back buffer, DPI-aware (exactly the beta 0.3 Windows code: keep
+    its screenshots identical, `tests/vst3host` compares them); the save window is an in-memory dialog template.
+  - `editor_mac.mm` (ARC): a flipped NSView of a class created at run time under a name unique to the binary (two
+    versions in one host never share a class), Core Graphics + Core Text (system font at 95 %: it is ~5 % wider than Segoe
+    UI), sizes in points (no `setContentScaleFactor`: macOS scales for Retina), a 30 Hz `CFRunLoopTimer` in the common
+    modes, NSMenu (target/action, tab → "  (n)"), NSAlert windows (the save window: an accessory view, text field
+    `ws.name`), NSSavePanel; Cmd = Ctrl (reset), Control-click = right-click; modifier keys read from the mouse event;
+    `wsTestCommand:` = the Windows `WM_APP + 1` test hook.
 - **Preset library** (beta 0.3, VST only): `bank.h`, `Library::get()` (one per process, mutex, reads the file again
   when its write time or size changes: several instances). One text file `OKTOWAVE presets.txt` next to the `.vst3`
   bundle folder (`libraryFolder`; `WS_PRESETS_FILE` / `WS_PRESETS_EXPORT` for tests), written atomically after every
@@ -197,6 +212,12 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
 - **Bundle**: `WaveletSynthesizer.vst3/Contents/x86_64-win/WaveletSynthesizer.vst3` (VST3) + a copy named
   `WaveletSynthesizer.dll` (found by hosts scanning a VST2 folder) + `Contents/Resources/` (manuals, licences).
   Only Windows system DLLs and the UCRT are imported.
+- **macOS bundle**: `WaveletSynthesizer.vst3/Contents/MacOS/WaveletSynthesizer` (universal Mach-O bundle exporting only
+  `GetPluginFactory`, `bundleEntry`, `bundleExit`; `-fvisibility=hidden`), `Info.plist` (BNDL,
+  `com.oktopierre.waveletsynthesizer.vst3`, version from `WS_VERSION`), `PkgInfo`, `Resources/` (manuals, licences),
+  ad-hoc signed. Same class IDs as on Windows. The presets file is written next to the bundle (`libraryFolder`: up from
+  `Contents/MacOS`), so the player installs into `~/Library/Audio/Plug-Ins/VST3`. Flush-to-zero: MXCSR on x86, FPCR.FZ on
+  Apple silicon. No VST2 on macOS.
 
 ## 6. Security hardening already in place (keep it)
 MIDI file reader bounds every length to the bytes present (VLQ ≤ 4 bytes, binary-search tempo map); oscillator phase
@@ -204,7 +225,10 @@ wrap and above-Nyquist silence (prevented an out-of-bounds read); state/chunk/at
 and channel data validated; `install.bat` relaunches itself elevated instead of building a command line.
 
 ## 7. Building and manuals
-- `vst\build.bat`: regenerates the spec (if Node is present), compiles `plugin editor iids vst2` + `funknown.cpp`,
+- `vst/build_mac.sh` (macOS): `plugin editor iids` + `editor_mac.mm` (ARC) + `funknown.cpp`, universal, **`-ffp-contract=off`**
+  (clang fuses multiply-adds on Apple silicon by default, which would change the sound), ad-hoc `codesign`. The Mac zip is
+  made by the workflow (`ditto`, so the bundle keeps its permissions and signature), not on Windows.
+- `vst\build.bat`: regenerates the spec (if Node is present), compiles `plugin editor editor_win iids vst2` + `funknown.cpp`,
   links statically (`-lgdiplus -lgdi32 -luser32 -lshell32 -lole32 -luuid`), copies the `.dll`, manuals and licences
   into the bundle. The DLL cannot be relinked while a host has it loaded.
 - Manuals: `node tools/manual/shots.js` (UI screenshots, muted headless Edge) then `node tools/manual/build.js a b`.
@@ -222,6 +246,14 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
   answered by a helper thread (a single-OK message box closes with IDCANCEL).
 - `tools/dsp_compare.js` / `dsp_render.cpp` also render LFO 2 on each of its targets (no factory preset uses it yet).
 - `tests/vst3host`: `scaled()` maps layout points with the height scale (the browser makes the editor wider).
+- macOS (`.github/workflows/mac.yml`, `macos-14`, Apple silicon + Rosetta for Intel): `dsp_render.cpp` + `dsp_compare.js` on
+  both architectures, then `tests/machost/machost <bundle> <outdir>` (built by `tests/machost/build.sh`): bundle and
+  exports, sound, states, editor in a window (PNG screenshots, synthetic mouse events at logical points, Cmd-click), HIDE /
+  browser, the zoom and preset menus (chosen through `NSMenuDidBeginTrackingNotification` + `performActionForItemAtIndex`),
+  SAVE PRESET / TO BANK / DELETE / undelete / EXPORT through `wsTestCommand:` with the NSAlert windows answered by a timer
+  (`stopModalWithCode`). The presets file's header quotes "Adjusted: yes" / "Deleted: yes": look for them at a line start.
+  Results: the run's page in the repository's Actions tab, or the Actions REST API (artifacts `WaveletSynthesizer-mac`
+  = the release zip, `mac-test-output` = logs and screenshots).
 - **Headless Edge must always run with `--mute-audio`** (otherwise test audio plays on the user's speakers) and be
   closed in `finally`; check that no `msedge --headless` process is left.
 - beta 0.2: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour
@@ -247,4 +279,7 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
 - Every source file starts with the copyright line and `SPDX-License-Identifier: GPL-3.0-or-later`; demo music keeps
   its own licences (`tools/demo/SOURCE.md`).
 - UI text is English; comments explain *why*; match the existing density and naming (`P.key` / `P_KEY`, `kParams`).
-- Keep the web app dependency-free and runnable from `file://`; keep the plugin a single static DLL.
+- Keep the web app dependency-free and runnable from `file://`; keep the plugin a single static DLL (Windows) and a
+  self-contained bundle using only system frameworks (macOS).
+- Shared plug-in code (`editor.cpp`, `plugin.cpp`, `bank.h`, `dsp.h`) calls no operating system directly: add the call
+  to `platform.h` or to the `EditorWindow` interface, with both implementations.

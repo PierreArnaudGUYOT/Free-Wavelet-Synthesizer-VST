@@ -6,7 +6,8 @@
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
-It comes as a **web application** and a **VST3 / VST2 instrument for Ableton Live** (Windows x64). Both share
+It comes as a **web application** and a **VST3 / VST2 instrument for Ableton Live** (Windows x64), also as a **VST3 for
+macOS** (Apple silicon and Intel). They share
 the same engine, panel layout and 153 factory presets: OktoPierre's 15 favourite sounds first, then the others sorted by
 category like a hardware synthesizer (Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck, Bells & Mallets, FX,
 Drums & Perc); both open on "A · Warm Pad".
@@ -23,9 +24,11 @@ glides from its own previous note, so chord changes glide voice by voice.
 
 **Play online:** https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/ (Chrome or Edge; with Web MIDI,
 a hardware keyboard, sequencer or controller plays it directly, no DAW needed).
-**Download the plugin** (Windows 64-bit, VST3 / VST2): see the
+**Download the plugin**: see the
 [Releases](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases) page of the
-[GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST). The web app also works offline:
+[GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST) —
+*V0.3* for **Windows** 64-bit (VST3 / VST2), *V0.3 for Mac* for **macOS** 10.13 or later (VST3, one universal plug-in for
+Apple silicon and Intel Macs; `INSTALL-mac.txt` in the zip explains the first start). The web app also works offline:
 download the repository and open `web/index.html`.
 
 **MIDI without a DAW (web app):** all inputs, notes, pitch bend, mod wheel, sustain; a channel selector in the status
@@ -76,6 +79,18 @@ the public VST 2.4 binary layout (Steinberg no longer licenses the VST2 SDK). Th
 the manuals bundled inside the `.vst3` folder.
 Pitch bend, the mod wheel (vibrato) and the sustain pedal are supported. All parameters can be automated.
 
+### VST3 on a Mac
+1. Copy `WaveletSynthesizer.vst3` into your own plug-in folder `~/Library/Audio/Plug-Ins/VST3` (Finder: *Go → Go to
+   Folder…*): the presets file `OKTOWAVE presets.txt` is written next to the plug-in.
+2. First start: the plug-in is free and not signed with a paid Apple developer certificate, so macOS blocks it once.
+   In Terminal: `xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/WaveletSynthesizer.vst3`
+   (or *System Settings → Privacy & Security → Open Anyway*).
+3. In Live: *Settings → Plug-ins* → **Use VST3 Plug-in System Folders** → **Rescan**. Other VST3 hosts (Cubase, Bitwig,
+   Reaper, Studio One…) work too; Logic Pro and GarageBand only load Audio Units.
+
+Same panel, sound and presets as on Windows (one universal binary for Apple silicon and Intel). On a Mac, Cmd-click resets
+a knob and Control-click on the preset name opens the preset menu.
+
 ## Build the VST3
 
 Requirements: the portable [llvm-mingw](https://github.com/mstorsjo/llvm-mingw/releases) toolchain
@@ -87,6 +102,11 @@ set LLVM_MINGW=C:\Users\<you>\tools\llvm-mingw   (default: %USERPROFILE%\tools\l
 vst\build.bat
 ```
 Output: `build\WaveletSynthesizer.vst3\Contents\x86_64-win\WaveletSynthesizer.vst3` + `Contents\Resources\manual\`.
+
+**macOS**: with the Xcode command line tools (`xcode-select --install`), run `vst/build_mac.sh`: one universal VST3 bundle
+in `build/mac/WaveletSynthesizer.vst3` (signed ad hoc). GitHub's Macs build and test it on every push
+(`.github/workflows/mac.yml`: the sound against the web engine on both architectures, then `tests/machost`, a small
+macOS host that plays notes and drives the editor); the release zip is one of the workflow's artifacts.
 
 ## Project layout
 
@@ -106,9 +126,12 @@ web/                   web application (vanilla JS, Web Audio AudioWorklet, no l
 vst/                   VST3 plugin (C++17)
   src/dsp.h            C++ port of core.js
   src/plugin.cpp       processor, controller, factory (written directly on the VST3 interfaces)
-  src/editor.cpp       plugin window (Win32 + GDI+, both part of Windows)
+  src/editor.cpp       plugin window: the panel, the same on every system (draws through src/editor_platform.h)
+  src/editor_win.cpp   its Windows side (Win32 + GDI+, both part of Windows)
+  src/editor_mac.mm    its macOS side (Cocoa, Core Graphics, Core Text)
+  src/platform.h       files, folders and text conversion on Windows and macOS
   external/pluginterfaces  Steinberg VST3 interface headers 3.8.1 (MIT licence)
-tests/                 independent test tools (VST3 test host, browser test driver)
+tests/                 independent test tools (VST3 test hosts for Windows and macOS, browser test driver)
 ```
 
 ## How the engine works (short)
