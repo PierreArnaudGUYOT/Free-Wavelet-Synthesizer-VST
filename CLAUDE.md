@@ -222,7 +222,7 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
 - beta 0.2: the VST host offline test switches `A/B Mix` (not the panel's `Engine`); `test_demo.js` checks the tour
   against `WS_TEST.demoTour` and the agreed sequence `EXPECTED_TOUR`; `quick.js` waits up to 2 s for slow attacks.
   `tests/web/test_web.js` and the full VST host run were not re-run for beta 0.2 (quick + demo smoke + VST2 smoke were).
-- beta 0.3 pre-release: the 46 new presets come from the TEST branch (`preset-test`, votes file of the listening test);
+- beta 0.3: the 46 new presets come from the TEST branch (`preset-test`, votes file of the listening test);
   their values were checked equal to the TEST presets plus the recorded changes, and the 107 older presets unchanged.
 
 ## 9. Common changes — checklist

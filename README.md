@@ -1,6 +1,8 @@
 # Wavelet Synthesizer
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.3 pre-release** (2026-10-16), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23431760.svg)](https://doi.org/10.5281/zenodo.23431760)
+
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.3** (2026-10-17), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
@@ -129,6 +131,12 @@ node tools/dsp_selftest.js --wav # engine self-test; --wav writes build/test-aud
 To cross-check the C++ port, compile `vst/devtest/dsp_render.cpp` and run `node tools/dsp_compare.js <dir>`.
 To check the VST2 entry point like a VST2 host, compile and run `vst/devtest/vst2_smoke.cpp` (build line at its top).
 The difference between the two engines is below 2.4e-7 for all 153 presets.
+
+## How to cite
+
+Guyot, P. A. (2026). *Wavelet Synthesizer* [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23431760
+(Zenodo record: https://zenodo.org/records/23431760; all versions: https://doi.org/10.5281/zenodo.23431759).
+GitHub shows the same reference under **Cite this repository** (`CITATION.cff`).
 
 ## Licence
 

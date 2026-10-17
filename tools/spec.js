@@ -16,9 +16,10 @@ const APP = {
   credit: 'created by OktoPierre',   // shown on the panel
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: 'beta 0.3 pre-release',
+  version: 'beta 0.3',
   versionNum: '0.3.0',
-  date: '2026-10-16',
+  date: '2026-10-17',
+  doi: '10.5281/zenodo.23431760',   // the Zenodo record of the code (https://zenodo.org/records/23431760)
 };
 const DEFAULT_PRESET = 'A · Warm Pad';   // sound loaded when the app / a new plugin instance opens (first preset)
 

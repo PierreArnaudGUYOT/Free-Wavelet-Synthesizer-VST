@@ -1,0 +1,35 @@
+# Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# How to cite Wavelet Synthesizer (GitHub shows it as "Cite this repository"). The DOI is the Zenodo record of the code.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Wavelet Synthesizer"
+type: software
+authors:
+  - family-names: "Guyot"
+    given-names: "Pierre Arnaud"
+    alias: "OktoPierre"
+license: GPL-3.0-or-later
+doi: 10.5281/zenodo.23431760
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23431760
+    description: "Zenodo record of the code: https://zenodo.org/records/23431760"
+  - type: doi
+    value: 10.5281/zenodo.23431759
+    description: "All versions (Zenodo concept DOI)"
+repository-code: "https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST"
+url: "https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/"
+version: "beta 0.3"
+date-released: "2026-10-17"
+abstract: >-
+  A polyphonic synthesizer that shapes sound with the discrete wavelet transform instead of Fourier filters: one cycle
+  of each tone is decomposed into 11 octave-spaced wavelet bands and resynthesised band by band. Engine A (wavelet
+  subtractive) filters and thins out the atoms of a source wave; engine B (wavelet additive) writes the atoms directly.
+  Web application and VST3 / VST2 instrument for Windows x64.
+keywords:
+  - sound synthesis
+  - discrete wavelet transform
+  - synthesizer
+  - VST3
+  - Web Audio

@@ -9,7 +9,7 @@ constexpr float kDeviceW = 1100.0f, kDeviceH = 720.0f;
 inline constexpr const char* kAppName = "Wavelet Synthesizer";
 inline constexpr const char* kAppAuthor = "Pierre Arnaud GUYOT";
 inline constexpr const char* kAppCredit = "created by OktoPierre";
-inline constexpr const char* kAppVersion = "beta 0.3 pre-release";
+inline constexpr const char* kAppVersion = "beta 0.3";
 inline constexpr const char* kAppVersionNum = "0.3.0";
 inline constexpr const char* kAppCopyright = "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)";
 inline constexpr const char* kAppLicense = "GPL v3";

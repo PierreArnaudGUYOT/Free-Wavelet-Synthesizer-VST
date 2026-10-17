@@ -598,6 +598,7 @@ function aboutSection(E) {
 <li>The panel shows “${A.credit} · ${A.version}” at the bottom right, in the web app and in the plugin.</li>
 <li>The VST3 plugin is published under the vendor name <b>${A.credit.replace(/^created by /, '')}</b> — that is where Ableton Live lists it in its browser — with version number ${A.versionNum}.</li>
 <li>These manuals are generated from the instrument’s own parameter list and sound engine (<code>tools/manual/</code>), so ranges, defaults and presets always match this version.</li>
+<li><b>How to cite:</b> Guyot, P. A. (2026). <i>${A.name}</i> [Computer software]. Zenodo. <a href="https://doi.org/${A.doi}">https://doi.org/${A.doi}</a> (<a href="https://zenodo.org/records/${A.doi.split('.').pop()}">Zenodo record</a>).</li>
 </ul>
 <h3 id="release-history">Release history</h3>
 <p>The complete history is kept in <code>RELEASE_HISTORY.md</code> in the project folder. Current release:</p>

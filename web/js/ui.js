@@ -120,7 +120,8 @@ class SynthUI {
       case 'credit': {
         const A = this.SPEC.APP;
         box.textContent = `${A.credit} · ${A.version} · ${A.license}`;
-        box.title = `${A.name} — ${A.copyright}. Free software under the GNU General Public License v3 or later, WITHOUT ANY WARRANTY (see the LICENSE file).`;
+        box.title = `${A.name} — ${A.copyright}. Free software under the GNU General Public License v3 or later, WITHOUT ANY WARRANTY (see the LICENSE file).` +
+          (A.doi ? ` Cite: DOI ${A.doi} (https://doi.org/${A.doi}).` : '');
         return;
       }
       default: return this.canvasWidget(w, box, ab);

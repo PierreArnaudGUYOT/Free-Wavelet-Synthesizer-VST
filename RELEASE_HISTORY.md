@@ -2,9 +2,7 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
-## beta 0.3 (pre-release) — 2026-10-16
-
-Pre-release to test the integration in Ableton Live; the official page and release stay on beta 0.2.
+## beta 0.3 — 2026-10-17
 
 **In short**
 - **Presets**: **153 factory presets** (46 new). The new ones are OktoPierre's best candidates from his listening test of
@@ -61,6 +59,10 @@ click goes to the next value.
 **Panel**: the name at the top left reads **OKTOWAVE** · WAVELET SYNTHESIZER (the plug-in keeps its name in Live).
 
 **Plug-in**: version 0.3.0 everywhere (VST3 class info and DLL version info agree).
+
+**How to cite**: the code has a DOI on Zenodo, https://doi.org/10.5281/zenodo.23431760 (record
+https://zenodo.org/records/23431760): README "How to cite", `CITATION.cff` (GitHub's "Cite this repository") and the
+manuals' "About" section.
 
 **Quality**: C++ = JavaScript within 2.38e-7 on the 153 presets and on LFO 2 driving each of its 9 targets; VST3 host
 suite (its editor clicks now scale from the window height: the browser makes the window wider), VST2 smoke test,

@@ -18,7 +18,7 @@ namespace ws {
 
 #define WS_VENDOR "OktoPierre"
 #define WS_NAME "Wavelet Synthesizer"
-#define WS_VERSION "0.3.0"   // beta 0.3 (pre-release); also in vst/src/version.rc and tools/spec.js APP
+#define WS_VERSION "0.3.0"   // beta 0.3; also in vst/src/version.rc and tools/spec.js APP
 
 // Live state the audio thread publishes for the editor, plus a queue of notes
 // played on the on-screen keyboard. Shared through a process-wide registry
