@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #endif
 #include <algorithm>
@@ -195,6 +196,27 @@ inline bool fileStamp(const std::wstring& path, uint64_t& stamp, uint64_t& size)
   return true;
 #endif
 }
+// the local date and time (the presets file's "Saved:" line)
+struct LocalTime { int wYear, wMonth, wDay, wHour, wMinute; };
+inline LocalTime localNow() {
+#ifdef _WIN32
+  SYSTEMTIME t; GetLocalTime(&t);
+  return LocalTime{t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute};
+#else
+  const time_t now = time(nullptr);
+  struct tm t {};
+  localtime_r(&now, &t);
+  return LocalTime{t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min};
+#endif
+}
+inline int64_t processId() {
+#ifdef _WIN32
+  return (int64_t)GetCurrentProcessId();
+#else
+  return (int64_t)getpid();
+#endif
+}
+
 inline bool fileExists(const std::wstring& path) {
 #ifdef _WIN32
   return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;

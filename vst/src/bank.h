@@ -365,7 +365,7 @@ class Library {
     std::string s;
     char b[256];
     auto L = [&s](const std::string& x) { s += x; s += "\r\n"; };
-    SYSTEMTIME tm; GetLocalTime(&tm);
+    const LocalTime tm = localNow();
     int adj = 0, del = 0; for (char a : t.adj) adj += a; for (char d : t.del) del += d;
     L("OKTOWAVE Wavelet Synthesizer - presets");
     L("Saved by the VST plug-in (beta 0.3): every factory preset (those you adjusted with SAVE PRESET say \"Adjusted: yes\",");

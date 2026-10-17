@@ -385,6 +385,20 @@ int main(int argc, char** argv) {
     check(vr.getWidth() == 1100 || bcols > 10, "the preset browser is drawn", fmt("%d colours", bcols));
     const std::string font = [[NSFont systemFontOfSize:10].fontName UTF8String];
     std::printf("  system font: %s\n", font.c_str());
+    {   // text widths against Windows' Segoe UI (GDI+ widths without the 1/6 em margins, measured on Windows 11)
+      struct T { const char* s; float px; bool bold; double win; } ts[] = {
+          {"WAVELET SYNTHESIZER", 9, true, 104.97}, {"A \xC2\xB7 Warm Pad", 12.5f, true, 82.79}, {"CUTOFF", 9.5f, true, 36.51},
+          {"Daubechies 4", 12, true, 77.11}, {"Bells & Mallets", 11, false, 73.99}, {"ONE CYCLE \xC2\xB7 DRY (GREY) vs FILTERED", 9.5f, true, 171.38},
+          {"OKTOWAVE", 13.5f, true, 78.69}, {"Screaming Lead", 11.5f, false, 82.86}};
+      double sum = 0;
+      for (const T& t : ts) {
+        NSFont* fn = t.bold ? [NSFont boldSystemFontOfSize:t.px] : [NSFont systemFontOfSize:t.px];
+        const double w = [[NSString stringWithUTF8String:t.s] sizeWithAttributes:@{NSFontAttributeName: fn}].width;
+        std::printf("  font width %-38s %5.1f%s  mac %7.2f  windows %7.2f  ratio %.3f\n", t.s, t.px, t.bold ? " bold" : "     ", w, t.win, t.win / w);
+        sum += t.win / w;
+      }
+      std::printf("  font width: mean Windows / Mac ratio %.3f\n", sum / (sizeof ts / sizeof *ts));
+    }
 
     // a sound of the browser: the TOP Sounds list, its 5th row (the browser starts on the sound playing)
     std::map<ParamID, ParamValue> before;

@@ -125,7 +125,7 @@ static std::map<int64_t, std::weak_ptr<SharedState>> gRegistry;
 static int64_t gNextId = 1;
 int64_t registerShared(const std::shared_ptr<SharedState>& s) {
   std::lock_guard<std::mutex> l(gRegMutex);
-  int64_t id = (int64_t)GetCurrentProcessId() * 100000 + gNextId++;
+  int64_t id = processId() * 100000 + gNextId++;
   gRegistry[id] = s;
   return id;
 }
