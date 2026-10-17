@@ -24,6 +24,9 @@ constexpr int NMIP = 11;          // mip m keeps harmonics 1..(1024 >> m)
 constexpr int TW = (N + 1) * NL;  // floats per mip table
 constexpr int CTRL = 32;          // control-rate block
 constexpr int MAXV = 16;
+// SOURCE PHASE moved by LFO 2 (beta 0.4): the engine-A tables are also built at PHASE_K positions round the cycle
+// (phase + k / PHASE_K); 12 is not a power of two, so neighbouring positions differ in every band (core.js PHASE_K)
+constexpr int PHASE_K = 12;
 constexpr double LN1000 = 6.907755278982137;
 constexpr double VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
 constexpr double LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
@@ -191,10 +194,12 @@ struct FFT {
 inline const FFT& fft() { static FFT f; return f; }
 
 // ------------------------------------------------------------------ tables
-inline void sourceCycle(int wave, double width, double* x) {
+// SOURCE PHASE (beta 0.4): the wave is read at frac(i/N + phase), exactly (no interpolation); the noise cycle is shifted
+// by round(phase·N) whole samples. phase 0 gives the source of beta 0.3 bit for bit.
+inline void sourceCycle(int wave, double width, double* x, double phase = 0) {
   Rng r(12345);
   for (int i = 0; i < N; i++) {
-    double ph = (double)i / N;
+    double ph = (double)i / N + phase; ph -= std::floor(ph);
     switch (wave) {
       case 0: x[i] = 1 - 2 * ph; break;
       case 1: x[i] = ph < 0.5 ? 1 : -1; break;
@@ -203,6 +208,10 @@ inline void sourceCycle(int wave, double width, double* x) {
       case 4: x[i] = std::sin(2 * PI * ph); break;
       default: x[i] = r.next() * 2 - 1; break;
     }
+  }
+  if (wave >= 5) {
+    const int s = ((int)jsRound(phase * N) % N + N) % N;
+    if (s) { std::vector<double> y(x, x + N); for (int i = 0; i < N; i++) x[i] = y[(i + s) % N]; }
   }
   double mean = 0; for (int i = 0; i < N; i++) mean += x[i]; mean /= N;
   double peak = 0; for (int i = 0; i < N; i++) { x[i] -= mean; peak = std::max(peak, std::fabs(x[i])); }
@@ -260,6 +269,9 @@ struct Tables {
   // WAVELET MORPH (beta 0.3): the same sound built with WAVELET 2 (and its alt set when engines A and B are mixed)
   bool hasW2 = false; int w2Mode = 0; std::vector<float> w2Mips, w2Rms;
   bool w2HasAlt = false; int w2AltMode = 0; std::vector<float> w2AltMips, w2AltRms;
+  // SOURCE PHASE moved by LFO 2 (beta 0.4): each engine-A set (0 main, 1 alt, 2 WAVELET 2, 3 WAVELET 2 alt) also at the
+  // phases a_phase + k / PHASE_K, k = 1 .. PHASE_K - 1 (empty: none)
+  std::vector<std::vector<float>> phMips[4], phRms[4];
   Tables() : layers((size_t)NL * N), coeffs(N) {}
   const double* layer(int l) const { return layers.data() + (size_t)l * N; }
 };
@@ -289,10 +301,30 @@ inline void buildSound(const double* params, int view, Tables& t) {
   t.hasAlt = true; t.altMode = a.mode; t.altMips.swap(a.mips); t.altRms.swap(a.rms);
 }
 
+// LFO 2 moves the source phase when it targets it with an amount, and engine A plays
+inline bool phaseModNeeded(const double* params) {
+  return kLfo2Targets[(int)jsRound(params[P_LFO2_TARGET])] == P_A_PHASE && params[P_LFO2_AMT] != 0 && (tableNeeds(params) & 1) != 0;
+}
+// the engine-A tables at phases a_phase + k / PHASE_K (k = 1 .. PHASE_K - 1), wavelet wav
+inline void phaseSets(const double* params, double wav, std::vector<std::vector<float>>& mips, std::vector<std::vector<float>>& rms) {
+  double pk[kNumParams];
+  std::memcpy(pk, params, sizeof pk);
+  pk[P_WAVELET] = wav;
+  mips.resize(PHASE_K - 1); rms.resize(PHASE_K - 1);
+  Tables s;
+  for (int k = 1; k < PHASE_K; k++) {
+    double v = params[P_A_PHASE] + (double)k / PHASE_K; v -= std::floor(v);
+    pk[P_A_PHASE] = v;
+    buildSet(pk, 0, true, s);
+    mips[k - 1].swap(s.mips); rms[k - 1].swap(s.rms);
+  }
+}
+
 inline void buildTables(const double* params, bool withMips, Tables& t) {
   const int view = (int)jsRound(params[P_ENGINE]);
   t.hasAlt = false; t.altMips.clear(); t.altRms.clear();
   t.hasW2 = false; t.w2HasAlt = false; t.w2Mips.clear(); t.w2Rms.clear(); t.w2AltMips.clear(); t.w2AltRms.clear();
+  for (int s = 0; s < 4; s++) { t.phMips[s].clear(); t.phRms[s].clear(); }
   if (!withMips) { buildSet(params, view, false, t); return; }
   buildSound(params, view, t);
   if (morphNeeded(params)) {   // WAVELET MORPH
@@ -303,6 +335,13 @@ inline void buildTables(const double* params, bool withMips, Tables& t) {
     buildSound(p2, view, w);
     t.hasW2 = true; t.w2Mode = w.mode; t.w2Mips.swap(w.mips); t.w2Rms.swap(w.rms);
     if (w.hasAlt) { t.w2HasAlt = true; t.w2AltMode = w.altMode; t.w2AltMips.swap(w.altMips); t.w2AltRms.swap(w.altRms); }
+  }
+  // SOURCE PHASE moved by LFO 2 (beta 0.4): every engine-A set also at the other PHASE_K - 1 positions
+  if (phaseModNeeded(params)) {
+    if (t.mode == 0) phaseSets(params, params[P_WAVELET], t.phMips[0], t.phRms[0]);
+    if (t.hasAlt && t.altMode == 0) phaseSets(params, params[P_WAVELET], t.phMips[1], t.phRms[1]);
+    if (t.hasW2 && t.w2Mode == 0) phaseSets(params, params[P_WAV2], t.phMips[2], t.phRms[2]);
+    if (t.hasW2 && t.w2HasAlt && t.w2AltMode == 0) phaseSets(params, params[P_WAV2], t.phMips[3], t.phRms[3]);
   }
 }
 
@@ -315,7 +354,7 @@ inline void buildSet(const double* params, int mode, bool withMips, Tables& t) {
   for (int b = 0; b < NB; b++) t.bandScale[b] = 1;
   if (t.mode == 0) {
     std::vector<double> src(N);
-    sourceCycle((int)jsRound(params[P_A_WAVE]), params[P_A_WIDTH], src.data());
+    sourceCycle((int)jsRound(params[P_A_WAVE]), params[P_A_WIDTH], src.data(), params[P_A_PHASE]);
     dwt(src.data(), f, c);
     c[0] = 0;
     t.kept = sparsify(c, params[P_A_SPARSITY], t.nonzero);
@@ -471,6 +510,7 @@ struct Voice {
   double gA[NB] = {}, dA[NB] = {}, gB[NB] = {}, dB[NB] = {}, tA[NB] = {}, tB[NB] = {};
   double pc = 0, pw = 1, pd = 0;
   double wm0 = 0, wm1 = 0;   // WAVELET MORPH position at the start / end of the block
+  double ap0 = 0, ap1 = 0;   // SOURCE PHASE moved by LFO 2: position among the PHASE_K phase sets (0 .. PHASE_K)
 };
 
 struct TableRef {
@@ -479,6 +519,9 @@ struct TableRef {
   // WAVELET MORPH, the tables of WAVELET 2 (w2Mips == nullptr: no morph)
   int w2Mode = 0; const float* w2Mips = nullptr; const float* w2Rms = nullptr;
   int w2AltMode = 0; const float* w2AltMips = nullptr; const float* w2AltRms = nullptr;
+  // SOURCE PHASE moved by LFO 2 (beta 0.4): the PHASE_K phase sets of the sets 0 main, 1 alt, 2 WAVELET 2, 3 WAVELET 2 alt
+  // (index 0 = the set itself); hasPh[s] false: none
+  bool hasPh[4] = {}; const float* phM[4][PHASE_K] = {}; const float* phR[4][PHASE_K] = {};
 };
 inline TableRef tableRef(const Tables& t) {
   TableRef r;
@@ -487,6 +530,14 @@ inline TableRef tableRef(const Tables& t) {
   if (t.hasW2) {
     r.w2Mode = t.w2Mode; r.w2Mips = t.w2Mips.data(); r.w2Rms = t.w2Rms.data();
     if (t.w2HasAlt) { r.w2AltMode = t.w2AltMode; r.w2AltMips = t.w2AltMips.data(); r.w2AltRms = t.w2AltRms.data(); }
+  }
+  const float* baseM[4] = {r.mips, r.altMips, r.w2Mips, r.w2AltMips};
+  const float* baseR[4] = {r.rms, r.altRms, r.w2Rms, r.w2AltRms};
+  for (int s = 0; s < 4; s++) {
+    if ((int)t.phMips[s].size() != PHASE_K - 1) continue;
+    r.hasPh[s] = true;
+    r.phM[s][0] = baseM[s]; r.phR[s][0] = baseR[s];
+    for (int k = 1; k < PHASE_K; k++) { r.phM[s][k] = t.phMips[s][k - 1].data(); r.phR[s][k] = t.phRms[s][k - 1].data(); }
   }
   return r;
 }
@@ -776,6 +827,9 @@ class Engine {
     // WAVELET MORPH position of this voice (0 = WAVELET, 1 = WAVELET 2): MORPH + LFO + mod envelope
     const double wm = std::min(1.0, std::max(0.0, p[P_WMORPH] + p[P_LFO_WAV] * lfo + p[P_ENV_WAV] * mod));
     vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
+    // SOURCE PHASE moved by LFO 2 (beta 0.4): the voice's place among the PHASE_K phase sets, from ap0 to ap1 (round the cycle)
+    double ap = (t2 == P_A_PHASE ? d2 : 0) * PHASE_K; ap -= std::floor(ap / PHASE_K) * PHASE_K;
+    vc.ap0 = vc.fresh ? ap : vc.ap1; vc.ap1 = ap;
     vc.fresh = false;
     double pc = lfo2Value(p, P_P_CENTER, t2, d2) + p[P_LFO_POS] * lfo; pc -= std::floor(pc);
     vc.pc = pc;
@@ -869,26 +923,52 @@ class Engine {
   // Renders one voice with a table set and, when engines A and B are mixed, its alt set: shares 1 - mix (A) and
   // mix (B), moving from m0 to m1 across the block; the sub oscillator is rendered once.
   void renderSet(const Voice& vc, int n, const TableRef& t, double fade0, double fadeInc, bool invert, double m0, double m1) {
-    if (!t.altMips) { renderVoice(vc, n, t.mode, t.mips, t.rms, fade0, fadeInc, invert, 1, 0, true); return; }
+    const float* const* pm = t.hasPh[0] ? t.phM[0] : nullptr; const float* const* pr = t.hasPh[0] ? t.phR[0] : nullptr;
+    if (!t.altMips) { renderTable(vc, n, t.mode, t.mips, t.rms, pm, pr, fade0, fadeInc, invert, 1, 0, true); return; }
     const double g0 = t.mode == 0 ? 1 - m0 : m0, g1 = t.mode == 0 ? 1 - m1 : m1;
-    renderVoice(vc, n, t.mode, t.mips, t.rms, fade0, fadeInc, invert, g0, (g1 - g0) / n, true);
-    renderVoice(vc, n, t.altMode, t.altMips, t.altRms, fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
+    renderTable(vc, n, t.mode, t.mips, t.rms, pm, pr, fade0, fadeInc, invert, g0, (g1 - g0) / n, true);
+    renderTable(vc, n, t.altMode, t.altMips, t.altRms, t.hasPh[1] ? t.phM[1] : nullptr, t.hasPh[1] ? t.phR[1] : nullptr,
+                fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
+  }
+
+  // SOURCE PHASE moved by LFO 2 (beta 0.4): an engine-A set with its phase sets (phM / phR, index 0 = the set itself) plays
+  // the sets on each side of the voice's place q (share 1 - |q - k| round the cycle), q moving from ap0 to ap1 across the
+  // block; the shares of a block start and end each add up to 1. Without phase sets exactly renderVoice.
+  void renderTable(const Voice& vc, int n, int mode, const float* mips, const float* rms, const float* const* phM,
+                   const float* const* phR, double fade0, double fadeInc, bool invert, double gain0, double gainInc, bool withSub) {
+    if (!phM) { renderVoice(vc, n, mode, mips, rms, fade0, fadeInc, invert, gain0, gainInc, withSub); return; }
+    const double gain1 = gain0 + gainInc * n;
+    const int a0 = (int)std::floor(vc.ap0) % PHASE_K, b0 = (a0 + 1) % PHASE_K;
+    const int a1 = (int)std::floor(vc.ap1) % PHASE_K, b1 = (a1 + 1) % PHASE_K;
+    const double f0 = vc.ap0 - std::floor(vc.ap0), f1 = vc.ap1 - std::floor(vc.ap1);
+    bool sub = withSub;
+    for (int k = 0; k < PHASE_K; k++) {
+      const double s0 = k == a0 ? 1 - f0 : k == b0 ? f0 : 0, s1 = k == a1 ? 1 - f1 : k == b1 ? f1 : 0;
+      if (s0 == 0 && s1 == 0) continue;
+      const double k0 = gain0 * s0, k1 = gain1 * s1;
+      renderVoice(vc, n, mode, phM[k], phR[k], fade0, fadeInc, invert, k0, (k1 - k0) / n, sub);
+      sub = false;
+    }
   }
 
   // WAVELET MORPH. Without WAVELET 2 tables exactly renderSet (bit-identical sound when the morph is off); with them, the sound of WAVELET (share
   // 1 - morph) and the same sound built with WAVELET 2 (share morph), the voice's morph moving from wm0 to wm1.
   void renderMorph(const Voice& vc, int n, const TableRef& t, double fade0, double fadeInc, bool invert, double m0, double m1) {
     if (!t.w2Mips) { renderSet(vc, n, t, fade0, fadeInc, invert, m0, m1); return; }
-    renderSetK(vc, n, t.mode, t.mips, t.rms, t.altMode, t.altMips, t.altRms, fade0, fadeInc, invert, m0, m1, 1 - vc.wm0, 1 - vc.wm1, true);
-    renderSetK(vc, n, t.w2Mode, t.w2Mips, t.w2Rms, t.w2AltMode, t.w2AltMips, t.w2AltRms, fade0, fadeInc, invert, m0, m1, vc.wm0, vc.wm1, false);
+    renderSetK(vc, n, t.mode, t.mips, t.rms, t.altMode, t.altMips, t.altRms, t, 0, fade0, fadeInc, invert, m0, m1, 1 - vc.wm0, 1 - vc.wm1, true);
+    renderSetK(vc, n, t.w2Mode, t.w2Mips, t.w2Rms, t.w2AltMode, t.w2AltMips, t.w2AltRms, t, 2, fade0, fadeInc, invert, m0, m1, vc.wm0, vc.wm1, false);
   }
-  // renderSet with an extra share k (k0 -> k1 across the block) and the sub oscillator only when withSub
+  // renderSet with an extra share k (k0 -> k1 across the block) and the sub oscillator only when withSub; the phase sets
+  // of the set are t's slot ph, of its alt set slot ph + 1
   void renderSetK(const Voice& vc, int n, int mode, const float* mips, const float* rms, int altMode, const float* altMips,
-                  const float* altRms, double fade0, double fadeInc, bool invert, double m0, double m1, double k0, double k1, bool withSub) {
-    if (!altMips) { renderVoice(vc, n, mode, mips, rms, fade0, fadeInc, invert, k0, (k1 - k0) / n, withSub); return; }
+                  const float* altRms, const TableRef& t, int ph, double fade0, double fadeInc, bool invert, double m0, double m1,
+                  double k0, double k1, bool withSub) {
+    const float* const* pm = t.hasPh[ph] ? t.phM[ph] : nullptr; const float* const* pr = t.hasPh[ph] ? t.phR[ph] : nullptr;
+    if (!altMips) { renderTable(vc, n, mode, mips, rms, pm, pr, fade0, fadeInc, invert, k0, (k1 - k0) / n, withSub); return; }
     const double s0 = mode == 0 ? 1 - m0 : m0, s1 = mode == 0 ? 1 - m1 : m1;
-    renderVoice(vc, n, mode, mips, rms, fade0, fadeInc, invert, s0 * k0, (s1 * k1 - s0 * k0) / n, withSub);
-    renderVoice(vc, n, altMode, altMips, altRms, fade0, fadeInc, invert, (1 - s0) * k0, ((1 - s1) * k1 - (1 - s0) * k0) / n, false);
+    renderTable(vc, n, mode, mips, rms, pm, pr, fade0, fadeInc, invert, s0 * k0, (s1 * k1 - s0 * k0) / n, withSub);
+    renderTable(vc, n, altMode, altMips, altRms, t.hasPh[ph + 1] ? t.phM[ph + 1] : nullptr, t.hasPh[ph + 1] ? t.phR[ph + 1] : nullptr,
+                fade0, fadeInc, invert, (1 - s0) * k0, ((1 - s1) * k1 - (1 - s0) * k0) / n, false);
   }
 
   void block(float* outL, float* outR, int o, int n) {

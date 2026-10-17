@@ -218,20 +218,23 @@ static bool writeAll(IBStream* s, const void* d, int32 n) { int32 put = 0; retur
 
 // Reads a processor state blob into plain values (missing parameters keep their current value).
 // A state saved before beta 0.2 has no A/B MIX: it gets A/B MIX = ENGINE, so it plays the engine it was made for.
+// A state saved before beta 0.4 has no SOURCE PHASE: it gets 0, the source it was made with.
 static bool readState(IBStream* s, double* plain) {
   uint32_t magic = 0, version = 0, count = 0;
   if (!readAll(s, &magic, 4) || magic != kStateMagic) return false;
   if (!readAll(s, &version, 4) || !readAll(s, &count, 4) || count > 4096) return false;
-  bool sawMix = false;
+  bool sawMix = false, sawPhase = false;
   for (uint32_t k = 0; k < count; k++) {
     uint32_t id; double v;
     if (!readAll(s, &id, 4) || !readAll(s, &v, 8)) return false;
     if (id < (uint32_t)kNumParams && std::isfinite(v) && !kParams[id].hidden) {
       plain[id] = std::min(kParams[id].max, std::max(kParams[id].min, v));
       if (id == (uint32_t)P_AB_MIX) sawMix = true;
+      if (id == (uint32_t)P_A_PHASE) sawPhase = true;
     }
   }
   if (!sawMix) plain[P_AB_MIX] = plain[P_ENGINE];
+  if (!sawPhase) plain[P_A_PHASE] = kParams[P_A_PHASE].def;
   return true;
 }
 
@@ -393,7 +396,10 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
             const bool mixEnds = id == (ParamID)P_AB_MIX && ((old < 1) != (pv < 1) || (old > 0) != (pv > 0));
             // WAVELET MORPH needs (or no longer needs) the WAVELET 2 tables when one of its amounts leaves 0
             const bool morphEnds = (id == (ParamID)P_WMORPH || id == (ParamID)P_LFO_WAV || id == (ParamID)P_ENV_WAV) && ((old == 0) != (pv == 0));
-            if (kParams[id].structural || mixEnds || morphEnds) structVersion.fetch_add(1);
+            // SOURCE PHASE moved by LFO 2 (beta 0.4): the phase tables become needed or are no longer needed
+            const bool phaseEnds = (id == (ParamID)P_LFO2_AMT && (old == 0) != (pv == 0)) ||
+                                   (id == (ParamID)P_LFO2_TARGET && (kLfo2Targets[(int)jsRound(old)] == P_A_PHASE) != (kLfo2Targets[(int)jsRound(pv)] == P_A_PHASE));
+            if (kParams[id].structural || mixEnds || morphEnds || phaseEnds) structVersion.fetch_add(1);
           }
         }
       }

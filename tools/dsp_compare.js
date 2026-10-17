@@ -41,5 +41,18 @@ SPEC.LFO2_TARGETS.forEach((target, t) => {   // the same variants as vst/devtest
   v[P.lfo2_target] = t; v[P.lfo2_amt] = t % 2 ? -0.8 : 0.8; v[P.lfo2_rate] = 3; v[P.lfo2_shape] = t % 5;
   compare(v, SPEC.PRESETS.length + t, `LFO 2 -> ${SPEC.PARAMS[target].key}`);
 });
+// beta 0.4: SOURCE PHASE, static and moved by LFO 2 with WAVELET MORPH and A/B MIX (every phase-set slot); the same
+// variants as vst/devtest/dsp_render.cpp
+const PHT = SPEC.LFO2_TARGETS.indexOf(P.a_phase);
+[
+  ['phase 37/2048, Haar saw', { wavelet: 0, a_wave: 0, a_phase: 37 / 2048, f_cutoff: 5 }],
+  ['phase 0.3, noise', { wavelet: 1, a_wave: 5, a_phase: 0.3, a_sparsity: 0.4 }],
+  ['LFO 2 -> phase + morph', { wavelet: 0, wav2: 2, wmorph: 0.4, a_phase: 0.1, lfo2_target: PHT, lfo2_amt: 0.7, lfo2_rate: 2.5, lfo2_shape: 0 }],
+  ['LFO 2 -> phase + A/B mix', { engine: 1, ab_mix: 0.5, wav2: 1, wmorph: 0.5, a_phase: 0.62, lfo2_target: PHT, lfo2_amt: -0.6, lfo2_rate: 4, lfo2_shape: 1 }],
+].forEach(([name, set], j) => {
+  const v = SPEC.PRESETS[0].values.slice();
+  for (const [k, x] of Object.entries(set)) v[P[k]] = x;
+  compare(v, SPEC.PRESETS.length + SPEC.LFO2_TARGETS.length + j, name);
+});
 console.log(fails ? `${fails} mismatch(es)` : `C++ port matches the JS reference (worst ${worst.toExponential(2)})`);
 process.exit(fails ? 1 : 0);

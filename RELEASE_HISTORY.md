@@ -2,6 +2,44 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.4 — 2026-10-17 (Source Phase)
+
+**In short**
+- **SOURCE PHASE** (engine A, new knob PHASE right of the SOURCE CYCLE display): the source wave is moved inside the cycle
+  before the wavelet transform. The transform is shift-variant — band *b* only commutes with shifts by multiples of
+  2^(12−b) samples — so the scale filter, the sparsity and the position window meet other atoms and the timbre changes:
+  strongly with Haar and Daubechies 2/4, weakly with Daubechies 20. A Fourier filter cannot do this. It is the “source
+  phase” control announced as future work in the author’s paper.
+- **LFO 2 can move it** (TARGET PHASE, the last of the menu): the tables are then also built at 11 more phases, 30° apart,
+  and each voice crossfades between the two nearest — a scan through the timbres of the cycle.
+- **100 new presets** in a new last section, **Source Phase**: 50 phased versions of OktoPierre’s 15 favourites and 35 best
+  voted sounds (“… Shift”; the 14 engine B and A+B ones rebuilt on engine A), 50 new sounds of every type, two pairs to
+  compare (“A · Phase Pair Bass 0°” / “… 67°”, “A · Phase Pair Lead 0°” / “… 2°”: even 13 samples change it) and “A · Phase Is The Sound”, which
+  is silent at 0°. They use the whole instrument (unison, chorus, delay, reverb, sub oscillator, glide, LFOs, WAVELET MORPH);
+  23 of them move the phase with LFO 2. 253 factory presets in all.
+- **Nothing older changes**: at PHASE 0 (the default) the source is the beta 0.3 one bit for bit; the 153 older presets were
+  rendered with the beta 0.3 and beta 0.4 engines and are sample-identical; states, Live Sets, user presets and the presets
+  file saved before beta 0.4 get PHASE 0. The older presets keep their place and number (the new section is last).
+
+**Measured** (`tools/phase_effect.js`: the preset’s cycle at middle C at phase 0 and at its phase, harmonics 1–64 within 50 dB
+of the strongest): every phased preset changes some harmonic by 6 dB or more (lowest 6.1 dB, median 22.6 dB) and the loud
+harmonics — within 20 dB of the strongest — by 4 dB or more (lowest 4.4 dB, median 17.8 dB). Loudness matched to the
+favourites (loudest 200 ms of a held C major chord, median −13.8 dB; drums over 50 ms, 3 dB lower); a few resonant sounds stay
+up to 5 dB quieter so that their peaks stay under 0 dBFS, the hat sits at −31 dB like the factory Closed Hat.
+
+**The 100 presets of the Source Phase section** (name, phase, largest harmonic change against 0° / the same among the loud harmonics, ~ = LFO 2 also moves the phase):
+
+*From the 15 favourites and the 35 best voted* (★ engine B / A+B sounds rebuilt on engine A): A · Square Mod 2 Shift 194° 25/25 dB; A · Wavelet Lead Shift 199° 12/7 dB ~; A · Haar Bass Shift 19° 17/17 dB; A · Edge Pluck Shift 92° 72/13 dB; A · Focus Sweep Shift 11° 66/56 dB ~ ★; A · Soft Flute Shift 44° 8/8 dB ★; A · Infra Sub Bass Shift 73° 8/6 dB; A · Dub Echo Lead Shift 298° 19/9 dB; A · Fuzz Bass Shift 165° 17/17 dB; A · Laser Sweep Shift 56° 34/34 dB ~; A · Warm Pad Shift 275° 29/8 dB ~; A · Mirror Sub Bass Shift 81° 38/5 dB ★; A · Sparse Keys Shift 275° 7/7 dB; A · Space Choir Shift 300° 31/25 dB ~ ★; A · Square Mod Shift 67° 29/29 dB; A · Wave Robot Shift 354° 52/52 dB ~; A · Screaming Lead Shift 87° 15/14 dB; A · Wave Attack Lead Shift 253° 10/10 dB; A · Wave Pulse Lead Shift 36° 35/34 dB; A · Dyno Keys Shift 348° 24/19 dB; A · Theatre Organ Shift 151° 19/19 dB ★; A · Noise Wash Pad Shift 185° 25/25 dB; A · Solo Violin Shift 11° 19/19 dB; A · Siren Sweep Shift 104° 20/19 dB; A · Wave Riser Shift 286° 22/22 dB; A · Wave Laser Shift 191° 10/6 dB; A · Deep Saw Bass Shift 19° 16/16 dB; A · Wave Morph Bass Shift 230° 19/10 dB; A · Duo Lead Shift 30° 29/12 dB ★; A · Flute Lead Shift 329° 9/6 dB ★; A · Wave Window Lead Shift 160° 43/26 dB; A · Wurli Bark Shift 28° 19/18 dB ★; A · Gospel Mix Organ Shift 143° 75/7 dB ★; A · Choir Pad Shift 11° 23/23 dB ~ ★; A · Glass Choir Shift 106° 21/21 dB ★; A · Cello Section Shift 143° 19/9 dB; A · Silk Strings Shift 143° 29/12 dB ★; A · Spiccato Strings Shift 185° 23/6 dB; A · Shimmering Strings Shift 320° 20/4 dB; A · Wave Brass Shift 134° 7/7 dB; A · Acid Line Shift 340° 26/25 dB ~; A · Fat Unison Bass Shift 44° 32/32 dB; A · Wave Wobble Bass Shift 134° 8/8 dB; A · Wave S/H Lead Shift 101° 6/6 dB; A · Full Drawbar Organ Shift 56° 13/13 dB ★; A · Sweep Pad Shift 95° 14/14 dB ~; A · Analog Brass Pad Shift 126° 14/14 dB; A · Wave Morph Pad Shift 64° 29/23 dB; A · Wave Atom Choir Shift 289° 26/26 dB ★; A · Ensemble Strings Shift 320° 20/4 dB.
+
+*New sounds*: A · Phase Pair Bass 0° (0°, reference); A · Phase Pair Bass 67° 32/32 dB; A · Shifted Reese 11° 22/22 dB ~; A · Phase Wobble Bass 149° 19/19 dB ~; A · Haar Grit Bass 30° 18/18 dB; A · Rubber Phase Bass 331° 15/15 dB; A · Phase Sub Pluck 64° 92/62 dB; A · S&H Phase Bass 157° 18/18 dB ~; A · Phase Pair Lead 0° (0°, reference); A · Phase Pair Lead 2° 9/9 dB; A · Phase Scream 168° 99/69 dB ~; A · Shift Lead 50° 26/26 dB; A · Phase Sync Lead 168° 26/26 dB ~; A · Morph Phase Lead 101° 7/6 dB; A · Window Phase Lead 241° 42/42 dB; A · Chip Phase 67° 93/63 dB ~; A · Phase E-Piano 163° 21/21 dB; A · Shifted Clav 50° 19/19 dB; A · Phase Bell Keys 120° 102/72 dB; A · Glass Phase Keys 28° 28/28 dB; A · Tine Shift 53° 18/15 dB; A · Lo-Fi Phase Keys 157° 57/57 dB ~; A · Phase Organ 64° 23/23 dB; A · Rotary Phase Organ 165° 18/9 dB ~; A · Pipe Phase 36° 81/11 dB; A · Reed Phase Organ 154° 23/5 dB; A · Phase Drift Pad 275° 17/17 dB ~; A · Dawn Phase 281° 22/6 dB; A · Shifted Strings Pad 143° 29/12 dB; A · Phase Choir 177° 70/70 dB ~; A · Noise Phase Pad 53° 30/29 dB; A · Phase Glass Pad 42° 15/15 dB; A · Dark Phase Pad 165° 7/5 dB ~; A · Phase Is The Sound 177° 66/66 dB; A · Phase Ensemble 230° 24/8 dB; A · Shifted Cellos 185° 23/6 dB; A · Phase Tremolo Strings 143° 29/12 dB ~; A · Phase Viola 5° 16/14 dB; A · Phase Brass 168° 17/17 dB; A · Shifted Horns 104° 30/30 dB; A · Phase Stab 78° 26/26 dB; A · Phase Clarinet 36° 10/7 dB; A · Phase Pluck 157° 20/20 dB; A · Shift Harp 14° 19/15 dB; A · Phase Bells 44° 98/68 dB; A · Phase Mallet 84° 13/10 dB; A · Phase Scanner 157° 86/68 dB ~; A · Phase Glitch 64° 93/63 dB ~; A · Phase Hat 123° 32/32 dB; A · Phase Snare 14° 23/23 dB.
+
+**Engine** (web and plug-in, bit parity kept): `sourceCycle(wave, width, phase)`; the phase sets of LFO 2 → PHASE (`PHASE_K = 12`,
+`phaseModNeeded`, `renderTable`); the C++ engine matches the web engine on all 253 presets and 14 LFO 2 / phase variants
+(worst 3.35e-7, on A · Space Choir Shift, whose long reverb gathers float rounding; 2.38e-7 elsewhere). Cost of LFO 2 → PHASE
+(measured): 12 table sets per engine-A sound, 12.4 MB instead of 1.0 (24.8 MB with WAVELET MORPH); a table build of 38 ms in
+the plug-in and 77 ms in the web app instead of 3 and 8 ms (68 / 159 ms with the morph); about 1.5 times the voice CPU.
+Nothing of this when LFO 2 does not move the phase.
+
 ## beta 0.3 for macOS — 2026-10-17
 
 **The first Mac version**: the beta 0.3 plug-in as a **VST3 for macOS 10.13 or later**, one universal binary for **Apple

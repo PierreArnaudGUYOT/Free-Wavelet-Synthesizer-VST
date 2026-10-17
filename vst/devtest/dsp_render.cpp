@@ -43,5 +43,21 @@ int main(int argc, char** argv) {
     char name[64]; std::snprintf(name, sizeof name, "LFO 2 -> %s", kParams[kLfo2Targets[t]].key);
     render(params, kNumPresets + t, name, outdir);
   }
+  // beta 0.4: SOURCE PHASE, static and moved by LFO 2 with WAVELET MORPH and A/B MIX (every phase-set slot); the same
+  // variants as tools/dsp_compare.js
+  const double pht = targets - 1;   // a_phase is the last LFO 2 target
+  struct Set { int p; double v; };
+  const std::vector<std::vector<Set>> variants = {
+    {{P_WAVELET, 0}, {P_A_WAVE, 0}, {P_A_PHASE, 37.0 / 2048}, {P_F_CUTOFF, 5}},
+    {{P_WAVELET, 1}, {P_A_WAVE, 5}, {P_A_PHASE, 0.3}, {P_A_SPARSITY, 0.4}},
+    {{P_WAVELET, 0}, {P_WAV2, 2}, {P_WMORPH, 0.4}, {P_A_PHASE, 0.1}, {P_LFO2_TARGET, pht}, {P_LFO2_AMT, 0.7}, {P_LFO2_RATE, 2.5}, {P_LFO2_SHAPE, 0}},
+    {{P_ENGINE, 1}, {P_AB_MIX, 0.5}, {P_WAV2, 1}, {P_WMORPH, 0.5}, {P_A_PHASE, 0.62}, {P_LFO2_TARGET, pht}, {P_LFO2_AMT, -0.6}, {P_LFO2_RATE, 4}, {P_LFO2_SHAPE, 1}},
+  };
+  const char* names[] = {"phase 37/2048, Haar saw", "phase 0.3, noise", "LFO 2 -> phase + morph", "LFO 2 -> phase + A/B mix"};
+  for (size_t j = 0; j < variants.size(); j++) {
+    for (int i = 0; i < kNumParams; i++) params[i] = kPresets[0].v[i];
+    for (const Set& s : variants[j]) params[s.p] = s.v;
+    render(params, kNumPresets + targets + (int)j, names[j], outdir);
+  }
   return 0;
 }

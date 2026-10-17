@@ -1,12 +1,13 @@
-Wavelet Synthesizer beta 0.3 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+Wavelet Synthesizer beta 0.4 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in WaveletSynthesizer.vst3/Contents/Resources/LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
 How to cite: Guyot, P. A. (2026). Wavelet Synthesizer [Computer software]. Zenodo.
 DOI 10.5281/zenodo.23431760 - https://doi.org/10.5281/zenodo.23431760 (record: https://zenodo.org/records/23431760)
 
-This is the FIRST MAC VERSION: the same instrument as the Windows beta 0.3 (same sound, panel, 153 presets, preset
-browser and presets file). It was built and tested automatically on Apple's Macs, but not yet in every DAW: please
+The same instrument as the Windows beta 0.4 (same sound, panel, 253 presets, preset browser and presets file).
+NEW IN BETA 0.4: SOURCE PHASE (the PHASE knob of engine A, also an LFO 2 target) and the 100 presets of the Source Phase
+section (see RELEASE_HISTORY.md on GitHub). It was built and tested automatically on Apple's Macs, but not yet in every DAW: please
 report any problem at https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/issues
 
 INSTALL

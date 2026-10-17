@@ -5,7 +5,7 @@
 name: macOS plug-in
 on:
   push:
-    branches: [main, mac-port]
+    branches: [main, mac-port, source-phase]
   workflow_dispatch:
 permissions:
   contents: read

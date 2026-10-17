@@ -128,5 +128,61 @@ console.log('7. aliasing: saw at C7 (2093 Hz), engine A, filter open');
   check(db < -50, `in-band alias/harmonic energy ${db.toFixed(1)} dB`);
 }
 
+console.log('8. SOURCE PHASE (beta 0.4)');
+{
+  // the source of beta 0.3, copied here: phase 0 must give exactly the same samples
+  const oldSource = (wave, width) => {
+    const x = new Float64Array(C.N), r = C.rng(12345);
+    for (let i = 0; i < C.N; i++) {
+      const ph = i / C.N;
+      switch (wave) {
+        case 0: x[i] = 1 - 2 * ph; break;
+        case 1: x[i] = ph < 0.5 ? 1 : -1; break;
+        case 2: x[i] = ph < width ? 1 : -1; break;
+        case 3: x[i] = ph < width ? -1 + 2 * ph / width : 1 - 2 * (ph - width) / (1 - width); break;
+        case 4: x[i] = Math.sin(2 * Math.PI * ph); break;
+        default: x[i] = r() * 2 - 1; break;
+      }
+    }
+    let mean = 0; for (let i = 0; i < C.N; i++) mean += x[i]; mean /= C.N;
+    let peak = 0; for (let i = 0; i < C.N; i++) { x[i] -= mean; peak = Math.max(peak, Math.abs(x[i])); }
+    if (peak > 0) for (let i = 0; i < C.N; i++) x[i] /= peak;
+    return x;
+  };
+  let same = true;
+  for (let w = 0; w <= 5; w++) for (const width of [0.02, 0.2, 0.5, 0.77, 0.98]) {
+    const a = oldSource(w, width), b = C.sourceCycle(w, width, 0), c = C.sourceCycle(w, width);
+    for (let i = 0; i < C.N; i++) if (a[i] !== b[i] || a[i] !== c[i]) same = false;
+  }
+  check(same, 'phase 0 is the source of beta 0.3, bit for bit (6 waves x 5 widths)');
+  // Haar saw with band 6 removed: harmonic magnitudes at phase 37/2048 against phase 0 (a Fourier filter: 0 dB)
+  const band6Removed = ph => {
+    const f = C.FILTERS[0], c = C.dwt(C.sourceCycle(0, 0.5, ph), f);
+    for (let i = 32; i < 64; i++) c[i] = 0;
+    const re = C.idwt(c, f), im = new Float64Array(C.N);
+    C.fft(re, im, false);
+    const m = new Float64Array(C.N / 2 + 1);
+    for (let h = 0; h <= C.N / 2; h++) m[h] = Math.hypot(re[h], im[h]) / C.N;
+    return m;
+  };
+  const a0 = band6Removed(0), a1 = band6Removed(37 / 2048);
+  let worst = 0;
+  for (let h = 1; h <= 200; h++) if (a0[h] > 1e-4) worst = Math.max(worst, Math.abs(20 * Math.log10((a1[h] + 1e-12) / a0[h])));
+  check(worst > 10, `Haar saw, band 6 removed: phase 37/2048 changes a harmonic by ${worst.toFixed(1)} dB (> 10)`);
+  // the noise cycle moves by whole samples; a whole turn is phase 0
+  const n0 = C.sourceCycle(5, 0.5, 0), nq = C.sourceCycle(5, 0.5, 0.25);
+  let ne = 0; for (let i = 0; i < C.N; i++) ne = Math.max(ne, Math.abs(nq[i] - n0[(i + 512) % C.N]));
+  check(ne < 1e-12, `noise at phase 0.25 = the noise cycle moved by 512 samples (max err ${ne.toExponential(1)})`);
+  const s1 = C.sourceCycle(2, 0.3, 1), s0 = C.sourceCycle(2, 0.3, 0);
+  check(s1.every((v, i) => v === s0[i]), 'phase 1 (a whole turn) is phase 0');
+  // LFO 2 -> SOURCE PHASE: the engine-A tables at the other PHASE_K - 1 positions, only when needed
+  const p = C.defaults(); p[C.P.engine] = 0; p[C.P.ab_mix] = 0; p[C.P.wavelet] = 0; p[C.P.f_cutoff] = 5;
+  p[C.P.lfo2_target] = SPEC.LFO2_TARGETS.indexOf(C.P.a_phase);
+  const off = C.buildTables(p, true);
+  p[C.P.lfo2_amt] = 0.5;
+  const t0 = Date.now(), on = C.buildTables(p, true), ms = Date.now() - t0;
+  check(!off.ph && on.ph && on.ph.length === C.PHASE_K - 1, `LFO 2 -> PHASE builds ${on.ph ? on.ph.length : 0} more table sets (amount 0: none) in ${ms} ms`);
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

@@ -530,7 +530,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void drawSource(Canvas& g, R r) {
     if (disp.mode != 0) return;
     std::vector<double> raw(N);
-    sourceCycle((int)jsRound(plainOf(P_A_WAVE)), plainOf(P_A_WIDTH), raw.data());
+    sourceCycle((int)jsRound(plainOf(P_A_WAVE)), plainOf(P_A_WIDTH), raw.data(), plainOf(P_A_PHASE));   // shifted by SOURCE PHASE
     const double* dry = disp.layer(DRY);
     double peak = 1; for (int i = 0; i < N; i++) peak = std::max(peak, std::fabs(dry[i]));
     double sy = (r.h / 2 - 8) / peak;

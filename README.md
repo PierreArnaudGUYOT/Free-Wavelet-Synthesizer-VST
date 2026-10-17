@@ -2,19 +2,22 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23431760.svg)](https://doi.org/10.5281/zenodo.23431760)
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.3** (2026-10-17), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.4** (2026-10-17), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
 It comes as a **web application** and a **VST3 / VST2 instrument for Ableton Live** (Windows x64), also as a **VST3 for
 macOS** (Apple silicon and Intel). They share
-the same engine, panel layout and 153 factory presets: OktoPierre's 15 favourite sounds first, then the others sorted by
+the same engine, panel layout and 253 factory presets: OktoPierre's 15 favourite sounds first, then the others sorted by
 category like a hardware synthesizer (Bass, Lead, Keys, Organ, Pad, Strings, Brass & Wind, Pluck, Bells & Mallets, FX,
-Drums & Perc); both open on "A · Warm Pad".
+Drums & Perc, and the Source Phase section of beta 0.4); both open on "A · Warm Pad".
 Its two engines can play **alone or mixed** (the **A/B MIX** knob), and a **string-machine triple chorus** widens pads,
 strings and organs. The **WAVELET MORPH** (beta 0.3) builds the sound with a second wavelet too and moves between the two
 with a knob, the LFO or the envelope. In each category the presets OktoPierre rated best in his listening test come first.
-A second LFO (**LFO 2**) moves any parameter of the scale filter or the position window. In the VST plug-in, a **preset
+A second LFO (**LFO 2**) moves any parameter of the scale filter or the position window. **SOURCE PHASE** (beta 0.4) moves
+engine A's source wave inside the cycle before the wavelet transform: because the transform is shift-variant, the scale
+filter then acts on other atoms and the timbre changes — something no Fourier filter can do; LFO 2 can sweep it, and the
+100 presets of the Source Phase section are built on it. In the VST plug-in, a **preset
 browser** (TOP Sounds and the sound types) sits at the right of the panel; **SAVE PRESET** adjusts a factory preset,
 **DELETE** clears out the ones you do not want, ▲ ▼ reorder the lists, and a **user bank** keeps your own sounds — all in
 one readable text file, `OKTOWAVE presets.txt`, kept next to the plug-in.

@@ -5368,7 +5368,9 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 		er.click (prev);
 		pump (100);
 		s = ctlNow (*R);
-		check (s.parsed && s.name == kBInit, "editor: previous on the first preset wraps to the last ('B · Init')", s.str ());
+		// the last preset of the factory order (since beta 0.4 the Source Phase section follows Init)
+		const std::string kLast = g_specPresets.list.empty () ? kBInit : g_specPresets.list.back ().name;
+		check (s.parsed && s.name == kLast, "editor: previous on the first preset wraps to the last ('" + kLast + "')", s.str ());
 		for (int k = 0; k < 12; k++)
 		{
 			er.click (next);

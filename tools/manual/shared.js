@@ -205,10 +205,10 @@ function lfoSection(E) {
   ];
   // beta 0.3: LFO 2, in its own card at the bottom (next to CHORUS)
   const rows2 = [
-    ['lfo2_target', `What LFO 2 moves — the small menu next to the ${ctl('LFO 2')} title: ${ctl('CUTOFF')}, ${ctl('SLOPE')}, ${ctl('RESO')}, ${ctl('KEY TRK')}, ${ctl('ENV AMT')} or ${ctl('VEL AMT')} of the SCALE FILTER, or ${ctl('POSITION')}, ${ctl('WIDTH')} or ${ctl('DEPTH')} of the POSITION window. The mouse wheel on the menu steps through them.`, 'LFO 1 already has CUTOFF and POSITION: give LFO 2 another target (RESO, WIDTH…) for two independent movements.'],
+    ['lfo2_target', `What LFO 2 moves — the small menu next to the ${ctl('LFO 2')} title: ${ctl('CUTOFF')}, ${ctl('SLOPE')}, ${ctl('RESO')}, ${ctl('KEY TRK')}, ${ctl('ENV AMT')} or ${ctl('VEL AMT')} of the SCALE FILTER, ${ctl('POSITION')}, ${ctl('WIDTH')} or ${ctl('DEPTH')} of the POSITION window, or (beta 0.4) the engine A ${ctl('PHASE')} — SOURCE PHASE: the wave moves inside the cycle and the timbre scans through the colours of the shift-variant wavelet transform (see Manual A, <a href="manual-a.html#phase">Source phase</a>). The mouse wheel on the menu steps through them.`, 'LFO 1 already has CUTOFF and POSITION: give LFO 2 another target (RESO, WIDTH…) for two independent movements.'],
     ['lfo2_shape', `The same five shapes as LFO 1 (sine, triangle, saw, square, sample &amp; hold). A click on the knob goes to the next shape.`, 'S&amp;H on RESO gives a random, talking resonance.'],
     ['lfo2_rate', 'Speed, from one cycle every 20 s to 20 cycles per second (logarithmic taper), independent of LFO 1.', 'A rate that does not divide LFO 1’s makes the two movements drift against each other.'],
-    ['lfo2_amt', 'How far the target moves: up to ± this share of half its range (100 % on CUTOFF = ±6 bands, on POSITION = ±180°, on RESO = ±12 dB), kept within the control’s range. Negative values move it the other way; 0 % (the default) switches LFO 2 off.', 'Start around 20–30 % and listen while you raise it.'],
+    ['lfo2_amt', 'How far the target moves: up to ± this share of half its range (100 % on CUTOFF = ±6 bands, on POSITION or PHASE = ±180°, on RESO = ±12 dB), kept within the control’s range. Negative values move it the other way; 0 % (the default) switches LFO 2 off.', 'Start around 20–30 % and listen while you raise it.'],
   ];
   return `<p>One LFO is shared by all voices. It runs freely and is not restarted by new notes, so in a chord every voice moves together — ideal for pads and vibrato. For a movement that starts with each note, use the MOD ENVELOPE instead.</p>
 ${controls(rows)}
@@ -652,6 +652,7 @@ const PLABEL = {
   ab_mix: 'A/B MIX', ch_mix: 'CHORUS', ch_rate: 'CHORUS RATE', ch_depth: 'CHORUS DEPTH',
   wav2: 'WAVELET 2', wmorph: 'MORPH', lfo_wav: 'LFO→WAVELET', env_wav: 'ENV→WAVELET',
   lfo2_shape: 'LFO 2', lfo2_rate: 'LFO 2 RATE', lfo2_amt: 'LFO 2 AMOUNT', lfo2_target: 'LFO 2→',
+  a_phase: 'PHASE',
 };
 function presetSettings(pr) {
   const out = [], v = pr.values, idx = k => SPEC.PARAMS.findIndex(p => p.key === k);

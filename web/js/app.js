@@ -36,13 +36,14 @@
     v = Math.min(p.max, Math.max(p.min, v));
     if (p.curve === 'int' || p.curve === 'choice') v = Math.round(v);
     if (values[i] === v) return;
-    const needs = i === P.ab_mix ? C.tableNeeds(values) : 0, morph = C.morphNeeded(values);
+    const needs = i === P.ab_mix ? C.tableNeeds(values) : 0, morph = C.morphNeeded(values), phm = C.phaseModNeeded(values);
     values[i] = v;
     post({ t: 'p', i, v });
     ui.refresh(i);
     // A/B MIX rebuilds the tables only when it reaches or leaves one end (engine A or B alone); the WAVELET MORPH when
-    // it starts or stops needing the WAVELET 2 tables
-    if (p.structural || (i === P.ab_mix && C.tableNeeds(values) !== needs) || C.morphNeeded(values) !== morph) scheduleBuild();
+    // it starts or stops needing the WAVELET 2 tables; LFO 2 when it starts or stops moving the SOURCE PHASE (beta 0.4)
+    if (p.structural || (i === P.ab_mix && C.tableNeeds(values) !== needs) || C.morphNeeded(values) !== morph ||
+        C.phaseModNeeded(values) !== phm) scheduleBuild();
     // the ENGINE tabs only choose the panel shown: switching them does not modify the sound
     if (user && !p.hidden && i !== P.engine) { if (!dirty) { dirty = true; ui.setPresetName(presetName, true); } }
     if (user && !p.hidden) saveStateSoon();
@@ -56,12 +57,19 @@
     buildTimer = null;
     lastBuild = performance.now();
     const tb = C.buildTables(values, true);
-    const alt = tb.alt ? { mode: tb.alt.mode, mips: tb.alt.mips, rms: tb.alt.rms } : null;
-    const transfer = [tb.mips.buffer, tb.rms.buffer].concat(alt ? [alt.mips.buffer, alt.rms.buffer] : []);
+    // a table set for the worklet: its arrays are transferred (with the SOURCE PHASE sets, beta 0.4, when LFO 2 moves it)
+    const transfer = [];
+    const pack = s => {
+      if (!s) return null;
+      transfer.push(s.mips.buffer, s.rms.buffer);
+      const o = { mode: s.mode, mips: s.mips, rms: s.rms };
+      if (s.ph) o.ph = s.ph.map(pack);
+      return o;
+    };
+    const main = pack(tb), alt = pack(tb.alt);
     // WAVELET MORPH: the tables of WAVELET 2 (with their own alt set when engines A and B are mixed)
-    const w2 = tb.w2 ? { mode: tb.w2.mode, mips: tb.w2.mips, rms: tb.w2.rms, alt: tb.w2.alt ? { mode: tb.w2.alt.mode, mips: tb.w2.alt.mips, rms: tb.w2.alt.rms } : null } : null;
-    if (w2) { transfer.push(w2.mips.buffer, w2.rms.buffer); if (w2.alt) transfer.push(w2.alt.mips.buffer, w2.alt.rms.buffer); }
-    if (node) post({ t: 'tables', mode: tb.mode, mips: tb.mips, rms: tb.rms, alt, w2 }, transfer);
+    const w2 = tb.w2 ? Object.assign(pack(tb.w2), { alt: pack(tb.w2.alt) }) : null;
+    if (node) post({ t: 'tables', mode: tb.mode, mips: tb.mips, rms: tb.rms, ph: main.ph || null, alt, w2 }, transfer);
     // the displays show the engine of the panel; with A/B MIX at the other engine the sound uses other tables
     ui.setTables(tb.mode === Math.round(values[P.engine]) ? tb : C.buildTables(values, false));
   }

@@ -17,6 +17,10 @@ function WSCoreFactory(SPEC) {
   const TW = (N + 1) * NL; // floats per mip table (interleaved, +1 guard sample)
   const CTRL = 32;         // control-rate block
   const MAXV = 16;
+  // SOURCE PHASE moved by LFO 2 (beta 0.4): the engine-A tables are also built at PHASE_K positions round the cycle
+  // (phase + k / PHASE_K). 12 (30°) is not a power of two, so neighbouring positions differ in every band (a shift by a
+  // multiple of 2^(12-b) samples would leave band b unchanged), and each extra position costs one more table set.
+  const PHASE_K = 12;
   const LN1000 = Math.log(1000);
   const VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
   const LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
@@ -167,11 +171,14 @@ function WSCoreFactory(SPEC) {
   }
 
   // ------------------------------------------------------------ table building
-  function sourceCycle(wave, width) {
+  // SOURCE PHASE (beta 0.4): the wave is read at frac(i/N + phase), exactly (no interpolation); the noise cycle is shifted
+  // by round(phase·N) whole samples. phase 0 gives the source of beta 0.3 bit for bit.
+  function sourceCycle(wave, width, phase) {
     const x = new Float64Array(N);
     const r = rng(12345);
+    const sh = phase || 0;
     for (let i = 0; i < N; i++) {
-      const ph = i / N;
+      let ph = i / N + sh; ph -= Math.floor(ph);
       switch (wave) {
         case 0: x[i] = 1 - 2 * ph; break;
         case 1: x[i] = ph < 0.5 ? 1 : -1; break;
@@ -180,6 +187,10 @@ function WSCoreFactory(SPEC) {
         case 4: x[i] = Math.sin(2 * Math.PI * ph); break;
         default: x[i] = r() * 2 - 1; break;
       }
+    }
+    if (wave >= 5) {
+      const s = ((Math.round(sh * N) % N) + N) % N;
+      if (s) { const y = Float64Array.from(x); for (let i = 0; i < N; i++) x[i] = y[(i + s) % N]; }
     }
     let mean = 0; for (let i = 0; i < N; i++) mean += x[i]; mean /= N;
     let peak = 0; for (let i = 0; i < N; i++) { x[i] -= mean; peak = Math.max(peak, Math.abs(x[i])); }
@@ -243,7 +254,30 @@ function WSCoreFactory(SPEC) {
       const w2 = buildSound(p2, view);
       out.w2 = { mode: w2.mode, mips: w2.mips, rms: w2.rms, alt: w2.alt || null };
     }
+    // SOURCE PHASE moved by LFO 2 (beta 0.4): every engine-A set also at the other PHASE_K - 1 positions (set.ph)
+    if (phaseModNeeded(params)) {
+      const add = (set, wav) => { if (set && set.mode === 0) set.ph = phaseSets(params, wav); };
+      add(out, params[P.wavelet]); add(out.alt, params[P.wavelet]);
+      if (out.w2) { add(out.w2, params[P.wav2]); add(out.w2.alt, params[P.wav2]); }
+    }
     return out;
+  }
+  // LFO 2 moves the source phase when it targets it with an amount, and engine A plays
+  function phaseModNeeded(params) {
+    return LFO2_T[Math.round(params[P.lfo2_target])] === P.a_phase && params[P.lfo2_amt] !== 0 && (tableNeeds(params) & 1) !== 0;
+  }
+  // the engine-A tables at phases a_phase + k / PHASE_K (k = 1 .. PHASE_K - 1), wavelet wav
+  function phaseSets(params, wav) {
+    const pk = Float64Array.from(params);
+    pk[P.wavelet] = wav;
+    const sets = [];
+    for (let k = 1; k < PHASE_K; k++) {
+      let v = params[P.a_phase] + k / PHASE_K; v -= Math.floor(v);
+      pk[P.a_phase] = v;
+      const s = buildSet(pk, 0, true);
+      sets.push({ mode: 0, mips: s.mips, rms: s.rms });
+    }
+    return sets;
   }
   function buildSound(params, view) {
     const need = tableNeeds(params);
@@ -265,7 +299,7 @@ function WSCoreFactory(SPEC) {
     const layers = [];
     const bandScale = new Float64Array(NB).fill(1);
     if (mode === 0) {
-      const src = sourceCycle(Math.round(params[P.a_wave]), params[P.a_width]);
+      const src = sourceCycle(Math.round(params[P.a_wave]), params[P.a_width], params[P.a_phase]);
       c = dwt(src, f);
       c[0] = 0;
       const sp = sparsify(c, params[P.a_sparsity]);
@@ -398,6 +432,7 @@ function WSCoreFactory(SPEC) {
     this.tA = new Float64Array(NB); this.tB = new Float64Array(NB);
     this.fresh = true;
     this.wm0 = 0; this.wm1 = 0;   // WAVELET MORPH position
+    this.ap0 = 0; this.ap1 = 0;   // SOURCE PHASE moved by LFO 2: position among the PHASE_K phase sets (0 .. PHASE_K)
   }
 
   function Engine(sr) {
@@ -644,6 +679,9 @@ function WSCoreFactory(SPEC) {
     // wm1 across the block
     const wm = Math.min(1, Math.max(0, p[P.wmorph] + p[P.lfo_wav] * this.lfo + p[P.env_wav] * mod));
     vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
+    // SOURCE PHASE moved by LFO 2 (beta 0.4): the voice's place among the PHASE_K phase sets, from ap0 to ap1 (round the cycle)
+    let ap = (t2 === P.a_phase ? d2 : 0) * PHASE_K; ap -= Math.floor(ap / PHASE_K) * PHASE_K;
+    vc.ap0 = vc.fresh ? ap : vc.ap1; vc.ap1 = ap;
     vc.fresh = false;
 
     let pc = lfo2Value(p, P.p_center, t2, d2) + p[P.lfo_pos] * this.lfo; pc -= Math.floor(pc);
@@ -744,10 +782,28 @@ function WSCoreFactory(SPEC) {
   // Renders one voice with a table set and, when engines A and B are mixed, its `alt` set: shares 1 - mix (A) and
   // mix (B), moving from m0 to m1 across the block; the sub oscillator is rendered once.
   E.renderSet = function (vc, n, t, fade0, fadeInc, invert, m0, m1) {
-    if (!t.alt) { this.renderVoice(vc, n, t, fade0, fadeInc, invert, 1, 0, true); return; }
+    if (!t.alt) { this.renderTable(vc, n, t, fade0, fadeInc, invert, 1, 0, true); return; }
     const g0 = t.mode === 0 ? 1 - m0 : m0, g1 = t.mode === 0 ? 1 - m1 : m1;
-    this.renderVoice(vc, n, t, fade0, fadeInc, invert, g0, (g1 - g0) / n, true);
-    this.renderVoice(vc, n, t.alt, fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
+    this.renderTable(vc, n, t, fade0, fadeInc, invert, g0, (g1 - g0) / n, true);
+    this.renderTable(vc, n, t.alt, fade0, fadeInc, invert, 1 - g0, (g0 - g1) / n, false);
+  };
+
+  // SOURCE PHASE moved by LFO 2 (beta 0.4): an engine-A set with its phase sets (t.ph) plays the sets on each side of the
+  // voice's place q (share 1 - |q - k| round the cycle), q moving from ap0 to ap1 across the block; the shares of a block
+  // start and end each add up to 1. Without phase sets exactly renderVoice.
+  E.renderTable = function (vc, n, t, fade0, fadeInc, invert, gain0, gainInc, withSub) {
+    if (!t.ph) { this.renderVoice(vc, n, t, fade0, fadeInc, invert, gain0, gainInc, withSub); return; }
+    const gain1 = gain0 + gainInc * n;
+    const a0 = Math.floor(vc.ap0) % PHASE_K, f0 = vc.ap0 - Math.floor(vc.ap0), b0 = (a0 + 1) % PHASE_K;
+    const a1 = Math.floor(vc.ap1) % PHASE_K, f1 = vc.ap1 - Math.floor(vc.ap1), b1 = (a1 + 1) % PHASE_K;
+    let sub = withSub;
+    for (let k = 0; k < PHASE_K; k++) {
+      const s0 = k === a0 ? 1 - f0 : k === b0 ? f0 : 0, s1 = k === a1 ? 1 - f1 : k === b1 ? f1 : 0;
+      if (s0 === 0 && s1 === 0) continue;
+      const k0 = gain0 * s0, k1 = gain1 * s1;
+      this.renderVoice(vc, n, k === 0 ? t : t.ph[k - 1], fade0, fadeInc, invert, k0, (k1 - k0) / n, sub);
+      sub = false;
+    }
   };
 
   // WAVELET MORPH: without WAVELET 2 tables exactly renderSet (bit-identical sound when the morph is off); with them, the sound of WAVELET (share
@@ -759,10 +815,10 @@ function WSCoreFactory(SPEC) {
   };
   // renderSet with an extra share k (k0 -> k1 across the block) and the sub oscillator only when withSub
   E.renderSetK = function (vc, n, t, fade0, fadeInc, invert, m0, m1, k0, k1, withSub) {
-    if (!t.alt) { this.renderVoice(vc, n, t, fade0, fadeInc, invert, k0, (k1 - k0) / n, withSub); return; }
+    if (!t.alt) { this.renderTable(vc, n, t, fade0, fadeInc, invert, k0, (k1 - k0) / n, withSub); return; }
     const s0 = t.mode === 0 ? 1 - m0 : m0, s1 = t.mode === 0 ? 1 - m1 : m1;
-    this.renderVoice(vc, n, t, fade0, fadeInc, invert, s0 * k0, (s1 * k1 - s0 * k0) / n, withSub);
-    this.renderVoice(vc, n, t.alt, fade0, fadeInc, invert, (1 - s0) * k0, ((1 - s1) * k1 - (1 - s0) * k0) / n, false);
+    this.renderTable(vc, n, t, fade0, fadeInc, invert, s0 * k0, (s1 * k1 - s0 * k0) / n, withSub);
+    this.renderTable(vc, n, t.alt, fade0, fadeInc, invert, (1 - s0) * k0, ((1 - s1) * k1 - (1 - s0) * k0) / n, false);
   };
 
   // Process n samples (any n) into outL/outR (overwrites).
@@ -928,9 +984,9 @@ function WSCoreFactory(SPEC) {
   }
 
   return {
-    N, NB, NL, DRY, NMIP, TW, CTRL, MAXV, P, NP,
+    N, NB, NL, DRY, NMIP, TW, CTRL, MAXV, PHASE_K, P, NP,
     rng, toPlain, toNorm, format, parse, defaults,
-    FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables, tableNeeds, morphNeeded,
+    FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables, tableNeeds, morphNeeded, phaseModNeeded,
     filterGains, windowValue, staticGains, displayCycle, atomShape, Engine,
   };
 }

@@ -12,7 +12,7 @@ const hero = `<header class="hero">
 <p class="eyebrow">WAVELET SYNTHESIZER · USER MANUAL B</p>
 <h1><span class="tag">ENGINE B</span>Wavelet Additive</h1>
 <p class="lead">Engine B builds sounds the other way round. Instead of starting from a waveform and taking detail away, you write the detail directly. An ATOM PATTERN decides the sign — and for RANDOM, the size — of every one of the 2047 atoms that make up a waveform cycle; the WAVELET gives those atoms their shape; eleven DRAWBARS set the level of each band, one octave of harmonics each, like the drawbars of an organ; and a SCALE ENVELOPE gives every band its own attack and decay, so the fine detail can bloom later or die sooner than the body of the sound. The shared SCALE FILTER, POSITION window, envelopes, LFO, voice and effects sections then shape the result.</p>
-<div class="hero-meta"><span class="pill">For the web app and the VST3 plugin for Ableton Live (Windows)</span><span class="pill">Version ${SPEC.APP.version} · ${SPEC.APP.date}</span><a class="pill other-a" href="manual-a.html">Engine A · Wavelet Subtractive — read Manual A</a></div>
+<div class="hero-meta"><span class="pill">For the web app and the VST3 plugin for Ableton Live (Windows and macOS)</span><span class="pill">Version ${SPEC.APP.version} · ${SPEC.APP.date}</span><a class="pill other-a" href="manual-a.html">Engine A · Wavelet Subtractive — read Manual A</a></div>
 </header>`;
 
 // ---------------------------------------------------------------- 1. idea

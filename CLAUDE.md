@@ -118,6 +118,29 @@ products identical. Read it before changing the DSP, the parameters or the prese
   target and `lfo2Value(p, i, t2, d2)` replaces the target's value (clamped; POSITION wraps with the window). The layout
   widget `menu` (W_MENU) shows a choice parameter as a drop-down (web `ui.menu`, VST `choiceMenu`).
 
+### 3.3d SOURCE PHASE (beta 0.4)
+- `a_phase` (appended, structural, `fmt: 'deg'`, 0–1 of a cycle, default 0). `sourceCycle(wave, width, phase)` reads the
+  wave at `frac(i/N + phase)` exactly (no interpolation); the NOISE cycle is shifted by `round(phase·N)` whole samples; mean
+  removal and peak normalisation unchanged. Phase 0 is the beta 0.3 source **bit for bit** (`dsp_selftest` 8; all older
+  presets render identically). Engine A only (a shifted engine-B cycle has the same timbre); the knob sits right of the
+  SOURCE CYCLE display, which draws the moved wave. Why it matters: the periodic DWT is shift-variant (band b commutes only
+  with shifts by multiples of 2^(12−b) samples), so the scale filter, sparsity and window act on other atoms.
+- **Moved by LFO 2**: the last `LFO2_TARGETS` entry. `phaseModNeeded(params)` = target `a_phase`, amount ≠ 0, engine A
+  playing. Then `buildTables` also builds every engine-A set (main, alt, WAVELET 2, WAVELET 2 alt) at the other
+  `PHASE_K − 1` phases `a_phase + k/PHASE_K` (`PHASE_K = 12` in `core.js` and `dsp.h`; not a power of two, so neighbours
+  differ in every band): JS `set.ph[k − 1] = {mode, mips, rms}`, C++ `Tables::phMips[slot][k − 1]`, `TableRef::phM[slot][k]`
+  (k = 0 the set itself; slots 0 main, 1 alt, 2 w2, 3 w2 alt). `control()` puts the voice at `q = d2·PHASE_K` wrapped into
+  [0, PHASE_K) (`ap0` → `ap1` across the block); `renderTable` renders the sets on each side of q with shares
+  `1 − |q − k|` (round the cycle; the shares of a block start and end each add up to 1), the sub oscillator once; without
+  `ph` it is exactly `renderVoice`. Rebuild when `phaseModNeeded` changes (web `setParam`; VST `process` `phaseEnds`: AMOUNT
+  leaves / reaches 0, TARGET to / from PHASE). Cost (measured): 12.4 MB of tables instead of 1.0 (24.8 MB with WAVELET MORPH), builds of 38 ms
+  in C++ and 77 ms in JS instead of 3 and 8 (68 / 159 ms with the morph), about 1.5 × the voice CPU; nothing when off.
+- Compatibility: states and presets without `a_phase` get 0 (web `applyKeyed` defaults, VST `readState` `sawPhase`, the
+  library starts from the defaults). Adding the PHASE target appended a choice to `lfo2_target` (plain values unchanged).
+- Presets: the "Source Phase" section (`CATEGORIES` last, after Init, so older presets keep their numbers): 100 engine-A
+  presets, every phase checked by `tools/phase_effect.js` (≥ 6 dB on some harmonic, ≥ 4 dB among those within 20 dB of the
+  strongest; pair references at 0° are listed as such).
+
 ### 3.4 Table rebuilds
 - Structural changes rebuild tables **off the audio thread** and switch with a 512-sample crossfade (`setTables`).
 - Web: `app.js` throttles builds (45 ms) on the main thread and transfers the arrays to the worklet (`'tables'` message).
@@ -244,7 +267,11 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
   SAVE PRESET / rename / refused name, RESTORE, DELETE and back, ▲ ▼, the user bank, EXPORT, OCT click, LFO 2 menu, HIDE,
   unwritable folder, the file read back after the plug-in is unloaded and loaded). The save windows and message boxes are
   answered by a helper thread (a single-OK message box closes with IDCANCEL).
-- `tools/dsp_compare.js` / `dsp_render.cpp` also render LFO 2 on each of its targets (no factory preset uses it yet).
+- `tools/dsp_compare.js` / `dsp_render.cpp` also render LFO 2 on each of its targets, and (beta 0.4) four SOURCE PHASE
+  variants: static (Haar saw, noise) and moved by LFO 2 with WAVELET MORPH and with A/B MIX (every phase-set slot).
+- beta 0.4: `node tools/phase_effect.js` measures every phased preset (phase 0 against its phase, static cycle at middle
+  C); `dsp_selftest` 8 checks phase 0 = the beta 0.3 source, the Haar band-6 effect (> 10 dB), the noise shift, the phase
+  sets. The 153 older presets were checked bit-identical against beta 0.3 (old and new `core.js`, same scenario).
 - `tests/vst3host`: `scaled()` maps layout points with the height scale (the browser makes the editor wider).
 - macOS (`.github/workflows/mac.yml`, `macos-14`, Apple silicon + Rosetta for Intel): `dsp_render.cpp` + `dsp_compare.js` on
   both architectures, then `tests/machost/machost <bundle> <outdir>` (built by `tests/machost/build.sh`): bundle and

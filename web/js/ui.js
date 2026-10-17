@@ -776,7 +776,7 @@ class SynthUI {
     const C = this.C, tb = this.tables;
     if (!tb || tb.mode !== 0) return;
     const vals = this.host.values();
-    const raw = C.sourceCycle(Math.round(vals[this.P.a_wave]), vals[this.P.a_width]);
+    const raw = C.sourceCycle(Math.round(vals[this.P.a_wave]), vals[this.P.a_width], vals[this.P.a_phase]);   // shifted by SOURCE PHASE
     const dry = tb.layers[C.DRY];
     let peak = 1; for (let i = 0; i < C.N; i++) peak = Math.max(peak, Math.abs(dry[i]));
     const sy = (H / 2 - 8) / peak;
