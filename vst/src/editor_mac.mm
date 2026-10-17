@@ -23,8 +23,9 @@
 
 namespace ws {
 
-// Core Text's system font is a little wider than Windows' Segoe UI at the same size: the panel was laid out with Segoe UI
-static const double kFontScale = 1.0;
+// The macOS system font is about 5 % wider than Windows' Segoe UI at the same size (measured by tests/machost: 0.92 for
+// small bold capitals, 1.0 for mixed case): the panel was laid out with Segoe UI
+static const double kFontScale = 0.95;
 
 static NSString* ns(const std::wstring& s) {
   NSString* r = [[NSString alloc] initWithBytes:s.data() length:s.size() * sizeof(wchar_t) encoding:NSUTF32LittleEndianStringEncoding];
@@ -245,15 +246,17 @@ class MacWindow : public EditorWindow {
     return NSMakePoint(p.x / s, p.y / s);
   }
   void mouseDown(NSEvent* e) {
+    mods = e.modifierFlags;
     const NSPoint p = logical(e);
     if (e.modifierFlags & NSEventModifierFlagControl) { ev->rightDown((float)p.x, (float)p.y); return; }   // Control-click
     ev->mouseDown((float)p.x, (float)p.y, e.clickCount == 2);
   }
-  void rightDown(NSEvent* e) { const NSPoint p = logical(e); ev->rightDown((float)p.x, (float)p.y); }
-  void mouseMove(NSEvent* e) { const NSPoint p = logical(e); ev->mouseMove((float)p.x, (float)p.y); }
-  void mouseUp() { ev->mouseUp(); }
+  void rightDown(NSEvent* e) { mods = e.modifierFlags; const NSPoint p = logical(e); ev->rightDown((float)p.x, (float)p.y); }
+  void mouseMove(NSEvent* e) { mods = e.modifierFlags; const NSPoint p = logical(e); ev->mouseMove((float)p.x, (float)p.y); }
+  void mouseUp(NSEvent* e) { mods = e.modifierFlags; ev->mouseUp(); }
   void mouseLeave() { ev->mouseLeave(); }
   void scroll(NSEvent* e) {
+    mods = e.modifierFlags;
     const NSPoint p = logical(e);
     const double dy = e.scrollingDeltaY;
     if (e.hasPreciseScrollingDeltas) {   // a trackpad: one step per 12 points
@@ -270,15 +273,16 @@ class MacWindow : public EditorWindow {
   void invalidateAll() override { [view setNeedsDisplay:YES]; }
   void setSize(int w, int h) override { [view setFrameSize:NSMakeSize(w, h)]; [view setNeedsDisplay:YES]; }
   void capture(bool) override {}   // a view receives the drag events of a click that started on it
-  bool shiftDown() override { return ([NSEvent modifierFlags] & NSEventModifierFlagShift) != 0; }
-  bool ctrlDown() override { return ([NSEvent modifierFlags] & NSEventModifierFlagCommand) != 0; }   // Cmd-click resets
+  // the keys held with the mouse event being handled
+  bool shiftDown() override { return (mods & NSEventModifierFlagShift) != 0; }
+  bool ctrlDown() override { return (mods & NSEventModifierFlagCommand) != 0; }   // Cmd-click resets
   int popupMenu(const std::vector<MenuItem>& items, float x, float y) override {
     NSMenu* m = buildMenu(items);
     gMenuPick = 0; gMenuHighlight = 0;
     const double s = ev->scale();
     const BOOL chosen = [m popUpMenuPositioningItem:nil atLocation:NSMakePoint(x * s, y * s) inView:view];
-    if (!chosen) return 0;
-    return gMenuPick ? gMenuPick : gMenuHighlight;
+    if (gMenuPick) return gMenuPick;   // the item's action was sent
+    return chosen ? gMenuHighlight : 0;
   }
   void message(const std::wstring& text, bool warning) override {
     NSAlert* a = [[NSAlert alloc] init];
@@ -360,6 +364,7 @@ class MacWindow : public EditorWindow {
   CFRunLoopTimerRef timer = nullptr;
   std::map<int, CTFontRef> fonts;
   double wheelAcc = 0;
+  NSEventModifierFlags mods = 0;
 
   static void tick(CFRunLoopTimerRef, void* info) { static_cast<MacWindow*>(info)->ev->timer(); }
   static NSMenu* buildMenu(const std::vector<MenuItem>& items) {
@@ -391,7 +396,7 @@ static void viewDrawRect(id self, SEL, NSRect dirty) { if (MacWindow* w = ownerO
 static void viewMouseDown(id self, SEL, NSEvent* e) { if (MacWindow* w = ownerOf(self)) w->mouseDown(e); }
 static void viewRightMouseDown(id self, SEL, NSEvent* e) { if (MacWindow* w = ownerOf(self)) w->rightDown(e); }
 static void viewMouseMoved(id self, SEL, NSEvent* e) { if (MacWindow* w = ownerOf(self)) w->mouseMove(e); }
-static void viewMouseUp(id self, SEL, NSEvent*) { if (MacWindow* w = ownerOf(self)) w->mouseUp(); }
+static void viewMouseUp(id self, SEL, NSEvent* e) { if (MacWindow* w = ownerOf(self)) w->mouseUp(e); }
 static void viewMouseExited(id self, SEL, NSEvent*) { if (MacWindow* w = ownerOf(self)) w->mouseLeave(); }
 static void viewScrollWheel(id self, SEL, NSEvent* e) { if (MacWindow* w = ownerOf(self)) w->scroll(e); }
 static void viewTestCommand(id self, SEL, NSInteger cmd) { if (MacWindow* w = ownerOf(self)) w->testCommand((int)cmd); }   // developer tests

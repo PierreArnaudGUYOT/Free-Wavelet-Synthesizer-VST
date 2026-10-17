@@ -166,6 +166,8 @@ static void pump(double seconds) {   // lets the editor's timer and drawing run
     if (e) [NSApp sendEvent:e];
   }
 }
+// a line of the presets file starts after "\n" (its header quotes "Adjusted: yes" and "Deleted: yes" inside a sentence)
+static const std::string kNl(1, '\n');
 static std::string readFile(const std::string& p) { std::ifstream f(p, std::ios::binary); std::stringstream s; s << f.rdbuf(); return s.str(); }
 
 struct Plug {
@@ -270,6 +272,19 @@ static void answerModal(CFRunLoopTimerRef, void*) {
   }
   gAnswered++;
   [NSApp stopModalWithCode:NSAlertFirstButtonReturn];
+}
+
+// the editor's pop-up menus: while one is open, the item with this title is chosen (its action sent, then the menu closed)
+static NSMenu* gOpenMenu = nil;
+static std::string gMenuChoice;
+static int gMenusSeen = 0, gMenusChosen = 0;
+static void answerMenu(CFRunLoopTimerRef, void*) {
+  if (!gOpenMenu) return;
+  NSMenu* m = gOpenMenu;
+  gOpenMenu = nil;
+  const NSInteger i = gMenuChoice.empty() ? -1 : [m indexOfItemWithTitle:[NSString stringWithUTF8String:gMenuChoice.c_str()]];
+  if (i >= 0) { [m performActionForItemAtIndex:i]; gMenusChosen++; }
+  [m cancelTracking];
 }
 
 int main(int argc, char** argv) {
@@ -456,6 +471,45 @@ int main(int argc, char** argv) {
       check(v2.getWidth() == 1460, "a click on the preset name brings the browser back", fmt("%d", v2.getWidth()));
     }
 
+    // ---------------------------------------------------------------- pop-up menus: window size, the preset menu
+    std::printf("[Menus]\n");
+    [[NSNotificationCenter defaultCenter] addObserverForName:NSMenuDidBeginTrackingNotification object:nil queue:nil
+                                                  usingBlock:^(NSNotification* n) { gOpenMenu = n.object; gMenusSeen++; }];
+    CFRunLoopTimerRef menuTimer = CFRunLoopTimerCreate(nullptr, CFAbsoluteTimeGetCurrent() + 0.3, 0.3, 0, 0, answerMenu, nullptr);
+    CFRunLoopAddTimer(CFRunLoopGetMain(), menuTimer, kCFRunLoopCommonModes);
+    {
+      const Spot z = find(ws::W_ZOOM);
+      gMenuChoice = "Window size 130%";
+      click(pv, z.x + z.w / 2, z.y + z.h / 2);
+      pump(0.3);
+      ViewRect zr; view->getSize(&zr);
+      check(gMenusSeen >= 1 && zr.getWidth() == 1898 && zr.getHeight() == 936 && (int)frame->box.frame.size.width == 1898,
+            "the window size menu: 130 % (the window follows)", fmt("%d menus, %d x %d", gMenusSeen, zr.getWidth(), zr.getHeight()));
+      shot(pv, out + "/mac_zoom130.png");
+      gMenuChoice = "Window size 100%";
+      click(pv, (z.x + z.w / 2) * 1.3f, (z.y + z.h / 2) * 1.3f);   // the view's points are now 1.3 logical units
+      pump(0.3);
+      view->getSize(&zr);
+      check(zr.getWidth() == 1460 && zr.getHeight() == 720, "back to 100 %", fmt("%d x %d", zr.getWidth(), zr.getHeight()));
+      // Control-click on the preset name: the classic menu, its "Hide the preset browser"
+      const Spot pr = find(ws::W_PRESETS);
+      gMenuChoice = "Hide the preset browser";
+      mouse(pv, NSEventTypeLeftMouseDown, pr.x + 120, pr.y + pr.h / 2, 1, NSEventModifierFlagControl);
+      mouse(pv, NSEventTypeLeftMouseUp, pr.x + 120, pr.y + pr.h / 2);
+      pump(0.3);
+      view->getSize(&zr);
+      check(gMenusChosen >= 3 && zr.getWidth() == 1100, "Control-click on the preset name: the preset menu (Hide the preset browser)",
+            fmt("%d menus chosen, %d wide", gMenusChosen, zr.getWidth()));
+      gMenuChoice = "Show the preset browser";
+      mouse(pv, NSEventTypeLeftMouseDown, pr.x + 120, pr.y + pr.h / 2, 1, NSEventModifierFlagControl);
+      mouse(pv, NSEventTypeLeftMouseUp, pr.x + 120, pr.y + pr.h / 2);
+      pump(0.3);
+      view->getSize(&zr);
+      check(zr.getWidth() == 1460, "... and Show the preset browser", fmt("%d wide", zr.getWidth()));
+    }
+    gMenuChoice.clear();
+    CFRunLoopTimerInvalidate(menuTimer); CFRelease(menuTimer);
+
     // ---------------------------------------------------------------- the presets library (save / delete windows answered)
     std::printf("[Library]\n");
     CFRunLoopTimerRef answer = CFRunLoopTimerCreate(nullptr, CFAbsoluteTimeGetCurrent() + 0.3, 0.3, 0, 0, answerModal, nullptr);
@@ -467,7 +521,7 @@ int main(int argc, char** argv) {
     ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 910);
     pump(0.3);
     std::string lib = readFile(presets);
-    check(gAnswered >= 1 && lib.find("Preset: CI Mac Preset") != std::string::npos && lib.find("Adjusted: yes") != std::string::npos,
+    check(gAnswered >= 1 && lib.find(kNl + "Preset: CI Mac Preset\r") != std::string::npos && lib.find(kNl + "Adjusted: yes") != std::string::npos,
           "SAVE PRESET: the save window, then the presets file holds the adjusted preset", fmt("%zu bytes, %d windows", lib.size(), gAnswered));
     shot(pv, out + "/mac_saved.png");
     // to the user bank (Chords is chosen by default only for chords: the section proposed is kept)
@@ -485,10 +539,10 @@ int main(int argc, char** argv) {
     ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 913);
     pump(0.3);
     lib = readFile(presets);
-    check(gAnswered >= 1 && lib.find("Deleted: yes") != std::string::npos, "DELETE: the question, then \"Deleted: yes\" in the file");
+    check(gAnswered >= 1 && lib.find(kNl + "Deleted: yes") != std::string::npos, "DELETE: the question, then \"Deleted: yes\" in the file");
     ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 5000 + 3);   // back in the list
     pump(0.2);
-    check(readFile(presets).find("Deleted: yes") == std::string::npos, "the deleted preset comes back");
+    check(readFile(presets).find(kNl + "Deleted: yes") == std::string::npos, "the deleted preset comes back");
     ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 901);   // EXPORT (to WS_PRESETS_EXPORT)
     pump(0.2);
     check(readFile(exported).find("CI Bank Sound") != std::string::npos, "EXPORT writes every preset and the user bank");

@@ -12,6 +12,7 @@ permissions:
 jobs:
   mac:
     runs-on: macos-14
+    timeout-minutes: 40   # a menu or a window of the editor left open must not keep the Mac busy
     defaults:
       run:
         shell: bash   # -eo pipefail: a failing test fails the step even through "| tee"
@@ -28,12 +29,14 @@ jobs:
           clang++ -std=c++17 -O2 -ffp-contract=off -arch arm64 -Ivst/src vst/devtest/dsp_render.cpp -o build/mac/dsp_render_arm64
           build/mac/dsp_render_arm64 out/dsp-arm64 > out/dsp-arm64/render.log
           node tools/dsp_compare.js out/dsp-arm64 | tee out/dsp-arm64/compare.log
+          rm -f out/dsp-arm64/*.raw
       - name: Sound identical to the web engine (Intel, Rosetta)
         run: |
           mkdir -p out/dsp-x86_64
           clang++ -std=c++17 -O2 -ffp-contract=off -arch x86_64 -Ivst/src vst/devtest/dsp_render.cpp -o build/mac/dsp_render_x86_64
           arch -x86_64 build/mac/dsp_render_x86_64 out/dsp-x86_64 > out/dsp-x86_64/render.log
           node tools/dsp_compare.js out/dsp-x86_64 | tee out/dsp-x86_64/compare.log
+          rm -f out/dsp-x86_64/*.raw
       - name: Host test (Apple silicon)
         run: |
           bash tests/machost/build.sh
