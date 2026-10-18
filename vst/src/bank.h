@@ -10,7 +10,8 @@
 // - the LIST ORDER of the preset browser: TOP Sounds and each category, as the player arranged them with MOVE UP / DOWN
 //   (built-in names, one per line). beta 0.5 ("LIST ORDER v2"): the lists also say which presets they hold — the player
 //   moves a preset to another category and adds or removes TOP Sounds; a preset the file does not know (a newer version's)
-//   goes to its default places. Older files' lists are not read (beta 0.5 rebuilt the factory lists).
+//   goes to its default places. Older files' lists are not read (beta 0.5 rebuilt the factory lists). beta 0.7 ("LIST ORDER
+//   v3"): OktoPierre's 22 TOP Sounds and Source Phase last: the v2 lists of beta 0.5 are not read either (rebuilt again).
 // The file is shared by every instance and Live Set, read again whenever it changes on disk, written atomically, and is
 // meant to be read back to make the next version's factory presets. Format (one block per preset; the parameters that
 // differ from the defaults, ENGINE and A/B MIX always, as in tools/spec.js):
@@ -316,7 +317,7 @@ class Library {
     }
     t.lists = defaultLists();
   }
-  // TOP Sounds, then the factory categories (beta 0.5: kCategories, Source Phase second)
+  // TOP Sounds, then the factory categories (kCategories; Source Phase second in beta 0.5 / 0.6, last since beta 0.7)
   static const std::vector<std::string>& listLabels() {
     static const std::vector<std::string> labels = [] {
       std::vector<std::string> l{"TOP Sounds"};
@@ -381,7 +382,7 @@ class Library {
   static void parse(const std::string& all, State& t) {
     int part = 0;   // 0 = before any marker (a beta 0.3 user-bank file), 1 = factory presets, 2 = user bank, 3 = list order
     int orderList = -1;
-    bool v2 = false;   // beta 0.5 lists (they say which presets they hold); older ones are not read
+    bool v2 = false;   // lists of this version's format ("LIST ORDER v3", beta 0.7; they say which presets they hold); older ones are not read
     std::vector<std::vector<int>> orders(listLabels().size());
     std::vector<char> present(listLabels().size(), 0), known(kNumPresets, 0);
     int sec = -1;
@@ -418,7 +419,7 @@ class Library {
         cur = nullptr; sec = -1;
         part = line.find("FACTORY") != std::string::npos ? 1 : line.find("USER BANK") != std::string::npos ? 2 :
                line.find("LIST ORDER") != std::string::npos ? 3 : 0;
-        if (part == 3) v2 = line.find("LIST ORDER v2") != std::string::npos;
+        if (part == 3) v2 = line.find("LIST ORDER v3") != std::string::npos;   // beta 0.7: v2 lists rebuilt (new TOP Sounds)
         orderList = -1;
         continue;
       }
@@ -466,7 +467,7 @@ class Library {
       else if (cur) parseParamLine(line, cur->v);
     }
     endFb();
-    if (!v2) return;   // a beta 0.3 / 0.4 file: the default lists of this version
+    if (!v2) return;   // a beta 0.3 / 0.4 / 0.5 file: the default lists of this version
     // beta 0.5: each list holds what the file names, in its order (a preset in one category only: the first named);
     // a preset the file does not know, or a list it does not have, takes the default places; a known preset that no
     // category names (an edited file) goes back to its own category
@@ -512,7 +513,7 @@ class Library {
       paramLines(t.vals[k].data(), s);
     }
     L("");
-    L("######## LIST ORDER v2 (the preset browser: what each list holds, in its order; built-in names) ########");
+    L("######## LIST ORDER v3 (the preset browser: what each list holds, in its order; built-in names) ########");
     for (size_t i = 0; i < t.lists.size(); i++) {
       L("");
       L("== " + listLabels()[i] + " ==");

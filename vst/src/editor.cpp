@@ -613,14 +613,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 5, on ? rgb(accent()) : rgb(hot ? 0x3a4250 : kInsetEdge));
     text(g, toW(it.w->text ? it.w->text : ""), it.r, 9, true, on ? rgb(0x0d1014) : rgb(hot ? kText : kDim));
   }
-  // beta 0.6: "Created by OktoPierre" larger, then the version and the licence
+  // beta 0.7: "By OktoPierre · version · licence" at the bottom left, small and discreet as before beta 0.6 (owner's choice)
   void drawCredit(Canvas& g, R r) {
-    std::string who = kAppCredit;
-    if (!who.empty()) who[0] = (char)std::toupper((unsigned char)who[0]);
-    const std::wstring rest = toW(std::string(" \xC2\xB7 ") + kAppVersion + " \xC2\xB7 " + kAppLicense), w = toW(who);
-    const float rw = g.textWidth(rest, 10, false), ww = g.textWidth(w, 13, true);
-    text(g, rest, R{r.x + r.w - rw, r.y, rw + 2, r.h}, 10, false, rgb(kFaint), 0);
-    text(g, w, R{r.x + r.w - rw - ww, r.y, ww + 2, r.h}, 13, true, rgb(kText), 0);
+    text(g, toW(std::string(kAppPanelCredit) + " \xC2\xB7 " + kAppVersion + " \xC2\xB7 " + kAppLicense), r, 9.5f, false, rgb(kFaint), 0);
   }
 
   bool keyDown(int n) const { return ((liveKeys[n >> 5] >> (n & 31)) & 1) || n == mouseNote; }

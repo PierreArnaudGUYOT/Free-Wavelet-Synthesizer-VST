@@ -93,16 +93,26 @@ function WSDemo(api) {
   // factory presets or a new menu order do not change the demo. The demo starts at song.origin (7.8 s: its opening
   // chords are cut), so it begins with "B · Clarinet", the preset playing there; the first two are not heard.
   const TOUR_APPASSIONATA = ['A · Warm Pad', 'A · Wavelet Lead',
-    // the opening of the demo (OktoPierre's choice), then (beta 0.5) the first eleven of his TOP Sounds (the piece has room
-    // for 30 presets after the cut)
-    'B · Clarinet', 'B · Mirror Sub Bass', 'A · Mirror Sub Bass Shift', 'B · Theatre Organ', 'A · Wave Riser Shift',
-    'A · Noise Wash Pad', 'A · Wave Atom Choir Shift', 'A · Siren Sweep', 'A · Focus Sweep Shift', 'B · Space Choir',
-    'A · Wave Wobble Bass Shift', 'A · Wavelet Lead',
-    // beta 0.2: chorus, sub oscillator, engines A + B mixed (beta 0.5: the five sounds left out are replaced by kept ones of
-    // the same type: Analog Strings, Ladder Bass, Wave Wobble Bass, Silk Strings, Wobble Bass)
-    'A · String Machine', 'AB · Analog Strings', 'A · Ladder Bass', 'AB · Dream Pad', 'B · Ensemble Organ', 'AB · Bell Pad',
-    'A · Reese Sub', 'A · Solina Cellos', 'AB · Wavelet Choir', 'A · Wave Wobble Bass', 'AB · Hybrid Keys', 'A · Poly Chorus Pad',
-    'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Silk Strings', 'AB · Wobble Bass', 'A · Chorus Square Lead'];
+    // beta 0.7: OktoPierre's 16 sounds of the earlier tour (in their order, from "B · Clarinet") mixed one by one with his
+    // TOP Sounds (presets file V7, the best first, those already in the tour left out); the piece has room for 30 presets
+    // after the cut
+    'B · Clarinet', 'A · Noise Wash Pad', 'B · Mirror Sub Bass', 'A · Siren Sweep', 'B · Theatre Organ',
+    'B · Space Choir', 'A · Wave Riser Shift', 'A · Wavelet Lead', 'A · Wave Atom Choir Shift', 'B · Focus Sweep',
+    'A · String Machine', 'B · Flute Lead', 'AB · Analog Strings', 'B · Choir Pad', 'AB · Dream Pad', 'A · Wave Brass',
+    'B · Ensemble Organ', 'A · Wave Riser', 'A · Solina Cellos', 'A · Warm Pad', 'AB · Wavelet Choir',
+    'A · Wave Attack Lead', 'A · Poly Chorus Pad', 'A · Dub Echo Lead', 'AB · Organ Lead', 'A · Wave Pulse Lead',
+    'B · Glass Ensemble', 'AB · Glass Choir', 'AB · Silk Strings', 'A · Chorus Square Lead'];
+
+  // beta 0.7: the demo window explains the idea in plain words during the first presets of the tour (one sentence each,
+  // about 4 s), then describes each preset
+  const TOUR_INTRO = [
+    'Welcome to OKTOWAVE. Every sound you hear is built from wavelets: tiny waves, like bricks of sound.',
+    'The synth splits each note into eleven layers, from the deep body of the sound up to its brightest shimmer.',
+    'Engine A takes a classic waveform and shapes these layers: a filter that works with wavelets instead of frequencies.',
+    'Engine B builds the sound brick by brick: its drawbars mix the layers, like an organ made of wavelets.',
+    'Wavelets also know where things happen inside the wave, so the sound can be reshaped in ways a classic filter cannot.',
+    'Glassy pads, hollow organs, deep basses: each one is a preset you can play. Enjoy the tour!',
+  ];
 
   const STYLE = {
     toccata: { scenes: TOCCATA },
@@ -273,7 +283,7 @@ function WSDemo(api) {
       const engine = engineLabel();
       win.sec.textContent = `Preset tour · ${sc.pos + 1}/${sc.of} · ${engine}`;
       win.param.textContent = 'Now playing: ' + sc.preset;
-      win.text.textContent = sc.ramp
+      win.text.textContent = sc.pos < TOUR_INTRO.length ? TOUR_INTRO[sc.pos] : sc.ramp
         ? `${PARAMS[P[sc.param]].name} moves from ${C.format(PARAMS[P[sc.param]], sc.ramp[2])} to ${C.format(PARAMS[P[sc.param]], sc.ramp[3])} on the opening chords. ` + presetSummary()
         : presetSummary();
       return;

@@ -49,12 +49,17 @@ products identical. Read it before changing the DSP, the parameters or the prese
   beta 0.6 panel: SUB OSC at the top beside the oscillator; LFO 1 and LFO 2 side by side; EFFECTS shows SATURATION |
   CHORUS | PING-PONG DELAY | REVERB (`fxheads`: the panel order only, the DSP chain is unchanged, §3.5); VOICE, the
   PITCH / MOD wheels and the keyboard on the bottom row.
+  beta 0.7 panel (OktoPierre's requests): SUB OSC (564,56,76,260) with LEVEL, OCT, SHAPE stacked, so SCOPE (648,56,440,260)
+  is wider and the scope taller (106); LFO 1 / LFO 2 / EFFECTS 128 high (was 140); bottom row at y 608: VOICE 92 high,
+  wheels and keyboard 100; the credit `APP.panelCredit` ("By OktoPierre · version · licence", small, faint) at the bottom
+  left under VOICE (`APP.credit` stays the vendor wording of the manuals).
 - **Presets**: `PRESET_LIST` (name + sparse values over the defaults; presets added in beta 0.2 carry `cat`, older ones get
   theirs from `CATEGORY_OF`). beta 0.5 = OktoPierre's sort (his file "OKTOWAVE presets V4.txt"): 150 kept, `LEFT_OUT` the
   103 others (a Live Set saved with one keeps its name: `kLeftOutPresets`, controller `formerName`). `LIST_ORDER` gives
-  each category's presets in his browser order (→ `rank` / `kPresetRank`); `TOP_SOUNDS` (37, his TOP list and the first
-  15 Source Phase sounds one in two). Factory order `PRESETS`: TOP_SOUNDS → every other preset by category in the order
-  of `CATEGORIES` (Source Phase second after TOP Sounds, then Bass … Drums & Perc, Init last), each in LIST_ORDER.
+  each category's presets in his browser order (→ `rank` / `kPresetRank`); `TOP_SOUNDS` (beta 0.7: exactly his 22
+  favourites of "OKTOWAVE presets V7.txt", the best first; beta 0.5 / 0.6 had 37 with 15 Source Phase sounds one in two).
+  Factory order `PRESETS`: TOP_SOUNDS → every other preset by category in the order of `CATEGORIES` (Bass … Drums & Perc,
+  Init, Source Phase last — it was second in beta 0.5 / 0.6), each in LIST_ORDER.
   Generated as `cat` + `rank` per preset, `TOP` / `CATEGORIES` (web) and `kNumTop`, `kPresetRank`, `kCategories` (C++).
   Menus: web `presetList()` groups ★ TOP SOUNDS + one folding group per category + USER PRESETS (`ui.js`
   `togglePresetMenu`); VST `editor.cpp presetMenu` = the library's lists (TOP Sounds + one submenu per category, moved
@@ -153,7 +158,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
   library starts from the defaults). Adding the PHASE target appended a choice to `lfo2_target` (plain values unchanged).
 - Presets: the "Source Phase" section: 100 engine-A presets in beta 0.4 (then last), every phase checked by
   `tools/phase_effect.js` (≥ 6 dB on some harmonic, ≥ 4 dB among those within 20 dB of the strongest); beta 0.5 keeps 44,
-  second in `CATEGORIES`.
+  second in `CATEGORIES` (last again since beta 0.7).
 
 ### 3.3e TEMPO SYNC (beta 0.6, plug-in only)
 - `fx_dsync` / `fx_ddiv`, `lfo_sync` / `lfo_div`, `lfo2_sync` / `lfo2_div` (appended; SYNC off by default). The note values
@@ -204,6 +209,9 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   snapped to chord onsets. `make_demo.js` `start` cuts the opening chords; the song keeps `origin` (7.84 s) and
   `tourScenes(..., origin)` computes the grid on the whole piece, then starts with the preset playing at the cut, so the
   cut changes nothing after it. `demo.tourPlan(i)` (`WS_TEST.demoTour`) returns the plan for tests and the manual.
+  beta 0.7 tour: OktoPierre's 16 sounds of the earlier tour mixed one by one with his TOP Sounds (`EXPECTED_TOUR` in
+  `test_demo.js`); during the first presets the demo window shows `TOUR_INTRO` (the idea in plain words, one sentence
+  per preset) instead of the preset summary.
   Other songs use animated scenes.
 - Preset browser (beta 0.3, `ui.makeBrowser` / `renderBrowser`): a `#browser` element beside `#device` (the panel keeps
   its 1100 × 720 box: the test suites locate it by that shape), scaled with it by `fit()`; lists = TOP Sounds (the first
@@ -255,9 +263,10 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   edit (an error leaves the state unchanged): `######## FACTORY PRESETS` (every preset: `Preset:` its name now,
   `Factory:` its built-in name = the key, `Adjusted: yes|no`, optional `Deleted: yes`, then `  key: value   (Name: shown)`
   for the parameters that differ from the defaults, ENGINE and A/B MIX always; only adjusted blocks override the built-in
-  values), `######## LIST ORDER v2` (beta 0.5: what TOP Sounds and each category hold, in order, `N. built-in name`; a
-  preset the file does not know — no `Factory:` block — takes its default places, a known one in no category goes back
-  to its own; files without "v2" — beta 0.3 / 0.4 — keep their adjusted / deleted presets and bank but not their lists;
+  values), `######## LIST ORDER v3` (beta 0.5 "v2", beta 0.7 "v3": what TOP Sounds and each category hold, in order,
+  `N. built-in name`; a preset the file does not know — no `Factory:` block — takes its default places, a known one in no
+  category goes back to its own; files without "v3" — beta 0.3 to 0.6 — keep their adjusted / deleted presets and bank but
+  not their lists, which are rebuilt with this version's TOP Sounds and categories;
   an adjusted block equal to the built-in preset is not "adjusted"), `######## USER BANK` (12 `kBankSections`, `Preset:`, `From:`, values). A
   beta 0.3 user-bank file (`Wavelet Synthesizer user bank.txt`) is read when the library file does not exist. Parsing
   ignores unknown lines and clamps values. `importFrom` (beta 0.4 IMPORT) reads and checks another file (a `Preset:` line), parses it
@@ -344,6 +353,11 @@ runs from `file://`); GitHub Actions pinned by tag.
   tempo and render 3 sync variants (delay, LFO 1, LFO 2); `dsp_selftest` 10 checks note lengths at several tempos, the
   4 s cap (a 1/1 echo at 60 BPM after 4 s), no tempo or SYNC off = the knobs' values; `bank_session` step 9b clicks the three SYNC buttons and steps TIME with the wheel; `machost`
   clicks the delay SYNC. The 150 presets were rendered against beta 0.5 (commit bc4196a): see §3.3e.
+- beta 0.7: `bank_session` locates the browser's categories through `L_TOP`, `L_BASS`, `L_KEYS`, `L_ORGAN`, `L_SP` (checked
+  against `kCategories` first, so a new category order fails with a clear message) and imports a "LIST ORDER v2" file to
+  check that its lists are rebuilt (written back as v3 with the 22 TOP Sounds, adjusted preset and bank kept);
+  `tests/vst3host/presets_spec.txt` is regenerated with `node tests/vst3host/make_presets.js` after any change of the
+  factory order.
 - macOS (`.github/workflows/mac.yml`, `macos-14`, Apple silicon + Rosetta for Intel): `dsp_render.cpp` + `dsp_compare.js` on
   both architectures, then `tests/machost/machost <bundle> <outdir>` (built by `tests/machost/build.sh`): bundle and
   exports, sound, states, editor in a window (PNG screenshots, synthetic mouse events at logical points, Cmd-click), HIDE /

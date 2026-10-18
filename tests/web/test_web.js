@@ -11,6 +11,8 @@
 // tools/spec.js (the single source of truth for parameters/presets) is used as oracle when present.
 // beta 0.6: the welcome window at load (its choices, the keyboard, 'Play the synth' starts the audio) and the panel
 // against the spec layout (cards, DOWNLOAD VST, one MANUAL button, no tempo SYNC, the credit, MIDI learn, preset browser).
+// beta 0.7: the discreet credit at the bottom left under VOICE; TOP Sounds = OktoPierre's 22 sounds and Source Phase the
+// last category (preset browser and preset menu).
 // Writes <out>/report.txt and PNG screenshots. Exit code: 0 pass, 1 failures, 2 page/API missing.
 'use strict';
 
@@ -609,9 +611,10 @@ async function stepEngines() {
 }
 
 // The panel against the spec layout (beta 0.6): cards, captions, the header's DOWNLOAD VST and single MANUAL button, no
-// tempo SYNC (plug-in only: the web app has no tempo), the credit, greyed controls, MIDI learn and the preset browser.
+// tempo SYNC (plug-in only: the web app has no tempo), the credit, greyed controls, MIDI learn and the preset browser
+// (beta 0.7: the plain credit at the bottom left; TOP Sounds 22 and Source Phase last in the browser and the menu).
 async function stepPanel() {
-  begin('Panel (spec layout, beta 0.6)');
+  begin('Panel (spec layout, beta 0.7)');
   const t0 = Date.now();
   if (!SPEC) { rec('WARN', 'panel checks', 'tools/spec.js not available'); return; }
   const r = await deviceRect();
@@ -662,15 +665,38 @@ async function stepPanel() {
   check(syncEls === 0 && atVst.every((x) => x.at !== x.want && x.text !== 'SYNC'), `no SYNC button and no note-value knob (${vstOnly.length} plug-in-only widgets)`,
     `${syncEls} sync element(s); ${JSON.stringify(atVst)}`);
   check(atShown.every((x) => x.at === x.want), `the hertz / seconds knobs are shown at their place (${shown.map((x) => x.name).join(', ')})`, JSON.stringify(atShown));
-  // the credit: "Created by OktoPierre" larger and brighter, then version and licence from the spec
-  const cr = await ev(`(() => { const c = document.querySelector('#device .credit'); if (!c) return null; const b = c.querySelector('b');
-    const cs = getComputedStyle(c), bs = b ? getComputedStyle(b) : cs, q = c.getBoundingClientRect(), d = document.getElementById('device').getBoundingClientRect();
-    return { text: c.textContent, name: b ? b.textContent : '', size: parseFloat(bs.fontSize), weight: +bs.fontWeight, color: bs.color,
-      restSize: parseFloat(cs.fontSize), restColor: cs.color, clipped: c.scrollWidth > c.clientWidth + 1, inside: q.right <= d.right + 1 && q.bottom <= d.bottom + 1 }; })()`);
-  const luma = (c) => { const m = /(\d+), (\d+), (\d+)/.exec(c || ''); return m ? 0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3] : 0; };
-  check(!!cr && cr.name === 'Created by OktoPierre' && cr.size >= 12.5 && cr.weight >= 600 && cr.size >= cr.restSize + 2 && luma(cr.color) > luma(cr.restColor) + 60,
-    "credit: 'Created by OktoPierre' larger (>= 12.5 px), semi-bold and brighter than the rest", JSON.stringify(cr));
-  check(!!cr && cr.text.endsWith(` · ${SPEC.APP.version} · ${SPEC.APP.license}`) && !cr.clipped && cr.inside, `credit: then '${SPEC.APP.version} · ${SPEC.APP.license}', not clipped, inside the panel`, JSON.stringify(cr));
+  // the credit (beta 0.7): one plain, discreet line "By OktoPierre · version · licence" (as before beta 0.6: small, the faint
+  // text colour, not bold, on both engine tabs), left-aligned at the bottom left under the VOICE card
+  const CREDIT_EXPR = `(() => { const c = document.querySelector('#device .credit'); if (!c) return null;
+    const dev = document.getElementById('device'), d = dev.getBoundingClientRect(), s = d.width / 1100;
+    const t = document.createElement('span'); t.style.color = 'var(--faint)'; dev.appendChild(t); const faint = getComputedStyle(t).color; t.remove();
+    const rg = document.createRange(); rg.selectNodeContents(c); const tx = rg.getBoundingClientRect();
+    const cs = getComputedStyle(c), q = c.getBoundingClientRect();
+    const voice = [...document.querySelectorAll('#device .section')].find((e) => (e.querySelector('.title') || {}).textContent === 'VOICE');
+    const v = voice ? voice.getBoundingClientRect() : null;
+    const dx = (x) => (x - d.left) / s, dy = (y) => (y - d.top) / s;
+    return { text: c.textContent, children: c.children.length, size: parseFloat(cs.fontSize), weight: +cs.fontWeight, color: cs.color, faint,
+      align: cs.textAlign, clipped: c.scrollWidth > c.clientWidth + 1, inside: q.right <= d.right + 1 && q.bottom <= d.bottom + 1,
+      text_l: dx(tx.left), text_r: dx(tx.right), text_t: dy(tx.top), text_b: dy(tx.bottom),
+      voice: v && { l: dx(v.left), r: dx(v.right), b: dy(v.bottom) } }; })()`;
+  const crw = all.find((w) => w.type === 'credit'), wheels = all.find((w) => w.type === 'wheels');
+  const crs = [];
+  for (const e of [0, 1]) {
+    await ev(`WS_TEST.setParam('engine', ${e}); true`);
+    await sleep(200);
+    crs.push(await ev(CREDIT_EXPR));
+  }
+  await ev(`WS_TEST.setParam('engine', ${eng0}); true`);
+  const cr = crs[0], crText = `${SPEC.APP.panelCredit} · ${SPEC.APP.version} · ${SPEC.APP.license}`;
+  log(`  credit '${cr && cr.text}': text at x ${cr && cr.text_l.toFixed(1)}–${cr && cr.text_r.toFixed(1)}, y ${cr && cr.text_t.toFixed(1)}–${cr && cr.text_b.toFixed(1)} (VOICE card ${JSON.stringify(cr && cr.voice)}); ${cr && cr.size} px, weight ${cr && cr.weight}, colour A ${cr && cr.color}, B ${crs[1] && crs[1].color}, faint ${cr && cr.faint}`);
+  check(!!cr && SPEC.APP.panelCredit === 'By OktoPierre' && cr.text === crText && cr.children === 0 && !!crs[1] && crs[1].text === crText && !cr.clipped && cr.inside,
+    `credit: one plain text '${crText}', not clipped, inside the panel`, JSON.stringify(cr));
+  const discreet = (c) => !!c && c.size <= 10 && c.weight < 600 && c.color === c.faint;
+  check(discreet(crs[0]) && discreet(crs[1]), 'credit: discreet on both engine tabs (<= 10 px, not bold, the faint text colour)',
+    JSON.stringify(crs.map((c) => c && { size: c.size, weight: c.weight, color: c.color, faint: c.faint })));
+  check(!!cr && !!crw && cr.align === 'left' && Math.abs(cr.text_l - crw.sx) < 2 && !!cr.voice && cr.text_l >= cr.voice.l - 1 &&
+    cr.text_t >= cr.voice.b - 1 && cr.text_r < cr.voice.r && (!wheels || cr.text_r < wheels.sx) && cr.text_b <= 720 + 0.5,
+    `credit: left-aligned at the bottom left (text from x ${crw ? crw.sx : '?'}), under the VOICE card, left of the wheels`, JSON.stringify(cr));
   // controls greyed out when they do nothing (still driven by the parameters)
   const greyed = (key) => ev(`(() => { const e = [...document.querySelectorAll('#device .knob')].find((k) => (k.title || '').split(' — ')[0] === ${JSON.stringify(SPEC_BY_KEY[key].name)});
     return e ? e.classList.contains('disabled') : null; })()`);
@@ -696,6 +722,37 @@ async function stepPanel() {
   const unlinked = await ev('WS_TEST.midiMap()');
   check(/MIDI learn/.test(learnTxt) && /Delay Time/.test(learnTxt) && map[21] === 'fx_dtime' && !Object.values(unlinked).includes('fx_dtime'),
     'right-click on the delay TIME knob starts MIDI learn; a CC links it; Backspace unlinks it', `status '${learnTxt}', map ${JSON.stringify(map)}, after ${JSON.stringify(unlinked)}`);
+  // beta 0.7: TOP Sounds = exactly OktoPierre's 22 sounds (no Source Phase sound among them), the categories in the spec order
+  // with Source Phase LAST: in the preset browser (its sound types and their numbers) and in the preset menu (its groups)
+  const TOP_N = 22;
+  const topNames = SPEC.PRESETS.slice(0, SPEC.TOP).map((p) => p.name);
+  const topCats = SPEC.PRESETS.slice(0, SPEC.TOP).filter((p) => p.cat === 'Source Phase').map((p) => p.name);
+  const lastCat = SPEC.CATEGORIES[SPEC.CATEGORIES.length - 1];
+  check(SPEC.TOP === TOP_N && topCats.length === 0 && lastCat === 'Source Phase', `spec: TOP Sounds = ${TOP_N} sounds, none of Source Phase; Source Phase is the last category`,
+    `TOP ${SPEC.TOP}, Source Phase among them: ${JSON.stringify(topCats)}, last category '${lastCat}'`);
+  const bInfo = await ev(`(() => { const b = document.getElementById('browser'); if (!b) return null;
+    const tab = b.querySelector('.btabs button'); if (tab) tab.click();   // FACTORY
+    const first = b.querySelector('.bcats .bcat'); if (first) first.click();   // TOP Sounds
+    return { cats: [...b.querySelectorAll('.bcats .bcat')].map((r) => ({ label: (r.querySelector('span') || {}).textContent || '', n: +((r.querySelector('.n') || {}).textContent || NaN) })),
+      rows: [...b.querySelectorAll('.blist .bsnd')].map((e) => e.title) }; })()`);
+  const catWant = ['TOP Sounds', ...SPEC.CATEGORIES];
+  log(`  browser: ${bInfo ? bInfo.cats.map((c) => `${c.label} ${c.n}`).join(' | ') : 'none'}`);
+  check(!!bInfo && JSON.stringify(bInfo.cats.map((c) => c.label)) === JSON.stringify(catWant) && bInfo.cats[0].n === TOP_N &&
+    bInfo.cats[bInfo.cats.length - 1].label === 'Source Phase' && bInfo.cats[bInfo.cats.length - 1].n === SPEC.PRESETS.filter((p) => p.cat === 'Source Phase').length,
+    `preset browser: TOP Sounds (${TOP_N}) first, then the categories in the spec order, Source Phase last`, JSON.stringify(bInfo && bInfo.cats));
+  check(!!bInfo && JSON.stringify(bInfo.rows) === JSON.stringify(topNames), `preset browser: TOP Sounds lists OktoPierre's ${TOP_N} sounds in the spec order (${topNames[0]} … ${topNames[topNames.length - 1]})`,
+    JSON.stringify(bInfo && bInfo.rows.slice(0, 4)) + ` … (${bInfo ? bInfo.rows.length : 0} rows)`);
+  // the classic menu (the preset name opens it while the browser is shown; a second click closes it)
+  const groups = await ev(`(() => { const n = document.querySelector('.presets .pname'); if (!n) return null;
+    n.click(); const m = document.querySelector('.pmenu:not(.demo-menu)');
+    const g = m ? [...m.querySelectorAll('.grp')].map((h) => { const c = h.querySelector('.cnt'); return { name: h.textContent.replace(/^[▾▸]/, '').replace(c ? c.textContent : '', '').trim(), n: c ? +c.textContent : NaN }; }) : null;
+    if (m) n.click(); return g; })()`);
+  const factoryGroups = (groups || []).filter((g) => g.name !== 'USER PRESETS');
+  const grpWant = ['★ TOP SOUNDS', ...SPEC.CATEGORIES.map((c) => c.toUpperCase())];
+  log(`  preset menu groups: ${(groups || []).map((g) => `${g.name} ${g.n}`).join(' | ')}`);
+  check(!!groups && JSON.stringify(factoryGroups.map((g) => g.name)) === JSON.stringify(grpWant) && factoryGroups[0].n === TOP_N &&
+    factoryGroups[factoryGroups.length - 1].name === 'SOURCE PHASE' && !(await ev(`!!document.querySelector('.pmenu:not(.demo-menu)')`)),
+    `preset menu: ★ TOP SOUNDS (${TOP_N}) first, then one group per category in the spec order, SOURCE PHASE last`, JSON.stringify(groups));
   // the preset browser selects presets (a click on a row, then the arrow key)
   const rows = await ev(`[...document.querySelectorAll('#browser .blist .bsnd')].map((e) => e.title)`);
   if (rows.length >= 3) {

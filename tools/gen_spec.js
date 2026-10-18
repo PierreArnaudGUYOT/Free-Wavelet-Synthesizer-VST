@@ -48,6 +48,7 @@ h += '// Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)\n// SPDX-License-Id
 h += `constexpr float kDeviceW = ${DEVICE.w}.0f, kDeviceH = ${DEVICE.h}.0f;\n`;
 h += `inline constexpr const char* kAppName = ${q(APP.name)};\ninline constexpr const char* kAppAuthor = ${q(APP.author)};\n`;
 h += `inline constexpr const char* kAppCredit = ${q(APP.credit)};\ninline constexpr const char* kAppVersion = ${q(APP.version)};\n`;
+h += `inline constexpr const char* kAppPanelCredit = ${q(APP.panelCredit)};\n`;   // beta 0.7: "By OktoPierre"
 h += `inline constexpr const char* kAppVersionNum = ${q(APP.versionNum)};\n`;
 h += `inline constexpr const char* kAppCopyright = ${q(APP.copyright)};\ninline constexpr const char* kAppLicense = ${q(APP.license)};\n\n`;
 h += 'enum ParamId : int {\n' + PARAMS.map((p, i) => `  ${enumName(p.key)} = ${i},`).join('\n') + `\n  kNumParams = ${PARAMS.length}\n};\n\n`;

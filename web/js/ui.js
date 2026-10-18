@@ -137,10 +137,9 @@ class SynthUI {
       case 'label': box.classList.add('wlabel'); box.textContent = w.text; return;
       case 'zoom': return;
       case 'credit': {
-        // beta 0.6: the author's name larger and brighter (the owner found it too discreet), version and licence small
+        // beta 0.7: "By OktoPierre · version · licence" at the bottom left, small and discreet as before beta 0.6
         const A = this.SPEC.APP;
-        el('b', '', box).textContent = A.credit.charAt(0).toUpperCase() + A.credit.slice(1);
-        box.appendChild(document.createTextNode(` · ${A.version} · ${A.license}`));
+        box.textContent = `${A.panelCredit} · ${A.version} · ${A.license}`;
         box.title = `${A.name} — ${A.copyright}. Free software under the GNU General Public License v3 or later, WITHOUT ANY WARRANTY (see the LICENSE file).` +
           (A.doi ? ` Cite: DOI ${A.doi} (https://doi.org/${A.doi}).` : '');
         return;
@@ -463,7 +462,8 @@ class SynthUI {
 
   // ---------------------------------------------------------------- preset browser (beta 0.3)
   // Same layout as the VST plug-in's: FACTORY / USER PRESETS tabs, the sound types with their number of sounds (beta 0.5:
-  // TOP Sounds = OktoPierre's selection, the first presets; then the categories, Source Phase first, each in his order),
+  // TOP Sounds = OktoPierre's selection, the first presets; then the categories, each in his order — Source Phase last
+  // since beta 0.7),
   // and the sounds of the type selected; one click plays a sound, the arrow keys too (↑ ↓ sounds, ← → categories).
   // Selection only: saving stays in the status bar (Save preset / Export / Import).
   bLists() {

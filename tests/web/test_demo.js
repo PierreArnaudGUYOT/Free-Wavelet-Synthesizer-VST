@@ -11,13 +11,15 @@
 // - Default demo = PRESET TOUR (demoState().preset defined): the agreed sequence EXPECTED_TOUR (OktoPierre's
 //   favourites first), a change every ~4 s on a chord (WS_TEST.demoTour gives the times), with Voices 16, Octave 0,
 //   Glide 0 and Amp Attack capped at 0.08 s forced; all other values must equal the spec preset. Played from a cold
-//   start via `.demo-btn`, to the end (full mode).
+//   start via `.demo-btn`, to the end (full mode). beta 0.7: during the first presets the demo window shows the agreed
+//   welcome sentences (TOUR_INTRO, one per preset), then the summary of each preset.
 // - Toccata (looked up by title): the agreed scene schedule (SCHED) over the first 30 s.
 // - Every other song: starts, sounds, monotonic scenes, the varied parameter moves, stop restores exactly.
 // - Stop paths (header STOP, window STOP, Esc), user MIDI files, non-MIDI error, Ctrl+click reset.
 // - Welcome window (beta 0.6): 'Run the demo' from a cold start plays the default demo; when another tab takes the audio,
 //   the window comes back with the reason, and its 'Play the synth' / 'Run the demo' take the audio back (lifecycle).
-// --smoke: welcome 'Run the demo', menu via the arrow, default tour from a cold start for 4 preset changes, header STOP
+// --smoke: welcome 'Run the demo', menu via the arrow, default tour from a cold start up to its 7th preset (the welcome
+//          sentences, then a preset summary), header STOP
 //          restore, another song from the arrow menu + Esc restore, hostile MIDI files, lifecycle (about 2 min).
 'use strict';
 const fs = require('fs');
@@ -61,14 +63,24 @@ const SCHED = [
 const TOL_T = 0.3; // s: scene clock vs. parameter update (rAF) tolerance
 const TOUR_STEP = 4; // s per preset in the tour (TOL_T = 0.3 s leaves a 3.4 s checked window per preset)
 const TOUR_START = 'B · Clarinet'; // first preset of the tour (the opening chords of the piece are cut)
-// the agreed preset sequence of the default demo (beta 0.5): Clarinet, the first eleven TOP Sounds, then beta 0.2 presets
-// (the five left out in beta 0.5 replaced by kept sounds of the same type)
-const EXPECTED_TOUR = ['B · Clarinet', 'B · Mirror Sub Bass', 'A · Mirror Sub Bass Shift', 'B · Theatre Organ',
-  'A · Wave Riser Shift', 'A · Noise Wash Pad', 'A · Wave Atom Choir Shift', 'A · Siren Sweep', 'A · Focus Sweep Shift',
-  'B · Space Choir', 'A · Wave Wobble Bass Shift', 'A · Wavelet Lead', 'A · String Machine',
-  'AB · Analog Strings', 'A · Ladder Bass', 'AB · Dream Pad', 'B · Ensemble Organ', 'AB · Bell Pad', 'A · Reese Sub',
-  'A · Solina Cellos', 'AB · Wavelet Choir', 'A · Wave Wobble Bass', 'AB · Hybrid Keys', 'A · Poly Chorus Pad',
-  'AB · Organ Lead', 'A · Acid Sub', 'B · Glass Ensemble', 'AB · Silk Strings', 'AB · Wobble Bass', 'A · Chorus Square Lead'];
+// the agreed preset sequence of the default demo (beta 0.7): OktoPierre's 16 sounds mixed one by one with his TOP Sounds
+const EXPECTED_TOUR = ['B · Clarinet', 'A · Noise Wash Pad', 'B · Mirror Sub Bass', 'A · Siren Sweep', 'B · Theatre Organ',
+  'B · Space Choir', 'A · Wave Riser Shift', 'A · Wavelet Lead', 'A · Wave Atom Choir Shift', 'B · Focus Sweep',
+  'A · String Machine', 'B · Flute Lead', 'AB · Analog Strings', 'B · Choir Pad', 'AB · Dream Pad', 'A · Wave Brass',
+  'B · Ensemble Organ', 'A · Wave Riser', 'A · Solina Cellos', 'A · Warm Pad', 'AB · Wavelet Choir',
+  'A · Wave Attack Lead', 'A · Poly Chorus Pad', 'A · Dub Echo Lead', 'AB · Organ Lead', 'A · Wave Pulse Lead',
+  'B · Glass Ensemble', 'AB · Glass Choir', 'AB · Silk Strings', 'A · Chorus Square Lead'];
+// beta 0.7: the agreed sentences the demo window shows during the first presets of the tour (one each, web/js/demo.js
+// TOUR_INTRO), before the usual summary of each preset
+const TOUR_INTRO = [
+  'Welcome to OKTOWAVE. Every sound you hear is built from wavelets: tiny waves, like bricks of sound.',
+  'The synth splits each note into eleven layers, from the deep body of the sound up to its brightest shimmer.',
+  'Engine A takes a classic waveform and shapes these layers: a filter that works with wavelets instead of frequencies.',
+  'Engine B builds the sound brick by brick: its drawbars mix the layers, like an organ made of wavelets.',
+  'Wavelets also know where things happen inside the wave, so the sound can be reshaped in ways a classic filter cannot.',
+  'Glassy pads, hollow organs, deep basses: each one is a preset you can play. Enjoy the tour!',
+];
+const SUMMARY_END = 'Played polyphonic at its normal octave, with short echoes.';   // the end of every preset summary (demo.js presetSummary)
 // base preset of the Toccata scenes (label shows it with the modified dot)
 const TOC_PRESETS = [[0, 'B · Octave Organ'], [11.5, 'A · Init'], [68.8, 'B · Init'], [105.6, 'B · Octave Organ']];
 const FORCED = { v_voices: 16, v_oct: 0, v_glide: 0 }; // + caps: amp_a <= 0.08, fx_dmix <= 0.1, fx_dfb <= 0.3
@@ -115,7 +127,7 @@ const SNAP_EXPR = `(() => { const s = WS_TEST.demoState(); const l = WS_TEST.get
   const q = (c) => { const e = document.querySelector(c); return e ? e.textContent.trim() : null; };
   const w = document.querySelector('.demo-win');
   return { s, v, pv, all, lv: Math.max(l.peakL, l.peakR), hot: document.querySelectorAll('.hot').length,
-    sec: q('.dw-sec'), param: q('.dw-param'), val: q('.dw-val'), btn: q('.demo-btn'), win: !!w && getComputedStyle(w).display !== 'none',
+    sec: q('.dw-sec'), param: q('.dw-param'), val: q('.dw-val'), text: q('.dw-text'), btn: q('.demo-btn'), win: !!w && getComputedStyle(w).display !== 'none',
     lbl: (() => { const n = document.querySelector('.presets .pname'); if (!n) return null; const sp = n.querySelector('span');
       return { name: (sp ? sp.textContent : n.textContent).trim(), dirty: !!n.querySelector('.dirty') }; })() }; })()`;
 
@@ -212,10 +224,11 @@ function planChecks(plan, song) {
 }
 
 // Preset tour: at time t the preset of the last plan entry with plan[k].t <= t; all values = spec preset except the forced ones
-function tourChecks(name, song, samples, plan, full) {
+function tourChecks(name, song, samples, plan, full, intro = true) {
   const run = samples.filter((x) => x.s.running && x.s.time >= 0);
   const N = plan.length;
-  const seen = [], badOrder = [], badVals = [], badText = [], badLbl = [];
+  const seen = [], badOrder = [], badVals = [], badText = [], badLbl = [], badIntro = [], introSeen = new Set();
+  let summarySeen = 0;
   for (const x of run) {
     const t = x.s.time;
     let k = 0;
@@ -237,6 +250,10 @@ function tourChecks(name, song, samples, plan, full) {
     if (!((x.sec || '').includes('Preset tour') && (x.sec || '').includes(`${k + 1}/${N}`) && (x.param || '').includes(want)))
       badText.push(`t=${t.toFixed(1)} sec '${x.sec}' param '${x.param}'`);
     else if (full && next && !(x.val || '').includes(next)) badText.push(`t=${t.toFixed(1)} next '${x.val}' (expected '${next}')`);
+    // beta 0.7: the welcome sentence of the place in the tour during the first presets, then the summary of the preset
+    if (k < TOUR_INTRO.length) { if (x.text === TOUR_INTRO[k]) introSeen.add(k); else badIntro.push(`t=${t.toFixed(1)} #${k + 1} text '${x.text}' expected '${TOUR_INTRO[k]}'`); }
+    else if (!((x.text || '').endsWith(SUMMARY_END) && !TOUR_INTRO.some((s) => (x.text || '').includes(s)))) badIntro.push(`t=${t.toFixed(1)} #${k + 1} text '${x.text}' (expected the preset summary)`);
+    else summarySeen++;
   }
   log(`  ${name}: presets in order of appearance (${seen.length}): ${seen.join(' | ')}`);
   check(seen[0] === TOUR_START, `${name}: the tour starts at '${TOUR_START}'`, `first preset '${seen[0]}'`);
@@ -244,6 +261,12 @@ function tourChecks(name, song, samples, plan, full) {
   check(badLbl.length === 0, `${name}: preset label shows exactly the tour preset (no modified dot)`, short(badLbl));
   check(badVals.length === 0, `${name}: each preset's spec values with Voices 16, Octave 0, Glide 0 forced and Amp Attack <= 0.08 s, Delay Mix <= 0.1, Delay Feedback <= 0.3`, short(badVals));
   check(badText.length === 0, `${name}: window shows 'Preset tour · n/${N}', 'Now playing: <preset>' and the next preset`, short(badText));
+  if (intro) {
+    const nIntro = Math.min(TOUR_INTRO.length, N);
+    check(badIntro.length === 0 && introSeen.size === nIntro && summarySeen > 0,
+      `${name}: the window explains the idea during the first ${nIntro} presets (one welcome sentence each, in order), then shows each preset's summary`,
+      `${short(badIntro, 4)}${badIntro.length ? '; ' : ''}sentences seen ${[...introSeen].map((k) => k + 1).join(',') || 'none'} of ${nIntro}, ${summarySeen} samples with a summary`);
+  }
   if (full) {
     // one run plays every preset of the plan exactly once
     const lastWant = plan[N - 1].preset;
@@ -575,11 +598,14 @@ async function main() {
     const isTour = typeof st0.s.preset === 'string';
     log(`  preset tour: ${isTour ? 'yes' : 'no'} (demoState().preset = ${JSON.stringify(st0.s.preset)})`);
     let shot = false;
-    const tourSamples = await follow(opt.smoke ? 4 * TOUR_STEP + 2 : songs[0].duration + 6, async (s) => {
+    // smoke: up to the first preset after the welcome sentences (beta 0.7), so that the switch to the preset summary is seen
+    const plan0 = isTour ? await ev('WS_TEST.demoTour(0)') : null;
+    const smokeEnd = plan0 && plan0[TOUR_INTRO.length] ? plan0[TOUR_INTRO.length].t + 1.5 : 4 * TOUR_STEP + 2;
+    const tourSamples = await follow(opt.smoke ? smokeEnd : songs[0].duration + 6, async (s) => {
       if (!shot && s.s.time > 13) { shot = true; await B.screenshot(path.join(opt.out, 'tour_t13.png')); }
     });
     if (isTour) {
-      const plan = await ev('WS_TEST.demoTour(0)');
+      const plan = plan0;
       planChecks(plan, songs[0]);
       const n = tourChecks('tour', songs[0], [st0, ...tourSamples], plan, !opt.smoke);
       check(n >= (opt.smoke ? 5 : plan.length), `tour: at least ${opt.smoke ? 5 : plan.length} presets observed`, `${n}`);
@@ -629,7 +655,7 @@ async function main() {
       await waitDemoTime(0, 8000);
       const sm = await follow(14);
       const st = sm[sm.length - 1].s;
-      if (typeof st.preset === 'string') tourChecks(`song ${i}`, songs[i], sm, await ev(`WS_TEST.demoTour(${i})`), false);
+      if (typeof st.preset === 'string') tourChecks(`song ${i}`, songs[i], sm, await ev(`WS_TEST.demoTour(${i})`), false, false);
       else songChecks(`song ${i} '${songs[i].short || songs[i].title}' (14 s)`, songs[i], sm, false);
       await ev('WS_TEST.demoStop()');
       check(await waitStopped(2000), `song ${i}: demoStop() stops it`);

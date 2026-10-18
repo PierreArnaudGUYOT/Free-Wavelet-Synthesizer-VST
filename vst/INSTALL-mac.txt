@@ -1,11 +1,14 @@
-Wavelet Synthesizer beta 0.6 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+Wavelet Synthesizer beta 0.7 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in WaveletSynthesizer.vst3/Contents/Resources/LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
 How to cite: Guyot, P. A. (2026). Wavelet Synthesizer [Computer software]. Zenodo.
 DOI 10.5281/zenodo.23431760 - https://doi.org/10.5281/zenodo.23431760 (record: https://zenodo.org/records/23431760)
 
-The same instrument as the Windows beta 0.6 (same sound, panel, 150 presets, preset browser and presets file).
+The same instrument as the Windows beta 0.7 (same sound, panel, 150 presets, preset browser and presets file).
+NEW IN BETA 0.7: TOP Sounds = OktoPierre's 22 favourites (the best first), Source Phase the last category
+again (same 150 presets, same sounds); a wider scope (SUB OSC's three knobs in a column), a taller keyboard, more room in
+VOICE. The lists of a presets file saved by beta 0.5 / 0.6 are rebuilt (adjusted presets and user bank kept).
 NEW IN BETA 0.6: a clearer panel (SUB OSC beside the oscillator, LFO 1 and LFO 2 side by side, the chorus inside
 EFFECTS, one MANUAL button for the engine shown) and TEMPO SYNC: the SYNC buttons of the delay, LFO 1 and LFO 2 follow
 your DAW's tempo in note values (1/4, 1/8 D = dotted, 1/16 T = triplet...; the delay up to 4 s). Your Live Sets and

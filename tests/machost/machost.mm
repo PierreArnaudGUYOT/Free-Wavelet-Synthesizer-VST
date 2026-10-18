@@ -420,8 +420,8 @@ int main(int argc, char** argv) {
     for (int i = 0; i < nParams; i++) { ParameterInfo pi; p.ctl->getParameterInfo(i, pi); before[pi.id] = p.ctl->getParamNormalized(pi.id); }
     auto changedParams = [&]() { int n = 0; for (auto& kv : before) if (std::fabs(p.ctl->getParamNormalized(kv.first) - kv.second) > 1e-9) n++; return n; };
     if (vr.getWidth() == 1460) {
-      const float cx = 1100 + 4 + 12 + 30, catY0 = 8 + 72 + 12;   // the category column: TOP Sounds, Source Phase, Bass, ...
-      click(pv, cx, catY0 + 26 * 2);                                // Bass (beta 0.5: Source Phase is second)
+      const float cx = 1100 + 4 + 12 + 30, catY0 = 8 + 72 + 12;   // the category column: TOP Sounds, Bass, Lead, ... Source Phase
+      click(pv, cx, catY0 + 26 * 1);                                // Bass (beta 0.7: right after TOP Sounds, Source Phase last again)
       const float rowX = 1100 + 4 + 136 + 60, rowY0 = 8 + 98 + 11;
       click(pv, rowX, rowY0 + 22 * 4);                              // its 5th sound
       pump(0.3);

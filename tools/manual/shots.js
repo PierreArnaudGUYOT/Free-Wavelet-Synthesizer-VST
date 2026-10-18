@@ -42,7 +42,8 @@ const jobs = [
   { url: `${APP}#nobrowser`, clip: WELCOME, out: 'start-overlay.png' },
   // the ▾ demo menu (opens without starting audio)
   { url: `${APP}#nobrowser&noaudio`, eval: "document.querySelector('.demo-arrow').click();", wait: 400, clip: { x: 226, y: 18, width: 384, height: 344 }, out: 'demo-menu.png' },
-  // the default DEMO (preset tour) about 9.5 s in (4 s per preset), on its third preset; the panel only, without the status bar
+  // the default DEMO (preset tour) about 9.5 s in (4 s per preset), on its third preset (beta 0.7: the window shows the third
+  // welcome sentence); the panel only, without the status bar
   { url: `${APP}#nobrowser&noaudio`, eval: '(async () => { await WS_TEST.start(); WS_TEST.demoStart(); await new Promise(r => setTimeout(r, 9500)); })()',
     clip: { x: 0, y: 0, width: 1124, height: 744 }, after: 'WS_TEST.demoStop()', out: 'demo.png' },
 ].map(j => Object.assign({ w: 1124, h: 782, dsf: 1.5 }, j, { out: path.join(IMG, j.out) }));

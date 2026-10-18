@@ -210,8 +210,7 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
 .knob.hot .label { color: var(--accent); }
 .seg.hot, .step.hot { box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--accent-soft); }
 .drawbar.hot .track { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-soft); }
-.credit { font-size: 9.5px; line-height: 15px; color: var(--faint); text-align: right; letter-spacing: 0.04em; white-space: nowrap; }
-.credit b { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--text); }
+.credit { font-size: 9.5px; line-height: 15px; color: var(--faint); text-align: left; letter-spacing: 0.04em; white-space: nowrap; }
 /* a caption written like a section title (beta 0.6: SCALOGRAM inside the SCOPE card) */
 .wlabel { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; line-height: 14px; color: var(--dim); white-space: nowrap; }
 

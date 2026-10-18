@@ -321,6 +321,8 @@ static std::string listOf(const std::string& txt, const std::string& label) {
 // the browser geometry of the editor (logical = pixels at 100 %): card 1104..1452
 static const float CAT_X = 1175, ROW_X = 1340;
 static float catY(int i) { return 92 + 26.0f * i; }
+// the factory lists of the browser: TOP Sounds, then kCategories (beta 0.7: Bass first, Source Phase last again)
+static const int L_TOP = 0, L_BASS = 1, L_KEYS = 3, L_ORGAN = 4, L_SP = 13;
 static float rowY(int j) { return 117 + 22.0f * j; }   // the sound list, below its header
 static const float UP_X = 1402, DOWN_X = 1428, MOVE_Y = 90;   // ▲ ▼ above the list
 static float btnX(int b) { return 1116 + b * 65.8f + 30.4f; }   // TO BANK, RESTORE, DELETE, EXPORT, FILE
@@ -373,11 +375,14 @@ int wmain(int argc, wchar_t** argv) {
     h.command(1000);   // the first bank sound (the bank read again)
     h.run(0.2);
     check(h.stateName() == "USER \xC2\xB7 Old Pad" && std::fabs(h.plain(P_F_CUTOFF) - 3) < 1e-9, "the beta 0.3 bank sound 'Old Pad' is there", h.stateName());
+    check(kNumCategories == L_SP && std::strcmp(kCategories[L_BASS - 1], "Bass") == 0 && std::strcmp(kCategories[L_KEYS - 1], "Keys") == 0 &&
+          std::strcmp(kCategories[L_ORGAN - 1], "Organ") == 0 && std::strcmp(kCategories[L_SP - 1], "Source Phase") == 0,
+          "beta 0.7 browser lists: TOP Sounds, Bass ... Init, Source Phase last (the places this test clicks)");
     h.shot(out + L"\\1_browser.png");
 
     std::printf("1. browsing: Bass, then its 5th sound\n");
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(2));   // Bass (after TOP Sounds and Source Phase, beta 0.5)
+    clickAt(h, CAT_X, catY(L_BASS));   // Bass (right after TOP Sounds since beta 0.7: Source Phase is last again)
     clickAt(h, ROW_X, rowY(2));   // its third sound: A · Reese Sub
     h.run(0.2);
     check(h.stateName() == "A \xC2\xB7 Reese Sub", "a click on a sound loads it", h.stateName());
@@ -446,7 +451,7 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("7. RESTORE (browser, factory tab)\n");
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(2));
+    clickAt(h, CAT_X, catY(L_BASS));
     clickAt(h, ROW_X, rowY(2));
     h.run(0.2);
     check(h.stateName() == sawX && std::fabs(h.plain(P_F_CUTOFF) - cut) < 1e-9, "the adjusted preset loads with its new sound", h.stateName());
@@ -471,11 +476,12 @@ int wmain(int argc, wchar_t** argv) {
     check(!readFile(exported).empty() && noSaved(readFile(exported)) == noSaved(readFile(lib)), "EXPORT writes the whole presets file");
 
     std::printf("8b. TOP Sounds; DELETE a factory preset, the arrows skip it, it comes back\n");
-    clickAt(h, CAT_X, catY(0));   // TOP Sounds
+    clickAt(h, CAT_X, catY(L_TOP));   // TOP Sounds
     clickAt(h, ROW_X, rowY(2));   // beta 0.5: its third sound, the third of the factory order
     h.run(0.2);
-    check(h.stateName() == kPresets[2].name, "TOP Sounds: OktoPierre's selection, in the factory order", h.stateName());
-    clickAt(h, CAT_X, catY(2));   // Bass
+    check(h.stateName() == kPresets[2].name && h.stateName() == "A \xC2\xB7 Siren Sweep",
+          "TOP Sounds: OktoPierre's selection, in the factory order (beta 0.7: his 22 sounds, A · Siren Sweep third)", h.stateName());
+    clickAt(h, CAT_X, catY(L_BASS));   // Bass
     clickAt(h, ROW_X, rowY(4));   // A · Ladder Bass
     h.run(0.2);
     const std::string victim = h.stateName();
@@ -498,14 +504,14 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("9. SUB OCT by a click, LFO 2 target by the wheel\n");
     const double oct0 = h.plain(P_SUB_OCT);
-    clickAt(h, 594, 232);   // SUB OSC: OCT (beta 0.6: at the top, next to the oscillator)
+    clickAt(h, 564 + 12 + 26, 56 + 108 + 20);   // SUB OSC: OCT (beta 0.7: LEVEL, OCT and SHAPE one above the other)
     h.run(0.1);
     const double oct1 = h.plain(P_SUB_OCT);
-    clickAt(h, 594, 232);
+    clickAt(h, 564 + 12 + 26, 56 + 108 + 20);
     h.run(0.1);
     check(oct1 != oct0 && h.plain(P_SUB_OCT) == oct0, "a click switches OCT, a second click switches it back", fmt("%.0f -> %.0f", oct0, oct1));
     {
-      POINT pt{504, 568}; ClientToScreen(h.ed, &pt);   // beta 0.6: LFO 2 TARGET, beside LFO 1
+      POINT pt{304 + 128 + 72, 472 + 78 + 12}; ClientToScreen(h.ed, &pt);   // LFO 2 TARGET, beside LFO 1 (beta 0.7: 6 px higher)
       SendMessageW(h.ed, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), MAKELPARAM(pt.x, pt.y));
       h.pump();
     }
@@ -514,11 +520,11 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("9b. beta 0.6: the SYNC buttons of the delay and the two LFOs; TIME / RATE become note values\n");
     const double dt0 = h.plain(P_FX_DTIME), dd0 = h.plain(P_FX_DDIV);
-    clickAt(h, 596 + 332 + 21, 472 + 29 + 8);   // EFFECTS: the delay's SYNC
+    clickAt(h, 596 + 332 + 21, 472 + 27 + 8);   // EFFECTS: the delay's SYNC (beta 0.7: 2 px higher)
     h.run(0.1);
     check(h.plain(P_FX_DSYNC) == 1, "a click on the delay's SYNC turns it on", fmt("%.0f", h.plain(P_FX_DSYNC)));
     {   // the wheel on TIME now moves the note value, not the time in seconds
-      POINT pt{596 + 220 + 26, 472 + 64 + 20}; ClientToScreen(h.ed, &pt);
+      POINT pt{596 + 220 + 26, 472 + 58 + 20}; ClientToScreen(h.ed, &pt);   // beta 0.7: the knobs 6 px higher
       SendMessageW(h.ed, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), MAKELPARAM(pt.x, pt.y));
       h.pump();
     }
@@ -529,7 +535,7 @@ int wmain(int argc, wchar_t** argv) {
     h.run(0.1);
     check(h.plain(P_LFO_SYNC) == 1 && h.plain(P_LFO2_SYNC) == 1, "LFO 1 and LFO 2 have their own SYNC");
     h.shot(out + L"\\4b_sync.png");
-    for (float x : {596.f + 332 + 21, 12.f + 230 + 21, 304.f + 230 + 21}) clickAt(h, x, x > 590 ? 472 + 29 + 8 : 472 + 6 + 8);   // all off
+    for (float x : {596.f + 332 + 21, 12.f + 230 + 21, 304.f + 230 + 21}) clickAt(h, x, x > 590 ? 472 + 27 + 8 : 472 + 6 + 8);   // all off
     h.run(0.1);
     check(h.plain(P_FX_DSYNC) == 0 && h.plain(P_LFO_SYNC) == 0 && h.plain(P_LFO2_SYNC) == 0, "a second click turns each SYNC off");
 
@@ -546,7 +552,7 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("10b. MOVE UP in a category and in the user bank\n");
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(2));   // Bass
+    clickAt(h, CAT_X, catY(L_BASS));   // Bass
     clickAt(h, ROW_X, rowY(2));   // A · Reese Sub Z
     h.run(0.1);
     clickAt(h, UP_X, MOVE_Y);
@@ -591,7 +597,7 @@ int wmain(int argc, wchar_t** argv) {
     check(S.open(getFactory()), "editor attached again");
     Host& h = S.h;
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(2));   // Bass: the order moved before the reload
+    clickAt(h, CAT_X, catY(L_BASS));   // Bass: the order moved before the reload
     clickAt(h, ROW_X, rowY(1));
     h.run(0.2);
     check(h.stateName() == sawZ && std::fabs(h.plain(P_F_CUTOFF) - cutZ) < 1e-6, "the adjusted preset, its name, sound and place in Bass, after a reload",
@@ -606,7 +612,7 @@ int wmain(int argc, wchar_t** argv) {
     for (int k : spk) sp.push_back(kPresets[k].name);
     const size_t nsp = sp.size();
     const float BAR_X = 1104 + 136 + 186 + 2 + 6, BAR_TOP = 8 + 98, BAR_H = 548;   // the bar right of the list
-    clickAt(h, CAT_X, catY(1));   // Source Phase (beta 0.5: second, after TOP Sounds)
+    clickAt(h, CAT_X, catY(L_SP));   // Source Phase (beta 0.7: the last category again)
     h.drag(BAR_X, BAR_TOP + 10, BAR_H);   // the thumb from the top to the bottom
     clickAt(h, ROW_X, rowY(0));
     h.run(0.2);
@@ -657,6 +663,27 @@ int wmain(int argc, wchar_t** argv) {
     { WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((dir + L"\\OKTOWAVE presets (backup *).txt").c_str(), &fd);
       if (fh != INVALID_HANDLE_VALUE) { do { nb++; if (readFile(dir + L"\\" + fd.cFileName) == before) firstKept = true; } while (FindNextFileW(fh, &fd)); FindClose(fh); } }
     check(nb == 2 && firstKept, "a second import: a second backup copy, the first one (the presets before any import) kept", std::to_string(nb) + " backups");
+    {   // beta 0.7: the lists of an older file ("LIST ORDER v2": beta 0.5 / 0.6) are not read (default lists, OktoPierre's 22 TOP
+        // Sounds); its adjusted presets and user bank are kept
+      std::string old = itxt;
+      const size_t lo = old.find("######## LIST ORDER v3"), t0 = old.find("== TOP Sounds ==\r\n", lo), t1 = old.find("\r\n\r\n", t0);
+      if (lo != std::string::npos && t0 != std::string::npos && t1 != std::string::npos) {
+        old.replace(t0, t1 - t0, "== TOP Sounds ==\r\n1. A \xC2\xB7 Wave Robot");   // a TOP Sounds list of one sound
+        old.replace(lo, 22, "######## LIST ORDER v2");
+      }
+      const std::wstring oldf = out + L"\\old lists.txt";
+      { FILE* f = _wfopen(oldf.c_str(), L"wb"); std::fwrite(old.data(), 1, old.size(), f); std::fclose(f); }
+      SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", oldf.c_str());
+      Responder r14;
+      r14.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+      clickPosted(h, btnX(4), BTN_Y);
+      r14.wait(h);
+      const std::string got = readFile(lib), top = listOf(got, "TOP Sounds");
+      check(has(old, "LIST ORDER v2") && has(got, "######## LIST ORDER v3") && has(top, "\r\n1. " + std::string(kPresets[0].name) + "\r\n") &&
+                has(top, "\r\n" + std::to_string(kNumTop) + ". " + kPresets[kNumTop - 1].name) && !has(top, std::to_string(kNumTop + 1) + ". "),
+            "a v2 file (beta 0.6): its lists are not read, TOP Sounds = the 22 default sounds", top.substr(0, 80));
+      check(has(got, "Preset: Imported Pad") && has(got, "Preset: " + sawZ), "... its adjusted preset and its user bank are kept");
+    }
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", nullptr);
 
     std::printf("15. beta 0.5: a sound dragged to another category, its menu, TOP Sounds, the arrow keys, a bank sound moved\n");
@@ -664,32 +691,32 @@ int wmain(int argc, wchar_t** argv) {
                       to1 = "B \xC2\xB7 Theatre Organ";
     std::string txt;
     clickAt(h, TAB0_X, TAB_Y);
-    clickAt(h, CAT_X, catY(1));   // Source Phase
-    dragTo(h, ROW_X, rowY(0), CAT_X, catY(2));   // its first sound onto Bass
+    clickAt(h, CAT_X, catY(L_SP));   // Source Phase (the last category)
+    dragTo(h, ROW_X, rowY(0), CAT_X, catY(L_BASS));   // its first sound onto Bass
     h.run(0.2);
     txt = readFile(lib);
     check(h.stateName() == mss, "the sound pressed plays", h.stateName());
-    check(has(txt, "######## LIST ORDER v2") && has(listOf(txt, "Bass"), "7. " + mss) && !has(listOf(txt, "Source Phase"), mss),
+    check(has(txt, "######## LIST ORDER v3") && has(listOf(txt, "Bass"), "7. " + mss) && !has(listOf(txt, "Source Phase"), mss),
           "dragged onto Bass: the file's Bass list ends with it, Source Phase no longer has it", listOf(txt, "Bass"));
-    clickAt(h, CAT_X, catY(2));
+    clickAt(h, CAT_X, catY(L_BASS));
     clickAt(h, ROW_X, rowY(6));
     h.run(0.2);
     check(h.stateName() == mss, "Bass shows it (7th)", h.stateName());
     h.shot(out + L"\\9_moved.png");
-    h.command(7000 + 1);   // the sound menu: Move to / Back to Source Phase (list 1)
+    h.command(7000 + L_SP);   // the sound menu: Move to / Back to Source Phase (list 13 since beta 0.7)
     txt = readFile(lib);
     check(has(listOf(txt, "Source Phase"), "== Source Phase ==\r\n1. " + mss + "\r\n") && !has(listOf(txt, "Bass"), mss),
           "back to Source Phase, at its own place (first)", listOf(txt, "Source Phase").substr(0, 80));
-    clickAt(h, CAT_X, catY(4));   // Keys
+    clickAt(h, CAT_X, catY(L_KEYS));   // Keys
     {   // A · Clean Keys onto TOP Sounds, with a picture while it is dragged (the category under it lit, its name)
       const auto lp = [](float x, float y) { return MAKELPARAM((int)std::lround(x), (int)std::lround(y)); };
       SendMessageW(h.ed, WM_MOUSEMOVE, 0, lp(ROW_X, rowY(0)));
       SendMessageW(h.ed, WM_LBUTTONDOWN, MK_LBUTTON, lp(ROW_X, rowY(0)));
       for (int k = 1; k <= 12; k++)
-        SendMessageW(h.ed, WM_MOUSEMOVE, MK_LBUTTON, lp(ROW_X + (CAT_X - ROW_X) * k / 12, rowY(0) + (catY(0) - rowY(0)) * k / 12));
+        SendMessageW(h.ed, WM_MOUSEMOVE, MK_LBUTTON, lp(ROW_X + (CAT_X - ROW_X) * k / 12, rowY(0) + (catY(L_TOP) - rowY(0)) * k / 12));
       h.pump();
       h.shot(out + L"\\9b_dragging.png");
-      SendMessageW(h.ed, WM_LBUTTONUP, 0, lp(CAT_X, catY(0)));
+      SendMessageW(h.ed, WM_LBUTTONUP, 0, lp(CAT_X, catY(L_TOP)));
       h.pump();
     }
     h.run(0.2);

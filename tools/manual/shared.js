@@ -11,8 +11,9 @@ const VST_URL = (() => {
   if (!m) throw new Error('web/js/ui.js: VST_RELEASES not found');
   return m[1];
 })();
-// beta 0.6: the panel's credit line, as ui.js and editor.cpp draw it ("Created by OktoPierre · beta 0.6 · GPL v3")
-const CREDIT = SPEC.APP.credit.charAt(0).toUpperCase() + SPEC.APP.credit.slice(1) + ` · ${SPEC.APP.version} · ${SPEC.APP.license}`;
+// beta 0.7: the panel's credit line, as ui.js and editor.cpp draw it ("By OktoPierre · beta 0.7 · GPL v3"; SPEC.APP.credit,
+// "created by OktoPierre", stays the vendor wording)
+const CREDIT = `${SPEC.APP.panelCredit} · ${SPEC.APP.version} · ${SPEC.APP.license}`;
 // beta 0.6: the tempo-sync note values, from the spec (choiceShort: "1/8D")
 const notesOf = key => PK[key].choiceShort.map(n => ctl(n)).join(' ');
 
@@ -108,9 +109,9 @@ function headerPins(E) {
 function sharedPins(E) {
   const a = isA(E);
   return [
-    { x: 558, y: 69, title: 'SUB OSC', desc: 'LEVEL, OCT and SHAPE of the sub oscillator (beta 0.6: in the top row).', href: 'sub' },
-    { x: 757, y: 69, title: 'SCOPE', desc: a ? 'one cycle of the output; grey = the dry wave.' : 'one cycle of the sound; shaded area = window.', href: 'displays' },
-    { x: 798, y: 189, title: 'SCALOGRAM', desc: 'the atoms of the 11 bands; dashed line = window.', href: 'displays' },
+    { x: 558, y: 69, title: 'SUB OSC', desc: 'LEVEL, OCT and SHAPE of the sub oscillator, one above the other (beta 0.7).', href: 'sub' },
+    { x: 721, y: 69, title: 'SCOPE', desc: a ? 'one cycle of the output; grey = the dry wave.' : 'one cycle of the sound; shaded area = window.', href: 'displays' },
+    { x: 762, y: 203, title: 'SCALOGRAM', desc: 'the atoms of the 11 bands; dashed line = window.', href: 'displays' },
     { x: 130, y: 337, title: 'SCALE FILTER', desc: a ? 'per-band filter with resonance, key tracking, envelope and velocity.' : 'a modulatable per-band filter on top of the drawbars.', href: 'filter' },
     { x: 451, y: 337, title: 'POSITION', desc: a ? 'confines the filter to part of the cycle.' : 'lets the detail sound only in part of the cycle.', href: 'position' },
     { x: 675, y: 337, title: 'AMP ENVELOPE', desc: 'loudness ADSR and velocity sensitivity.', href: 'amp-env' },
@@ -118,15 +119,15 @@ function sharedPins(E) {
     { x: 80, y: 485, title: 'LFO 1', desc: 'shape, RATE and how far it moves the pitch, cutoff, position and wavelet morph; SYNC in the plugin.', href: 'lfo' },
     { x: 372, y: 485, title: 'LFO 2', desc: 'a second LFO on the parameter chosen in its TARGET menu; SYNC in the plugin.', href: 'lfo2' },
     { x: 684, y: 485, title: 'EFFECTS', desc: 'saturation, chorus, ping-pong delay and reverb, in the order of the sound; the delay’s SYNC in the plugin.', href: 'effects' },
-    { x: 692, y: 512, title: 'CHORUS', desc: 'string-machine triple chorus: amount, RATE and DEPTH.', href: 'chorus' },
-    { x: 8, y: 616, title: 'VOICE', desc: 'portamento mode and voice LEDs in its title row; octave, tuning, polyphony, glide and unison below.', href: 'voice' },
-    { x: 432, y: 616, title: 'Wheels', desc: 'pitch bend and modulation (vibrato).', href: 'kbd-screen' },
-    { x: 512, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
+    { x: 776, y: 511, title: 'CHORUS', desc: 'string-machine triple chorus: amount, RATE and DEPTH.', href: 'chorus' },
+    { x: 8, y: 604, title: 'VOICE', desc: 'portamento mode and voice LEDs in its title row; octave, tuning, polyphony, glide and unison below.', href: 'voice' },
+    { x: 432, y: 604, title: 'Wheels', desc: 'pitch bend and modulation (vibrato).', href: 'kbd-screen' },
+    { x: 512, y: 604, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
     { x: 2, y: 751, title: 'Status bar (web app)', desc: 'audio and MIDI status, key help, Save preset / Export / Import.', href: 'saving' },
   ];
 }
 function panelSame() {
-  return `The panel is the same in the web app and the plugin, apart from a few buttons: the web app’s ${ctl('▶ DEMO')} and ${ctl('DOWNLOAD VST')}, the plugin’s window-size button, ${ctl('SAVE PRESET')} and the ${ctl('SYNC')} buttons of the tempo sync. From top to bottom (beta 0.6): the header; the engine section, SUB OSC and SCOPE; SCALE FILTER, POSITION and the two envelopes; LFO 1, LFO 2 and EFFECTS; VOICE, the wheels and the keyboard.`;
+  return `The panel is the same in the web app and the plugin, apart from a few buttons: the web app’s ${ctl('▶ DEMO')} and ${ctl('DOWNLOAD VST')}, the plugin’s window-size button, ${ctl('SAVE PRESET')} and the ${ctl('SYNC')} buttons of the tempo sync. From top to bottom (beta 0.6): the header; the engine section, SUB OSC and SCOPE; SCALE FILTER, POSITION and the two envelopes; LFO 1, LFO 2 and EFFECTS; VOICE, the wheels and the keyboard (beta 0.7: a taller bottom row, with the credit line “${CREDIT}” under VOICE).`;
 }
 function headerControls(E) {
   const a = isA(E);
@@ -312,7 +313,7 @@ function voiceSection(E) {
     ['v_detune', 'Spread of the unison copies: the outer copies are at ± this many cents, the others evenly in between.', '8–15 cents for warmth, 20+ for supersaw-style width.'],
     ['v_width', 'Spreads the unison copies across the stereo field, from centre (0 %) to hard left and right (100 %).', 'No effect with UNISON 1.'],
   ];
-  return `<p>The ${ctl('VOICE')} section sits at the bottom left, before the wheels and the keyboard (beta 0.6): the portamento selector and the voice LEDs in its title row, its seven knobs below.</p>
+  return `<p>The ${ctl('VOICE')} section sits at the bottom left, before the wheels and the keyboard (beta 0.6): the portamento selector and the voice LEDs in its title row, its seven knobs below. The small credit line under it reads “${CREDIT}” (beta 0.7).</p>
 ${controls(rows)}
 <ul>
 <li><b>Voice allocation.</b> When all voices are busy, a new note takes over the oldest released voice first, then the oldest held one. Playing a note that is already sounding re-uses its voice.</li>
@@ -376,7 +377,7 @@ function displaysSection(E) {
     ['Voice LEDs', 'Available (dim) and sounding (lit) voices, to the right of the portamento selector in the title row of VOICE.', ''],
     ['Meter', 'Left and right output peak, top = 0 dBFS.', ''],
   ];
-  return `<p>The ${ctl('SCOPE')} section fills the top right of the panel, at the right of SUB OSC: the scope on top, the scalogram under its ${ctl('SCALOGRAM')} label (beta 0.6: the section’s title is just SCOPE).</p>
+  return `<p>The ${ctl('SCOPE')} section fills the top right of the panel, at the right of SUB OSC: the scope on top, the scalogram under its ${ctl('SCALOGRAM')} label (beta 0.6: the section’s title is just SCOPE; beta 0.7: the section is wider and the scope taller).</p>
 ${table(['Display', 'What it shows', 'Good to know'], rows, 'compact')}
 <p class="small muted">The SCOPE and SCALOGRAM draw the cycle as it is stored, before the per-note band limiting described in <a href="#bands">Where the bands are</a>; on high notes the finest rows are not actually played. The sub oscillator is not drawn.</p>`;
 }
@@ -404,8 +405,15 @@ function loadDemo() {
     vm.runInContext(src, ctx);
     tour = vm.runInContext('WSDemo', ctx)({ C, P: C.P, PARAMS: SPEC.PARAMS }).tourPlan(0);
   } catch (e) { console.warn('demo.js: could not compute the preset tour (' + e.message + ')'); }
+  let intro = [];   // beta 0.7: the sentences the demo window shows during the first presets of the tour (TOUR_INTRO)
+  try {
+    const m = /const TOUR_INTRO\s*=\s*(\[[\s\S]*?\]);/.exec(src);
+    if (!m) throw new Error('not found');
+    intro = vm.runInNewContext(m[1]);
+    if (!Array.isArray(intro) || !intro.every(s => typeof s === 'string')) throw new Error('not a list of sentences');
+  } catch (e) { intro = []; console.warn('demo.js: could not read TOUR_INTRO (' + e.message + ')'); }
   const mx = /MAX_FILE_SECONDS\s*=\s*(\d+)/.exec(src);
-  return { songs, toccata, tour, maxFile: mx ? +mx[1] : 360 };
+  return { songs, toccata, tour, intro, maxFile: mx ? +mx[1] : 360 };
 }
 const DEMO = loadDemo();
 const mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
@@ -459,20 +467,24 @@ function demoSection(E) {
   const tourName = k => (plan[k] ? plan[k].preset : '');
   const firstNames = [0, 1, 2, 3].map(tourName).filter(Boolean);
   const shotPreset = tourName(2);
-  const favs = SPEC.PRESETS.slice(0, SPEC.TOP).map(p => p.name);   // beta 0.5: OktoPierre's TOP Sounds
-  const lead = [];   // the presets that open the tour before the TOP Sounds (OktoPierre's choice)
-  for (const x of plan) { if (favs.includes(x.preset)) break; lead.push(x.preset); }
-  let nFav = 0;   // the TOP Sounds that follow, in a row
-  for (let k = lead.length; k < NT && favs.includes(plan[k].preset); k++) nFav++;
+  const favs = SPEC.PRESETS.slice(0, SPEC.TOP).map(p => p.name);   // OktoPierre's TOP Sounds
+  // beta 0.7: his own demo sounds (from the first one) mixed one by one with his TOP Sounds
+  const nTop = plan.filter(x => favs.includes(x.preset)).length;
+  // beta 0.7: the welcome sentences of the demo window during the first presets (web/js/demo.js TOUR_INTRO)
+  const intro = (DEMO.intro || []).slice(0, NT), nI = intro.length;
+  const nth = n => n + ([, 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || 'th');
+  const escT = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   return `<h3 id="demo">Demo (web app)</h3>
 <p>The demo control next to the logo is a split button. ${ctl('▶ DEMO')} plays the default demo straight away; the small ${ctl('▾')} beside it opens the list of all demo pieces and ${ctl('Load a MIDI file…')}. While a demo plays, the main button reads ${ctl('■ STOP')}. The ${S.length} pieces, by ${composers.length > 1 ? composers.slice(0, -1).join(', ') + ' and ' + composers[composers.length - 1] : composers[0]}, are free editions from the Mutopia Project, each cut after about two minutes at the end of a phrase; the notes are played sample-accurately by a sequencer inside the audio engine.</p>
 ${def && step ? `<h4 id="demo-tour">The default demo: a tour of the presets</h4>
-<p>${ctl('▶ DEMO')} — and <b>Run the demo</b> in the welcome window — plays ${def.composer} — <i>${def.short || def.title}</i> (${mmssMenu(def.duration)}) as a <b>preset tour</b>${def.origin ? `, starting with the phrase that follows the opening chords (${def.origin.toFixed(1)} s into the movement)` : ''}: about every ${step} seconds, on a change of chord in the music, the next preset is loaded — ${firstNames.map(n => `<b>${n}</b>`).join(' → ')} … — ${NT} presets in all: ${lead.length ? `${lead.map(n => `<b>${n}</b>`).join(', ')} to open, then ` : ''}${nFav} of OktoPierre’s TOP Sounds${lead.length ? '' : ' first'}, then ${NT - nFav - lead.length} presets that show the chorus, the sub oscillator and the mix of the two engines. The sequence is fixed in the demo, so new factory presets (there are ${NP}) do not change it. The preset browser in the header shows the name of the preset being played (with the “•” modified mark while a control moves).</p>
+<p>${ctl('▶ DEMO')} — and <b>Run the demo</b> in the welcome window — plays ${def.composer} — <i>${def.short || def.title}</i> (${mmssMenu(def.duration)}) as a <b>preset tour</b>${def.origin ? `, starting with the phrase that follows the opening chords (${def.origin.toFixed(1)} s into the movement)` : ''}: about every ${step} seconds, on a change of chord in the music, the next preset is loaded — ${firstNames.map(n => `<b>${n}</b>`).join(' → ')} … — ${NT} presets in all, chosen by OktoPierre (beta 0.7): the sounds of his own demo selection, from <b>${tourName(0)}</b> on, mixed one by one with his TOP Sounds, so that ${nTop} of the ${NT} presets are TOP Sounds (★ in the preset browser). The sequence is fixed in the demo, so new factory presets (there are ${NP}) do not change it. The preset browser in the header shows the name of the preset being played (with the “•” modified mark while a control moves).</p>
 <ul>
 <li>To keep every preset playable on the piece, each preset is played polyphonic${TOUR.voices ? ` (${TOUR.voices} voices)` : ''}, at its normal octave, without glide${TOUR.maxAttack ? ` and with its attack shortened to at most ${Math.round(TOUR.maxAttack * 1000)} ms` : ''}${TOUR.maxDMix != null ? `; long echoes are reduced (delay mix at most ${Math.round(TOUR.maxDMix * 100)} %, feedback at most ${Math.round(TOUR.maxDFb * 100)} %) so the fast piece stays clear` : ''}. The presets themselves are not changed.</li>
-<li>The demo window shows “Preset tour · <i>n</i>/${NT} · Engine A/B” (<i>n</i> = the preset’s place in the tour), “Now playing:” with the preset’s name, a countdown to the next preset with its name, and a one-line summary of the sound, ending with “Played polyphonic at its normal octave, with short echoes.”</li>
+<li>The demo window shows “Preset tour · <i>n</i>/${NT} · Engine A/B” (<i>n</i> = the preset’s place in the tour), “Now playing:” with the preset’s name, a countdown to the next preset with its name and, below them, a line of text: ${nI ? `during the first ${nI} presets one of the welcome sentences below, from the ${nth(nI + 1)} preset on ` : ''}a one-line summary of the sound, ending with “Played polyphonic at its normal octave, with short echoes.”</li>
 </ul>
-${fig('demo.png', `The default demo about 9 seconds in: the tour has reached its third preset, “${shotPreset}” (hence “3/${NT}”). The window counts down to the next preset and summarises the sound; the scope runs live and the keys of the playing notes light up.`, 'shot')}` : ''}
+${nI ? `<p><b>A word of welcome</b> (beta 0.7). While the first ${nI} presets play, the demo window explains the idea of the instrument in plain words, one sentence per preset (about ${step} seconds each):</p>
+<ol class="small">${intro.map(t => `<li>“${escT(t)}”</li>`).join('')}</ol>` : ''}
+${fig('demo.png', `The default demo about 9 seconds in: the tour has reached its third preset, “${shotPreset}” (hence “3/${NT}”). The window counts down to the next preset and shows ${nI >= 3 ? 'the third welcome sentence (later presets get a summary of the sound)' : 'a summary of the sound'}; the scope runs live and the keys of the playing notes light up.`, 'shot')}` : ''}
 <h4 id="demo-songs">All demo pieces</h4>
 ${S.length ? table(['Piece', 'Composer', 'Length', 'Demo', 'Licence'], songRows, 'compact') : ''}
 ${fig('demo-menu.png', 'The ▾ menu: composer — short title and length (hover over an entry for the full title); the default demo is tagged DEFAULT; then “Load a MIDI file…”.', 'shot narrow-fig')}
@@ -495,7 +507,7 @@ function playingSection(E) {
   return `${demoSection(E)}
 <h3 id="kbd-screen">On-screen keyboard and wheels</h3>
 <ul>
-<li>The keyboard spans five octaves, C2 to C7. Click a key to play it; the vertical position sets the velocity — from 35 % at the top of a key to 100 % at its bottom edge. Drag across the keys to slide from note to note.</li>
+<li>The keyboard spans five octaves, C2 to C7 (beta 0.7: with taller keys, and taller wheels). Click a key to play it; the vertical position sets the velocity — from 35 % at the top of a key to 100 % at its bottom edge. Drag across the keys to slide from note to note.</li>
 <li>The wheels sit just left of the keyboard (beta 0.6). The <b>PITCH</b> wheel bends by up to ±2 semitones and springs back to the centre when you let go. The <b>MOD</b> wheel adds vibrato (up to 50 cents, through LFO 1) and stays where you leave it. Both wheels follow incoming MIDI.</li>
 <li>Held notes light up in the accent colour; a thin coloured strip above the keys shows the range played by the computer keyboard.</li>
 </ul>
@@ -542,12 +554,15 @@ ${table(['MIDI message', 'Effect'], [
 }
 
 // ---------------------------------------------------------------- presets: browsing & saving
+const catList = () => { const c = SPEC.CATEGORIES; return c.slice(0, -1).join(', ') + ' and ' + c[c.length - 1]; };   // in the spec order
+const nCat = cat => SPEC.PRESETS.filter(p => p.cat === cat).length;
 function presetsSaving(E) {
+  if (SPEC.CATEGORIES.slice(-2).join() !== 'Init,Source Phase') console.warn('presetsSaving: the text says Init then Source Phase last: check it');
   return `<h3 id="saving">Browsing and saving presets</h3>
 <div class="pair" style="grid-template-columns: 1fr 260px; align-items: start;">
 <div>
-<p>The preset browser sits in the header. The ${SPEC.PRESETS.length} factory presets start with OktoPierre’s ${SPEC.TOP} <b>TOP Sounds</b> (beta 0.5: his selection, from <b>${SPEC.PRESETS[0].name}</b> to <b>${SPEC.PRESETS[SPEC.TOP - 1].name}</b>); the others follow sorted by category, like the banks of a hardware synthesizer — ${SPEC.CATEGORIES.filter(c => c !== 'Init').join(', ')} — with the two Init presets last. ◀ ▶ step through them in that order (and then, in the web app, through your own). Clicking the name opens the list: in the web app <b>★ TOP SOUNDS</b> at the top, then one group per category, then your USER PRESETS. A click on a group title opens or closes it (the number at its right is the number of presets in it); TOP Sounds, your user presets and the group of the current preset start open. A coloured letter before each name gives its engine (A in teal, B in amber; AB in both colours = the two engines mixed). A dot after the preset name means the sound has been modified since it was loaded. The tables in this manual list the presets by category, separately for each engine.</p>
-<p><b>Preset browser</b> (beta 0.3, web app and plugin). A panel at the right of the synth lists the sound types with their number of sounds — <b>TOP Sounds</b> first (beta 0.5: OktoPierre’s selection of his best sounds and Source Phase sounds), then the categories, <b>Source Phase</b> first — and the sounds of the type selected: one click plays a sound; ★ marks a TOP sound and a number OktoPierre’s vote in his listening test. The <b>arrow keys</b> choose too (beta 0.5): ${kbd('↑')} ${kbd('↓')} play the sound above or below, ${kbd('←')} ${kbd('→')} show the category above or below (in the plugin after a click in the browser, so that it has the keyboard; with the browser hidden they step through the presets like ◀ ▶). FACTORY / USER PRESETS (USER BANK in the plugin) tabs; ${ctl('HIDE ▸')} folds it away and a click on the preset name brings it back. In the web app it only selects sounds; the plugin also saves and arranges them (see the plugin section).</p>
+<p>The preset browser sits in the header. The ${SPEC.PRESETS.length} factory presets start with OktoPierre’s ${SPEC.TOP} <b>TOP Sounds</b> (beta 0.7: exactly his selection, from <b>${SPEC.PRESETS[0].name}</b> to <b>${SPEC.PRESETS[SPEC.TOP - 1].name}</b>, without Source Phase sounds); the others follow sorted by category, like the banks of a hardware synthesizer — ${catList()} — so the two Init presets come just before the ${nCat('Source Phase')} <b>Source Phase</b> sounds, which are last (beta 0.7; they were second in beta 0.5 and 0.6). ◀ ▶ step through them in that order (and then, in the web app, through your own). Clicking the name opens the list: in the web app <b>★ TOP SOUNDS</b> at the top, then one group per category, then your USER PRESETS. A click on a group title opens or closes it (the number at its right is the number of presets in it); TOP Sounds, your user presets and the group of the current preset start open. A coloured letter before each name gives its engine (A in teal, B in amber; AB in both colours = the two engines mixed). A dot after the preset name means the sound has been modified since it was loaded. The tables in this manual list the presets by category, separately for each engine.</p>
+<p><b>Preset browser</b> (beta 0.3, web app and plugin). A panel at the right of the synth lists the sound types with their number of sounds — <b>TOP Sounds</b> first (OktoPierre’s selection of his best sounds; beta 0.7: exactly his ${SPEC.TOP}, no Source Phase sound among them), then the categories, <b>Source Phase</b> last (beta 0.7) — and the sounds of the type selected: one click plays a sound; ★ marks a TOP sound and a number OktoPierre’s vote in his listening test. The <b>arrow keys</b> choose too (beta 0.5): ${kbd('↑')} ${kbd('↓')} play the sound above or below, ${kbd('←')} ${kbd('→')} show the category above or below (in the plugin after a click in the browser, so that it has the keyboard; with the browser hidden they step through the presets like ◀ ▶). FACTORY / USER PRESETS (USER BANK in the plugin) tabs; ${ctl('HIDE ▸')} folds it away and a click on the preset name brings it back. In the web app it only selects sounds; the plugin also saves and arranges them (see the plugin section).</p>
 <p><b>Web app.</b> The buttons at the right of the status bar manage your own sounds:</p>
 <ul>
 <li><b>Save preset</b> asks for a name (up to 40 characters) and stores the sound in this browser’s storage, in the USER PRESETS group.</li>
@@ -581,10 +596,10 @@ function vstSection(E) {
 <li><b>No welcome window, no DEMO or DOWNLOAD VST button and no status bar.</b> Audio runs as soon as the plugin is loaded; there are no Save / Export / Import buttons (the plugin has its PRESET BROWSER, SAVE PRESET and user bank instead, see below). In the header, the place of the web app’s DEMO button holds the window-size button, and that of DOWNLOAD VST holds ${ctl('SAVE PRESET')}.</li>
 <li><b>Tempo sync</b> (beta 0.6, VST3 and VST2). ${ctl('SYNC')} buttons that the web app does not have: at the right of the ${ctl('PING-PONG DELAY')} heading, of the ${ctl('LFO 1')} title and of the ${ctl('LFO 2')} title. Lit, the delay’s TIME or the LFO’s RATE becomes a note value at the host’s tempo (120 BPM when the host gives none) and follows its tempo changes; the knob shows the note value, e.g. “1/8D”. SYNC is off by default, so older presets, states and Live Sets sound the same. See <a href="#delay-sync">Delay tempo sync</a> and <a href="#lfo-sync">LFO tempo sync</a>.</li>
 <li><b>Presets.</b> A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>. ◀ ▶ step through the ${SPEC.PRESETS.length} factory presets (those you deleted are skipped). Clicking the preset name opens the <b>preset browser</b>; a <b>right-click</b> on it opens the classic Windows menu (TOP Sounds, one submenu per category, the USER BANK, and the save / restore / delete / export commands). You can also keep sounds with Live: as a device preset, inside an Instrument Rack, or simply in the Live Set. The plugin remembers the selected preset, and whether the browser is open, with the Live Set.</li>
-<li><b>Preset browser</b> (beta 0.3). A panel at the right of the synth (${ctl('HIDE ▸')} folds it away and the window gets narrower; a click on the preset name brings it back). Two tabs: <b>FACTORY</b> and <b>USER BANK</b>. The left column lists the sound types with their number of sounds — <b>TOP Sounds</b> first (OktoPierre’s selection), then <b>Source Phase</b>, Bass, Lead, Keys, Organ, Pad… — and the right column the sounds of the type selected: <b>one click loads a sound</b>, and so do the <b>arrow keys</b> (beta 0.5) once you have clicked in the browser: ${kbd('↑')} ${kbd('↓')} the sound above or below, ${kbd('←')} ${kbd('→')} the category above or below. A long list scrolls with the mouse wheel or with the <b>scroll bar</b> at its right (beta 0.4: wide enough for a trackpad — drag it, or click the bar where you want to go). Each sound shows its engine letters (A, B or AB), ★ for a TOP sound, OktoPierre’s vote (7–10) for the voted ones and ${ctl('ADJ')} for a preset you adjusted. Above the list, ${ctl('▲')} ${ctl('▼')} move the sound playing up or down in that list. <b>Moving a sound to another category</b> (beta 0.5): drag it onto a category of the left column — onto TOP Sounds it is added there — or right-click it: <b>Move to ▸</b> a category, <b>Back to</b> its own category, <b>Add to TOP Sounds</b> / <b>Remove from TOP Sounds</b>. In the USER BANK tab a sound dragged onto a section moves to that section. All of it is kept in the presets file (and shared with EXPORT / IMPORT). Below: ${ctl('TO BANK…')} (save the sound to the user bank), ${ctl('RESTORE')} (the original of an adjusted factory preset), ${ctl('DELETE')} (a factory preset leaves the lists, a bank sound is deleted), ${ctl('EXPORT…')} (a copy of the presets file) and ${ctl('IMPORT…')} (beta 0.4: another presets file replaces yours, see <b>The presets file</b> below). <b>Show the presets file</b> (in Windows Explorer or the Finder), the former ${ctl('FILE')} button, is in the right-click menu of the preset name.</li>
+<li><b>Preset browser</b> (beta 0.3). A panel at the right of the synth (${ctl('HIDE ▸')} folds it away and the window gets narrower; a click on the preset name brings it back). Two tabs: <b>FACTORY</b> and <b>USER BANK</b>. The left column lists the sound types with their number of sounds — <b>TOP Sounds</b> first (OktoPierre’s selection), then Bass, Lead, Keys, Organ, Pad … Init and, last, <b>Source Phase</b> (beta 0.7) — and the right column the sounds of the type selected: <b>one click loads a sound</b>, and so do the <b>arrow keys</b> (beta 0.5) once you have clicked in the browser: ${kbd('↑')} ${kbd('↓')} the sound above or below, ${kbd('←')} ${kbd('→')} the category above or below. A long list scrolls with the mouse wheel or with the <b>scroll bar</b> at its right (beta 0.4: wide enough for a trackpad — drag it, or click the bar where you want to go). Each sound shows its engine letters (A, B or AB), ★ for a TOP sound, OktoPierre’s vote (7–10) for the voted ones and ${ctl('ADJ')} for a preset you adjusted. Above the list, ${ctl('▲')} ${ctl('▼')} move the sound playing up or down in that list. <b>Moving a sound to another category</b> (beta 0.5): drag it onto a category of the left column — onto TOP Sounds it is added there — or right-click it: <b>Move to ▸</b> a category, <b>Back to</b> its own category, <b>Add to TOP Sounds</b> / <b>Remove from TOP Sounds</b>. In the USER BANK tab a sound dragged onto a section moves to that section. All of it is kept in the presets file (and shared with EXPORT / IMPORT). Below: ${ctl('TO BANK…')} (save the sound to the user bank), ${ctl('RESTORE')} (the original of an adjusted factory preset), ${ctl('DELETE')} (a factory preset leaves the lists, a bank sound is deleted), ${ctl('EXPORT…')} (a copy of the presets file) and ${ctl('IMPORT…')} (beta 0.4: another presets file replaces yours, see <b>The presets file</b> below). <b>Show the presets file</b> (in Windows Explorer or the Finder), the former ${ctl('FILE')} button, is in the right-click menu of the preset name.</li>
 <li><b>SAVE PRESET</b> (beta 0.3; beta 0.6: its own button left of MANUAL, where the web app has DOWNLOAD VST, so the preset box is wider) overwrites the preset playing. A factory preset is <b>adjusted</b> in place, optionally under a new name (a small window proposes its name); a sound of the user bank is replaced. ${ctl('RESTORE')} brings a factory preset’s original back.</li>
 <li><b>User bank</b> (beta 0.3). Your own sounds, sorted in 12 sections: Bass, Lead, Keys, Organ, Pad, Strings, Brass &amp; Wind, Pluck, Bells &amp; Mallets, Chords, FX, Drums &amp; Perc. It is empty at first. ${ctl('TO BANK…')} (or <b>Save to user bank…</b> in the menu) proposes the current name (change it if you like) and a section; the preset name then reads <b>USER · <i>name</i></b>. Saving a name that already exists in that section asks before replacing it.</li>
-<li><b>The presets file</b> (beta 0.3). Everything above lives in one readable text file, <code>OKTOWAVE presets.txt</code>, kept <b>next to</b> the <code>WaveletSynthesizer.vst3</code> folder (so that installing a new version keeps it), shared by every instance and Live Set, and read again when you reopen Live: every factory preset (“Adjusted: yes” for those you saved, “Deleted: yes” for those you deleted), the order of every list, and the user bank; for each sound it lists the parameters that differ from the defaults. That folder must allow writing: the VST3 system folder <code>C:\\Program Files\\Common Files\\VST3</code> needs administrator rights, so the plugin says so if it cannot save there. A deleted factory preset comes back with a right-click on the preset name, <b>Deleted presets</b>. ${ctl('IMPORT…')} (beta 0.4; also <b>Import presets (.txt), replacing yours…</b> in the right-click menu) reads such a file — an ${ctl('EXPORT…')} copy, a friend’s <code>OKTOWAVE presets.txt</code> — and, after a question, <b>replaces</b> your adjusted and deleted presets, list order and user bank with its own; your previous file is first kept next to it as <code>OKTOWAVE presets (backup <i>date time</i>).txt</code> (to go back, import that copy). A file without presets is refused and nothing changes.</li>
+<li><b>The presets file</b> (beta 0.3). Everything above lives in one readable text file, <code>OKTOWAVE presets.txt</code>, kept <b>next to</b> the <code>WaveletSynthesizer.vst3</code> folder (so that installing a new version keeps it), shared by every instance and Live Set, and read again when you reopen Live: every factory preset (“Adjusted: yes” for those you saved, “Deleted: yes” for those you deleted), the order of every list, and the user bank; for each sound it lists the parameters that differ from the defaults. That folder must allow writing: the VST3 system folder <code>C:\\Program Files\\Common Files\\VST3</code> needs administrator rights, so the plugin says so if it cannot save there. A deleted factory preset comes back with a right-click on the preset name, <b>Deleted presets</b>. beta 0.7 writes the lists as “LIST ORDER v3”: a presets file of an earlier version keeps its adjusted and deleted presets and its user bank, but its lists start again from the new defaults (the ${SPEC.TOP} TOP Sounds, Source Phase last). ${ctl('IMPORT…')} (beta 0.4; also <b>Import presets (.txt), replacing yours…</b> in the right-click menu) reads such a file — an ${ctl('EXPORT…')} copy, a friend’s <code>OKTOWAVE presets.txt</code> — and, after a question, <b>replaces</b> your adjusted and deleted presets, list order and user bank with its own; your previous file is first kept next to it as <code>OKTOWAVE presets (backup <i>date time</i>).txt</code> (to go back, import that copy). A file without presets is refused and nothing changes.</li>
 <li><b>Mouse.</b> Drag vertically (${kbd('Shift')} = fine), use the mouse wheel (${kbd('Shift')} = fine), and double-click or ${kbd('Ctrl')} + click to reset a control to its default. A knob with only a few positions (the SUB OSC’s ${ctl('OCT')} and ${ctl('SHAPE')}) moves with a short drag, and a <b>click</b> goes to its next value. Hovering shows the value, as in the web app.</li>
 <li><b>Playing.</b> The on-screen keyboard and wheels work with the mouse, but there are no computer-keyboard notes: arm the track and use a MIDI keyboard or Live’s Computer MIDI Keyboard (${kbd('M')}). Pitch bend, the mod wheel and the sustain pedal arrive from the track’s MIDI.</li>
 <li><b>Manuals.</b> ${ctl('MANUAL')} opens the manual of the engine shown in your default web browser, from the copy stored in the bundle: <code>Contents\\Resources\\manual\\manual-a.html</code> on the A · SUBTRACTIVE tab, <code>manual-b.html</code> on B · ADDITIVE. Each manual links to the other.</li>
@@ -631,7 +646,7 @@ function subSection(E) {
     [{ key: 'sub_oct', range: '−1 octave · −2 octaves' }, `How far below the played note the sub sounds: one or two octaves. It follows the pitch exactly, including ${P('v_oct')}, ${P('v_fine')}, glide, pitch bend and vibrato.`, '−2 octaves on low notes goes below 20 Hz: felt more than heard.'],
     [{ key: 'sub_shape', range: 'Sine · Triangle · Square' }, 'Waveform of the sub: a pure sine; a soft triangle (odd harmonics that fall quickly); or a square with strong odd harmonics, band-limited with PolyBLEP so it does not alias.', `On small speakers choose ${ctl('TRI')} or ${ctl('SQR')}: their harmonics stay audible when the fundamental is too low to be reproduced.`],
   ];
-  return `<p>The ${ctl('SUB OSC')} section adds a simple oscillator one or two octaves below every note — the classic way to give a sound more low end, from a warm bass foundation to infra-bass you feel rather than hear. It sits in the top row, between the engine section and the SCOPE (beta 0.6; it was at the bottom before): a large ${ctl('LEVEL')} knob with ${ctl('OCT')} and ${ctl('SHAPE')} below it.</p>
+  return `<p>The ${ctl('SUB OSC')} section adds a simple oscillator one or two octaves below every note — the classic way to give a sound more low end, from a warm bass foundation to infra-bass you feel rather than hear. It sits in the top row, between the engine section and the SCOPE (beta 0.6; it was at the bottom before): its three knobs one above the other, ${ctl('LEVEL')}, ${ctl('OCT')} and ${ctl('SHAPE')} (beta 0.7; LEVEL was a large knob before).</p>
 ${controls(rows)}
 <ul>
 <li><b>One sub per voice.</b> Every note gets one sub oscillator, centred in the stereo field — not one per unison copy, so ${P('v_unison')}, ${P('v_detune')} and ${P('v_width')} neither thicken nor spread it.</li>
@@ -689,15 +704,20 @@ function releaseNotes() {
   try { md = fs.readFileSync(path.join(L.ROOT, 'RELEASE_HISTORY.md'), 'utf8'); } catch (_) { return ''; }
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const inl = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').replace(/`(.+?)`/g, '<code>$1</code>');
-  let h = '', inList = false, started = false;
-  const close = () => { if (inList) { h += '</ul>'; inList = false; } };
+  // a list item or a paragraph goes on over its wrapped lines until a blank line, a heading or the next item (beta 0.7:
+  // before, every wrapped line of RELEASE_HISTORY.md became a paragraph of its own and cut its list item short)
+  let h = '', inList = false, started = false, cur = null;   // cur: the item or paragraph being read { tag, text }
+  const flush = () => { if (cur) { h += `<${cur.tag}>${inl(cur.text)}</${cur.tag}>`; cur = null; } };
+  const close = () => { flush(); if (inList) { h += '</ul>'; inList = false; } };
   for (const raw of md.split(/\r?\n/)) {
     const ln = raw.trim();
     if (ln.startsWith('## ')) { close(); started = true; h += `<h4>${inl(ln.slice(3))}</h4>`; continue; }
-    if (!started || !ln) { if (!ln) close(); continue; }
-    if (ln.startsWith('- ')) { if (!inList) { h += '<ul>'; inList = true; } h += `<li>${inl(ln.slice(2))}</li>`; continue; }
+    if (!started) continue;
+    if (!ln) { close(); continue; }
+    if (ln.startsWith('- ')) { flush(); if (!inList) { h += '<ul>'; inList = true; } cur = { tag: 'li', text: ln.slice(2) }; continue; }
+    if (cur) { cur.text += ' ' + ln; continue; }
     close();
-    h += `<p>${inl(ln)}</p>`;
+    cur = { tag: 'p', text: ln };
   }
   close();
   return h;
@@ -706,7 +726,7 @@ function aboutSection(E) {
   const A = SPEC.APP;
   return `<p><b>${A.name}</b> — ${A.credit} (${A.author}). Version <b>${A.version}</b> (${A.date}).</p>
 <ul>
-<li>The panel shows “${CREDIT}” at the bottom right, under the keyboard, in the web app and in the plugin.</li>
+<li>The panel shows “${CREDIT}” in small print at the bottom left, under the VOICE section (beta 0.7), in the web app and in the plugin.</li>
 <li>The VST3 plugin is published under the vendor name <b>${A.credit.replace(/^created by /, '')}</b> — that is where Ableton Live lists it in its browser — with version number ${A.versionNum}.</li>
 <li>These manuals are generated from the instrument’s own parameter list and sound engine (<code>tools/manual/</code>), so ranges, defaults and presets always match this version.</li>
 <li><b>How to cite:</b> Guyot, P. A. (2026). <i>${A.name}</i> [Computer software]. Zenodo. <a href="https://doi.org/${A.doi}">https://doi.org/${A.doi}</a> (<a href="https://zenodo.org/records/${A.doi.split('.').pop()}">Zenodo record</a>).</li>

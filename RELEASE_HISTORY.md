@@ -2,6 +2,23 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.7 — 2026-10-18 (OktoPierre's TOP Sounds, a roomier panel, a new demo)
+
+**In short**
+- **TOP Sounds = OktoPierre's 22 favourites**, in his order, the best first (his presets file "OKTOWAVE presets V7.txt"):
+  B · Mirror Sub Bass, A · Noise Wash Pad, A · Siren Sweep, B · Theatre Organ, B · Space Choir, A · Wavelet Lead,
+  B · Focus Sweep, B · Flute Lead, B · Choir Pad, A · Wave Brass, A · Wave Riser, A · Warm Pad, A · Wave Attack Lead,
+  A · Dub Echo Lead, A · Wave Pulse Lead, AB · Glass Choir, A · Cello Section, AB · Silk Strings, A · Spiccato Strings,
+  A · Shimmering Strings, A · Wave Robot, A · Laser Sweep. beta 0.5 / 0.6 had added 15 Source Phase sounds to them.
+  **Source Phase** is the last category again. The 150 presets and their sounds are unchanged.
+- **Panel**: SUB OSC's LEVEL, OCT and SHAPE one above the other, so the SCOPE / SCALOGRAM window is wider and the scope
+  taller; the keyboard and the wheels taller; LFO 1, LFO 2 and EFFECTS a little shorter; more room in VOICE; the credit
+  "By OktoPierre" small, at the bottom left.
+- **Demo** (web app): OktoPierre's choice of sounds from the previous tour mixed one by one with his TOP Sounds; during
+  the first presets the demo window explains the idea of the synth in a few plain sentences.
+- **Plug-in presets file**: the lists are now written "LIST ORDER v3"; the lists of a beta 0.5 / 0.6 file are rebuilt with
+  the new TOP Sounds (your adjusted and deleted presets and your user bank are kept).
+
 ## beta 0.6 — 2026-10-17 (panel ergonomics, tempo sync)
 
 **In short**

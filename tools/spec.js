@@ -10,6 +10,8 @@
 //   beta 0.6 (2026-10-18) — new panel layout (SUB OSC at the top, LFO 1 and LFO 2 side by side, the chorus in EFFECTS,
 //                           VOICE at the bottom, one MANUAL button); tempo sync of the delay and both LFOs (plug-in);
 //                           the web app's welcome window and DOWNLOAD VST button.
+//   beta 0.7 (2026-10-18) — TOP Sounds = OktoPierre's 22 favourites (presets file V7), Source Phase last again; SUB OSC's
+//                           knobs in a column (wider scope), taller keyboard; discreet credit; a new demo tour.
 // Parameters, panel layout and factory presets are defined here once and
 // generated into web/js/spec.js and vst/src/generated/spec.h by gen_spec.js.
 // Parameter order defines the VST3 ParamIDs: append only, never reorder.
@@ -19,12 +21,13 @@ const DEVICE = { w: 1100, h: 720 };
 const APP = {
   name: 'Wavelet Synthesizer',
   author: 'Pierre Arnaud GUYOT',
-  credit: 'created by OktoPierre',   // shown on the panel
+  credit: 'created by OktoPierre',   // the vendor line (manuals)
+  panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: 'beta 0.6',
-  versionNum: '0.6.0',
-  date: '2026-10-17',
+  version: 'beta 0.7',
+  versionNum: '0.7.0',
+  date: '2026-10-18',
   doi: '10.5281/zenodo.23431760',   // the Zenodo record of the code (https://zenodo.org/records/23431760)
 };
 const DEFAULT_PRESET = 'A · Warm Pad';   // sound loaded when the app / a new plugin instance opens (first preset)
@@ -217,15 +220,15 @@ section('engB', 'ENGINE B · WAVELET ADDITIVE', 12, 56, 544, 260, 'B', [
   ...row(['b_atk', 'b_spread', 'b_body', 'b_bright', 'b_sus'], 12, 198),
 ]);
 
-// beta 0.6: SUB OSC next to the oscillator; the scope narrower, SCALOGRAM written above the scalogram
-section('sub', 'SUB OSC', 564, 56, 112, 260, '', [
-  kn('sub_level', 16, 40, 'knobL'),
-  kn('sub_oct', 4, 156), kn('sub_shape', 56, 156),
+// beta 0.6: SUB OSC next to the oscillator, SCALOGRAM written above the scalogram; beta 0.7: LEVEL, OCT and SHAPE one above
+// the other in a narrow card, so the SCOPE card is wider, and the scope taller (OktoPierre's choice)
+section('sub', 'SUB OSC', 564, 56, 76, 260, '', [
+  kn('sub_level', 12, 34), kn('sub_oct', 12, 108), kn('sub_shape', 12, 182),
 ]);
-section('display', 'SCOPE', 684, 56, 404, 260, '', [
-  { type: 'scope', x: 12, y: 30, w: 380, h: 92 },
-  { type: 'label', text: 'SCALOGRAM', x: 12, y: 126, w: 380, h: 14 },
-  { type: 'scalogram', x: 12, y: 142, w: 380, h: 106 },
+section('display', 'SCOPE', 648, 56, 440, 260, '', [
+  { type: 'scope', x: 12, y: 30, w: 416, h: 106 },
+  { type: 'label', text: 'SCALOGRAM', x: 12, y: 140, w: 416, h: 14 },
+  { type: 'scalogram', x: 12, y: 156, w: 416, h: 92 },
 ]);
 
 section('filter', 'SCALE FILTER', 12, 324, 336, 140, '', [
@@ -248,38 +251,39 @@ section('modenv', 'MOD ENVELOPE', 836, 324, 252, 140, '', [
 const synced = (key, div, sync, x, y) => [Object.assign(kn(key, x, y), { vis: sync, visOn: false }),
   Object.assign(kn(div, x, y), { vis: sync, visOn: true, only: 'vst', style: 'value' })];
 const syncBtn = (key, x, y) => ({ type: 'toggle', param: key, text: 'SYNC', only: 'vst', x, y, w: 42, h: 17 });
-section('lfo', 'LFO 1', 12, 472, 284, 140, '', [
-  { type: 'seg', param: 'lfo_shape', x: 12, y: 30, w: 260, h: 24 },
+// beta 0.7: the LFO and EFFECTS cards 12 px shorter (content 2 / 6 px higher) so that the bottom row has room
+section('lfo', 'LFO 1', 12, 472, 284, 128, '', [
+  { type: 'seg', param: 'lfo_shape', x: 12, y: 28, w: 260, h: 24 },
   syncBtn('lfo_sync', 230, 6),
-  ...synced('lfo_rate', 'lfo_div', 'lfo_sync', 12, 64),
-  ...row(['lfo_pitch', 'lfo_cut', 'lfo_pos', 'lfo_wav'], 64, 64),
+  ...synced('lfo_rate', 'lfo_div', 'lfo_sync', 12, 58),
+  ...row(['lfo_pitch', 'lfo_cut', 'lfo_pos', 'lfo_wav'], 64, 58),
 ]);
-section('lfo2', 'LFO 2', 304, 472, 284, 140, '', [
-  { type: 'seg', param: 'lfo2_shape', x: 12, y: 30, w: 260, h: 24 },
+section('lfo2', 'LFO 2', 304, 472, 284, 128, '', [
+  { type: 'seg', param: 'lfo2_shape', x: 12, y: 28, w: 260, h: 24 },
   syncBtn('lfo2_sync', 230, 6),
-  ...synced('lfo2_rate', 'lfo2_div', 'lfo2_sync', 12, 64),
-  kn('lfo2_amt', 64, 64),
-  { type: 'menu', param: 'lfo2_target', text: 'TARGET', x: 128, y: 84, w: 144, h: 24 },
+  ...synced('lfo2_rate', 'lfo2_div', 'lfo2_sync', 12, 58),
+  kn('lfo2_amt', 64, 58),
+  { type: 'menu', param: 'lfo2_target', text: 'TARGET', x: 128, y: 78, w: 144, h: 24 },
 ]);
 // the effects in the order of the sound: saturation, chorus (beta 0.6: from its own card), ping-pong delay, reverb
-section('fx', 'EFFECTS', 596, 472, 492, 140, '', [
-  { type: 'fxheads', x: 0, y: 32, w: 492, h: 18 },
-  syncBtn('fx_dsync', 332, 29),
-  ...row(['fx_drive', 'ch_mix', 'ch_rate', 'ch_depth'], 12, 64),
-  ...synced('fx_dtime', 'fx_ddiv', 'fx_dsync', 220, 64),
-  ...row(['fx_dfb', 'fx_dmix', 'fx_rsize', 'fx_rmix'], 272, 64),
+section('fx', 'EFFECTS', 596, 472, 492, 128, '', [
+  { type: 'fxheads', x: 0, y: 30, w: 492, h: 18 },
+  syncBtn('fx_dsync', 332, 27),
+  ...row(['fx_drive', 'ch_mix', 'ch_rate', 'ch_depth'], 12, 58),
+  ...synced('fx_dtime', 'fx_ddiv', 'fx_dsync', 220, 58),
+  ...row(['fx_dfb', 'fx_dmix', 'fx_rsize', 'fx_rmix'], 272, 58),
 ]);
-section('keys', '', 0, 620, 1100, 100, '', [
-  { type: 'wheels', x: 436, y: 0, w: 60, h: 84 },   // beta 0.6: just left of the keyboard
-  { type: 'keyboard', x: 504, y: 0, w: 584, h: 84 },   // narrower since beta 0.3 (LFO 2 card), still C2–C7
-  { type: 'credit', x: 588, y: 85, w: 500, h: 15 },   // beta 0.6: "Created by OktoPierre" larger
+section('keys', '', 0, 608, 1100, 112, '', [
+  { type: 'wheels', x: 436, y: 0, w: 60, h: 100 },   // beta 0.6: just left of the keyboard
+  { type: 'keyboard', x: 504, y: 0, w: 584, h: 100 },   // narrower since beta 0.3 (LFO 2 card), still C2–C7; beta 0.7: taller
+  { type: 'credit', x: 14, y: 95, w: 410, h: 15 },   // beta 0.7: "By OktoPierre" at the bottom left, under VOICE
 ]);
 // beta 0.6: VOICE at the bottom left (the wheels moved next to the keyboard): the portamento selector and the voice LEDs in its
 // title row, its seven knobs below
-section('voice', 'VOICE', 12, 620, 416, 84, '', [
-  { type: 'seg', param: 'v_porta', x: 66, y: 4, w: 150, h: 18 },
-  { type: 'leds', x: 226, y: 4, w: 180, h: 18 },
-  ...row(['v_oct', 'v_fine', 'v_voices', 'v_glide', 'v_unison', 'v_detune', 'v_width'], 26, 24),
+section('voice', 'VOICE', 12, 608, 416, 92, '', [
+  { type: 'seg', param: 'v_porta', x: 76, y: 6, w: 150, h: 18 },
+  { type: 'leds', x: 236, y: 6, w: 170, h: 18 },
+  ...row(['v_oct', 'v_fine', 'v_voices', 'v_glide', 'v_unison', 'v_detune', 'v_width'], 26, 30),
 ]);
 
 // ---------------------------------------------------------------- presets
@@ -763,9 +767,9 @@ const PRESET_LIST = [
 for (const pr of PRESET_LIST) if (pr.v.ab_mix === undefined) pr.v.ab_mix = pr.v.engine || 0;
 
 // Categories (preset menu groups, like the banks of a hardware synthesizer), in menu order.
-// beta 0.5: 'Source Phase' second, after TOP Sounds (OktoPierre's choice; beta 0.4 had it last)
-const CATEGORIES = ['Source Phase', 'Bass', 'Lead', 'Keys', 'Organ', 'Pad', 'Strings', 'Brass & Wind', 'Pluck', 'Bells & Mallets', 'FX',
-  'Drums & Perc', 'Init'];
+// beta 0.5: 'Source Phase' second, after TOP Sounds; beta 0.7: last again, as in OktoPierre's presets file V7 (his choice)
+const CATEGORIES = ['Bass', 'Lead', 'Keys', 'Organ', 'Pad', 'Strings', 'Brass & Wind', 'Pluck', 'Bells & Mallets', 'FX',
+  'Drums & Perc', 'Init', 'Source Phase'];
 const CATEGORY_OF = {   // presets of beta 0.1 and 0.2
   'A · Square Mod 2': 'Pad', 'A · Wavelet Lead': 'Lead', 'A · Haar Bass': 'Bass', 'A · Edge Pluck': 'Pluck', 'B · Focus Sweep': 'FX',
   'B · Soft Flute': 'Brass & Wind', 'A · Infra Sub Bass': 'Bass', 'A · Dub Echo Lead': 'Lead', 'A · Fuzz Bass': 'Bass',
@@ -787,16 +791,13 @@ for (const pr of PRESET_LIST) {
 }
 
 // beta 0.5: OktoPierre's sort of the presets (his presets file "OKTOWAVE presets V4.txt": 150 kept, 103 left out, the order
-// of every list as he arranged it in the preset browser). TOP Sounds = his TOP list and the first 15 sounds of Source Phase,
-// one in two (the best first). Each category lists its presets in his order, TOP Sounds included (★ in the browsers).
+// of every list as he arranged it in the preset browser). Each category lists its presets in his order, TOP Sounds included
+// (★ in the browsers). beta 0.7: TOP Sounds = exactly his TOP list of "OKTOWAVE presets V7.txt" (22 sounds, the best first;
+// beta 0.5 had added the first 15 Source Phase sounds, one in two); the values and the other lists are those of V4 / V7.
 const TOP_SOUNDS = [
-  'B · Mirror Sub Bass', 'A · Mirror Sub Bass Shift', 'B · Theatre Organ', 'A · Wave Riser Shift',
-  'A · Noise Wash Pad', 'A · Wave Atom Choir Shift', 'A · Siren Sweep', 'A · Focus Sweep Shift', 'B · Space Choir',
-  'A · Wave Wobble Bass Shift', 'A · Wavelet Lead', 'A · Noise Wash Pad Shift', 'B · Focus Sweep',
-  'A · Shifted Strings Pad', 'B · Flute Lead', 'A · Ensemble Strings Shift', 'B · Choir Pad', 'A · Siren Sweep Shift',
-  'A · Wave Brass', 'A · Cello Section Shift', 'A · Wave Riser', 'A · Wavelet Lead Shift', 'A · Warm Pad',
-  'A · Window Phase Lead', 'A · Wave Attack Lead', 'A · Solo Violin Shift', 'A · Dub Echo Lead',
-  'A · Square Mod 2 Shift', 'A · Wave Pulse Lead', 'A · Square Mod Shift', 'AB · Glass Choir', 'A · Cello Section',
+  'B · Mirror Sub Bass', 'A · Noise Wash Pad', 'A · Siren Sweep', 'B · Theatre Organ', 'B · Space Choir', 'A · Wavelet Lead',
+  'B · Focus Sweep', 'B · Flute Lead', 'B · Choir Pad', 'A · Wave Brass', 'A · Wave Riser', 'A · Warm Pad',
+  'A · Wave Attack Lead', 'A · Dub Echo Lead', 'A · Wave Pulse Lead', 'AB · Glass Choir', 'A · Cello Section',
   'AB · Silk Strings', 'A · Spiccato Strings', 'A · Shimmering Strings', 'A · Wave Robot', 'A · Laser Sweep'];
 const LIST_ORDER = {
   'Source Phase': [
