@@ -31,9 +31,9 @@ a hardware keyboard, sequencer or controller plays it directly, no DAW needed).
 **Download the plugin**: see the
 [Releases](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases) page of the
 [GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST) —
-*V0.3* for **Windows** 64-bit (VST3 / VST2), *V0.3 for Mac* for **macOS** 10.13 or later (VST3, one universal plug-in for
-Apple silicon and Intel Macs; `INSTALL-mac.txt` in the zip explains the first start); the pre-release *V0.5 (beta)*, this
-version, has both zips on the same page. The web app also works offline:
+*V0.5 (beta)*, this version, with one zip for **Windows** 64-bit (VST3 / VST2) and one for **macOS** 10.13 or later (VST3,
+one universal plug-in for Apple silicon and Intel Macs; `INSTALL-mac.txt` in the zip explains the first start). The
+earlier versions (V0.4, V0.3, V0.3 for Mac…) stay on the same page. The web app also works offline:
 download the repository and open `web/index.html`.
 
 **MIDI without a DAW (web app):** all inputs, notes, pitch bend, mod wheel, sustain; a channel selector in the status
