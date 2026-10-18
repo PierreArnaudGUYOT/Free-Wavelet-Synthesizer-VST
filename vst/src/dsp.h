@@ -32,6 +32,7 @@ constexpr double VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chor
 constexpr double LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
 constexpr double PI = 3.14159265358979323846;
 constexpr double CH_BASE = 0.006, CH_DEPTH = 0.003, CH_FAST = 9.7;   // chorus: base delay, sweep per unit of depth (s), fast/slow LFO ratio
+constexpr double DLY_MAX = 4;   // beta 0.6: the longest delay (s): a whole note at 60 BPM (tempo sync)
 
 inline double jsRound(double x) { return std::floor(x + 0.5); }  // Math.round semantics
 
@@ -560,18 +561,33 @@ class Engine {
   uint8_t keys[128] = {};
   Display disp; int lastVoice = -1;
   double sr = 48000, fmax = 29000;
+  double tempo = 0;   // beta 0.6: the host's tempo (BPM), 0 = none
 
   explicit Engine(double sampleRate = 48000) {
     for (int i = 0; i < kNumParams; i++) p[i] = kParams[i].def;
     setSampleRate(sampleRate);
   }
 
+  // beta 0.6: TEMPO SYNC. The plug-in gives the host's tempo; 0 = none (as the web app): the delay's TIME and the LFOs' RATE
+  // then stay in seconds and hertz whatever SYNC says. With SYNC off every sound is bit-identical with beta 0.5.
+  // At most 1000 BPM (DAWs stop at 999): a broken host's huge tempo would make the LFO phase infinite (security review).
+  void setTempo(double bpm) { tempo = bpm > 0 && std::isfinite(bpm) ? std::min(bpm, 1000.0) : 0; }
+  static double noteAt(const double* list, int n, double v) { return list[std::max(0, std::min(n - 1, (int)jsRound(v)))]; }
+  double delaySec() const {
+    if (!(tempo > 0) || p[P_FX_DSYNC] < 0.5) return p[P_FX_DTIME];
+    return std::min(DLY_MAX, noteAt(kDelayBeats, (int)(sizeof kDelayBeats / sizeof *kDelayBeats), p[P_FX_DDIV]) * 60 / tempo);
+  }
+  double lfoHz(int sync, int div, int rate) const {
+    if (!(tempo > 0) || p[sync] < 0.5) return p[rate];
+    return tempo / 60 / noteAt(kLfoBeats, (int)(sizeof kLfoBeats / sizeof *kLfoBeats), p[div]);
+  }
+
   void setSampleRate(double s) {
     sr = s;
     fmax = std::max(0.45 * sr, sr - 19000);
-    dlyLen = (int)std::ceil(sr * 1.1) + 4;
+    dlyLen = (int)std::ceil(sr * (DLY_MAX + 0.1)) + 4;   // beta 0.6: 4 s (was 1.1 s; the reads never reach further back)
     dlyL.assign(dlyLen, 0.0f); dlyR.assign(dlyLen, 0.0f);
-    dlyW = 0; dlyT = p[P_FX_DTIME] * sr; lpL = lpR = 0;
+    dlyW = 0; dlyT = delaySec() * sr; lpL = lpR = 0;
     const int cT[8] = {1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617}, aT[4] = {556, 441, 341, 225};
     double sc = sr / 44100;
     for (int ch = 0; ch < 2; ch++) {
@@ -753,7 +769,7 @@ class Engine {
       default: v = sh; break;
     }
     lfo = v;
-    lfoPhase += p[P_LFO_RATE] * n / sr;
+    lfoPhase += lfoHz(P_LFO_SYNC, P_LFO_DIV, P_LFO_RATE) * n / sr;
     if (lfoPhase >= 1) { lfoPhase -= std::floor(lfoPhase); sh = lfoRng.next() * 2 - 1; }
   }
   // LFO 2 (beta 0.3): the same shapes, its own phase and sample & hold sequence
@@ -767,7 +783,7 @@ class Engine {
       default: v = sh2; break;
     }
     lfo2 = v;
-    lfo2Phase += p[P_LFO2_RATE] * n / sr;
+    lfo2Phase += lfoHz(P_LFO2_SYNC, P_LFO2_DIV, P_LFO2_RATE) * n / sr;
     if (lfo2Phase >= 1) { lfo2Phase -= std::floor(lfo2Phase); sh2 = lfo2Rng.next() * 2 - 1; }
   }
   // parameter i as LFO 2 moves it (its target t2, by d2 in plain units), else exactly as set
@@ -1002,7 +1018,7 @@ class Engine {
     // effects
     const double drive = p[P_FX_DRIVE], kd = std::pow(10.0, drive * 24 / 20), comp = 0.5 / std::tanh(0.5 * kd);
     const double fb = p[P_FX_DFB], dmix = p[P_FX_DMIX], rmix = p[P_FX_RMIX];
-    const double dTarget = p[P_FX_DTIME] * sr;
+    const double dTarget = delaySec() * sr;
     const double feedback = 0.7 + 0.28 * p[P_FX_RSIZE], damp = 0.25;
     const double volT = std::pow(10.0, p[P_MASTER] / 20);
     const double chMix = p[P_CH_MIX], chBase = CH_BASE * sr, chDepth = p[P_CH_DEPTH] * CH_DEPTH * sr;

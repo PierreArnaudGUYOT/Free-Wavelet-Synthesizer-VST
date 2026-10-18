@@ -11,7 +11,7 @@ const E = 'b';
 const hero = `<header class="hero">
 <p class="eyebrow">WAVELET SYNTHESIZER · USER MANUAL B</p>
 <h1><span class="tag">ENGINE B</span>Wavelet Additive</h1>
-<p class="lead">Engine B builds sounds the other way round. Instead of starting from a waveform and taking detail away, you write the detail directly. An ATOM PATTERN decides the sign — and for RANDOM, the size — of every one of the 2047 atoms that make up a waveform cycle; the WAVELET gives those atoms their shape; eleven DRAWBARS set the level of each band, one octave of harmonics each, like the drawbars of an organ; and a SCALE ENVELOPE gives every band its own attack and decay, so the fine detail can bloom later or die sooner than the body of the sound. The shared SCALE FILTER, POSITION window, envelopes, LFO, voice and effects sections then shape the result.</p>
+<p class="lead">Engine B builds sounds the other way round. Instead of starting from a waveform and taking detail away, you write the detail directly. An ATOM PATTERN decides the sign — and for RANDOM, the size — of every one of the 2047 atoms that make up a waveform cycle; the WAVELET gives those atoms their shape; eleven DRAWBARS set the level of each band, one octave of harmonics each, like the drawbars of an organ; and a SCALE ENVELOPE gives every band its own attack and decay, so the fine detail can bloom later or die sooner than the body of the sound. The shared SUB OSC, SCALE FILTER, POSITION window, envelopes, LFO 1 and LFO 2, voice and effects sections then shape the result.</p>
 <div class="hero-meta"><span class="pill">For the web app and the VST3 plugin for Ableton Live (Windows and macOS)</span><span class="pill">Version ${SPEC.APP.version} · ${SPEC.APP.date}</span><a class="pill other-a" href="manual-a.html">Engine A · Wavelet Subtractive — read Manual A</a></div>
 </header>`;
 
@@ -44,7 +44,7 @@ ${figInline('flow-b', '<b>Figure 3.</b> Engine B, from atom pattern to output. A
 <ul>
 <li><b>Table building</b> happens only when you change ${P('b_pattern')}, ${P('b_seed')} or ${P('wavelet')}: the pattern writes the atoms, an inverse wavelet transform turns each band into a waveform layer, and each layer is normalised to a peak of 1. The switch to new tables is crossfaded, so you can change these controls while playing.</li>
 <li><b>Every voice</b> plays the 11 layers at its own pitch and mixes them with gains made of the drawbar level, the TILT, the band’s SCALE ENVELOPE and the SCALE FILTER. The POSITION window can then restrict bands 2–11 to part of the cycle.</li>
-<li><b>All voices</b> are summed and pass through the saturation, delay and reverb, a DC blocker, the master volume and a soft limiter that keeps the output below 0 dBFS.</li>
+<li><b>All voices</b> are summed and pass through the effects — saturation, chorus, delay and reverb, in that order — a DC blocker, the master volume and a soft limiter that keeps the output below 0 dBFS.</li>
 </ul>
 
 <div class="callout feature" id="saw-from-squares"><span class="ttl">A BEAUTIFUL CONSEQUENCE</span>
@@ -56,11 +56,7 @@ ${fig('staircase-b.svg', '<b>Figure 4.</b> Haar + RAMP + TILT −6 dB/band with 
 
 // ---------------------------------------------------------------- 3. panel tour
 const pins = [
-  { x: 218, y: 8, title: '▶ DEMO ▾ (web app)', desc: '▶ DEMO plays the default demo, a tour of the presets; ▾ opens the list of demo pieces.', href: 'demo' },
-  { x: 286, y: 5, title: 'ENGINE', desc: 'chooses the engine panel shown, A (teal) or B (amber); A/B MIX sets what you hear.', href: 'header-controls' },
-  { x: 562, y: 5, title: 'Preset browser', desc: '◀ ▶ step through the presets; click the name for the list.', href: 'saving' },
-  { x: 872, y: 5, title: 'MANUAL A / B', desc: 'open the engine A manual or this one.', href: 'header-controls' },
-  { x: 1024, y: 2, title: 'VOLUME and meter', desc: 'master level and stereo peak meter.', href: 'effects' },
+  ...S.headerPins(E),
   { x: 13, y: 102, title: 'PATTERN', desc: 'writes the signs (or random values) of all atoms.', href: 'patterns' },
   { x: 13, y: 172, title: 'DRAWBARS 1–11', desc: 'the level of each band, coarse (1) to fine (11).', href: 'drawbars' },
   { x: 13, y: 268, title: 'SCALE ENVELOPE', desc: 'ATTACK, SPREAD, BODY, BRIGHT and SUSTAIN for the bands.', href: 'scale-env' },
@@ -69,33 +65,14 @@ const pins = [
   { x: 353, y: 262, title: 'TILT', desc: 'a dB-per-band slope across the drawbars.', href: 'drawbars' },
   { x: 411, y: 262, title: 'SEED', desc: 'picks the random pattern (RANDOM only).', href: 'patterns' },
   { x: 469, y: 262, title: 'A/B MIX', desc: 'what you hear: engine A, engine B or both mixed.', href: 'mix' },
-  { x: 568, y: 104, title: 'SCOPE', desc: 'one cycle of the sound; shaded area = window.', href: 'displays' },
-  { x: 568, y: 216, title: 'SCALOGRAM', desc: 'the atoms of the 11 bands; dashed line = window.', href: 'displays' },
-  { x: 130, y: 337, title: 'SCALE FILTER', desc: 'a modulatable per-band filter on top of the drawbars.', href: 'filter' },
-  { x: 451, y: 337, title: 'POSITION', desc: 'lets the detail sound only in part of the cycle.', href: 'position' },
-  { x: 675, y: 337, title: 'AMP ENVELOPE', desc: 'loudness ADSR and velocity sensitivity.', href: 'amp-env' },
-  { x: 969, y: 337, title: 'MOD ENVELOPE', desc: 'ADSR that moves the filter cutoff.', href: 'mod-env' },
-  { x: 70, y: 485, title: 'LFO', desc: 'one global LFO for pitch, cutoff and position.', href: 'lfo' },
-  { x: 376, y: 485, title: 'VOICE', desc: 'portamento mode, octave, tuning, polyphony, glide and unison, with voice LEDs.', href: 'voice' },
-  { x: 785, y: 485, title: 'EFFECTS', desc: 'saturation, ping-pong delay and reverb.', href: 'effects' },
-  { x: 8, y: 616, title: 'Wheels', desc: 'pitch bend and modulation (vibrato).', href: 'kbd-screen' },
-  { x: 169, y: 633, title: 'SUB OSC', desc: 'LEVEL, OCT and SHAPE of the sub oscillator.', href: 'sub' },
-  { x: 305, y: 633, title: 'CHORUS', desc: 'string-machine triple chorus: amount, RATE and DEPTH.', href: 'chorus' },
-  { x: 348, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
-  { x: 2, y: 751, title: 'Status bar (web app)', desc: 'audio and MIDI status, key help, Save preset / Export / Import.', href: 'saving' },
+  ...S.sharedPins(E),
 ];
 const ann = annotated('panel-b.png', 'The whole instrument in engine B mode, showing the B · Random Glass preset', pins);
-const panel = `<p>The panel is the same in the web app and the plugin. In engine B mode the accent colour is amber and the upper-left section shows the ENGINE B controls. The screenshot shows the factory preset <b>B · Random Glass</b>; click a number to jump to its description.</p>
+const panel = `<p>${S.panelSame()} In engine B mode the accent colour is amber and the upper-left section shows the ENGINE B controls. The screenshot shows the factory preset <b>B · Random Glass</b>; click a number to jump to its description.</p>
 <figure>${ann.image}<figcaption>The web app in engine B mode. The status bar at the bottom exists only in the web app.</figcaption></figure>
 ${ann.legend}
 <h3 id="header-controls">The header</h3>
-<ul>
-<li>${ctl('▶ DEMO')} (web app only) plays the default demo, a piece during which the factory presets change every few seconds; the ${ctl('▾')} beside it opens the other demo pieces and lets you load your own MIDI file — see <a href="#demo">Demo</a>.</li>
-<li>${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} chooses which engine section is shown in the upper left (and the accent colour). What you hear is set by the ${P('ab_mix')} knob at the right of that section — engine A, engine B, or both mixed (see <a href="#mix">Mixing engines A and B</a>). The filter, position, envelopes, LFO, voice and effects are shared by both engines.</li>
-<li>The preset browser shows the current preset; a dot after the name means it has been modified. See <a href="#saving">Browsing and saving presets</a>.</li>
-<li>${ctl('MANUAL A')} and ${ctl('MANUAL B')} open the manuals — in the web app as an overlay (close it with ✕, ${kbd('Esc')} or a click outside; “Open in new tab” pops it out), in the plugin in your web browser.</li>
-<li>The small knob at the right is the master ${ctl('VOLUME')} (−36 to +6 dB, default −3 dB), followed by the stereo output meter. In the plugin, a size button next to the logo opens a menu of window sizes (70–150 %).</li>
-</ul>
+${S.headerControls(E)}
 <h3 id="handling">Working with the controls</h3>
 ${S.controlsHowTo(E)}`;
 
@@ -104,7 +81,7 @@ const engRows = [
   ['b_pattern', 'Writes every atom of the 11 bands — see <a href="#patterns">Atom patterns</a>.', 'The pattern sets the harmonic structure; the drawbars set the balance.'],
   ['b_seed', `Chooses one of 100 repeatable random patterns. Only active with ${ctl('RANDOM')} (greyed out otherwise).`, 'Hover and roll the mouse wheel to audition seeds one by one.'],
   [{ key: 'wavelet', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'The shape of the atoms — see <a href="#wavelets">The wavelet chooses the atom</a>. Shared with engine A.', 'Haar = square-wave bands; Daubechies 20 = sine-like bands.'],
-  [{ key: 'wav2', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'WAVELET MORPH (beta 0.3) also acts on engine B: its bands are built with WAVELET 2 as well and crossfaded by MORPH, the LFO (LFO→WAVELET) and the mod envelope (ENV>WAV). WAVELET 2, MORPH and ENV>WAV are on the engine A panel.', 'Show the engine A panel to set them; LFO→WAVELET is in the LFO section.'],
+  [{ key: 'wav2', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'WAVELET MORPH (beta 0.3) also acts on engine B: its bands are built with WAVELET 2 as well and crossfaded by MORPH, LFO 1 (its WAVELET knob) and the mod envelope (ENV>WAV). WAVELET 2, MORPH and ENV>WAV are on the engine A panel.', 'Show the engine A panel to set them; the WAVELET knob of LFO 1 is on both panels.'],
   [{ key: 'b_bar1', label: '1 … 11', range: '0 – 100 % each', def: '100 %', host: 'Band 1 Level … Band 11 Level' }, 'The eleven drawbars: the level of each band, from band 1 (the fundamental, left) to band 11 (the finest atoms, right).', 'Drag vertically or use the mouse wheel; double-click resets a drawbar to 100 %.'],
   ['b_tilt', 'A slope across the drawbars: band <i>b</i> gets TILT × (<i>b</i> − 1) dB extra. 0 = flat; −6 dB/band halves the level from band to band (the sawtooth law); positive values favour the fine bands.', '−3 for bright, −9 to −12 for mellow sounds.'],
   ['b_atk', 'Attack time of the SCALE ENVELOPE for the middle band (band 6). SPREAD derives the other bands’ attack times from it.', ''],
@@ -163,7 +140,7 @@ ${recipe('r-organ', 'Drawbar organ', 'Start from: B · Octave Organ (or B · Ini
   `${P('b_pattern')} ${ctl('RAMP')}, ${P('wavelet')} Daubechies 20, ${P('b_tilt')} 0 dB/band.`,
   'Drawbars 1–7 at 100, 80, 60, 70, 30, 50 and 20 %; drawbars 8–11 at 0 %.',
   'AMP ENVELOPE: ATTACK 10 ms, DECAY 100 ms, SUSTAIN 100 %, RELEASE 80 ms.',
-  `LFO: ${ctl('SINE')}, ${P('lfo_rate')} 6 Hz, ${P('lfo_pitch')} 6 cents — or leave PITCH at 0 and use the mod wheel. ${P('fx_rmix')} 20 %.`,
+  `LFO 1: ${ctl('SINE')}, ${P('lfo_rate')} 6 Hz, ${P('lfo_pitch')} 6 cents — or leave PITCH at 0 and use the mod wheel. ${P('fx_rmix')} 20 %.`,
   `For a percussion accent: ${P('b_sus')} 60 %, ${P('b_body')} 20 s, ${P('b_bright')} 250 ms — the upper bands start loud and settle quickly, the body stays.`,
 ], `<b>Try next:</b> Haar turns every band into a square wave for a reedy organ; ${ctl('WALSH')} gives a hollow combo-organ colour.`)}
 ${recipe('r-chip', 'Chip-tune Walsh lead', 'Start from: B · Init', [
@@ -171,7 +148,7 @@ ${recipe('r-chip', 'Chip-tune Walsh lead', 'Start from: B · Init', [
   'Drawbars: 1 at 100 %, 2 at 50 %, 3 at 70 %, 5 at 40 %, all others at 0 %.',
   `AMP ENVELOPE: ATTACK 1 ms, DECAY 200 ms, SUSTAIN 60 %, RELEASE 50 ms. ${ctl('VOLUME')} −6 dB.`,
   `${P('v_voices')} 1 and ${P('v_glide')} 30 ms for chip-style slides.`,
-  `For a fast trill: LFO ${ctl('SQR')}, ${P('lfo_rate')} 12 Hz, ${P('lfo_pitch')} 50 cents (the pitch flips between −50 and +50 cents).`,
+  `For a fast trill: LFO 1 ${ctl('SQR')}, ${P('lfo_rate')} 12 Hz, ${P('lfo_pitch')} 50 cents (the pitch flips between −50 and +50 cents).`,
 ], `<b>Try next:</b> move drawbars 2 and 3 to change the Walsh “duty cycle”; add ${P('fx_drive')} 20 %.`)}
 ${recipe('r-bell', 'Bell with per-band decays', 'Start from: B · Init', [
   `${P('b_pattern')} ${ctl('WALSH')}, ${P('wavelet')} Symlet 8, ${P('b_tilt')} −3 dB/band.`,
@@ -198,7 +175,7 @@ ${recipe('r-random', 'Random glass with seeds', 'Start from: B · Random Glass',
   `${P('b_pattern')} ${ctl('RANDOM')}, ${P('b_seed')} 17, ${P('wavelet')} Daubechies 8, ${P('b_tilt')} −4 dB/band.`,
   `SCALE ENVELOPE: ${P('b_atk')} 200 ms, ${P('b_spread')} +50 %, ${P('b_body')} 6 s, ${P('b_bright')} 1.5 s, ${P('b_sus')} 40 %.`,
   `AMP ENVELOPE: ATTACK 300 ms, SUSTAIN 90 %, RELEASE 2 s. ${P('v_unison')} 3.`,
-  `POSITION ${P('p_depth')} 60 %; LFO ${ctl('SINE')}, ${P('lfo_rate')} 0.2 Hz, ${P('lfo_pos')} ±72°. ${P('fx_rmix')} 45 %, ${ctl('VOLUME')} −5 dB.`,
+  `POSITION ${P('p_depth')} 60 %; LFO 1 ${ctl('SINE')}, ${P('lfo_rate')} 0.2 Hz, ${P('lfo_pos')} ±72°. ${P('fx_rmix')} 45 %, ${ctl('VOLUME')} −5 dB.`,
   `Hold a chord, hover over ${P('b_seed')} and roll the mouse wheel: every seed is a new, repeatable timbre.`,
 ], '<b>Listen for:</b> the slow LFO moving the 60 %-deep window makes the detail breathe around the cycle, while the spread attack lets the shimmer arrive after the body.')}
 ${recipe('r-staircase', 'From square to sawtooth', 'Start from: B · Init', [
@@ -207,13 +184,13 @@ ${recipe('r-staircase', 'From square to sawtooth', 'Start from: B · Init', [
   `Put them back up and change ${P('b_tilt')}: −3 is brighter than a sawtooth, −9 darker, 0 a buzzy stack of equal squares.`,
   `Switch ${P('wavelet')} to Daubechies 20: the same registration becomes a smooth stack of octave sines — the steps were the Haar atoms.`,
 ], '<b>Listen for:</b> at middle C only drawbars 1–7 make a difference — see <a href="#bands">Where the bands are</a>.')}
-${recipe('r-focus', 'Focus sweep (LFO → POSITION)', 'Start from: B · Focus Sweep', [
+${recipe('r-focus', 'Focus sweep (LFO 1 → POSITION)', 'Start from: B · Focus Sweep', [
   `${P('b_pattern')} ${ctl('RAMP')}, ${P('wavelet')} Haar, ${P('b_tilt')} −3 dB/band.`,
   `POSITION: ${P('p_center')} 0°, ${P('p_width')} 30 %, ${P('p_depth')} 100 %.`,
-  `LFO: ${ctl('SINE')}, ${P('lfo_rate')} 0.5 Hz, ${P('lfo_pos')} ±180°. AMP ${P('amp_s')} 100 %.`,
+  `LFO 1: ${ctl('SINE')}, ${P('lfo_rate')} 0.5 Hz, ${P('lfo_pos')} ±180°. AMP ${P('amp_s')} 100 %.`,
   `${P('fx_dmix')} 25 %, ${P('fx_rmix')} 20 %.`,
   'Hold a note and watch the SCOPE: band 1 (a square) stays put while the staircase detail travels around the cycle.',
-], `<b>Try next:</b> ${P('p_width')} 10–15 % on low notes for a narrow, buzzy “formant”; LFO ${ctl('S&amp;H')} for random, vowel-like jumps.`)}
+], `<b>Try next:</b> ${P('p_width')} 10–15 % on low notes for a narrow, buzzy “formant”; LFO 1 ${ctl('S&amp;H')} for random, vowel-like jumps.`)}
 ${recipe('r-filter', 'Filter pluck on an additive source', 'Start from: B · Init', [
   `${P('wavelet')} Daubechies 8 (keep ${ctl('RAMP')} and TILT −6 dB/band).`,
   `SCALE FILTER: ${ctl('LOW-PASS')}, ${P('f_cutoff')} 2, ${P('f_slope')} 24 dB/band, ${P('f_res')} 6 dB, ${P('f_env')} +6 bands.`,
@@ -305,12 +282,11 @@ const sections = [
   { id: 'filter', num: '5', title: 'Scale filter', html: S.filterSection(E), subs: [{ id: 'filter-types', title: 'The four types in numbers' }] },
   { id: 'position', num: '6', title: 'Position window', html: S.positionSection(E), subs: [{ id: 'window-high', title: 'High notes and modulation' }] },
   { id: 'envelopes', num: '7', title: 'Envelopes', html: S.envelopesSection(E), subs: [{ id: 'amp-env', title: 'Amp envelope' }, { id: 'mod-env', title: 'Mod envelope' }] },
-  { id: 'lfo', num: '8', title: 'LFO', html: S.lfoSection(E) },
+  { id: 'lfo', num: '8', title: 'LFO 1 and LFO 2', html: S.lfoSection(E), subs: [{ id: 'lfo1', title: 'LFO 1' }, { id: 'lfo2', title: 'LFO 2' }, { id: 'lfo-sync', title: 'Tempo sync (plug-in)' }] },
   { id: 'voice', title: 'Voice', html: S.voiceSection(E) },
   { id: 'sub', title: 'Sub oscillator', html: S.subSection(E) },
   { id: 'mix', title: 'Mixing engines A and B', html: S.mixSection(E) },
-  { id: 'chorus', title: 'Chorus (string machine)', html: S.chorusSection(E) },
-  { id: 'effects', num: '10', title: 'Effects and master', html: S.fxSection(E) },
+  { id: 'effects', num: '10', title: 'Effects and master', html: S.fxSection(E), subs: [{ id: 'chorus', title: 'Chorus (string machine)' }, { id: 'delay-sync', title: 'Delay tempo sync (plug-in)' }] },
   { id: 'displays', num: '11', title: 'Displays', html: S.displaysSection(E) },
   { id: 'recipes', num: '12', title: 'Sound-design recipes', html: recipes, subs: [{ id: 'r-organ', title: 'Drawbar organ' }, { id: 'r-chip', title: 'Chip-tune Walsh lead' }, { id: 'r-bell', title: 'Bell with per-band decays' }, { id: 'r-swell', title: 'Swelling pad' }, { id: 'r-pluck', title: 'Impulse pluck' }, { id: 'r-random', title: 'Random glass' }, { id: 'r-staircase', title: 'Square to sawtooth' }, { id: 'r-focus', title: 'Focus sweep' }, { id: 'r-filter', title: 'Filter pluck' }, { id: 'r-legato', title: 'Legato flute' }, { id: 'r-polyglide', title: 'Gliding organ chords' }, { id: 'r-sub', title: 'Pedal organ with a 32′ sub' }] },
   { id: 'presets', num: '13', title: 'Factory presets', html: presets, subs: [{ id: 'saving', title: 'Browsing and saving' }] },

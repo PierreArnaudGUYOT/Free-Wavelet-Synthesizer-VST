@@ -18,7 +18,9 @@ const APP = pathToFileURL(path.join(ROOT, 'web', 'index.html')).href;
 // The 1100 x 720 panel is drawn at scale 1 in a 1124 x 782 window (12 px margin, 38 px status bar); "#nobrowser" leaves the
 // preset browser (beta 0.3) out, so the panel alone fills the window.
 // Clips are in CSS pixels of that window: panel coordinate + 12.
-const TOP = { x: 20, y: 64, width: 1084, height: 268 };      // ENGINE section + SCOPE · SCALOGRAM
+const TOP = { x: 20, y: 64, width: 1084, height: 268 };      // the top row (beta 0.6): ENGINE section + SUB OSC + SCOPE (scope and scalogram)
+// beta 0.6: the welcome window (640 px wide, centred; about 298 px high) with a 20 px margin of the dimmed panel around it
+const WELCOME = { x: 222, y: 222, width: 680, height: 338 };
 const set = o => Object.entries(o).map(([k, v]) => `WS_TEST.setParam('${k}', ${v});`).join('');
 
 const jobs = [
@@ -29,8 +31,15 @@ const jobs = [
   { url: `${APP}#nobrowser&noaudio&preset=${pre('A · Init')}`, eval: set({ a_wave: 0, wavelet: 3, a_sparsity: 0.5, f_cutoff: 12 }), wait: 500, clip: TOP, out: 'sparse-saw.png' },
   { url: `${APP}#nobrowser&noaudio&preset=${pre('B · Octave Organ')}`, clip: TOP, out: 'organ.png' },
   { url: `${APP}#nobrowser&noaudio&preset=${pre('B · Focus Sweep')}`, clip: TOP, out: 'focus-sweep.png' },
-  { url: `${APP}#nobrowser&noaudio`, eval: "document.querySelector('.presets .pname').click();", clip: { x: 570, y: 14, width: 316, height: 560 }, out: 'presets-menu.png' },
-  { url: `${APP}#nobrowser`, clip: { x: 157, y: 300, width: 810, height: 150 }, out: 'start-overlay.png' },
+  // the preset list with ★ TOP SOUNDS folded and the Keys group open, scrolled to its top: the caption's category groups and
+  // engine letters are in view
+  { url: `${APP}#nobrowser&noaudio`, eval: "document.querySelector('.presets .pname').click(); { const m = document.querySelector('.pmenu');" +
+    " const g = m && m.querySelector('.grp.fold.open'); if (g) g.click();" +
+    " const k = m && [...m.querySelectorAll('.grp.fold')].find(x => /KEYS/.test(x.textContent)); if (k && !k.classList.contains('open')) k.click();" +
+    " if (m) m.scrollTop = 0; }",
+    clip: { x: 570, y: 14, width: 316, height: 560 }, out: 'presets-menu.png' },
+  // the page without #noaudio opens on the welcome window (beta 0.6; it replaces "Click to start audio")
+  { url: `${APP}#nobrowser`, clip: WELCOME, out: 'start-overlay.png' },
   // the ▾ demo menu (opens without starting audio)
   { url: `${APP}#nobrowser&noaudio`, eval: "document.querySelector('.demo-arrow').click();", wait: 400, clip: { x: 226, y: 18, width: 384, height: 344 }, out: 'demo-menu.png' },
   // the default DEMO (preset tour) about 9.5 s in (4 s per preset), on its third preset; the panel only, without the status bar

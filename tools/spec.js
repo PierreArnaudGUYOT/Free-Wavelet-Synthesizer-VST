@@ -7,6 +7,9 @@
 //   beta 0.4 (2026-10-17) — SOURCE PHASE (engine A, also an LFO 2 target), 100 presets in the Source Phase section.
 //   beta 0.5 (2026-10-17) — OktoPierre's sort: 150 presets, new TOP Sounds, Source Phase second; presets moved between
 //                           categories and chosen with the arrow keys in the plug-in's browser.
+//   beta 0.6 (2026-10-18) — new panel layout (SUB OSC at the top, LFO 1 and LFO 2 side by side, the chorus in EFFECTS,
+//                           VOICE at the bottom, one MANUAL button); tempo sync of the delay and both LFOs (plug-in);
+//                           the web app's welcome window and DOWNLOAD VST button.
 // Parameters, panel layout and factory presets are defined here once and
 // generated into web/js/spec.js and vst/src/generated/spec.h by gen_spec.js.
 // Parameter order defines the VST3 ParamIDs: append only, never reorder.
@@ -19,8 +22,8 @@ const APP = {
   credit: 'created by OktoPierre',   // shown on the panel
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: 'beta 0.5',
-  versionNum: '0.5.0',
+  version: 'beta 0.6',
+  versionNum: '0.6.0',
   date: '2026-10-17',
   doi: '10.5281/zenodo.23431760',   // the Zenodo record of the code (https://zenodo.org/records/23431760)
 };
@@ -70,12 +73,12 @@ add('mod_a', 'Mod Attack', 'ATTACK', { curve: 'exp', fmt: 'sec', min: 0.001, max
 add('mod_d', 'Mod Decay', 'DECAY', { curve: 'exp', fmt: 'sec', min: 0.001, max: 10, def: 0.5 });
 add('mod_s', 'Mod Sustain', 'SUSTAIN', { min: 0, max: 1, def: 0.3 });
 add('mod_r', 'Mod Release', 'RELEASE', { curve: 'exp', fmt: 'sec', min: 0.001, max: 10, def: 0.5 });
-add('lfo_shape', 'LFO Shape', 'SHAPE', { curve: 'choice', fmt: 'choice', min: 0, max: 4, def: 0,
+add('lfo_shape', 'LFO 1 Shape', 'SHAPE', { curve: 'choice', fmt: 'choice', min: 0, max: 4, def: 0,
   choices: ['Sine', 'Triangle', 'Saw', 'Square', 'Sample & Hold'], choiceShort: ['SINE', 'TRI', 'SAW', 'SQR', 'S&H'] });
-add('lfo_rate', 'LFO Rate', 'RATE', { curve: 'exp', fmt: 'hz', min: 0.05, max: 20, def: 4 });
-add('lfo_pitch', 'LFO to Pitch', 'PITCH', { fmt: 'cents', min: 0, max: 100, def: 0 });
-add('lfo_cut', 'LFO to Cutoff', 'CUTOFF', { fmt: 'bandamt', min: 0, max: 6, def: 0 });
-add('lfo_pos', 'LFO to Position', 'POSITION', { fmt: 'cyc', min: 0, max: 0.5, def: 0 });
+add('lfo_rate', 'LFO 1 Rate', 'RATE', { curve: 'exp', fmt: 'hz', min: 0.05, max: 20, def: 4 });
+add('lfo_pitch', 'LFO 1 to Pitch', 'PITCH', { fmt: 'cents', min: 0, max: 100, def: 0 });
+add('lfo_cut', 'LFO 1 to Cutoff', 'CUTOFF', { fmt: 'bandamt', min: 0, max: 6, def: 0 });
+add('lfo_pos', 'LFO 1 to Position', 'POSITION', { fmt: 'cyc', min: 0, max: 0.5, def: 0 });
 add('v_oct', 'Octave', 'OCTAVE', { curve: 'int', fmt: 'int', min: -3, max: 3, def: 0 });
 add('v_fine', 'Fine Tune', 'FINE', { fmt: 'cents', min: -100, max: 100, def: 0 });
 add('v_voices', 'Voices', 'VOICES', { curve: 'int', fmt: 'int', min: 1, max: 16, def: 8 });
@@ -118,7 +121,7 @@ add('wav2', 'Wavelet 2', 'WAVELET 2', { curve: 'choice', fmt: 'choice', min: 0, 
   choices: ['Haar', 'Daubechies 2', 'Daubechies 4', 'Daubechies 8', 'Symlet 8', 'Coiflet 3', 'Daubechies 20'],
   choiceShort: ['HAAR', 'DB2', 'DB4', 'DB8', 'SYM8', 'COIF3', 'DB20'] });
 add('wmorph', 'Wavelet Morph', 'MORPH', { min: 0, max: 1, def: 0 });
-add('lfo_wav', 'LFO to Wavelet Morph', 'WAVELET', { min: 0, max: 1, def: 0 });
+add('lfo_wav', 'LFO 1 to Wavelet Morph', 'WAVELET', { min: 0, max: 1, def: 0 });
 add('env_wav', 'Envelope to Wavelet Morph', 'ENV>WAV', { fmt: 'bipct', min: -1, max: 1, def: 0 });
 // beta 0.3: LFO 2, a second free-running LFO on one parameter of the SCALE FILTER or the POSITION window (the TARGET menu
 // next to its title, LFO2_TARGETS below). AMOUNT moves the target by up to ± half its range (kept in range; POSITION wraps
@@ -138,6 +141,29 @@ add('lfo2_target', 'LFO 2 Target', 'TARGET', { curve: 'choice', fmt: 'choice', m
 // default) is the source of beta 0.3: older sounds stay bit-identical. LFO 2 can move it (its last TARGET): the tables
 // are then also built at PHASE_K positions round the cycle and each voice crossfades between the two nearest (core.js).
 add('a_phase', 'Source Phase', 'PHASE', { fmt: 'deg', min: 0, max: 1, def: 0, structural: true });
+// beta 0.6: TEMPO SYNC (VST plug-in: the host's tempo, 120 BPM when the host gives none). SYNC on: the delay's TIME and the
+// LFOs' RATE become note values (T = triplet, x 2/3; D = dotted, x 1.5), listed by length (the knob goes one way); the
+// delay holds up to 4 s. The web app has no tempo: it keeps seconds and hertz (its panel has no SYNC). Off by default.
+const noteBeats = n => {   // '1/8 D' -> 0.75 beat (a quarter note = 1)
+  const m = /^(\d+)\/(\d+)( [TD])?$/.exec(n);
+  return 4 * m[1] / m[2] * (m[3] === ' T' ? 2 / 3 : m[3] === ' D' ? 1.5 : 1);
+};
+const DELAY_NOTES = ['1/32', '1/16 T', '1/16', '1/8 T', '1/16 D', '1/8', '1/4 T', '1/8 D', '1/4', '1/2 T', '1/4 D', '1/2', '1/2 D', '1/1'];
+const LFO_NOTES = ['4/1', '2/1', '1/1', '1/2 D', '1/2', '1/4 D', '1/2 T', '1/4', '1/8 D', '1/4 T', '1/8', '1/16 D', '1/8 T', '1/16',
+  '1/16 T', '1/32'];
+const syncChoice = { curve: 'choice', fmt: 'choice', min: 0, max: 1, def: 0, choices: ['Off', 'On'], choiceShort: ['OFF', 'SYNC'] };
+const notes = (list, def) => ({ curve: 'choice', fmt: 'choice', min: 0, max: list.length - 1, def: list.indexOf(def), choices: list,
+  choiceShort: list.map(n => n.replace(' ', '')) });
+add('fx_dsync', 'Delay Sync', 'SYNC', syncChoice);
+add('fx_ddiv', 'Delay Time (sync)', 'TIME', notes(DELAY_NOTES, '1/8'));
+add('lfo_sync', 'LFO 1 Sync', 'SYNC', syncChoice);
+add('lfo_div', 'LFO 1 Rate (sync)', 'RATE', notes(LFO_NOTES, '1/4'));
+add('lfo2_sync', 'LFO 2 Sync', 'SYNC', syncChoice);
+add('lfo2_div', 'LFO 2 Rate (sync)', 'RATE', notes(LFO_NOTES, '1/4'));
+const DELAY_BEATS = DELAY_NOTES.map(noteBeats), LFO_BEATS = LFO_NOTES.map(noteBeats);
+for (const b of [DELAY_BEATS, LFO_BEATS]) for (let i = 1; i < b.length; i++)
+  if ((b === DELAY_BEATS) !== (b[i] > b[i - 1])) throw new Error('note values must be listed by length');
+
 // the parameters LFO 2 can move, in the order of the TARGET choices (all linear: the move is in plain units)
 const LFO2_TARGETS = ['f_cutoff', 'f_slope', 'f_res', 'f_keytrk', 'f_env', 'f_vel', 'p_center', 'p_width', 'p_depth', 'a_phase'];
 
@@ -148,7 +174,9 @@ if (LFO2_TARGETS.length !== P[idx.lfo2_target].choices.length || LFO2_TARGETS.so
 // ---------------------------------------------------------------- layout
 // Sections are cards; widget coordinates are relative to their section.
 // widget types: knobL knobM knobS knobT seg step drawbar scope scalogram atom source
-//               window adsr leds fxheads keyboard wheels logo presets manualA manualB meter zoom credit
+//               window adsr leds fxheads keyboard wheels logo presets manual download meter zoom credit menu toggle label
+// beta 0.6 widget fields: only 'web' / 'vst' (shown in one of them), vis + visOn (shown while that parameter is on / off,
+// the plug-in's SYNC), style 'value' (a knob labelled with its value: note values), text (toggle, label, menu caption)
 const S = [];
 function section(id, title, x, y, w, h, mode, widgets) { S.push({ id, title, x, y, w, h, mode: mode || '', widgets }); }
 const kn = (key, x, y, t) => ({ type: t || 'knobM', param: key, x, y, w: t === 'knobL' ? 80 : 52, h: t === 'knobL' ? 92 : 60 });
@@ -159,8 +187,8 @@ section('header', '', 0, 0, 1100, 48, '', [
   { type: 'zoom', x: 222, y: 14, w: 50, h: 20 },
   { type: 'seg', param: 'engine', style: 'engine', x: 290, y: 9, w: 264, h: 30 },
   { type: 'presets', x: 566, y: 9, w: 300, h: 30 },
-  { type: 'manualA', x: 876, y: 9, w: 68, h: 30 },
-  { type: 'manualB', x: 950, y: 9, w: 68, h: 30 },
+  { type: 'download', only: 'web', x: 876, y: 9, w: 68, h: 30 },   // beta 0.6; the plug-in has SAVE PRESET there
+  { type: 'manual', x: 950, y: 9, w: 68, h: 30 },                    // beta 0.6: the manual of the engine shown
   { type: 'knobS', param: 'master', x: 1028, y: 6, w: 36, h: 36 },
   { type: 'meter', x: 1072, y: 9, w: 14, h: 30 },
 ]);
@@ -189,9 +217,15 @@ section('engB', 'ENGINE B · WAVELET ADDITIVE', 12, 56, 544, 260, 'B', [
   ...row(['b_atk', 'b_spread', 'b_body', 'b_bright', 'b_sus'], 12, 198),
 ]);
 
-section('display', 'SCOPE · SCALOGRAM', 564, 56, 524, 260, '', [
-  { type: 'scope', x: 12, y: 30, w: 500, h: 104 },
-  { type: 'scalogram', x: 12, y: 142, w: 500, h: 106 },
+// beta 0.6: SUB OSC next to the oscillator; the scope narrower, SCALOGRAM written above the scalogram
+section('sub', 'SUB OSC', 564, 56, 112, 260, '', [
+  kn('sub_level', 16, 40, 'knobL'),
+  kn('sub_oct', 4, 156), kn('sub_shape', 56, 156),
+]);
+section('display', 'SCOPE', 684, 56, 404, 260, '', [
+  { type: 'scope', x: 12, y: 30, w: 380, h: 92 },
+  { type: 'label', text: 'SCALOGRAM', x: 12, y: 126, w: 380, h: 14 },
+  { type: 'scalogram', x: 12, y: 142, w: 380, h: 106 },
 ]);
 
 section('filter', 'SCALE FILTER', 12, 324, 336, 140, '', [
@@ -210,41 +244,42 @@ section('modenv', 'MOD ENVELOPE', 836, 324, 252, 140, '', [
   { type: 'adsr', env: 'mod', x: 12, y: 30, w: 228, h: 26 },
   ...row(['mod_a', 'mod_d', 'mod_s', 'mod_r'], 22, 64),
 ]);
-section('lfo', 'LFO', 12, 472, 284, 140, '', [
+// beta 0.6: LFO 1 and LFO 2 side by side, the same size; the plug-in's SYNC buttons swap RATE / TIME for a note value
+const synced = (key, div, sync, x, y) => [Object.assign(kn(key, x, y), { vis: sync, visOn: false }),
+  Object.assign(kn(div, x, y), { vis: sync, visOn: true, only: 'vst', style: 'value' })];
+const syncBtn = (key, x, y) => ({ type: 'toggle', param: key, text: 'SYNC', only: 'vst', x, y, w: 42, h: 17 });
+section('lfo', 'LFO 1', 12, 472, 284, 140, '', [
   { type: 'seg', param: 'lfo_shape', x: 12, y: 30, w: 260, h: 24 },
-  ...row(['lfo_rate', 'lfo_pitch', 'lfo_cut', 'lfo_pos', 'lfo_wav'], 12, 64),
+  syncBtn('lfo_sync', 230, 6),
+  ...synced('lfo_rate', 'lfo_div', 'lfo_sync', 12, 64),
+  ...row(['lfo_pitch', 'lfo_cut', 'lfo_pos', 'lfo_wav'], 64, 64),
 ]);
-section('voice', 'VOICE', 304, 472, 388, 140, '', [
-  { type: 'seg', param: 'v_porta', x: 12, y: 30, w: 156, h: 22 },
-  { type: 'leds', x: 176, y: 32, w: 200, h: 18 },
-  ...row(['v_oct', 'v_fine', 'v_voices', 'v_glide', 'v_unison', 'v_detune', 'v_width'], 12, 64),
+section('lfo2', 'LFO 2', 304, 472, 284, 140, '', [
+  { type: 'seg', param: 'lfo2_shape', x: 12, y: 30, w: 260, h: 24 },
+  syncBtn('lfo2_sync', 230, 6),
+  ...synced('lfo2_rate', 'lfo2_div', 'lfo2_sync', 12, 64),
+  kn('lfo2_amt', 64, 64),
+  { type: 'menu', param: 'lfo2_target', text: 'TARGET', x: 128, y: 84, w: 144, h: 24 },
 ]);
-section('fx', 'EFFECTS', 700, 472, 388, 140, '', [
-  { type: 'fxheads', x: 12, y: 32, w: 364, h: 18 },
-  ...row(['fx_drive', 'fx_dtime', 'fx_dfb', 'fx_dmix', 'fx_rsize', 'fx_rmix'], 38, 64),
+// the effects in the order of the sound: saturation, chorus (beta 0.6: from its own card), ping-pong delay, reverb
+section('fx', 'EFFECTS', 596, 472, 492, 140, '', [
+  { type: 'fxheads', x: 0, y: 32, w: 492, h: 18 },
+  syncBtn('fx_dsync', 332, 29),
+  ...row(['fx_drive', 'ch_mix', 'ch_rate', 'ch_depth'], 12, 64),
+  ...synced('fx_dtime', 'fx_ddiv', 'fx_dsync', 220, 64),
+  ...row(['fx_dfb', 'fx_dmix', 'fx_rsize', 'fx_rmix'], 272, 64),
 ]);
 section('keys', '', 0, 620, 1100, 100, '', [
-  { type: 'wheels', x: 12, y: 0, w: 60, h: 84 },
+  { type: 'wheels', x: 436, y: 0, w: 60, h: 84 },   // beta 0.6: just left of the keyboard
   { type: 'keyboard', x: 504, y: 0, w: 584, h: 84 },   // narrower since beta 0.3 (LFO 2 card), still C2–C7
-  { type: 'credit', x: 588, y: 87, w: 500, h: 12 },
+  { type: 'credit', x: 588, y: 85, w: 500, h: 15 },   // beta 0.6: "Created by OktoPierre" larger
 ]);
-// knobT = tiny knob with label (cell 40 x 56)
-section('sub', 'SUB OSC', 80, 620, 128, 84, '', [
-  { type: 'knobT', param: 'sub_level', x: 4, y: 22, w: 40, h: 58 },
-  { type: 'knobT', param: 'sub_oct', x: 44, y: 22, w: 40, h: 58 },
-  { type: 'knobT', param: 'sub_shape', x: 84, y: 22, w: 40, h: 58 },
-]);
-section('chorus', 'CHORUS', 216, 620, 128, 84, '', [
-  { type: 'knobT', param: 'ch_mix', x: 4, y: 22, w: 40, h: 58 },
-  { type: 'knobT', param: 'ch_rate', x: 44, y: 22, w: 40, h: 58 },
-  { type: 'knobT', param: 'ch_depth', x: 84, y: 22, w: 40, h: 58 },
-]);
-// beta 0.3: LFO 2, its TARGET menu next to the title
-section('lfo2', 'LFO 2', 352, 620, 144, 84, '', [
-  { type: 'menu', param: 'lfo2_target', x: 52, y: 4, w: 86, h: 17 },
-  { type: 'knobT', param: 'lfo2_shape', x: 8, y: 22, w: 40, h: 58 },
-  { type: 'knobT', param: 'lfo2_rate', x: 52, y: 22, w: 40, h: 58 },
-  { type: 'knobT', param: 'lfo2_amt', x: 96, y: 22, w: 40, h: 58 },
+// beta 0.6: VOICE at the bottom left (the wheels moved next to the keyboard): the portamento selector and the voice LEDs in its
+// title row, its seven knobs below
+section('voice', 'VOICE', 12, 620, 416, 84, '', [
+  { type: 'seg', param: 'v_porta', x: 66, y: 4, w: 150, h: 18 },
+  { type: 'leds', x: 226, y: 4, w: 180, h: 18 },
+  ...row(['v_oct', 'v_fine', 'v_voices', 'v_glide', 'v_unison', 'v_detune', 'v_width'], 26, 24),
 ]);
 
 // ---------------------------------------------------------------- presets
@@ -868,7 +903,11 @@ for (const pr of PRESETS) for (const [k, v] of Object.entries(pr.v)) {
   const p = P[idx[k]];
   if (v < p.min || v > p.max) throw new Error(`preset ${pr.name}: ${k}=${v} out of range`);
 }
-for (const s of S) for (const w of s.widgets) if (w.param && !(w.param in idx)) throw new Error('layout: unknown param ' + w.param);
+for (const s of S) for (const w of s.widgets) {
+  if (w.param && !(w.param in idx)) throw new Error('layout: unknown param ' + w.param);
+  if (w.vis && !(w.vis in idx)) throw new Error('layout: unknown vis param ' + w.vis);
+  if (w.only && w.only !== 'web' && w.only !== 'vst') throw new Error('layout: only web or vst');
+}
 
 module.exports = { DEVICE, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_SOUNDS.length, CATEGORIES,
-  LFO2_TARGETS, LEFT_OUT };
+  LFO2_TARGETS, LEFT_OUT, DELAY_BEATS, LFO_BEATS };

@@ -210,5 +210,38 @@ console.log('9. no stuck note when a preset changes VOICES while a key is held (
   check(eng.voices[0].gate && eng.voices[0].note === 48, `mono legato: back to the key still held (note ${eng.voices[0].note})`);
 }
 
+console.log('10. tempo sync of the delay and the LFOs (beta 0.6)');
+{
+  const P = C.P, eng = new C.Engine(sr), DN = SPEC.PARAMS[P.fx_ddiv].choices, LN = SPEC.PARAMS[P.lfo_div].choices;
+  const set = o => { for (const [k, v] of Object.entries(o)) eng.setParam(P[k], v); };
+  set({ fx_dtime: 0.35, fx_dsync: 1, fx_ddiv: DN.indexOf('1/8 D'), lfo_rate: 4, lfo_sync: 1, lfo_div: LN.indexOf('1/4') });
+  check(eng.delaySec() === 0.35 && eng.lfoHz(P.lfo_sync, P.lfo_div, P.lfo_rate) === 4,
+    'no tempo (the web app): SYNC changes nothing, TIME 0.35 s and RATE 4 Hz stay');
+  eng.setTempo(120);
+  check(Math.abs(eng.delaySec() - 0.375) < 1e-12, `120 BPM, 1/8 D: the delay is ${eng.delaySec()} s (0.375)`);
+  check(Math.abs(eng.lfoHz(P.lfo_sync, P.lfo_div, P.lfo_rate) - 2) < 1e-12, '120 BPM, 1/4: LFO 1 at 2 Hz');
+  set({ fx_ddiv: DN.indexOf('1/16 T') }); eng.setTempo(100);
+  check(Math.abs(eng.delaySec() - 0.1) < 1e-12, `100 BPM, 1/16 T: ${eng.delaySec().toFixed(4)} s (0.1)`);
+  set({ fx_ddiv: DN.indexOf('1/1') }); eng.setTempo(30);
+  check(eng.delaySec() === 4, `30 BPM, 1/1 (8 s) is held at the 4 s maximum (${eng.delaySec()} s)`);
+  set({ lfo2_sync: 1, lfo2_div: LN.indexOf('4/1'), lfo2_rate: 1 }); eng.setTempo(60);
+  check(Math.abs(eng.lfoHz(P.lfo2_sync, P.lfo2_div, P.lfo2_rate) - 1 / 16) < 1e-12, '60 BPM, 4/1: LFO 2 at 1/16 Hz (four bars)');
+  set({ fx_dsync: 0, lfo_sync: 0, lfo2_sync: 0 });
+  check(eng.delaySec() === 0.35 && eng.lfoHz(P.lfo_sync, P.lfo_div, P.lfo_rate) === 4 && eng.lfoHz(P.lfo2_sync, P.lfo2_div, P.lfo2_rate) === 1,
+    'SYNC off at a tempo: the seconds and hertz of the knobs');
+  check(DN.length === 14 && LN.length === 16 && SPEC.PARAMS[P.fx_dsync].def === 0 && SPEC.PARAMS[P.lfo_sync].def === 0 && SPEC.PARAMS[P.lfo2_sync].def === 0,
+    '14 delay and 16 LFO note values; every SYNC off by default');
+  // the delay line holds 4 s: a 1/1 echo at 60 BPM comes 4 s after the note
+  const e2 = new C.Engine(sr), p2 = C.defaults();
+  p2[P.fx_dsync] = 1; p2[P.fx_ddiv] = DN.indexOf('1/1'); p2[P.fx_dmix] = 1; p2[P.fx_dfb] = 0; p2[P.amp_d] = 0.05; p2[P.amp_s] = 0; p2[P.amp_r] = 0.02;
+  p2.forEach((v, i) => e2.setParam(i, v)); e2.setTables(C.buildTables(p2, true)); e2.setTempo(60);
+  e2.setSampleRate(sr);   // the delay line starts at its synced length
+  const n = Math.ceil(4.4 * sr / 128) * 128, L = new Float32Array(n), R = new Float32Array(n);
+  for (let o = 0; o < n; o += 128) { if (o === 0) e2.noteOn(60, 0.9); if (o === 2432) e2.noteOff(60); e2.process(L.subarray(o, o + 128), R.subarray(o, o + 128), 128); }
+  let dry = 0; for (let i = 0; i < 0.2 * sr; i++) dry = Math.max(dry, Math.abs(L[i]));
+  let at = -1; for (let i = Math.round(0.3 * sr); i < n && at < 0; i++) if (Math.abs(L[i]) > 0.3 * dry) at = i / sr;
+  check(Math.abs(at - 4) < 0.01, `60 BPM, 1/1: the first echo after ${at.toFixed(3)} s (4 s)`);
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

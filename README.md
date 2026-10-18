@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23431760.svg)](https://doi.org/10.5281/zenodo.23431760)
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.5** (2026-10-17), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.6** (2026-10-17), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
@@ -22,6 +22,9 @@ browser** (TOP Sounds and the sound types) sits at the right of the panel; **SAV
 **DELETE** clears out the ones you do not want, ▲ ▼ reorder the lists, a sound **dragged onto a category** moves there (or
 joins TOP Sounds), the **arrow keys** choose sounds, and a **user bank** keeps your own sounds — all in one readable text
 file, `OKTOWAVE presets.txt`, kept next to the plug-in; EXPORT / IMPORT share it.
+beta 0.6 rearranges the panel (SUB OSC beside the oscillator, LFO 1 and LFO 2 side by side, the chorus inside EFFECTS,
+one MANUAL button) and adds **tempo SYNC** to the plug-in: the delay and both LFOs can follow the DAW's tempo in note
+values (1/4, 1/8 D, 1/16 T…); the web app opens with a welcome window (run the demo, play the synth, download the VST).
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.
@@ -31,9 +34,9 @@ a hardware keyboard, sequencer or controller plays it directly, no DAW needed).
 **Download the plugin**: see the
 [Releases](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases) page of the
 [GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST) —
-*V0.5 (beta)*, this version, with one zip for **Windows** 64-bit (VST3 / VST2) and one for **macOS** 10.13 or later (VST3,
+*V0.6 (beta)*, this version, with one zip for **Windows** 64-bit (VST3 / VST2) and one for **macOS** 10.13 or later (VST3,
 one universal plug-in for Apple silicon and Intel Macs; `INSTALL-mac.txt` in the zip explains the first start). The
-earlier versions (V0.4, V0.3, V0.3 for Mac…) stay on the same page. The web app also works offline:
+earlier versions (V0.5, V0.4, V0.3, V0.3 for Mac…) stay on the same page. The web app also works offline:
 download the repository and open `web/index.html`.
 
 **MIDI without a DAW (web app):** all inputs, notes, pitch bend, mod wheel, sustain; a channel selector in the status
@@ -50,7 +53,9 @@ Wavelets available: Haar, Daubechies 2/4/8/20, Symlet 8, Coiflet 3.
 ## Use it
 
 ### Web app
-Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or install needed), then click **Click to start audio**.
+Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or install needed). A welcome window offers **Run the demo**, **Play the synth** (MIDI
+supported; it starts the sound, then play) or **Download the VST** (the GitHub releases page, also the header's
+DOWNLOAD VST). **MANUAL** (header) opens the manual of the engine shown.
 - Play with the mouse on the keyboard, a MIDI keyboard (Web MIDI), or the computer keyboard:
   - digits **1 2 3 4 5 6 7 8 9 0** (or the numeric keypad) = C D E F G A B C D E (do ré mi…)
   - letter rows = chromatic piano (A W S E D F T G Y H U J K O L P)
@@ -59,7 +64,7 @@ Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or ins
   plays a sound, the **arrow keys** too (↑ ↓ sounds, ← → categories; HIDE folds the browser away and a click on the preset
   name brings it back). ◀ ▶ and the preset name's menu work as before. **Save preset / Export / Import** are in the status bar.
 - Works directly from the file (no web server needed).
-- **▶ DEMO** (header, web app) plays Beethoven's *Appassionata* (III) from the phrase after its opening chords while touring 30 presets:
+- **▶ DEMO** (header, web app, or *Run the demo* in the welcome window) plays Beethoven's *Appassionata* (III) from the phrase after its opening chords while touring 30 presets:
   a new preset about every 4 s, on a change of chord, starting with "B · Clarinet", then OktoPierre's TOP Sounds, then the beta 0.2
   chorus / sub / A + B presets (played polyphonic at their normal octave); the preset browser shows the preset being played. **▾** opens the list: J. S. Bach's *Toccata in D minor* or one of the virtuoso Beethoven piano works
   (*Appassionata* III, *Moonlight* III, *Rage over a Lost Penny*, Symphony No. 5 I (piano), *Pathétique* I, *The Tempest* I, Sonata Op. 111 I) —
@@ -80,8 +85,11 @@ The plugin is a single self-contained DLL. It depends only on Windows system lib
 needs to be installed. The same DLL is both a VST3 plug-in (`Contents\x86_64-win\WaveletSynthesizer.vst3`) and a VST2
 plug-in (the copy `WaveletSynthesizer.dll` next to it, found by hosts that scan a VST2 folder). The VST2 entry point
 (`vst/src/vst2.cpp`) hosts the same processor, controller and editor in-process; its declarations are written from
-the public VST 2.4 binary layout (Steinberg no longer licenses the VST2 SDK). The **MANUAL A / MANUAL B** buttons open
-the manuals bundled inside the `.vst3` folder.
+the public VST 2.4 binary layout (Steinberg no longer licenses the VST2 SDK). The **MANUAL** button opens
+the manual of the engine shown, bundled inside the `.vst3` folder.
+**Tempo SYNC** (beta 0.6, plug-in only): the SYNC buttons of the delay, LFO 1 and LFO 2 make TIME / RATE a note value
+of the host's tempo (delay 1/32 … 1/1, up to 4 s; LFOs 4/1 … 1/32; T = triplet, D = dotted; 120 BPM when the host
+gives no tempo).
 Pitch bend, the mod wheel (vibrato) and the sustain pedal are supported. All parameters can be automated.
 
 ### VST3 on a Mac

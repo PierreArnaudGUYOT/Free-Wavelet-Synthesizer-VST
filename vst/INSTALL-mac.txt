@@ -1,11 +1,15 @@
-Wavelet Synthesizer beta 0.5 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+Wavelet Synthesizer beta 0.6 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in WaveletSynthesizer.vst3/Contents/Resources/LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
 How to cite: Guyot, P. A. (2026). Wavelet Synthesizer [Computer software]. Zenodo.
 DOI 10.5281/zenodo.23431760 - https://doi.org/10.5281/zenodo.23431760 (record: https://zenodo.org/records/23431760)
 
-The same instrument as the Windows beta 0.5 (same sound, panel, 150 presets, preset browser and presets file).
+The same instrument as the Windows beta 0.6 (same sound, panel, 150 presets, preset browser and presets file).
+NEW IN BETA 0.6: a clearer panel (SUB OSC beside the oscillator, LFO 1 and LFO 2 side by side, the chorus inside
+EFFECTS, one MANUAL button for the engine shown) and TEMPO SYNC: the SYNC buttons of the delay, LFO 1 and LFO 2 follow
+your DAW's tempo in note values (1/4, 1/8 D = dotted, 1/16 T = triplet...; the delay up to 4 s). Your Live Sets and
+presets sound as before.
 NEW IN BETA 0.5: OktoPierre's sort of the presets (150 kept of 253; TOP Sounds = his 37 best, Source Phase second, each
 category in his order); a preset moves to another category by dragging it onto that category in the browser (onto TOP
 Sounds: added there) or by its menu (Control-click or right-click on it); the arrow keys choose sounds after a click in the
@@ -36,7 +40,7 @@ ON A MAC
 - Cmd-click (or double-click) a knob: back to its default value. Shift-drag: fine adjustment.
 - Control-click (or right-click) on the preset name: the classic preset menu. A click opens the preset browser.
   Control-click on a sound of the browser: its menu (Move to, Add to / Remove from TOP Sounds).
-- The MANUAL A / MANUAL B buttons open the user manuals included in the plug-in, in your web browser.
+- The MANUAL button opens the user manual of the engine shown (included in the plug-in), in your web browser.
 - Your adjusted presets, deleted presets and user bank are kept in "OKTOWAVE presets.txt", next to WaveletSynthesizer.vst3
   ("Show the presets file" in the preset-name menu shows it in the Finder; IMPORT... reads another one).
 

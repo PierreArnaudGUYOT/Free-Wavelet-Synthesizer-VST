@@ -358,13 +358,15 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
   uint32 PLUGIN_API getLatencySamples() override { return 0; }
   tresult PLUGIN_API setupProcessing(ProcessSetup& setup) override {
     if (setup.symbolicSampleSize != kSample32) return kResultFalse;
-    if (setup.sampleRate > 0 && setup.sampleRate != engine.sr) engine.setSampleRate(setup.sampleRate);
+    // beta 0.6 (security review): only real rates; an absurd one would overflow the 4 s delay line's size
+    if (setup.sampleRate >= kMinRate && setup.sampleRate <= kMaxRate && setup.sampleRate != engine.sr) engine.setSampleRate(setup.sampleRate);
     offline = setup.processMode == kOffline;
     return kResultOk;
   }
   tresult PLUGIN_API setProcessing(TBool) override { return kResultOk; }
   uint32 PLUGIN_API getTailSamples() override { return kInfiniteTail; }
-  uint32 PLUGIN_API getProcessContextRequirements() override { return 0; }
+  // beta 0.6: the tempo, for the tempo sync of the delay and the LFOs
+  uint32 PLUGIN_API getProcessContextRequirements() override { return IProcessContextRequirements::kNeedTempo; }
 
   tresult PLUGIN_API process(ProcessData& data) override {
     // flush denormals to zero on this thread while we process (restored on return)
@@ -377,6 +379,9 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
       ~FtzGuard() { __asm__ __volatile__("msr fpcr, %0" : : "r"(old)); }
     } ftz;
 #endif
+    // beta 0.6: the host's tempo for the tempo sync (120 BPM when the host gives none, so that SYNC always plays)
+    const ProcessContext* pc = data.processContext;
+    engine.setTempo(pc && (pc->state & ProcessContext::kTempoValid) && pc->tempo > 0 ? pc->tempo : 120.0);
     // 1. parameter changes (last value of each queue, applied at block start)
     if (data.inputParameterChanges) {
       int32 nq = data.inputParameterChanges->getParameterCount();

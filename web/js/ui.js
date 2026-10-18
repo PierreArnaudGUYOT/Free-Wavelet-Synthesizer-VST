@@ -10,6 +10,8 @@ const KB_LO = 36, KB_HI = 96;
 const isBlack = n => [1, 3, 6, 8, 10].includes(n % 12);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const SVGNS = 'http://www.w3.org/2000/svg';
+// beta 0.6: where the free plug-in is published (the header's DOWNLOAD VST; index.html's welcome window links there too)
+const VST_RELEASES = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases';
 
 function el(tag, cls, parent, style) {
   const e = document.createElement(tag);
@@ -105,6 +107,9 @@ class SynthUI {
   }
 
   makeWidget(w, parent, sec) {
+    // beta 0.6: the plug-in's tempo SYNC (buttons and note-value knobs) has no place here: the web app has no tempo. The
+    // widgets they replace (`vis`) are therefore always shown: RATE in hertz, the delay TIME in seconds.
+    if (w.only === 'vst') return;
     const box = el('div', 'w ' + w.type, parent, { left: w.x + 'px', top: w.y + 'px', width: w.w + 'px', height: w.h + 'px' });
     const ab = { x: sec.x + w.x, y: sec.y + w.y };
     switch (w.type) {
@@ -115,17 +120,27 @@ class SynthUI {
       case 'drawbar': return this.drawbar(w, box);
       case 'logo': return this.logo(box);
       case 'presets': return this.presets(box);
-      case 'manualA': case 'manualB': {
-        const b = el('button', 'hbtn' + (w.type === 'manualB' ? ' b' : ''), box, { width: '100%', height: '100%' });
-        b.innerHTML = `MANUAL<b>${w.type === 'manualA' ? 'A' : 'B'}</b>`;
-        b.title = w.type === 'manualA' ? 'Engine A user manual — wavelet subtractive' : 'Engine B user manual — wavelet additive';
-        b.onclick = () => this.host.openManual(w.type === 'manualA' ? 'A' : 'B');
+      case 'manual': {   // beta 0.6: one button, the manual of the engine shown (each manual links to the other)
+        const b = el('button', 'hbtn manual', box, { width: '100%', height: '100%' });
+        b.innerHTML = 'USER<b>MANUAL</b>';
+        b.onclick = () => this.host.openManual(this.mode === 1 ? 'B' : 'A');
+        this.manualBtn = b;
         return;
       }
+      case 'download': {   // beta 0.6, web only: the plug-in's releases on GitHub
+        const a = el('a', 'hbtn dl', box, { width: '100%', height: '100%' });
+        a.href = VST_RELEASES; a.target = '_blank'; a.rel = 'noopener';
+        a.innerHTML = 'DOWNLOAD<b>VST</b>';
+        a.title = 'Download the free VST plug-in (Windows VST3 / VST2, macOS VST3) from GitHub';
+        return;
+      }
+      case 'label': box.classList.add('wlabel'); box.textContent = w.text; return;
       case 'zoom': return;
       case 'credit': {
+        // beta 0.6: the author's name larger and brighter (the owner found it too discreet), version and licence small
         const A = this.SPEC.APP;
-        box.textContent = `${A.credit} · ${A.version} · ${A.license}`;
+        el('b', '', box).textContent = A.credit.charAt(0).toUpperCase() + A.credit.slice(1);
+        box.appendChild(document.createTextNode(` · ${A.version} · ${A.license}`));
         box.title = `${A.name} — ${A.copyright}. Free software under the GNU General Public License v3 or later, WITHOUT ANY WARRANTY (see the LICENSE file).` +
           (A.doi ? ` Cite: DOI ${A.doi} (https://doi.org/${A.doi}).` : '');
         return;
@@ -169,7 +184,8 @@ class SynthUI {
         ptr.setAttribute('transform', `rotate(${(a * 180 / Math.PI).toFixed(2)} ${cx} ${cy})`);
         if (label) {
           const showVal = widget.hover || widget.drag;
-          label.textContent = showVal ? this.C.format(p, v) : p.short;
+          // style 'value' (beta 0.6): the value is the label (a note value says more than "TIME")
+          label.textContent = showVal || w.style === 'value' ? this.C.format(p, v) : p.short;
           label.classList.toggle('value', !!showVal);
         }
         if (small && (widget.hover || widget.drag)) this.showTip(box, `${p.name}: <b>${this.C.format(p, v)}</b>`);
@@ -277,6 +293,7 @@ class SynthUI {
     const i = this.P[w.param], p = this.params[i];
     box.classList.add('menu');
     box.title = p.name;
+    if (w.text) el('div', 'mcap', box).textContent = w.text;   // beta 0.6: its caption above it
     const btn = el('button', '', box);
     const set = (k) => { this.host.begin(i); this.host.set(i, k); this.host.end(i); };
     const close = () => { if (this.mpop) { this.mpop.remove(); this.mpop = null; } };
@@ -579,6 +596,7 @@ class SynthUI {
     this.dev.classList.toggle('mode-a', m === 0);
     this.dev.classList.toggle('mode-b', m === 1);
     if (this.browser) this.browser.classList.toggle('mode-b', m === 1);
+    if (this.manualBtn) this.manualBtn.title = m === 1 ? 'Engine B user manual — wavelet additive (engine B is shown)' : 'Engine A user manual — wavelet subtractive (engine A is shown)';
     for (const s of this.sections) {
       const hide = (s.spec.mode === 'A' && m !== 0) || (s.spec.mode === 'B' && m !== 1);
       s.el.classList.toggle('hidden', hide);
@@ -844,9 +862,11 @@ class SynthUI {
     }
   }
 
+  // the effects in the order of the sound, over their knobs (12 + 52 per knob); the plug-in puts its delay SYNC button at
+  // the right of the delay's header, the web app has none and uses the whole width
   draw_fxheads(ctx) {
     ctx.font = '700 9px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
-    const groups = [['SATURATION', 26, 52], ['PING-PONG DELAY', 78, 156], ['REVERB', 234, 104]];
+    const groups = [['SATURATION', 8, 60], ['CHORUS', 64, 156], ['PING-PONG DELAY', 214, 162], ['REVERB', 376, 104]];
     for (const [t, x, w] of groups) {
       ctx.fillStyle = 'rgba(200,210,225,0.42)'; ctx.fillText(t, x + w / 2, 12);
       ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.moveTo(x + 4, 17.5); ctx.lineTo(x + w - 4, 17.5); ctx.stroke();

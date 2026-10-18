@@ -5,6 +5,16 @@
 const L = require('./lib.js');
 const { ctl, kbd, P, controls, table, tip, note, warn, deep, fig, C, PK, SPEC } = L;
 const isA = E => E === 'a';
+// beta 0.6: the plug-in's release page, read from web/js/ui.js (the header's DOWNLOAD VST and the welcome window link there)
+const VST_URL = (() => {
+  const m = /VST_RELEASES\s*=\s*'([^']+)'/.exec(require('fs').readFileSync(require('path').join(L.ROOT, 'web', 'js', 'ui.js'), 'utf8'));
+  if (!m) throw new Error('web/js/ui.js: VST_RELEASES not found');
+  return m[1];
+})();
+// beta 0.6: the panel's credit line, as ui.js and editor.cpp draw it ("Created by OktoPierre · beta 0.6 · GPL v3")
+const CREDIT = SPEC.APP.credit.charAt(0).toUpperCase() + SPEC.APP.credit.slice(1) + ` · ${SPEC.APP.version} · ${SPEC.APP.license}`;
+// beta 0.6: the tempo-sync note values, from the spec (choiceShort: "1/8D")
+const notesOf = key => PK[key].choiceShort.map(n => ctl(n)).join(' ');
 
 // ---------------------------------------------------------------- band map (shared by section 1)
 function bandMap(E) {
@@ -57,22 +67,77 @@ function quickStart(E) {
 <div class="cols2">
 <div class="card"><h4>Web app <span class="badge">BROWSER</span></h4><ol class="steps">
 <li>Double-click <code>web/index.html</code> to open it in Chrome or Edge (Firefox also works; MIDI keyboards are best supported in Chrome and Edge). No installation and no web server are needed.</li>
-<li>Click <b>Click to start audio</b> (browsers only allow sound after a click). The status bar turns green: <i>Audio on · 48.0 kHz</i>.</li>
+<li>The welcome window opens (beta 0.6): click <b>Play the synth</b> — or <b>Run the demo</b> to hear a tour of the presets first. Browsers only allow sound after a click, so this click starts the audio. The status bar turns green: <i>Audio on · 48.0 kHz</i>.</li>
 <li>The app always opens on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>. In the header, click ${ctl(a ? 'A · SUBTRACTIVE' : 'B · ADDITIVE')}, then step to <b>${a ? 'A · Init' : 'B · Init'}</b> with the preset arrows ◀ ▶ (or click the preset name to pick from the list).</li>
 <li>Play: click the on-screen keys (lower on a key = louder), press the digit keys ${kbd('1')} … ${kbd('0')} or the letter row ${kbd('A')} ${kbd('S')} ${kbd('D')} ${kbd('F')} …, or play a MIDI keyboard.</li>
 <li>${a ? `Hold a note and slowly turn ${P('f_cutoff')} down from 7 to 2. In the ${ctl('SCALOGRAM')} the rows switch off from the top as bands are removed. Then click ▶ next to the wavelet name and sweep again: same filter, different atoms.`
     : `Hold a note and pull the drawbars down one by one, starting from drawbar 7: the sawtooth loses brightness step by step until drawbar 1 alone leaves a square wave. Then click the ${ctl('PATTERN')} buttons to hear the other atom patterns.`}</li>
 </ol></div>
 <div class="card"><h4>Ableton Live <span class="badge">VST3 / VST2</span></h4><ol class="steps">
-<li>Copy the whole <code>WaveletSynthesizer.vst3</code> folder into your VST3 folder (<code>C:\\Program Files\\Common Files\\VST3</code>; <code>vst\\install.bat</code> does it and asks for administrator rights) <b>or</b> into the VST2 plug-in folder you use in Live: the same folder works in both.</li>
+<li>Download the plug-in from its <a href="${VST_URL}">release page</a> (the web app’s ${ctl('DOWNLOAD VST')} button opens it) and unzip it. Copy the whole <code>WaveletSynthesizer.vst3</code> folder into your VST3 folder (<code>C:\\Program Files\\Common Files\\VST3</code>; <code>vst\\install.bat</code> does it and asks for administrator rights) <b>or</b> into the VST2 plug-in folder you use in Live: the same folder works in both.</li>
 <li>In Live open <b>Preferences → Plug-ins</b>, switch on <b>Use VST3 Plug-in System Folders</b> (VST3) or <b>Use VST2 Plug-in Custom Folder</b> (VST2) and click <b>Rescan</b>.</li>
 <li>In Live’s browser open <b>Plug-ins → ${SPEC.APP.credit.replace(/^created by /, '')} → Wavelet Synthesizer</b> and drag it onto a MIDI track. A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>.</li>
 <li>Arm the track and play your MIDI keyboard, or press ${kbd('M')} to use Live’s Computer MIDI Keyboard.</li>
 <li>Click ${ctl(a ? 'A · SUBTRACTIVE' : 'B · ADDITIVE')} in the plugin header, choose <b>${a ? 'A · Init' : 'B · Init'}</b> from the preset menu (click the preset name) and repeat step 5 of the web column.</li>
 </ol></div>
 </div>
-${fig('start-overlay.png', 'The web app waits for a click before it may make sound. The VST3 plugin needs no such step.', 'shot')}
-${tip(`<p>Want to hear what the instrument can do first? Click ${ctl('▶ DEMO')} next to the logo in the web app: a Beethoven sonata movement plays while the factory presets change every few seconds. The ${ctl('▾')} beside it opens more pieces — see <a href="#demo">Demo</a>.</p>`)}`;
+${fig('start-overlay.png', 'The welcome window of the web app (beta 0.6). Browsers only allow sound after a click, and each choice is that click: <b>Run the demo</b> starts the audio and the default demo, <b>Play the synth</b> starts the audio and closes the window, <b>Download the VST</b> opens the plug-in’s release page in a new tab (the window stays). The links at the bottom open the two manuals. The VST3 plugin needs no such step.', 'shot')}
+<ul>
+<li><b>Run the demo</b> plays the default demo — Beethoven’s <i>Appassionata</i> as a tour of the presets, about two minutes — exactly as ${ctl('▶ DEMO')} in the header does (see <a href="#demo">Demo</a>).</li>
+<li><b>Play the synth</b> (“MIDI supported”) only starts the audio: no note is played. Then play with the mouse, the computer keyboard or a MIDI keyboard.</li>
+<li><b>Download the VST</b> opens the release page of the free plug-in (Windows VST3 / VST2, macOS VST3) in a new tab; the welcome window stays open.</li>
+<li>A click outside the window also starts the audio. The window comes back, with a message in place of its sub-title, when another window or tab of the app takes the audio (see <a href="#demo">One window at a time</a>).</li>
+</ul>
+${tip(`<p>Want to hear what the instrument can do first? Choose <b>Run the demo</b> in the welcome window, or click ${ctl('▶ DEMO')} next to the logo later: a Beethoven sonata movement plays while the factory presets change every few seconds. The ${ctl('▾')} beside it opens more pieces — see <a href="#demo">Demo</a>.</p>`)}`;
+}
+
+// ---------------------------------------------------------------- panel tour (beta 0.6 layout, tools/spec.js)
+// Callouts of the annotated screenshots, in panel coordinates: the header and the sections shared by both engines (the
+// engine section's own pins are in engA.js / engB.js). Check them on web/manual/img/panel-a.png / panel-b.png after a
+// layout change.
+function headerPins(E) {
+  return [
+    { x: 218, y: 8, title: '▶ DEMO ▾ (web app)', desc: '▶ DEMO plays the default demo, a tour of the presets; ▾ opens the list of demo pieces.', href: 'demo' },
+    { x: 286, y: 5, title: 'ENGINE', desc: 'chooses the engine panel shown, A (teal) or B (amber); A/B MIX sets what you hear.', href: 'header-controls' },
+    { x: 562, y: 5, title: 'Preset browser', desc: '◀ ▶ step through the presets; click the name for the list.', href: 'saving' },
+    { x: 872, y: 5, title: 'DOWNLOAD VST (web app)', desc: 'opens the release page of the free plug-in; the plugin has SAVE PRESET here.', href: 'header-controls' },
+    { x: 946, y: 5, title: 'MANUAL', desc: isA(E) ? 'opens the manual of the engine shown: this one, or Manual B on the B tab.' : 'opens the manual of the engine shown: this one, or Manual A on the A tab.', href: 'header-controls' },
+    { x: 1024, y: 2, title: 'VOLUME and meter', desc: 'master level and stereo peak meter.', href: 'effects' },
+  ];
+}
+function sharedPins(E) {
+  const a = isA(E);
+  return [
+    { x: 558, y: 69, title: 'SUB OSC', desc: 'LEVEL, OCT and SHAPE of the sub oscillator (beta 0.6: in the top row).', href: 'sub' },
+    { x: 757, y: 69, title: 'SCOPE', desc: a ? 'one cycle of the output; grey = the dry wave.' : 'one cycle of the sound; shaded area = window.', href: 'displays' },
+    { x: 798, y: 189, title: 'SCALOGRAM', desc: 'the atoms of the 11 bands; dashed line = window.', href: 'displays' },
+    { x: 130, y: 337, title: 'SCALE FILTER', desc: a ? 'per-band filter with resonance, key tracking, envelope and velocity.' : 'a modulatable per-band filter on top of the drawbars.', href: 'filter' },
+    { x: 451, y: 337, title: 'POSITION', desc: a ? 'confines the filter to part of the cycle.' : 'lets the detail sound only in part of the cycle.', href: 'position' },
+    { x: 675, y: 337, title: 'AMP ENVELOPE', desc: 'loudness ADSR and velocity sensitivity.', href: 'amp-env' },
+    { x: 969, y: 337, title: 'MOD ENVELOPE', desc: 'ADSR that moves the filter cutoff.', href: 'mod-env' },
+    { x: 80, y: 485, title: 'LFO 1', desc: 'shape, RATE and how far it moves the pitch, cutoff, position and wavelet morph; SYNC in the plugin.', href: 'lfo' },
+    { x: 372, y: 485, title: 'LFO 2', desc: 'a second LFO on the parameter chosen in its TARGET menu; SYNC in the plugin.', href: 'lfo2' },
+    { x: 684, y: 485, title: 'EFFECTS', desc: 'saturation, chorus, ping-pong delay and reverb, in the order of the sound; the delay’s SYNC in the plugin.', href: 'effects' },
+    { x: 692, y: 512, title: 'CHORUS', desc: 'string-machine triple chorus: amount, RATE and DEPTH.', href: 'chorus' },
+    { x: 8, y: 616, title: 'VOICE', desc: 'portamento mode and voice LEDs in its title row; octave, tuning, polyphony, glide and unison below.', href: 'voice' },
+    { x: 432, y: 616, title: 'Wheels', desc: 'pitch bend and modulation (vibrato).', href: 'kbd-screen' },
+    { x: 512, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
+    { x: 2, y: 751, title: 'Status bar (web app)', desc: 'audio and MIDI status, key help, Save preset / Export / Import.', href: 'saving' },
+  ];
+}
+function panelSame() {
+  return `The panel is the same in the web app and the plugin, apart from a few buttons: the web app’s ${ctl('▶ DEMO')} and ${ctl('DOWNLOAD VST')}, the plugin’s window-size button, ${ctl('SAVE PRESET')} and the ${ctl('SYNC')} buttons of the tempo sync. From top to bottom (beta 0.6): the header; the engine section, SUB OSC and SCOPE; SCALE FILTER, POSITION and the two envelopes; LFO 1, LFO 2 and EFFECTS; VOICE, the wheels and the keyboard.`;
+}
+function headerControls(E) {
+  const a = isA(E);
+  return `<ul>
+<li>${ctl('▶ DEMO')} (web app only) plays the default demo, a piece during which the factory presets change every few seconds; the ${ctl('▾')} beside it opens the other demo pieces and lets you load your own MIDI file — see <a href="#demo">Demo</a>.</li>
+<li>${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} chooses which engine section is shown in the upper left (and the accent colour). What you hear is set by the ${P('ab_mix')} knob at the right of that section — engine A, engine B, or both mixed (see <a href="#mix">Mixing engines A and B</a>). The sub oscillator, filter, position, envelopes, LFOs, voice and effects are shared by both engines.</li>
+<li>The preset browser shows the current preset; a dot after the name means it has been modified. See <a href="#saving">Browsing and saving presets</a>.</li>
+<li>${ctl('DOWNLOAD VST')} (web app only, beta 0.6) opens the <a href="${VST_URL}">release page</a> of the free plug-in — Windows VST3 / VST2 and macOS VST3 — in a new tab. In the plugin, ${ctl('SAVE PRESET')} sits there (see <a href="#vst-diff">the plugin’s differences</a>).</li>
+<li>${ctl('MANUAL')} (beta 0.6: one button instead of MANUAL A and MANUAL B) opens the manual of the engine shown — ${a ? 'this manual on the A · SUBTRACTIVE tab, Manual B on B · ADDITIVE' : 'Manual A on the A · SUBTRACTIVE tab, this manual on B · ADDITIVE'}; each manual links to the other. In the web app it opens as an overlay (close it with ✕, ${kbd('Esc')} or a click outside; “Open in new tab” pops it out), in the plugin in your web browser.</li>
+<li>The small knob at the right is the master ${ctl('VOLUME')} (−36 to +6 dB, default −3 dB), followed by the stereo output meter. In the plugin, a size button next to the logo opens a menu of window sizes (70–150 %).</li>
+</ul>`;
 }
 
 // ---------------------------------------------------------------- working with controls
@@ -85,7 +150,7 @@ function controlsHowTo(E) {
     ['Hover', `The label under a knob shows the current value with its unit; ${isA(E) ? `the header ${ctl('VOLUME')} knob shows a tooltip instead.` : `drawbars and the header ${ctl('VOLUME')} knob show a tooltip instead.`}`],
     ['Segmented buttons', 'Click a choice; the lit button is active.'],
     [`${ctl('WAVELET')} ◀ ▶`, 'Previous / next wavelet (wraps around). Clicking the name also steps to the next one.'],
-    ['Greyed-out control', isA(E) ? `Has no effect with the current settings: ${P('a_width')} only works for ${ctl('PULSE')} and ${ctl('TRI')}.` : `Has no effect with the current settings: ${P('b_seed')} only works with the ${ctl('RANDOM')} pattern.`],
+    ['Greyed-out control', isA(E) ? `Has no effect with the current settings: ${P('a_width')} only works for ${ctl('PULSE')} and ${ctl('TRI')} — it is greyed out for SAW, SQUARE, SINE and NOISE.` : `Has no effect with the current settings: ${P('b_seed')} only works with the ${ctl('RANDOM')} pattern.`],
     ['Arc from the centre', `Bipolar controls (${P('v_fine')}, ${P('f_env')}, ${P('f_vel')}, ${P('v_oct')}${isA(E) ? '' : `, ${P('b_tilt')}, ${P('b_spread')}`}) draw their value arc from zero.`],
     ['Panel size', 'The web app scales the whole panel to the browser window. In the plugin, the small size button next to the logo opens a menu of window sizes from 70 % to 150 %.'],
   ];
@@ -111,7 +176,7 @@ function filterSection(E) {
   ];
   return `${intro}
 ${controls(rows)}
-<p>${ctl('LFO')} ${P('lfo_cut')} adds a further ± bands of periodic movement — see <a href="#lfo">LFO</a>.</p>
+<p>${ctl('LFO 1')} ${P('lfo_cut')} adds a further ± bands of periodic movement, and LFO 2 can move ${P('f_cutoff')} or another filter control — see <a href="#lfo">LFO 1 and LFO 2</a>.</p>
 <figure class="frame"><img src="img/filter-${E}.svg" alt="Gain curves of the four filter types at cutoff 6"><figcaption><b>Gain per band at ${ctl('CUTOFF')} 6</b>, computed with the instrument’s own filter code. Dots mark the gain actually applied to bands 1–11 at 24 dB/band. Note the soft knee: the band <em>at</em> the cutoff is already a little attenuated.</figcaption></figure>
 <h3 id="filter-types">The four types in numbers</h3>
 <ul>
@@ -122,8 +187,8 @@ ${controls(rows)}
 <li><b>Resonance</b> — adds up to +24 dB centred on the cutoff, falling off over about ±1 band. With a low-pass at 24 dB/band and RESO 12 dB, the cutoff band ends up at about +8 dB.</li>
 </ul>
 ${deep(`<p>The cutoff actually used for each voice, recomputed every 32 samples and smoothed sample by sample:</p>
-<div class="formula">cutoff = CUTOFF + ENV AMT × mod envelope + LFO CUTOFF × LFO + VEL AMT × (velocity − 1) + (1 − KEY TRK) × log₂(261.63 Hz ÷ note frequency)</div>
-<p>The mod envelope runs from 0 to 1, the LFO from −1 to +1 and velocity from 0 to 1. The note frequency includes ${P('v_oct')}, ${P('v_fine')}, pitch bend and vibrato. The result is not clamped to 0–12, so modulation can push the filter past fully closed or past fully open.</p>`)}
+<div class="formula">cutoff = CUTOFF + ENV AMT × mod envelope + LFO 1 CUTOFF × LFO 1 + VEL AMT × (velocity − 1) + (1 − KEY TRK) × log₂(261.63 Hz ÷ note frequency)</div>
+<p>The mod envelope runs from 0 to 1, LFO 1 from −1 to +1 and velocity from 0 to 1. The note frequency includes ${P('v_oct')}, ${P('v_fine')}, pitch bend and vibrato. The result is not clamped to 0–12, so modulation can push the filter past fully closed or past fully open.</p>`)}
 ${a ? `<p>One special case deserves a warning: with the Haar wavelet a ${ctl('SQUARE')} source is a single atom, so the filter has nothing to remove — see <a href="#haar-square">The square wave that will not filter</a>.</p>` : ''}`;
 }
 
@@ -139,7 +204,7 @@ function positionSection(E) {
     'In between, the area outside the window gets a blend.'],
   ];
   return `<p>${a
-    ? 'A classic filter treats every part of the waveform the same way. Wavelet atoms, however, live at definite places in the cycle — so engine A can filter <em>one part</em> of the cycle and leave the rest untouched. This is something an ordinary filter cannot do: soften only the falling edge of a square, darken only the reset of a sawtooth, or sweep a “filtered zone” around the cycle with the LFO.'
+    ? 'A classic filter treats every part of the waveform the same way. Wavelet atoms, however, live at definite places in the cycle — so engine A can filter <em>one part</em> of the cycle and leave the rest untouched. This is something an ordinary filter cannot do: soften only the falling edge of a square, darken only the reset of a sawtooth, or sweep a “filtered zone” around the cycle with LFO 1.'
     : 'Atoms live at definite places in the cycle, so engine B can decide <em>where</em> the detail is allowed to exist. With the POSITION window you keep the coarse band 1 everywhere but let bands 2–11 sound only in part of the cycle. The result is a moving “focus” — a kind of formant or pulse-width effect that is locked to the pitch.'}</p>
 ${controls(rows)}
 <figure class="frame"><img src="img/window-${E}.svg" alt="Position window curve for three depth settings"><figcaption><b>The window W over one cycle</b> for ${ctl('POSITION')} 180°, ${ctl('WIDTH')} 40 % and three depths. The panel’s ${ctl('WINDOW')} display draws the same curve.</figcaption></figure>
@@ -160,7 +225,7 @@ ${table(['Wave', 'Edges and corners'], [
     : `<figure class="shot"><img src="img/focus-sweep.png" alt="Focus Sweep preset: scope and scalogram with a 30% window at 0 degrees"><figcaption><b>B · Focus Sweep at rest:</b> outside the 30 % window (centred on 0°, wrapping round the cycle edge) only band 1 — a square with Haar — remains; inside, the full staircase detail returns. An LFO sweeps the window around the cycle while you play.</figcaption></figure>`}
 <h3 id="window-high">High notes and modulation</h3>
 <p>A narrow window multiplies the sound by a short bump, which adds high harmonics. To keep this alias-free, the window is automatically widened on high notes: it is never narrower than 16 × note frequency ÷ sample rate of the cycle — about 9 % at C4 and 35 % at C6 (48 kHz). The minimum WIDTH of 5 % is only reached below about 150 Hz.</p>
-<p>${ctl('LFO')} ${P('lfo_pos')} moves the window up to ±180° — all the way round the cycle — and is only audible when DEPTH is above 0 %. The ${ctl('SCOPE')} shades the window and the ${ctl('SCALOGRAM')} draws it as a dashed line.</p>`;
+<p>${ctl('LFO 1')} ${P('lfo_pos')} moves the window up to ±180° — all the way round the cycle — and is only audible when DEPTH is above 0 %. The ${ctl('SCOPE')} shades the window and the ${ctl('SCALOGRAM')} draws it as a dashed line.</p>`;
 }
 
 // ---------------------------------------------------------------- envelopes
@@ -196,26 +261,43 @@ ${a ? '' : '<li>For plucks and bells in engine B, give the AMP ENVELOPE a long d
 function lfoSection(E) {
   const a = isA(E);
   const rows = [
-    ['lfo_shape', `${ctl('SINE')}, ${ctl('TRI')} (triangle), ${ctl('SAW')} (ramps down, then jumps up), ${ctl('SQR')} (square) and ${ctl('S&amp;H')} (sample &amp; hold: a new random value once per LFO cycle).`, 'S&amp;H on CUTOFF or POSITION gives random, stepped timbres.'],
-    ['lfo_rate', 'Speed, from one cycle every 20 s to 20 cycles per second (logarithmic taper).', '5–6 Hz for vibrato; 0.1–0.5 Hz for slow sweeps.'],
+    ['lfo_shape', `The tabs under the title: ${ctl('SINE')}, ${ctl('TRI')} (triangle), ${ctl('SAW')} (ramps down, then jumps up), ${ctl('SQR')} (square) and ${ctl('S&amp;H')} (sample &amp; hold: a new random value once per LFO cycle).`, 'S&amp;H on CUTOFF or POSITION gives random, stepped timbres.'],
+    ['lfo_rate', 'Speed, from one cycle every 20 s to 20 cycles per second (logarithmic taper). In the plug-in, with SYNC on, a note value at the host’s tempo instead — see <a href="#lfo-sync">Tempo sync</a>.', '5–6 Hz for vibrato; 0.1–0.5 Hz for slow sweeps.'],
     ['lfo_pitch', 'Vibrato depth: the pitch moves by up to ± this many cents (100 = ± one semitone).', 'The mod wheel adds up to 50 cents of extra depth.'],
     ['lfo_cut', 'Moves the cutoff by up to ± this many bands.', a ? '1–2 bands on a resonant filter = a slow “wah”.' : 'With the default CUTOFF 12 there is little to sweep: lower CUTOFF first.'],
     ['lfo_pos', 'Moves the POSITION window by up to ± this many degrees; ±180° travels all the way round the cycle. Only audible when DEPTH is above 0 %.', a ? 'Try it with a narrow window on a saw: see the “Scanning edge” recipe.' : 'See the “Focus sweep” recipe.'],
     ['lfo_wav', 'WAVELET MORPH (beta 0.3): moves the morph between WAVELET and WAVELET 2 by up to this amount, around the MORPH position (kept within 0–100 %). Needs a WAVELET 2 different from WAVELET.', 'With the same LFO on CUTOFF, the timbre and the filter move together (preset “A · Wave Wobble Bass”).'],
   ];
-  // beta 0.3: LFO 2, in its own card at the bottom (next to CHORUS)
+  // beta 0.3: LFO 2; beta 0.6: in the card at the right of LFO 1, the same size, SHAPE tabs, the TARGET menu in the card
   const rows2 = [
-    ['lfo2_target', `What LFO 2 moves — the small menu next to the ${ctl('LFO 2')} title: ${ctl('CUTOFF')}, ${ctl('SLOPE')}, ${ctl('RESO')}, ${ctl('KEY TRK')}, ${ctl('ENV AMT')} or ${ctl('VEL AMT')} of the SCALE FILTER, ${ctl('POSITION')}, ${ctl('WIDTH')} or ${ctl('DEPTH')} of the POSITION window, or (beta 0.4) the engine A ${ctl('PHASE')} — SOURCE PHASE: the wave moves inside the cycle and the timbre scans through the colours of the shift-variant wavelet transform (see Manual A, <a href="manual-a.html#phase">Source phase</a>). The mouse wheel on the menu steps through them.`, 'LFO 1 already has CUTOFF and POSITION: give LFO 2 another target (RESO, WIDTH…) for two independent movements.'],
-    ['lfo2_shape', `The same five shapes as LFO 1 (sine, triangle, saw, square, sample &amp; hold). A click on the knob goes to the next shape.`, 'S&amp;H on RESO gives a random, talking resonance.'],
-    ['lfo2_rate', 'Speed, from one cycle every 20 s to 20 cycles per second (logarithmic taper), independent of LFO 1.', 'A rate that does not divide LFO 1’s makes the two movements drift against each other.'],
+    ['lfo2_target', `What LFO 2 moves — the ${ctl('TARGET')} menu at the right of the card: ${ctl('CUTOFF')}, ${ctl('SLOPE')}, ${ctl('RESO')}, ${ctl('KEY TRK')}, ${ctl('ENV AMT')} or ${ctl('VEL AMT')} of the SCALE FILTER, ${ctl('POSITION')}, ${ctl('WIDTH')} or ${ctl('DEPTH')} of the POSITION window, or (beta 0.4) the engine A ${ctl('PHASE')} — SOURCE PHASE: the wave moves inside the cycle and the timbre scans through the colours of the shift-variant wavelet transform (see Manual A, <a href="manual-a.html#phase">Source phase</a>). The mouse wheel on the menu steps through them.`, 'LFO 1 already has CUTOFF and POSITION: give LFO 2 another target (RESO, WIDTH…) for two independent movements.'],
+    ['lfo2_shape', `The same five shapes as LFO 1, chosen with the same tabs under the title (beta 0.6; a knob before): ${ctl('SINE')}, ${ctl('TRI')}, ${ctl('SAW')}, ${ctl('SQR')}, ${ctl('S&amp;H')}.`, 'S&amp;H on RESO gives a random, talking resonance.'],
+    ['lfo2_rate', 'Speed, from one cycle every 20 s to 20 cycles per second (logarithmic taper), independent of LFO 1. In the plug-in, with SYNC on, a note value at the host’s tempo instead — see <a href="#lfo-sync">Tempo sync</a>.', 'A rate that does not divide LFO 1’s makes the two movements drift against each other.'],
     ['lfo2_amt', 'How far the target moves: up to ± this share of half its range (100 % on CUTOFF = ±6 bands, on POSITION or PHASE = ±180°, on RESO = ±12 dB), kept within the control’s range. Negative values move it the other way; 0 % (the default) switches LFO 2 off.', 'Start around 20–30 % and listen while you raise it.'],
   ];
-  return `<p>One LFO is shared by all voices. It runs freely and is not restarted by new notes, so in a chord every voice moves together — ideal for pads and vibrato. For a movement that starts with each note, use the MOD ENVELOPE instead.</p>
+  // beta 0.6: tempo sync, plug-in only
+  const rowsSync = [
+    [{ key: 'lfo_sync', label: 'SYNC (LFO 1)', range: 'off · on', def: 'off' }, `Plug-in only: the button at the right of the ${ctl('LFO 1')} title. Lit: ${P('lfo_rate')} becomes a note value at the host’s tempo (next row).`, 'Switching SYNC off brings back the RATE in hertz: the two values are kept apart.'],
+    [{ key: 'lfo_div', label: 'RATE (SYNC on)' }, 'The length of one LFO 1 cycle, as a note value. The knob shows it as its label.', '1/4 at 120 BPM = 2 Hz; 1/16 = 8 Hz.'],
+    [{ key: 'lfo2_sync', label: 'SYNC (LFO 2)', range: 'off · on', def: 'off' }, `The same for LFO 2: the button at the right of the ${ctl('LFO 2')} title.`, ''],
+    [{ key: 'lfo2_div', label: 'RATE (SYNC on)' }, 'The length of one LFO 2 cycle, as a note value.', 'With both LFOs synced, their speeds keep the same ratio at any tempo.'],
+  ];
+  return `<p>Two LFOs sit side by side in the third row of the panel (beta 0.6): <b>LFO 1</b> at the left, with its shape tabs and five knobs — ${P('lfo_rate')}, then how far it moves the ${ctl('PITCH')}, the ${ctl('CUTOFF')}, the ${ctl('POSITION')} window and the ${ctl('WAVELET')} morph; <b>LFO 2</b> at its right, the same size, moves one parameter chosen in its ${ctl('TARGET')} menu. Both are shared by all voices. They run freely and are not restarted by new notes, so in a chord every voice moves together — ideal for pads and vibrato. For a movement that starts with each note, use the MOD ENVELOPE instead.</p>
+<h3 id="lfo1">LFO 1</h3>
 ${controls(rows)}
-<p>The <b>mod wheel</b> (on screen or MIDI CC 1) always acts through this LFO: it adds up to 50 cents of vibrato depth on top of ${P('lfo_pitch')}, using the current ${P('lfo_shape')} and ${P('lfo_rate')}. With ${P('lfo_pitch')} at 0, the wheel alone brings in vibrato.</p>
+<p>The <b>mod wheel</b> (on screen or MIDI CC 1) always acts through LFO 1: it adds up to 50 cents of vibrato depth on top of ${P('lfo_pitch')}, using the current ${P('lfo_shape')} and ${P('lfo_rate')}. With ${P('lfo_pitch')} at 0, the wheel alone brings in vibrato.</p>
 <h3 id="lfo2">LFO 2 (beta 0.3)</h3>
-<p>A second free-running LFO, in its own card next to CHORUS, moves <b>one</b> parameter of the SCALE FILTER or of the POSITION window — the one chosen in the menu next to its title. Like LFO 1 it is shared by all voices.</p>
-${controls(rows2)}`;
+<p>A second free-running LFO, in the card at the right of LFO 1, moves <b>one</b> parameter of the SCALE FILTER or of the POSITION window (or engine A’s PHASE) — the one chosen in its ${ctl('TARGET')} menu. Like LFO 1 it is shared by all voices. beta 0.6: the card has the size of LFO 1’s, with the same shape tabs.</p>
+${controls(rows2)}
+<h3 id="lfo-sync">Tempo sync (plug-in only, beta 0.6)</h3>
+<p>In the plug-in (VST3 and VST2), a ${ctl('SYNC')} button sits at the right of the LFO 1 and LFO 2 titles. When it is lit, that LFO’s ${ctl('RATE')} knob becomes a <b>note value</b> at the host’s tempo — Ableton Live’s or your DAW’s; 120 BPM when the host gives none — and shows the value as its label, for example “1/8D”. One LFO cycle then lasts that note value, and the speed follows the tempo changes of the song. The delay has the same button: see <a href="#delay-sync">Delay tempo sync</a>.</p>
+${controls(rowsSync)}
+<ul>
+<li><b>Note values</b>, from slow to fast: ${notesOf('lfo_div')}. 4/1 = four whole notes (four bars of 4/4) per cycle; <b>T</b> = triplet (2/3 of the note), <b>D</b> = dotted (1.5 × the note).</li>
+<li><b>Speed, not phase.</b> SYNC sets the speed only: the LFO keeps running freely and is not restarted on the beat or the bar.</li>
+<li><b>Off by default.</b> SYNC is off in every factory preset, so older presets, plug-in states and Live Sets sound the same as before.</li>
+<li><b>Web app.</b> A browser page gets no tempo: the web app has no SYNC buttons and its RATE stays in hertz.</li>
+</ul>`;
 }
 
 // ---------------------------------------------------------------- voice
@@ -230,13 +312,14 @@ function voiceSection(E) {
     ['v_detune', 'Spread of the unison copies: the outer copies are at ± this many cents, the others evenly in between.', '8–15 cents for warmth, 20+ for supersaw-style width.'],
     ['v_width', 'Spreads the unison copies across the stereo field, from centre (0 %) to hard left and right (100 %).', 'No effect with UNISON 1.'],
   ];
-  return `${controls(rows)}
+  return `<p>The ${ctl('VOICE')} section sits at the bottom left, before the wheels and the keyboard (beta 0.6): the portamento selector and the voice LEDs in its title row, its seven knobs below.</p>
+${controls(rows)}
 <ul>
 <li><b>Voice allocation.</b> When all voices are busy, a new note takes over the oldest released voice first, then the oldest held one. Playing a note that is already sounding re-uses its voice.</li>
 <li><b>Mono and legato.</b> With ${P('v_voices')} at 1, holding a note and playing another changes the pitch without restarting the envelopes (it glides if ${P('v_glide')} is above zero and the portamento selector is not ${ctl('OFF')}). Release the new note while still holding the first and the pitch returns to the first one. Legato means that another key is still physically held: with the sustain pedal down but no key held, a new note restarts the envelopes.</li>
 <li><b>Polyphonic portamento (${ctl('POLY')}).</b> With ${P('v_glide')} above 0, every voice glides from its own previous note. Playing one note at a time, the new note glides from the previous one (the voice of the last note is reused) while the release tails of older notes keep sounding. Playing chords, each new note takes the free voice whose last pitch is nearest, so chord changes glide voice by voice — from C–E–G to F–A–C, G slides to F, E to A, and C stays on C. A voice that has to be stolen glides from wherever it currently is.</li>
 <li><b>Level.</b> Each note plays at about −8 dB to leave headroom for chords, and unison copies are scaled by 1/√n so that stacking keeps the loudness roughly constant.</li>
-<li><b>Voice LEDs.</b> The 16 dots show the voices: dim = available, lit = sounding (including release tails). They sit to the right of the portamento selector.</li>
+<li><b>Voice LEDs.</b> The 16 dots show the voices: dim = available, lit = sounding (including release tails). They sit to the right of the portamento selector, in the title row of VOICE.</li>
 </ul>`;
 }
 
@@ -244,20 +327,35 @@ function voiceSection(E) {
 function fxSection(E) {
   const rows = [
     ['fx_drive', 'Saturation: blends in a smooth tanh soft-clipper driven by up to +24 dB, with automatic level compensation. 0 % = bypassed.', '20–40 % thickens basses and Haar sounds.'],
-    ['fx_dtime', 'Delay time (logarithmic taper). Changing it while echoes are ringing makes them glide in pitch, like a tape delay.', '350 ms ≈ a dotted eighth at 128 BPM.'],
+    ...CHORUS_ROWS,
+    ['fx_dtime', 'Delay time (logarithmic taper). Changing it while echoes are ringing makes them glide in pitch, like a tape delay. In the plug-in, with SYNC on, a note value at the host’s tempo instead — see <a href="#delay-sync">Delay tempo sync</a>.', '350 ms ≈ a dotted eighth at 128 BPM.'],
     ['fx_dfb', 'How much of each echo is fed back: more repeats. Echoes alternate between left and right and get darker with every repeat.', 'Above 70 % the repeats last many seconds.'],
     ['fx_dmix', 'Level of the echoes added to the sound.', ''],
     ['fx_rsize', 'Reverb decay length, from a small room to a long hall.', ''],
     ['fx_rmix', 'Level of the reverb added to the sound.', '15–25 % for most sounds; 40 %+ for pads.'],
     [{ key: 'master', label: 'VOLUME' }, 'Master output level — the small knob in the header, next to the stereo meter. Hover over it to read the value.', 'Lower it when the meter sits at the top: the output limiter is then working hard.'],
   ];
-  return `<p>The effects process the sum of all voices — wavelet sound and sub oscillator together — in this order: <b>saturation → ping-pong delay → reverb → DC blocker → master volume → soft limiter</b>. The delay and reverb mix knobs <em>add</em> the effect on top of the unchanged dry sound (there is no dry/wet crossfade), so raising them also makes the sound a little louder. The reverb receives the echoes of the delay as well.</p>
+  const rowsSync = [
+    [{ key: 'fx_dsync', label: 'SYNC (delay)', range: 'off · on', def: 'off' }, `Plug-in only: the button at the right of the ${ctl('PING-PONG DELAY')} heading. Lit: ${P('fx_dtime')} becomes a note value at the host’s tempo (next row).`, 'Switching SYNC off brings back the TIME in seconds: the two values are kept apart.'],
+    [{ key: 'fx_ddiv', label: 'TIME (SYNC on)' }, 'The time between two echoes, as a note value. The knob shows it as its label.', '1/8D (a dotted eighth) is the classic ping-pong rhythm.'],
+  ];
+  return `<p>The ${ctl('EFFECTS')} section, at the right of the third row, shows the effects in the order of the sound, each under its heading (beta 0.6): ${ctl('SATURATION')} (DRIVE) · ${ctl('CHORUS')} (CHORUS, RATE, DEPTH — they had their own card before) · ${ctl('PING-PONG DELAY')} (TIME, FEEDBACK, DLY MIX) · ${ctl('REVERB')} (SIZE, REV MIX). They process the sum of all voices — wavelet sound and sub oscillator together — in this order: <b>saturation → chorus → ping-pong delay → reverb → DC blocker → master volume → soft limiter</b>. The delay and reverb mix knobs <em>add</em> the effect on top of the unchanged dry sound (there is no dry/wet crossfade), so raising them also makes the sound a little louder. The reverb receives the echoes of the delay as well.</p>
 ${controls(rows)}
 <ul>
 <li><b>Ping-pong delay.</b> The mono sum of the voices enters the left channel; each repeat crosses to the other side and passes a gentle low-pass, so echoes bounce between the speakers and darken as they fade.</li>
 <li><b>Reverb.</b> A Freeverb-style stereo reverb (eight comb and four all-pass filters per channel) with fixed high-frequency damping; ${P('fx_rsize')} sets the decay.</li>
 <li><b>Output stage.</b> A 10 Hz DC blocker removes any offset, then the master ${ctl('VOLUME')} is applied, then a soft limiter: it is transparent below −3 dBFS and never lets the output exceed 0 dBFS, so the instrument cannot clip your audio interface or your Live track.</li>
 <li><b>Meter.</b> The stereo meter shows the output peak over the top 48 dB; the top of the bars is 0 dBFS. If the bars sit near the top, the limiter is working: lower ${ctl('VOLUME')}, ${P('f_res')} or the number of unison copies for a cleaner sound.</li>
+</ul>
+${chorusSection(E)}
+<h3 id="delay-sync">Delay tempo sync (plug-in only, beta 0.6)</h3>
+<p>In the plug-in (VST3 and VST2) a ${ctl('SYNC')} button sits at the right of the ${ctl('PING-PONG DELAY')} heading. When it is lit, the delay’s ${ctl('TIME')} knob becomes a <b>note value</b> at the host’s tempo — Ableton Live’s or your DAW’s; 120 BPM when the host gives none — and shows the value as its label, for example “1/8D”. The echoes then follow the tempo changes of the song. The two LFOs have the same button: see <a href="#lfo-sync">Tempo sync</a>.</p>
+${controls(rowsSync)}
+<ul>
+<li><b>Note values</b>, from short to long: ${notesOf('fx_ddiv')}. <b>T</b> = triplet (2/3 of the note), <b>D</b> = dotted (1.5 × the note). At 120 BPM, 1/8 = 250 ms and 1/1 = 2 s.</li>
+<li><b>Up to 4 seconds.</b> The delay holds up to 4 s (a whole note at 60 BPM); a longer note value, at a slow tempo, is held at 4 s.</li>
+<li><b>Off by default.</b> SYNC is off in every factory preset, so older presets, plug-in states and Live Sets sound the same as before.</li>
+<li><b>Web app.</b> A browser page gets no tempo: the web app has no SYNC button and its TIME stays in seconds.</li>
 </ul>`;
 }
 
@@ -275,10 +373,11 @@ function displaysSection(E) {
     ...(a ? [[ctl('SOURCE CYCLE'), 'The selected wave in grey, the cycle after SPARSITY in teal, and how many atoms are kept out of the nz atoms the wave needs: “K / nz ATOMS KEPT”.', 'Only engine A has this display.']] : []),
     [ctl('WINDOW'), 'The POSITION window over one cycle. Reads “WINDOW OFF · RAISE DEPTH” while DEPTH is 0 %.', ''],
     ['ADSR curves', 'The shape of the AMP and MOD envelopes, on a logarithmic time axis.', ''],
-    ['Voice LEDs', 'Available (dim) and sounding (lit) voices, to the right of the portamento selector.', ''],
+    ['Voice LEDs', 'Available (dim) and sounding (lit) voices, to the right of the portamento selector in the title row of VOICE.', ''],
     ['Meter', 'Left and right output peak, top = 0 dBFS.', ''],
   ];
-  return `${table(['Display', 'What it shows', 'Good to know'], rows, 'compact')}
+  return `<p>The ${ctl('SCOPE')} section fills the top right of the panel, at the right of SUB OSC: the scope on top, the scalogram under its ${ctl('SCALOGRAM')} label (beta 0.6: the section’s title is just SCOPE).</p>
+${table(['Display', 'What it shows', 'Good to know'], rows, 'compact')}
 <p class="small muted">The SCOPE and SCALOGRAM draw the cycle as it is stored, before the per-note band limiting described in <a href="#bands">Where the bands are</a>; on high notes the finest rows are not actually played. The sub oscillator is not drawn.</p>`;
 }
 
@@ -324,7 +423,7 @@ function demoScenes(scenes) {
       const p = PK[sc.param];
       const change = sc.ramp ? `${fmt(sc.param, sc.ramp[2])} → ${fmt(sc.param, sc.ramp[3])}` : sc.steps ? sc.steps.map(s => fmt(sc.param, s[1])).join(' → ') : '';
       what = `${ctl(p.short)} ${change}`;
-      if (sc.set && sc.set.lfo_pos > 0) what += `, with ${ctl('LFO')} ${ctl(PK.lfo_pos.short)} ${fmt('lfo_pos', sc.set.lfo_pos)}`;
+      if (sc.set && sc.set.lfo_pos > 0) what += `, with ${ctl('LFO 1')} ${ctl(PK.lfo_pos.short)} ${fmt('lfo_pos', sc.set.lfo_pos)}`;
     }
     return [mmss(sc.t), `<b>${k + 1}. ${sc.section}</b><span class="host">${eng === 0 ? 'Engine A' : eng === 1 ? 'Engine B' : ''}</span>`, what, `<span class="small">${sc.text}</span>`];
   });
@@ -368,7 +467,7 @@ function demoSection(E) {
   return `<h3 id="demo">Demo (web app)</h3>
 <p>The demo control next to the logo is a split button. ${ctl('▶ DEMO')} plays the default demo straight away; the small ${ctl('▾')} beside it opens the list of all demo pieces and ${ctl('Load a MIDI file…')}. While a demo plays, the main button reads ${ctl('■ STOP')}. The ${S.length} pieces, by ${composers.length > 1 ? composers.slice(0, -1).join(', ') + ' and ' + composers[composers.length - 1] : composers[0]}, are free editions from the Mutopia Project, each cut after about two minutes at the end of a phrase; the notes are played sample-accurately by a sequencer inside the audio engine.</p>
 ${def && step ? `<h4 id="demo-tour">The default demo: a tour of the presets</h4>
-<p>${ctl('▶ DEMO')} plays ${def.composer} — <i>${def.short || def.title}</i> (${mmssMenu(def.duration)}) as a <b>preset tour</b>${def.origin ? `, starting with the phrase that follows the opening chords (${def.origin.toFixed(1)} s into the movement)` : ''}: about every ${step} seconds, on a change of chord in the music, the next preset is loaded — ${firstNames.map(n => `<b>${n}</b>`).join(' → ')} … — ${NT} presets in all: ${lead.length ? `${lead.map(n => `<b>${n}</b>`).join(', ')} to open, then ` : ''}${nFav} of OktoPierre’s TOP Sounds${lead.length ? '' : ' first'}, then ${NT - nFav - lead.length} presets that show the chorus, the sub oscillator and the mix of the two engines. The sequence is fixed in the demo, so new factory presets (there are ${NP}) do not change it. The preset browser in the header shows the name of the preset being played (with the “•” modified mark while a control moves).</p>
+<p>${ctl('▶ DEMO')} — and <b>Run the demo</b> in the welcome window — plays ${def.composer} — <i>${def.short || def.title}</i> (${mmssMenu(def.duration)}) as a <b>preset tour</b>${def.origin ? `, starting with the phrase that follows the opening chords (${def.origin.toFixed(1)} s into the movement)` : ''}: about every ${step} seconds, on a change of chord in the music, the next preset is loaded — ${firstNames.map(n => `<b>${n}</b>`).join(' → ')} … — ${NT} presets in all: ${lead.length ? `${lead.map(n => `<b>${n}</b>`).join(', ')} to open, then ` : ''}${nFav} of OktoPierre’s TOP Sounds${lead.length ? '' : ' first'}, then ${NT - nFav - lead.length} presets that show the chorus, the sub oscillator and the mix of the two engines. The sequence is fixed in the demo, so new factory presets (there are ${NP}) do not change it. The preset browser in the header shows the name of the preset being played (with the “•” modified mark while a control moves).</p>
 <ul>
 <li>To keep every preset playable on the piece, each preset is played polyphonic${TOUR.voices ? ` (${TOUR.voices} voices)` : ''}, at its normal octave, without glide${TOUR.maxAttack ? ` and with its attack shortened to at most ${Math.round(TOUR.maxAttack * 1000)} ms` : ''}${TOUR.maxDMix != null ? `; long echoes are reduced (delay mix at most ${Math.round(TOUR.maxDMix * 100)} %, feedback at most ${Math.round(TOUR.maxDFb * 100)} %) so the fast piece stays clear` : ''}. The presets themselves are not changed.</li>
 <li>The demo window shows “Preset tour · <i>n</i>/${NT} · Engine A/B” (<i>n</i> = the preset’s place in the tour), “Now playing:” with the preset’s name, a countdown to the next preset with its name, and a one-line summary of the sound, ending with “Played polyphonic at its normal octave, with short echoes.”</li>
@@ -382,7 +481,7 @@ ${fig('demo-menu.png', 'The ▾ menu: composer — short title and length (hover
 <li><b>Start and stop.</b> ${ctl('▶ DEMO')} starts the default demo; ${ctl('▾')} lets you pick any piece (the list opens without starting the audio). Stop with ${ctl('■ STOP')} in the header or in the demo window, or with ${kbd('Esc')} (when the manual overlay is closed). Drag the demo window by its title bar to move it out of the way; it also shows the progress, the time and the source and licence of the music.</li>
 <li><b>Your sound is safe.</b> When a demo ends or is stopped, the sound you had before is restored exactly; your preset and settings are not changed. During a demo the preset browser shows what is being played: during the preset tour exactly the current preset’s name; in the other demos the name of the scene’s starting preset with the “•” modified mark (the Toccata, for example, starts on “B · Octave Organ•”). Your preset name comes back when the demo stops, and changes you make on the panel during the demo are discarded.</li>
 <li><b>Play along.</b> The keyboard, the computer keys and a MIDI keyboard keep working during the demo; the demo’s own notes also light up the on-screen keyboard.</li>
-<li><b>One window at a time.</b> Closing or leaving the page stops the demo and the audio immediately. If the app is open in two windows or tabs of the same browser, only one plays: starting the audio in one pauses the other, which then shows “The synthesizer is playing in another window or tab, so this one was paused.” and a ${ctl('Click to play here')} button to take the audio back.</li>
+<li><b>One window at a time.</b> Closing or leaving the page stops the demo and the audio immediately. If the app is open in two windows or tabs of the same browser, only one plays: starting the audio in one pauses the other, whose welcome window comes back with “The synthesizer is playing in another window or tab, so this one was paused.” in place of its sub-title; ${ctl('Play the synth')} or ${ctl('Run the demo')} there takes the audio back.</li>
 </ul>
 <h4 id="demo-file">Playing your own MIDI file</h4>
 <p>Choose ${ctl('Load a MIDI file…')} in the ${ctl('▾')} list and pick a <code>.mid</code> file: it is played with automatically generated scenes, like the demo pieces. Drums (MIDI channel 10) are ignored, and only the first ${Math.round(DEMO.maxFile / 60)} minutes are played; a file without playable notes is refused with a message.</p>
@@ -397,7 +496,7 @@ function playingSection(E) {
 <h3 id="kbd-screen">On-screen keyboard and wheels</h3>
 <ul>
 <li>The keyboard spans five octaves, C2 to C7. Click a key to play it; the vertical position sets the velocity — from 35 % at the top of a key to 100 % at its bottom edge. Drag across the keys to slide from note to note.</li>
-<li>The <b>PITCH</b> wheel bends by up to ±2 semitones and springs back to the centre when you let go. The <b>MOD</b> wheel adds vibrato (up to 50 cents, through the LFO) and stays where you leave it. Both wheels follow incoming MIDI.</li>
+<li>The wheels sit just left of the keyboard (beta 0.6). The <b>PITCH</b> wheel bends by up to ±2 semitones and springs back to the centre when you let go. The <b>MOD</b> wheel adds vibrato (up to 50 cents, through LFO 1) and stays where you leave it. Both wheels follow incoming MIDI.</li>
 <li>Held notes light up in the accent colour; a thin coloured strip above the keys shows the range played by the computer keyboard.</li>
 </ul>
 <h3 id="kbd-computer">Computer keyboard (web app)</h3>
@@ -425,7 +524,7 @@ ${table(['Keys', 'Notes', 'Notes on use'], [
 ${table(['MIDI message', 'Effect'], [
     ['Note on / off', 'Plays notes; velocity 1–127 sets the velocity used by the AMP ENVELOPE and VEL AMT.'],
     ['Pitch bend', '±2 semitones.'],
-    ['CC 1 — mod wheel', 'Adds up to 50 cents of vibrato through the LFO.'],
+    ['CC 1 — mod wheel', 'Adds up to 50 cents of vibrato through LFO 1.'],
     ['CC 64 — sustain pedal', 'Held notes keep sounding until the pedal is released.'],
     ['CC 120 — all sound off', 'Silences everything at once, including delay and reverb tails (web app).'],
     ['CC 123 — all notes off', 'Releases all notes; their release tails fade out normally (web app). Useful after a stuck note.'],
@@ -459,7 +558,7 @@ function presetsSaving(E) {
 </ul>
 <p><b>VST3 plugin.</b> ◀ ▶ step through the factory presets in the same order; the preset menu (a standard Windows menu) shows TOP Sounds at the top and one submenu per category, with the number of presets in it. Save your own sounds with Live: the plugin’s settings are stored in the Live Set, and you can save the device as a Live preset (or inside an Instrument Rack) to reuse it in other projects. A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>.</p>
 </div>
-<figure class="shot" style="margin:0"><img src="img/presets-menu.png" alt="The factory preset list of the web app"><figcaption>The web app’s preset list: OktoPierre’s TOP Sounds first, then one folding group per category (click a title to open it); a teal A, an amber B or both before each name.</figcaption></figure>
+<figure class="shot" style="margin:0"><img src="img/presets-menu.png" alt="The factory preset list of the web app"><figcaption>The web app’s preset list: OktoPierre’s TOP Sounds first, then one folding group per category (click a title to open it; here KEYS is open); a teal A, an amber B or both before each name.</figcaption></figure>
 </div>
 ${note('<p>User presets saved in the browser live in that browser profile only. Private windows and “clear site data” erase them — use <b>Export</b> for anything you want to keep.</p>')}`;
 }
@@ -469,6 +568,7 @@ function vstSection(E) {
   return `<p>The plugin runs the same sound engine with the same panel. It is a single self-contained file inside a <code>WaveletSynthesizer.vst3</code> bundle folder, which also carries these manuals; nothing else needs to be installed. The same file is both a VST3 and a VST2 plug-in (a copy named <code>WaveletSynthesizer.dll</code> sits next to it for VST2 hosts), so the folder works in a VST3 folder and in a VST2 folder. This section lists only what is specific to the plugin.</p>
 <h3 id="vst-install">Installation (Windows 10/11, 64-bit)</h3>
 <ol class="steps">
+<li>Download the release zip from the <a href="${VST_URL}">plug-in’s release page</a> — the web app’s ${ctl('DOWNLOAD VST')} button and the welcome window’s <b>Download the VST</b> open it — and unzip it.</li>
 <li>Copy the <b>whole</b> <code>WaveletSynthesizer.vst3</code> folder — the manuals live inside it — into one of these:
 <ul><li><b>VST3</b> (recommended): <code>C:\\Program Files\\Common Files\\VST3</code>. <code>vst\\install.bat</code> does it and asks for administrator rights.</li>
 <li><b>VST2</b>: the folder set as <b>VST2 Plug-in Custom Folder</b> in Live (no administrator rights needed).</li></ul></li>
@@ -478,20 +578,22 @@ function vstSection(E) {
 <p class="small muted">Building the plugin from source (with the portable llvm-mingw toolchain and <code>vst\\build.bat</code>) is described in the project’s <code>README.md</code>.</p>
 <h3 id="vst-diff">Differences from the web app</h3>
 <ul>
-<li><b>No start button, no DEMO button and no status bar.</b> Audio runs as soon as the plugin is loaded; there are no Save / Export / Import buttons (the plugin has its PRESET BROWSER, SAVE PRESET and user bank instead, see below). In the header, the place of the web app’s DEMO button holds the window-size button.</li>
+<li><b>No welcome window, no DEMO or DOWNLOAD VST button and no status bar.</b> Audio runs as soon as the plugin is loaded; there are no Save / Export / Import buttons (the plugin has its PRESET BROWSER, SAVE PRESET and user bank instead, see below). In the header, the place of the web app’s DEMO button holds the window-size button, and that of DOWNLOAD VST holds ${ctl('SAVE PRESET')}.</li>
+<li><b>Tempo sync</b> (beta 0.6, VST3 and VST2). ${ctl('SYNC')} buttons that the web app does not have: at the right of the ${ctl('PING-PONG DELAY')} heading, of the ${ctl('LFO 1')} title and of the ${ctl('LFO 2')} title. Lit, the delay’s TIME or the LFO’s RATE becomes a note value at the host’s tempo (120 BPM when the host gives none) and follows its tempo changes; the knob shows the note value, e.g. “1/8D”. SYNC is off by default, so older presets, states and Live Sets sound the same. See <a href="#delay-sync">Delay tempo sync</a> and <a href="#lfo-sync">LFO tempo sync</a>.</li>
 <li><b>Presets.</b> A new instance starts on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>. ◀ ▶ step through the ${SPEC.PRESETS.length} factory presets (those you deleted are skipped). Clicking the preset name opens the <b>preset browser</b>; a <b>right-click</b> on it opens the classic Windows menu (TOP Sounds, one submenu per category, the USER BANK, and the save / restore / delete / export commands). You can also keep sounds with Live: as a device preset, inside an Instrument Rack, or simply in the Live Set. The plugin remembers the selected preset, and whether the browser is open, with the Live Set.</li>
 <li><b>Preset browser</b> (beta 0.3). A panel at the right of the synth (${ctl('HIDE ▸')} folds it away and the window gets narrower; a click on the preset name brings it back). Two tabs: <b>FACTORY</b> and <b>USER BANK</b>. The left column lists the sound types with their number of sounds — <b>TOP Sounds</b> first (OktoPierre’s selection), then <b>Source Phase</b>, Bass, Lead, Keys, Organ, Pad… — and the right column the sounds of the type selected: <b>one click loads a sound</b>, and so do the <b>arrow keys</b> (beta 0.5) once you have clicked in the browser: ${kbd('↑')} ${kbd('↓')} the sound above or below, ${kbd('←')} ${kbd('→')} the category above or below. A long list scrolls with the mouse wheel or with the <b>scroll bar</b> at its right (beta 0.4: wide enough for a trackpad — drag it, or click the bar where you want to go). Each sound shows its engine letters (A, B or AB), ★ for a TOP sound, OktoPierre’s vote (7–10) for the voted ones and ${ctl('ADJ')} for a preset you adjusted. Above the list, ${ctl('▲')} ${ctl('▼')} move the sound playing up or down in that list. <b>Moving a sound to another category</b> (beta 0.5): drag it onto a category of the left column — onto TOP Sounds it is added there — or right-click it: <b>Move to ▸</b> a category, <b>Back to</b> its own category, <b>Add to TOP Sounds</b> / <b>Remove from TOP Sounds</b>. In the USER BANK tab a sound dragged onto a section moves to that section. All of it is kept in the presets file (and shared with EXPORT / IMPORT). Below: ${ctl('TO BANK…')} (save the sound to the user bank), ${ctl('RESTORE')} (the original of an adjusted factory preset), ${ctl('DELETE')} (a factory preset leaves the lists, a bank sound is deleted), ${ctl('EXPORT…')} (a copy of the presets file) and ${ctl('IMPORT…')} (beta 0.4: another presets file replaces yours, see <b>The presets file</b> below). <b>Show the presets file</b> (in Windows Explorer or the Finder), the former ${ctl('FILE')} button, is in the right-click menu of the preset name.</li>
-<li><b>SAVE PRESET</b> (beta 0.3, left of MANUAL A) overwrites the preset playing. A factory preset is <b>adjusted</b> in place, optionally under a new name (a small window proposes its name); a sound of the user bank is replaced. ${ctl('RESTORE')} brings a factory preset’s original back.</li>
+<li><b>SAVE PRESET</b> (beta 0.3; beta 0.6: its own button left of MANUAL, where the web app has DOWNLOAD VST, so the preset box is wider) overwrites the preset playing. A factory preset is <b>adjusted</b> in place, optionally under a new name (a small window proposes its name); a sound of the user bank is replaced. ${ctl('RESTORE')} brings a factory preset’s original back.</li>
 <li><b>User bank</b> (beta 0.3). Your own sounds, sorted in 12 sections: Bass, Lead, Keys, Organ, Pad, Strings, Brass &amp; Wind, Pluck, Bells &amp; Mallets, Chords, FX, Drums &amp; Perc. It is empty at first. ${ctl('TO BANK…')} (or <b>Save to user bank…</b> in the menu) proposes the current name (change it if you like) and a section; the preset name then reads <b>USER · <i>name</i></b>. Saving a name that already exists in that section asks before replacing it.</li>
 <li><b>The presets file</b> (beta 0.3). Everything above lives in one readable text file, <code>OKTOWAVE presets.txt</code>, kept <b>next to</b> the <code>WaveletSynthesizer.vst3</code> folder (so that installing a new version keeps it), shared by every instance and Live Set, and read again when you reopen Live: every factory preset (“Adjusted: yes” for those you saved, “Deleted: yes” for those you deleted), the order of every list, and the user bank; for each sound it lists the parameters that differ from the defaults. That folder must allow writing: the VST3 system folder <code>C:\\Program Files\\Common Files\\VST3</code> needs administrator rights, so the plugin says so if it cannot save there. A deleted factory preset comes back with a right-click on the preset name, <b>Deleted presets</b>. ${ctl('IMPORT…')} (beta 0.4; also <b>Import presets (.txt), replacing yours…</b> in the right-click menu) reads such a file — an ${ctl('EXPORT…')} copy, a friend’s <code>OKTOWAVE presets.txt</code> — and, after a question, <b>replaces</b> your adjusted and deleted presets, list order and user bank with its own; your previous file is first kept next to it as <code>OKTOWAVE presets (backup <i>date time</i>).txt</code> (to go back, import that copy). A file without presets is refused and nothing changes.</li>
-<li><b>Mouse.</b> Drag vertically (${kbd('Shift')} = fine), use the mouse wheel (${kbd('Shift')} = fine), and double-click or ${kbd('Ctrl')} + click to reset a control to its default. A knob with only a few positions (SUB ${ctl('OCT')}, the SHAPE knobs) moves with a short drag, and a <b>click</b> goes to its next value. Hovering shows the value, as in the web app.</li>
+<li><b>Mouse.</b> Drag vertically (${kbd('Shift')} = fine), use the mouse wheel (${kbd('Shift')} = fine), and double-click or ${kbd('Ctrl')} + click to reset a control to its default. A knob with only a few positions (the SUB OSC’s ${ctl('OCT')} and ${ctl('SHAPE')}) moves with a short drag, and a <b>click</b> goes to its next value. Hovering shows the value, as in the web app.</li>
 <li><b>Playing.</b> The on-screen keyboard and wheels work with the mouse, but there are no computer-keyboard notes: arm the track and use a MIDI keyboard or Live’s Computer MIDI Keyboard (${kbd('M')}). Pitch bend, the mod wheel and the sustain pedal arrive from the track’s MIDI.</li>
-<li><b>Manuals.</b> ${ctl('MANUAL A')} and ${ctl('MANUAL B')} open the copies stored in the bundle (<code>Contents\\Resources\\manual\\manual-a.html</code> and <code>manual-b.html</code>) in your default web browser.</li>
-<li><b>Version.</b> The plugin reports vendor ${SPEC.APP.credit.replace(/^created by /, '')} and version ${SPEC.APP.versionNum} (${SPEC.APP.version}); the panel shows “${SPEC.APP.credit} · ${SPEC.APP.version}”.</li>
+<li><b>Manuals.</b> ${ctl('MANUAL')} opens the manual of the engine shown in your default web browser, from the copy stored in the bundle: <code>Contents\\Resources\\manual\\manual-a.html</code> on the A · SUBTRACTIVE tab, <code>manual-b.html</code> on B · ADDITIVE. Each manual links to the other.</li>
+<li><b>Version.</b> The plugin reports vendor ${SPEC.APP.credit.replace(/^created by /, '')} and version ${SPEC.APP.versionNum} (${SPEC.APP.version}); the panel shows “${CREDIT}”.</li>
 <li><b>Window size.</b> The small size button next to the logo opens a menu of window sizes: 70, 80, 90, 100, 115, 130 and 150 %. The choice is saved with the Live Set.</li>
 </ul>
 <h3 id="automation">Automation</h3>
 <p>All panel parameters can be automated, under their full names — the “host” names given in the control tables of this manual, for example <i>Cutoff</i>, <i>Envelope Amount</i>, ${isA(E) ? '<i>Source Wave</i>, <i>Sparsity</i>' : '<i>Band 3 Level</i>, <i>Body Decay</i>'}. In Live, pick them in the track’s automation chooser, or click the plugin’s <b>Configure</b> button and move a control to add it to the device view.</p>
+<p>beta 0.6: the parameters of the first LFO are now named <i>LFO 1 Shape</i>, <i>LFO 1 Rate</i>, <i>LFO 1 to Pitch</i>, <i>LFO 1 to Cutoff</i>, <i>LFO 1 to Position</i> and <i>LFO 1 to Wavelet Morph</i> (they keep their numbers, so saved automation still finds them), and the tempo sync adds <i>Delay Sync</i>, <i>Delay Time (sync)</i>, <i>LFO 1 Sync</i>, <i>LFO 1 Rate (sync)</i>, <i>LFO 2 Sync</i> and <i>LFO 2 Rate (sync)</i>.</p>
 ${tip(`<p>${isA(E) ? `${P('a_wave')}, ${P('a_width')}, ${P('a_sparsity')}` : `${P('b_pattern')}, ${P('b_seed')}`}, ${P('wavelet')} and ${ctl('ENGINE')} rebuild the wave tables when they change. While playing in real time the new tables are built in the background and crossfaded over about 10 ms, so a ramp on these controls moves in small steps rather than as a smooth sweep. When Live renders offline (export or freeze), each change is rebuilt immediately, so the render matches what you automated. For smooth, continuous movement automate the filter, the POSITION window${isA(E) ? '' : ', the drawbars, TILT'} or the effect levels.</p>`)}`;
 }
 
@@ -499,10 +601,11 @@ ${tip(`<p>${isA(E) ? `${P('a_wave')}, ${P('a_width')}, ${P('a_sparsity')}` : `${
 function troubleshooting(E, extra) {
   const a = isA(E);
   const items = [
-    ['No sound in the web app', `<ul><li>Did you click <b>Click to start audio</b>? The status bar must read <i>Audio on</i>.</li><li>Check the header ${ctl('VOLUME')} knob (double-click resets it to −3 dB) and your system volume. The meter should move when you play.</li><li>Check the patch: an AMP ${P('amp_s')} of 0 % with a very short DECAY, ${a ? `a ${P('f_cutoff')} plus ${P('f_env')} below about 1, or a high-pass with a high cutoff` : 'all drawbars down, a low CUTOFF, or a SCALE SUSTAIN of 0 % with very short BODY and BRIGHT times'} can all make a note almost silent. Load <b>${a ? 'A · Init' : 'B · Init'}</b> to start from a known sound.</li></ul>`],
+    ['No sound in the web app', `<ul><li>Did you choose <b>Play the synth</b> (or <b>Run the demo</b>) in the welcome window? The status bar must read <i>Audio on</i>.</li><li>Check the header ${ctl('VOLUME')} knob (double-click resets it to −3 dB) and your system volume. The meter should move when you play.</li><li>Check the patch: an AMP ${P('amp_s')} of 0 % with a very short DECAY, ${a ? `a ${P('f_cutoff')} plus ${P('f_env')} below about 1, or a high-pass with a high cutoff` : 'all drawbars down, a low CUTOFF, or a SCALE SUSTAIN of 0 % with very short BODY and BRIGHT times'} can all make a note almost silent. Load <b>${a ? 'A · Init' : 'B · Init'}</b> to start from a known sound.</li></ul>`],
     ['“Audio error: …” in the status bar', `<p>The browser could not start the audio engine. Use a current Chrome, Edge or Firefox (the engine needs AudioWorklet support) and reload the page. As a last resort, if a locked-down browser refuses pages opened from disk, serve the folder locally — for example run <code>python -m http.server 8000</code> in the <code>web</code> folder and open <code>http://localhost:8000/</code>.</p>`],
-    ['“The manual was not found” (plugin)', '<p>The MANUAL buttons open the manuals stored inside the plugin bundle. Install the complete <code>WaveletSynthesizer.vst3</code> folder, not only the file inside it.</p>'],
-    ['I hear two pieces at once, or the sound continues after closing', `<p>The web app plays in only one window or tab at a time: starting the audio in one pauses the others, which show “The synthesizer is playing in another window or tab, so this one was paused.” with a ${ctl('Click to play here')} button, and closing or leaving the page stops its demo and audio at once. If you still hear two pieces, or sound after closing, close the other window or tab of the app (or click its overlay to take the audio there), then reload the page.</p>`],
+    ['“The manual was not found” (plugin)', '<p>The MANUAL button opens the manuals stored inside the plugin bundle. Install the complete <code>WaveletSynthesizer.vst3</code> folder, not only the file inside it.</p>'],
+    ['I hear two pieces at once, or the sound continues after closing', `<p>The web app plays in only one window or tab at a time: starting the audio in one pauses the others, whose welcome window comes back with “The synthesizer is playing in another window or tab, so this one was paused.”, and closing or leaving the page stops its demo and audio at once. If you still hear two pieces, or sound after closing, close the other window or tab of the app (or choose ${ctl('Play the synth')} in its welcome window to take the audio there), then reload the page.</p>`],
+    ['There is no SYNC button / the delay does not follow the tempo', `<p>Tempo sync (beta 0.6) exists only in the plug-in, which gets the tempo from the host: the ${ctl('SYNC')} buttons sit at the right of the PING-PONG DELAY heading and of the LFO 1 and LFO 2 titles. A browser page has no tempo, so the web app keeps TIME in seconds and RATE in hertz. In the plug-in, check that SYNC is lit: it is off by default.</p>`],
     ['No sound from the plugin', '<p>Make sure the MIDI track is armed (or its monitor is set to <i>In</i>), that MIDI from your keyboard reaches the track, and that the plugin’s VOLUME is up.</p>'],
     ['My MIDI keyboard is not found', '<p>Use Chrome or Edge, which support Web MIDI. Allow MIDI access when the browser asks; if the status bar says <i>MIDI: access denied</i>, re-enable it in the site permissions and reload. Devices can be plugged in while the page is open.</p>'],
     ['The computer keys do not play', '<p>Click on the panel first so that the page has the keyboard focus, close the manual overlay, and make sure no text field is active. On non-QWERTY keyboards, use the physical positions shown in <a href="#kbd-computer">the key map</a>.</p>'],
@@ -513,7 +616,7 @@ function troubleshooting(E, extra) {
     ['Clicks', `<p>Very short AMP attack or release times (1–2 ms) can click, especially on low notes and smooth waves; 3–10 ms is usually clean. Changing ${a ? 'WAVE, WIDTH, SPARSITY' : 'PATTERN, SEED'} or WAVELET while a note sounds is crossfaded and should not click.</p>`],
     ['Squashed or distorted sound, meter at the top', `<p>Resonance (up to +24 dB), unison, big chords, DRIVE and the effect mix knobs all add level. The output limiter never lets the signal exceed 0 dBFS, but when it works hard the sound gets squashed. Lower ${ctl('VOLUME')} or the offending control.</p>`],
     ['High CPU load', `<p>CPU use grows with ${P('v_voices')} × ${P('v_unison')} and with the number of bands that actually sound. Lower UNISON first, then VOICES. Bands whose gain is (almost) zero are skipped, so steep low-pass settings and high notes are cheaper. In the browser, close other heavy tabs.</p>`],
-    ['Clicking an engine tab does not change the sound', `<p>That is by design since beta 0.2: ${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} only choose the panel shown. The sound is set by ${P('ab_mix')} (at the right of the engine section): turn it to A, to B, or in between. The SCALE FILTER, POSITION, envelopes, LFO, voice and effects are shared by both engines — for example the CUTOFF 7 of “A · Init” also filters engine B. Load an engine’s Init preset for a neutral start.</p>`],
+    ['Clicking an engine tab does not change the sound', `<p>That is by design since beta 0.2: ${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} only choose the panel shown. The sound is set by ${P('ab_mix')} (at the right of the engine section): turn it to A, to B, or in between. The SUB OSC, SCALE FILTER, POSITION, envelopes, LFOs, voice and effects are shared by both engines — for example the CUTOFF 7 of “A · Init” also filters engine B. Load an engine’s Init preset for a neutral start.</p>`],
     ['My sound is gone after reloading', `<p>That is by design: the web app always opens on <b>${SPEC.PRESETS[SPEC.DEFAULT_PRESET].name}</b>. Keep sounds with <b>Save preset</b> (stored in this browser) or <b>Export</b> (a file). Private windows, another browser or clearing site data lose the browser-stored user presets — exported files are safe.</p>`],
     ['I cannot hear the sub oscillator', `<p>Its ${P('sub_level')} is 0 % by default. At −2 octaves on low notes the sub can be below 20 Hz, which small speakers and most headphones cannot reproduce: try −1 octave, a higher note, or the ${ctl('TRI')} or ${ctl('SQR')} shape, whose harmonics stay audible.</p>`],
   ];
@@ -528,7 +631,7 @@ function subSection(E) {
     [{ key: 'sub_oct', range: '−1 octave · −2 octaves' }, `How far below the played note the sub sounds: one or two octaves. It follows the pitch exactly, including ${P('v_oct')}, ${P('v_fine')}, glide, pitch bend and vibrato.`, '−2 octaves on low notes goes below 20 Hz: felt more than heard.'],
     [{ key: 'sub_shape', range: 'Sine · Triangle · Square' }, 'Waveform of the sub: a pure sine; a soft triangle (odd harmonics that fall quickly); or a square with strong odd harmonics, band-limited with PolyBLEP so it does not alias.', `On small speakers choose ${ctl('TRI')} or ${ctl('SQR')}: their harmonics stay audible when the fundamental is too low to be reproduced.`],
   ];
-  return `<p>The ${ctl('SUB OSC')} section, at the bottom left next to the wheels, adds a simple oscillator one or two octaves below every note — the classic way to give a sound more low end, from a warm bass foundation to infra-bass you feel rather than hear.</p>
+  return `<p>The ${ctl('SUB OSC')} section adds a simple oscillator one or two octaves below every note — the classic way to give a sound more low end, from a warm bass foundation to infra-bass you feel rather than hear. It sits in the top row, between the engine section and the SCOPE (beta 0.6; it was at the bottom before): a large ${ctl('LEVEL')} knob with ${ctl('OCT')} and ${ctl('SHAPE')} below it.</p>
 ${controls(rows)}
 <ul>
 <li><b>One sub per voice.</b> Every note gets one sub oscillator, centred in the stereo field — not one per unison copy, so ${P('v_unison')}, ${P('v_detune')} and ${P('v_width')} neither thicken nor spread it.</li>
@@ -557,14 +660,15 @@ ${controls(rows)}
 }
 
 // ---------------------------------------------------------------- string-machine chorus (beta 0.2)
+// beta 0.6: part of the EFFECTS section (its knobs in the effects table, this text a subsection of "Effects and master")
+const CHORUS_ROWS = [
+  ['ch_mix', 'Amount of chorus: 0 % switches it off (the default), 100 % keeps only the three chorus lines. See <a href="#chorus">Chorus</a> below.', '60–90 % gives the classic string-machine shimmer; 30–40 % just widens a lead or keys.'],
+  ['ch_rate', 'Speed of the chorus’s slow sweep (0.1–3 Hz). A second, fast sweep runs at about 9.7 times this rate with a smaller depth — the two together make the “ensemble” movement.', 'Around 0.5–0.8 Hz sounds like the string machines of the 1970s; above 1.5 Hz it becomes a vibrato.'],
+  ['ch_depth', 'How far the chorus’s delay lines sweep: from 6 ms up to 12 ms at 100 %.', 'Lower DEPTH when RATE is high, or the pitch wobble becomes obvious.'],
+];
 function chorusSection(E) {
-  const rows = [
-    ['ch_mix', 'Amount of chorus: 0 % switches it off (the default), 100 % keeps only the three chorus lines.', '60–90 % gives the classic string-machine shimmer; 30–40 % just widens a lead or keys.'],
-    ['ch_rate', 'Speed of the slow sweep (0.1–3 Hz). A second, fast sweep runs at about 9.7 times this rate with a smaller depth — the two together make the “ensemble” movement.', 'Around 0.5–0.8 Hz sounds like the string machines of the 1970s; above 1.5 Hz it becomes a vibrato.'],
-    ['ch_depth', 'How far the delay lines sweep: from 6 ms up to 12 ms at 100 %.', 'Lower DEPTH when RATE is high, or the pitch wobble becomes obvious.'],
-  ];
-  return `<p>The ${ctl('CHORUS')} section, at the bottom left next to the SUB OSC, is a triple chorus modelled on the ensemble effect of 1970s string machines.</p>
-${controls(rows)}
+  return `<h3 id="chorus">Chorus (string machine)</h3>
+<p>The chorus (beta 0.2) is a triple chorus modelled on the ensemble effect of 1970s string machines. Its knobs — ${ctl('CHORUS')} (the amount), ${ctl('RATE')} and ${ctl('DEPTH')} — are the second group of the EFFECTS section, under the ${ctl('CHORUS')} heading (beta 0.6; they had their own card at the bottom before).</p>
 <ul>
 <li><b>How it works.</b> The sound (after DRIVE) feeds three short delay lines. Each is swept by the same slow and fast LFOs, shifted by 120° from one line to the next, so the three copies are never in step. They are spread left, centre and right: the result is wide and lush even from a single voice.</li>
 <li><b>Where it sits.</b> After the voices and the DRIVE, before the ping-pong DELAY and the REVERB — the order of a classic string machine going into an echo and a hall.</li>
@@ -602,7 +706,7 @@ function aboutSection(E) {
   const A = SPEC.APP;
   return `<p><b>${A.name}</b> — ${A.credit} (${A.author}). Version <b>${A.version}</b> (${A.date}).</p>
 <ul>
-<li>The panel shows “${A.credit} · ${A.version}” at the bottom right, in the web app and in the plugin.</li>
+<li>The panel shows “${CREDIT}” at the bottom right, under the keyboard, in the web app and in the plugin.</li>
 <li>The VST3 plugin is published under the vendor name <b>${A.credit.replace(/^created by /, '')}</b> — that is where Ableton Live lists it in its browser — with version number ${A.versionNum}.</li>
 <li>These manuals are generated from the instrument’s own parameter list and sound engine (<code>tools/manual/</code>), so ranges, defaults and presets always match this version.</li>
 <li><b>How to cite:</b> Guyot, P. A. (2026). <i>${A.name}</i> [Computer software]. Zenodo. <a href="https://doi.org/${A.doi}">https://doi.org/${A.doi}</a> (<a href="https://zenodo.org/records/${A.doi.split('.').pop()}">Zenodo record</a>).</li>
@@ -637,6 +741,7 @@ function glossary(E) {
     ['Unison', 'Several slightly detuned copies of each note played together for a thicker sound.'],
     ['Sub oscillator', 'An extra oscillator one or two octaves below the played note, used to add low end.'],
     ['Infrasound', 'Frequencies below about 20 Hz: under the range of hearing, but felt through large speakers.'],
+    ['Tempo sync', 'Setting a time or a speed as a note value of the song’s tempo instead of seconds or hertz: 1/8 = an eighth note, T = triplet (2/3 of the note), D = dotted (1.5 ×). In the plug-in, the SYNC buttons of the delay and of both LFOs.'],
     ['PolyBLEP', 'A light-weight way of removing the aliasing of the sharp edges of a digital square or sawtooth wave; used by the sub oscillator’s square.'],
     ...(isA(E) ? [['Subtractive synthesis', 'Starting from a harmonically rich wave and removing (filtering) parts of it — here, removing bands of atoms.']]
       : [['Additive synthesis', 'Building a sound by adding simple components — classically sine waves, here bands of wavelet atoms.'], ['Drawbar', 'A slider for the level of one component, as on a tonewheel organ; here one per band (octave).'], ['Walsh functions', 'Square-wave functions that switch between +1 and −1 in regular patterns; the digital counterpart of sines, used in some early digital synthesizers.']]),
@@ -653,15 +758,19 @@ const PLABEL = {
   p_center: 'POSITION', p_width: 'WINDOW WIDTH', p_depth: 'DEPTH',
   amp_a: 'AMP A', amp_d: 'AMP D', amp_s: 'AMP S', amp_r: 'AMP R', amp_vel: 'VELOCITY',
   mod_a: 'MOD A', mod_d: 'MOD D', mod_s: 'MOD S', mod_r: 'MOD R',
-  lfo_shape: 'LFO', lfo_rate: 'LFO RATE', lfo_pitch: 'LFO→PITCH', lfo_cut: 'LFO→CUTOFF', lfo_pos: 'LFO→POSITION',
+  lfo_shape: 'LFO 1', lfo_rate: 'LFO 1 RATE', lfo_pitch: 'LFO 1→PITCH', lfo_cut: 'LFO 1→CUTOFF', lfo_pos: 'LFO 1→POSITION',
   v_porta: 'PORTAMENTO', v_oct: 'OCTAVE', v_fine: 'FINE', v_voices: 'VOICES', v_glide: 'GLIDE', v_unison: 'UNISON', v_detune: 'DETUNE', v_width: 'STEREO',
   fx_drive: 'DRIVE', fx_dtime: 'DLY TIME', fx_dfb: 'FEEDBACK', fx_dmix: 'DLY MIX', fx_rsize: 'REV SIZE', fx_rmix: 'REV MIX', master: 'VOLUME',
   sub_level: 'SUB LEVEL', sub_oct: 'SUB', sub_shape: 'SUB SHAPE',
   ab_mix: 'A/B MIX', ch_mix: 'CHORUS', ch_rate: 'CHORUS RATE', ch_depth: 'CHORUS DEPTH',
-  wav2: 'WAVELET 2', wmorph: 'MORPH', lfo_wav: 'LFO→WAVELET', env_wav: 'ENV→WAVELET',
+  wav2: 'WAVELET 2', wmorph: 'MORPH', lfo_wav: 'LFO 1→WAVELET', env_wav: 'ENV→WAVELET',
   lfo2_shape: 'LFO 2', lfo2_rate: 'LFO 2 RATE', lfo2_amt: 'LFO 2 AMOUNT', lfo2_target: 'LFO 2→',
   a_phase: 'PHASE',
+  fx_dsync: 'DLY SYNC', fx_ddiv: 'DLY TIME (sync)', lfo_sync: 'LFO 1 SYNC', lfo_div: 'LFO 1 RATE (sync)',   // beta 0.6
+  lfo2_sync: 'LFO 2 SYNC', lfo2_div: 'LFO 2 RATE (sync)',
 };
+// every parameter a preset can set needs a label in the preset tables (else they would read "undefined")
+for (const p of SPEC.PARAMS) if (!p.hidden && p.key !== 'engine' && !p.key.startsWith('b_bar') && !PLABEL[p.key]) throw new Error('PLABEL: no label for ' + p.key);
 function presetSettings(pr) {
   const out = [], v = pr.values, idx = k => SPEC.PARAMS.findIndex(p => p.key === k);
   const mixed = v[idx('ab_mix')] > 0 && v[idx('ab_mix')] < 1;   // both engines sound: show both engines' settings
@@ -704,4 +813,5 @@ function presetTable(E, desc) {   // the presets of one engine's panel, by categ
   return `<div class="tbl"><table class="presets"><thead><tr>${head.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
-module.exports = { DEMO, demoSection, subSection, mixSection, chorusSection, aboutSection, bandMap, waveletTable, quickStart, controlsHowTo, filterSection, positionSection, envelopesSection, lfoSection, voiceSection, fxSection, displaysSection, playingSection, presetsSaving, vstSection, troubleshooting, glossary, presetTable };
+module.exports = { DEMO, demoSection, subSection, mixSection, chorusSection, aboutSection, bandMap, waveletTable, quickStart, controlsHowTo,
+  headerPins, sharedPins, panelSame, headerControls, filterSection, positionSection, envelopesSection, lfoSection, voiceSection, fxSection, displaysSection, playingSection, presetsSaving, vstSection, troubleshooting, glossary, presetTable };

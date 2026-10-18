@@ -10,9 +10,10 @@ const C = require('../web/js/core.js')(SPEC);
 const dir = process.argv[2];
 const sr = 48000, n = sr * 3, blk = 128;
 let worst = 0, fails = 0;
-function compare(values, idx, name) {
+function compare(values, idx, name, tempo = 0) {
   const params = Float64Array.from(values);
   const eng = new C.Engine(sr); params.forEach((v, i) => eng.setParam(i, v));
+  eng.setTempo(tempo);   // beta 0.6: 0 = no tempo (the factory presets, the web app)
   eng.setTables(C.buildTables(params, true));
   const L = new Float32Array(n), R = new Float32Array(n);
   for (let o = 0; o < n; o += blk) {
@@ -53,6 +54,16 @@ const PHT = SPEC.LFO2_TARGETS.indexOf(P.a_phase);
   const v = SPEC.PRESETS[0].values.slice();
   for (const [k, x] of Object.entries(set)) v[P[k]] = x;
   compare(v, SPEC.PRESETS.length + SPEC.LFO2_TARGETS.length + j, name);
+});
+// beta 0.6: TEMPO SYNC of the delay and both LFOs at a tempo; the same variants as vst/devtest/dsp_render.cpp
+[
+  ['sync delay 1/8 D @120', 120, { fx_dsync: 1, fx_ddiv: 7, fx_dmix: 0.4, fx_dfb: 0.5 }],
+  ['sync LFO 1 1/16 @97', 97, { lfo_sync: 1, lfo_div: 13, lfo_cut: 3, lfo_pitch: 30 }],
+  ['sync LFO 2 1/8 T + delay 1/1 @133', 133, { lfo2_sync: 1, lfo2_div: 12, lfo2_amt: 0.7, lfo2_target: 0, fx_dsync: 1, fx_ddiv: 13, fx_dmix: 0.3 }],
+].forEach(([name, tempo, set], k) => {
+  const v = SPEC.PRESETS[0].values.slice();
+  for (const [key, x] of Object.entries(set)) v[P[key]] = x;
+  compare(v, SPEC.PRESETS.length + SPEC.LFO2_TARGETS.length + 4 + k, name, tempo);
 });
 console.log(fails ? `${fails} mismatch(es)` : `C++ port matches the JS reference (worst ${worst.toExponential(2)})`);
 process.exit(fails ? 1 : 0);

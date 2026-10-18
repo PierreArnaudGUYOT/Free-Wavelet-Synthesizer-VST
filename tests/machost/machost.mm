@@ -451,6 +451,21 @@ int main(int argc, char** argv) {
     click(pv, eng.x + eng.w * 0.25f, eng.y + eng.h / 2);
     pump(0.2);
     check(p.ctl->getParamNormalized(ws::P_ENGINE) < 0.5, "engine tab A again");
+    // beta 0.6: the delay's SYNC button (plug-in only): a click turns it on (the host hears it), a second one off
+    {
+      const Spot sy = find(ws::W_TOGGLE, ws::P_FX_DSYNC);
+      check(sy.type >= 0, "the delay's SYNC button is in the panel");
+      if (sy.type >= 0) {
+        click(pv, sy.x + sy.w / 2, sy.y + sy.h / 2);
+        pump(0.2);
+        check(p.ctl->getParamNormalized(ws::P_FX_DSYNC) > 0.5 && p.handler->edits.count(ws::P_FX_DSYNC),
+              "a click on the delay's SYNC turns it on and the host hears it");
+        shot(pv, out + "/mac_sync.png");
+        click(pv, sy.x + sy.w / 2, sy.y + sy.h / 2);
+        pump(0.2);
+        check(p.ctl->getParamNormalized(ws::P_FX_DSYNC) < 0.5, "a second click turns SYNC off");
+      }
+    }
     // a large knob dragged upwards
     Spot knob{-1, -1, 0, 0, 0, 0};
     for (const Spot& s : spots()) if (s.type == ws::W_KNOBL && s.param >= 0 && ws::kSections[0].mode != 1) { knob = s; break; }

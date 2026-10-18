@@ -27,12 +27,26 @@
   <input id="file-midi" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" hidden>
 </div>
 
+<!-- beta 0.6: the welcome window. Browsers allow sound only after a click: each choice is that click. It comes back with a
+     message in place of the sub-title when another window takes the audio (app.js showOverlay). -->
 <div id="start-overlay">
-  <button id="start-btn">
-    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
-    <span>Click to start audio</span>
-  </button>
-  <p>Browsers only allow sound after a click. Then play with the mouse, your computer keyboard or a MIDI keyboard.</p>
+  <div class="welcome" role="dialog" aria-modal="true" aria-labelledby="w-title" aria-describedby="w-sub">
+    <h1 id="w-title"><span>OKTOWAVE</span> · Wavelet Synthesizer</h1>
+    <p id="w-sub" class="sub">A free synthesizer that shapes sound with wavelets instead of Fourier filters — by OktoPierre.</p>
+    <div class="choices">
+      <button id="w-demo" class="choice">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+        <b>Run the demo</b><small>A tour of the presets on Beethoven’s <i>Appassionata</i>, about 2 min.</small></button>
+      <button id="start-btn" class="choice main">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6v7M12 6v7M17 6v7" stroke="currentColor" stroke-width="1.8"/></svg>
+        <b>Play the synth</b><small>MIDI supported</small></button>
+      <a id="w-vst" class="choice dl" href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+        <b>Download the VST</b><small>The free plug-in for Ableton Live &amp; co.: Windows (VST3 / VST2) and macOS (VST3).</small></a>
+    </div>
+    <p class="foot">Browsers only allow sound after a click. Manuals: <a id="w-man-a" href="manual/manual-a.html" target="_blank" rel="noopener">engine A</a> ·
+      <a id="w-man-b" href="manual/manual-b.html" target="_blank" rel="noopener">engine B</a> · free software (GPL v3).</p>
+  </div>
 </div>
 
 <div id="manual-overlay" hidden>

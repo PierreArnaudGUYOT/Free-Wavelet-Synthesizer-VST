@@ -325,7 +325,7 @@ static float rowY(int j) { return 117 + 22.0f * j; }   // the sound list, below 
 static const float UP_X = 1402, DOWN_X = 1428, MOVE_Y = 90;   // ▲ ▼ above the list
 static float btnX(int b) { return 1116 + b * 65.8f + 30.4f; }   // TO BANK, RESTORE, DELETE, EXPORT, FILE
 static const float BTN_Y = 675, TAB_Y = 55, TAB0_X = 1197, TAB1_X = 1359, HIDE_X = 1411, HIDE_Y = 24;
-static const float SAVE_X = 834, SAVE_Y = 24, NAME_X = 680, NAME_Y = 24;
+static const float SAVE_X = 910, SAVE_Y = 24, NAME_X = 680, NAME_Y = 24;   // beta 0.6: SAVE PRESET at 876..944
 // the block of one factory preset in the presets file
 static std::string factoryBlock(const std::string& txt, const std::string& orig) {
   const size_t f = txt.find("\r\nFactory: " + orig + "\r\n");
@@ -490,7 +490,7 @@ int wmain(int argc, wchar_t** argv) {
     check(h.stateName() != victim && !h.stateName().empty(), "the next sound of the list plays", h.stateName());
     h.command(100 + kVictim - 1);   // the preset before it, then ▶
     h.run(0.1);
-    clickAt(h, 566 + 228 - 15, 24);   // ▶ of the preset box
+    clickAt(h, 566 + 304 - 15, 24);   // ▶ of the preset box (beta 0.6: the box is 304 wide)
     h.run(0.1);
     check(h.stateName() != victim, "▶ skips the deleted preset", h.stateName());
     h.command(5000 + kVictim);   // the menu's "Deleted presets": back
@@ -498,19 +498,40 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("9. SUB OCT by a click, LFO 2 target by the wheel\n");
     const double oct0 = h.plain(P_SUB_OCT);
-    clickAt(h, 144, 657);   // SUB OSC: OCT
+    clickAt(h, 594, 232);   // SUB OSC: OCT (beta 0.6: at the top, next to the oscillator)
     h.run(0.1);
     const double oct1 = h.plain(P_SUB_OCT);
-    clickAt(h, 144, 657);
+    clickAt(h, 594, 232);
     h.run(0.1);
     check(oct1 != oct0 && h.plain(P_SUB_OCT) == oct0, "a click switches OCT, a second click switches it back", fmt("%.0f -> %.0f", oct0, oct1));
     {
-      POINT pt{447, 632}; ClientToScreen(h.ed, &pt);
+      POINT pt{504, 568}; ClientToScreen(h.ed, &pt);   // beta 0.6: LFO 2 TARGET, beside LFO 1
       SendMessageW(h.ed, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), MAKELPARAM(pt.x, pt.y));
       h.pump();
     }
     check(h.plain(P_LFO2_TARGET) == 1, "the wheel on the LFO 2 menu: CUTOFF -> SLOPE", fmt("%.0f", h.plain(P_LFO2_TARGET)));
     h.shot(out + L"\\4_lfo2.png");
+
+    std::printf("9b. beta 0.6: the SYNC buttons of the delay and the two LFOs; TIME / RATE become note values\n");
+    const double dt0 = h.plain(P_FX_DTIME), dd0 = h.plain(P_FX_DDIV);
+    clickAt(h, 596 + 332 + 21, 472 + 29 + 8);   // EFFECTS: the delay's SYNC
+    h.run(0.1);
+    check(h.plain(P_FX_DSYNC) == 1, "a click on the delay's SYNC turns it on", fmt("%.0f", h.plain(P_FX_DSYNC)));
+    {   // the wheel on TIME now moves the note value, not the time in seconds
+      POINT pt{596 + 220 + 26, 472 + 64 + 20}; ClientToScreen(h.ed, &pt);
+      SendMessageW(h.ed, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), MAKELPARAM(pt.x, pt.y));
+      h.pump();
+    }
+    check(h.plain(P_FX_DDIV) == dd0 + 1 && h.plain(P_FX_DTIME) == dt0, "with SYNC, the wheel on TIME steps the note value (1/8 -> 1/4 T); the time in seconds stays",
+          fmt("note %.0f", h.plain(P_FX_DDIV)) + fmt(", time %.3f s", h.plain(P_FX_DTIME)));
+    clickAt(h, 12 + 230 + 21, 472 + 6 + 8);    // LFO 1's SYNC
+    clickAt(h, 304 + 230 + 21, 472 + 6 + 8);   // LFO 2's SYNC
+    h.run(0.1);
+    check(h.plain(P_LFO_SYNC) == 1 && h.plain(P_LFO2_SYNC) == 1, "LFO 1 and LFO 2 have their own SYNC");
+    h.shot(out + L"\\4b_sync.png");
+    for (float x : {596.f + 332 + 21, 12.f + 230 + 21, 304.f + 230 + 21}) clickAt(h, x, x > 590 ? 472 + 29 + 8 : 472 + 6 + 8);   // all off
+    h.run(0.1);
+    check(h.plain(P_FX_DSYNC) == 0 && h.plain(P_LFO_SYNC) == 0 && h.plain(P_LFO2_SYNC) == 0, "a second click turns each SYNC off");
 
     std::printf("10. HIDE and back; the state keeps it\n");
     clickAt(h, HIDE_X, HIDE_Y);

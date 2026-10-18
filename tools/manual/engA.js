@@ -58,7 +58,7 @@ const DB8HALF = sparse(0, 3, 0.5);        // screenshot: DB8 saw at 50 %
 const hero = `<header class="hero">
 <p class="eyebrow">WAVELET SYNTHESIZER · USER MANUAL A</p>
 <h1><span class="tag">ENGINE A</span>Wavelet Subtractive</h1>
-<p class="lead">Engine A is a subtractive synthesizer with a twist. Like a classic analogue-style instrument it starts from a bright waveform — saw, square, pulse, triangle, sine or a noise cycle — and shapes it with a filter, envelopes and an LFO. The twist is the filter: instead of cutting frequencies it cuts <em>scales</em>. Every waveform cycle is broken down by a wavelet transform into 2047 small building blocks, the atoms, arranged in 11 octave bands. The SCALE FILTER turns those bands up and down, SPARSITY throws away all but the most important atoms, and the POSITION window can confine the filter to one part of the cycle — only the falling edge of a square, say — leaving the rest untouched. The WAVELET you choose sets the shape of the atoms and therefore the character of every sweep: blocky and digital with Haar, smooth and analogue-like with Daubechies 20.</p>
+<p class="lead">Engine A is a subtractive synthesizer with a twist. Like a classic analogue-style instrument it starts from a bright waveform — saw, square, pulse, triangle, sine or a noise cycle — and shapes it with a filter, envelopes and LFOs. The twist is the filter: instead of cutting frequencies it cuts <em>scales</em>. Every waveform cycle is broken down by a wavelet transform into 2047 small building blocks, the atoms, arranged in 11 octave bands. The SCALE FILTER turns those bands up and down, SPARSITY throws away all but the most important atoms, and the POSITION window can confine the filter to one part of the cycle — only the falling edge of a square, say — leaving the rest untouched. The WAVELET you choose sets the shape of the atoms and therefore the character of every sweep: blocky and digital with Haar, smooth and analogue-like with Daubechies 20.</p>
 <div class="hero-meta"><span class="pill">For the web app and the VST3 plugin for Ableton Live (Windows and macOS)</span><span class="pill">Version ${SPEC.APP.version} · ${SPEC.APP.date}</span><a class="pill other-b" href="manual-b.html">Engine B · Wavelet Additive — read Manual B</a></div>
 </header>`;
 
@@ -90,8 +90,8 @@ ${S.waveletTable(E)}
 ${figInline('flow-a', '<b>Figure 3.</b> Engine A, from source wave to output. Teal boxes are the wavelet-specific stages.')}
 <ul>
 <li><b>Table building</b> happens only when you change ${P('a_wave')}, ${P('a_width')}, ${P('a_phase')}, ${P('a_sparsity')} or ${P('wavelet')}: the source cycle is drawn (moved by SOURCE PHASE), transformed, thinned out by SPARSITY, and split into 11 band layers plus a “dry” layer (their sum, i.e. the unfiltered wave). The switch to new tables is crossfaded, so you can change these controls while playing.</li>
-<li><b>Every voice</b> plays these layers at its own pitch and mixes them with the SCALE FILTER gains, which are recalculated continuously from CUTOFF, the envelopes, the LFO and velocity. The POSITION window then decides, point by point within the cycle, how much of the filtered sound replaces the dry one.</li>
-<li><b>All voices</b> are summed and pass through the saturation, delay and reverb, a DC blocker, the master volume and a soft limiter that keeps the output below 0 dBFS.</li>
+<li><b>Every voice</b> plays these layers at its own pitch and mixes them with the SCALE FILTER gains, which are recalculated continuously from CUTOFF, the envelopes, the LFOs and velocity. The POSITION window then decides, point by point within the cycle, how much of the filtered sound replaces the dry one.</li>
+<li><b>All voices</b> are summed and pass through the effects — saturation, chorus, delay and reverb, in that order — a DC blocker, the master volume and a soft limiter that keeps the output below 0 dBFS.</li>
 </ul>
 
 <div class="callout feature" id="haar-square"><span class="ttl">A BEAUTIFUL CONSEQUENCE</span>
@@ -104,57 +104,34 @@ ${fig('db20-square.png', '<b>Daubechies 20 + SQUARE:</b> atoms in every band, cl
 
 // ---------------------------------------------------------------- 3. panel tour
 const pins = [
-  { x: 218, y: 8, title: '▶ DEMO ▾ (web app)', desc: '▶ DEMO plays the default demo, a tour of the presets; ▾ opens the list of demo pieces.', href: 'demo' },
-  { x: 286, y: 5, title: 'ENGINE', desc: 'chooses the engine panel shown, A (teal) or B (amber); A/B MIX sets what you hear.', href: 'header-controls' },
-  { x: 562, y: 5, title: 'Preset browser', desc: '◀ ▶ step through the presets; click the name for the list.', href: 'saving' },
-  { x: 872, y: 5, title: 'MANUAL A / B', desc: 'open this manual or the engine B manual.', href: 'header-controls' },
-  { x: 1024, y: 2, title: 'VOLUME and meter', desc: 'master level and stereo peak meter.', href: 'effects' },
+  ...S.headerPins(E),
   { x: 13, y: 102, title: 'WAVE', desc: 'the source waveform of engine A.', href: 'source' },
   { x: 13, y: 146, title: 'ATOM SHAPE', desc: 'one atom of the selected wavelet.', href: 'wavelets' },
-  { x: 13, y: 285, title: 'WAVELET', desc: 'chooses the atom shape (seven wavelets).', href: 'wavelets' },
+  { x: 13, y: 250, title: 'WAVELET', desc: 'chooses the atom shape (seven wavelets); WAVELET 2 below it, for the WAVELET MORPH.', href: 'wavelets' },
   { x: 281, y: 146, title: 'SOURCE CYCLE', desc: 'the wave before (grey) and after sparsity, with “K / nz ATOMS KEPT”.', href: 'sparsity' },
-  { x: 288, y: 198, title: 'WIDTH', desc: 'pulse width or triangle symmetry (greyed out for other waves).', href: 'source' },
+  { x: 288, y: 198, title: 'WIDTH', desc: 'pulse width or triangle symmetry; greyed out unless WAVE is PULSE or TRI.', href: 'source' },
   { x: 384, y: 198, title: 'SPARSITY', desc: 'keeps only the largest atoms.', href: 'sparsity' },
   { x: 434, y: 120, title: 'PHASE', desc: 'SOURCE PHASE: moves the wave inside the cycle before the analysis (beta 0.4).', href: 'phase' },
   { x: 469, y: 262, title: 'A/B MIX', desc: 'what you hear: engine A, engine B or both mixed.', href: 'mix' },
-  { x: 568, y: 104, title: 'SCOPE', desc: 'one cycle of the output; grey = the dry wave.', href: 'displays' },
-  { x: 568, y: 216, title: 'SCALOGRAM', desc: 'the atoms of the 11 bands; dashed line = window.', href: 'displays' },
-  { x: 130, y: 337, title: 'SCALE FILTER', desc: 'per-band filter with resonance, key tracking, envelope and velocity.', href: 'filter' },
-  { x: 451, y: 337, title: 'POSITION', desc: 'confines the filter to part of the cycle.', href: 'position' },
-  { x: 675, y: 337, title: 'AMP ENVELOPE', desc: 'loudness ADSR and velocity sensitivity.', href: 'amp-env' },
-  { x: 969, y: 337, title: 'MOD ENVELOPE', desc: 'ADSR that moves the cutoff.', href: 'mod-env' },
-  { x: 70, y: 485, title: 'LFO', desc: 'one global LFO for pitch, cutoff and position.', href: 'lfo' },
-  { x: 376, y: 485, title: 'VOICE', desc: 'portamento mode, octave, tuning, polyphony, glide and unison, with voice LEDs.', href: 'voice' },
-  { x: 785, y: 485, title: 'EFFECTS', desc: 'saturation, ping-pong delay and reverb.', href: 'effects' },
-  { x: 8, y: 616, title: 'Wheels', desc: 'pitch bend and modulation (vibrato).', href: 'kbd-screen' },
-  { x: 169, y: 633, title: 'SUB OSC', desc: 'LEVEL, OCT and SHAPE of the sub oscillator.', href: 'sub' },
-  { x: 305, y: 633, title: 'CHORUS', desc: 'string-machine triple chorus: amount, RATE and DEPTH.', href: 'chorus' },
-  { x: 348, y: 616, title: 'Keyboard', desc: 'five octaves; click lower on a key to play louder.', href: 'kbd-screen' },
-  { x: 2, y: 751, title: 'Status bar (web app)', desc: 'audio and MIDI status, key help, Save preset / Export / Import.', href: 'saving' },
+  ...S.sharedPins(E),
 ];
 const ann = annotated('panel-a.png', 'The whole instrument in engine A mode, showing the A · Mirror Sub Bass Shift preset', pins);
-const panel = `<p>The panel is the same in the web app and the plugin. In engine A mode the accent colour is teal and the upper-left section shows the ENGINE A controls. The screenshot shows the factory preset <b>A · Mirror Sub Bass Shift</b> (a SOURCE PHASE sound, the first engine A sound of TOP Sounds); click a number to jump to its description.</p>
+const panel = `<p>${S.panelSame()} In engine A mode the accent colour is teal and the upper-left section shows the ENGINE A controls. The screenshot shows the factory preset <b>A · Mirror Sub Bass Shift</b> (a SOURCE PHASE sound, the first engine A sound of TOP Sounds); click a number to jump to its description.</p>
 <figure>${ann.image}<figcaption>The web app in engine A mode. The status bar at the bottom exists only in the web app.</figcaption></figure>
 ${ann.legend}
 <h3 id="header-controls">The header</h3>
-<ul>
-<li>${ctl('▶ DEMO')} (web app only) plays the default demo, a piece during which the factory presets change every few seconds; the ${ctl('▾')} beside it opens the other demo pieces and lets you load your own MIDI file — see <a href="#demo">Demo</a>.</li>
-<li>${ctl('A · SUBTRACTIVE')} / ${ctl('B · ADDITIVE')} chooses which engine section is shown in the upper left (and the accent colour). What you hear is set by the ${P('ab_mix')} knob at the right of that section — engine A, engine B, or both mixed (see <a href="#mix">Mixing engines A and B</a>). The filter, position, envelopes, LFO, voice and effects are shared by both engines.</li>
-<li>The preset browser shows the current preset; a dot after the name means it has been modified. See <a href="#saving">Browsing and saving presets</a>.</li>
-<li>${ctl('MANUAL A')} and ${ctl('MANUAL B')} open the manuals — in the web app as an overlay (close it with ✕, ${kbd('Esc')} or a click outside; “Open in new tab” pops it out), in the plugin in your web browser.</li>
-<li>The small knob at the right is the master ${ctl('VOLUME')} (−36 to +6 dB, default −3 dB), followed by the stereo output meter. In the plugin, a size button next to the logo opens a menu of window sizes (70–150 %).</li>
-</ul>
+${S.headerControls(E)}
 <h3 id="handling">Working with the controls</h3>
 ${S.controlsHowTo(E)}`;
 
 // ---------------------------------------------------------------- 4. engine A controls
 const engRows = [
   [{ key: 'a_wave', range: 'SAW · SQUARE · PULSE · TRI · SINE · NOISE' }, 'The waveform that is analysed. One cycle of 2048 samples is drawn, its average removed and its peak normalised, then it is transformed into atoms.', 'SAW and NOISE have detail in every band: the most to filter.'],
-  ['a_width', `${ctl('PULSE')}: the part of the cycle spent high (pulse width). ${ctl('TRI')}: where the peak sits — 50 % is a symmetric triangle, low values lean towards a falling ramp, high values towards a rising ramp. Greyed out for the other waves.`, 'With Haar, WIDTH 25 %, 50 % or 75 % leaves almost nothing to filter (edges on quarter-cycle boundaries).'],
+  ['a_width', `Only for ${ctl('PULSE')} and ${ctl('TRI')}: the knob is greyed out, and has no effect, for SAW, SQUARE, SINE and NOISE. ${ctl('PULSE')}: the part of the cycle spent high (pulse width). ${ctl('TRI')}: where the peak sits — 50 % is a symmetric triangle, low values lean towards a falling ramp, high values towards a rising ramp.`, 'With Haar, WIDTH 25 %, 50 % or 75 % leaves almost nothing to filter (edges on quarter-cycle boundaries).'],
   ['a_sparsity', `Keeps only the K largest of the cycle’s non-zero atoms and silences the rest. The range is relative to the wave: 0 % keeps all nz atoms the current wave and wavelet need, 50 % about √nz, 100 % a single atom. The SOURCE CYCLE display reads “K / nz ATOMS KEPT”.`, 'Acts over its whole range for every wave. Waves that need few atoms (a Daubechies 2 SAW has 20) change in bigger steps.'],
   [{ key: 'a_phase', range: '0–360°' }, 'SOURCE PHASE (beta 0.4): moves the wave inside the cycle before it is analysed. The wavelet transform is not shift-invariant, so the same wave at another phase is built from other atoms: the scale filter, SPARSITY and the POSITION window then act on it differently and the timbre changes — something no Fourier filter can do. See <a href="#phase">Source phase</a>. LFO 2 can move it (TARGET PHASE).', 'Strong with Haar and Daubechies 2/4, weak with Daubechies 20. With the filter wide open and no sparsity it changes nothing you can hear.'],
   [{ key: 'wavelet', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'The shape of the atoms — see <a href="#wavelets">The wavelet chooses the atom</a>. Shared with engine B.', 'Change it while holding a note: the switch is crossfaded.'],
-  [{ key: 'wav2', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'WAVELET MORPH (beta 0.3): a second wavelet. The sound is also built with WAVELET 2 and crossfaded with the main one by MORPH, the LFO (LFO→WAVELET) and the mod envelope (ENV>WAV). When WAVELET 2 is the same wavelet, or all three amounts are 0, nothing changes.', 'It is heard where the wavelet shapes the sound: the CUTOFF and RESO of the scale filter, SPARSITY, the POSITION window, and all of engine B. With the filter wide open and no sparsity engine A hardly changes.'],
+  [{ key: 'wav2', range: 'Haar · DB2 · DB4 · DB8 · Sym8 · Coif3 · DB20' }, 'WAVELET MORPH (beta 0.3): a second wavelet. The sound is also built with WAVELET 2 and crossfaded with the main one by MORPH, LFO 1 (its WAVELET knob) and the mod envelope (ENV>WAV). When WAVELET 2 is the same wavelet, or all three amounts are 0, nothing changes.', 'It is heard where the wavelet shapes the sound: the CUTOFF and RESO of the scale filter, SPARSITY, the POSITION window, and all of engine B. With the filter wide open and no sparsity engine A hardly changes.'],
   ['wmorph', 'The morph position: 0 % = WAVELET, 100 % = WAVELET 2, in between both crossfaded.', 'Haar ↔ Daubechies 20 is the biggest contrast: stepped bands against smooth, sine-like bands.'],
   ['env_wav', 'The MOD ENVELOPE moves the morph by up to ± this amount from the MORPH position, for each note on its own: positive towards WAVELET 2 at the attack peak, then back as the envelope falls to its sustain.', 'With a resonant filter: each note starts on one wavelet and settles on the other (preset “A · Wave Attack Lead”).'],
 ];
@@ -212,7 +189,7 @@ ${recipe('r-decimator', 'Pitch-locked decimator (Haar staircase)', 'Start from: 
   `${P('a_wave')} ${ctl('SAW')}, ${P('wavelet')} Haar.`,
   `${ctl('LOW-PASS')}, ${P('f_slope')} 96 dB/band, ${P('f_res')} 0 dB.`,
   `Set ${P('f_cutoff')} to 4.5, 3.5, 2.5 and 1.5 in turn: the ramp becomes a staircase of 16, 8, 4 and finally 2 steps (a square). Halfway values between bands give the cleanest steps.`,
-  `For random step changes: ${ctl('LFO')} ${P('lfo_shape')} ${ctl('S&amp;H')}, ${P('lfo_rate')} 6 Hz, ${P('lfo_cut')} 2 bands.`,
+  `For random step changes: ${ctl('LFO 1')} ${P('lfo_shape')} ${ctl('S&amp;H')}, ${P('lfo_rate')} 6 Hz, ${P('lfo_cut')} 2 bands.`,
   `Add ${P('fx_drive')} 30 % for grit.`,
 ], '<b>Listen for:</b> a bit-crusher-like reduction that is locked to the note: the steps are a whole number per cycle, so the pitch stays clean, and the band-limited tables keep it free of aliasing.')}
 ${fig('staircase-a.svg', '<b>Figure 5.</b> Haar SAW through a 96 dB/band low-pass: each removed band halves the number of steps per cycle.')}
@@ -237,17 +214,17 @@ ${recipe('r-brass', 'Noise brass', 'Start from: A · Noise Brass (or A · Init)'
   `AMP ENVELOPE: ATTACK 50 ms, SUSTAIN 90 %. ${P('v_unison')} 2, ${P('v_detune')} 8 cents. ${P('fx_rmix')} 18 %.`,
   `For dynamics, set ${P('f_vel')} +3 bands and play softly and hard: soft notes stay darker.`,
 ], '<b>Listen for:</b> the noise cycle has energy in every band, so the opening envelope sounds like a brassy “blat”.')}
-${recipe('r-scan', 'Scanning edge (LFO → POSITION)', 'Start from: A · Init', [
+${recipe('r-scan', 'Scanning edge (LFO 1 → POSITION)', 'Start from: A · Init', [
   `${P('a_wave')} ${ctl('SAW')}, ${P('wavelet')} Daubechies 8. ${P('f_cutoff')} 3, ${P('f_res')} 6 dB.`,
   `POSITION: ${P('p_center')} 0°, ${P('p_width')} 25 %, ${P('p_depth')} 100 %.`,
-  `LFO: ${ctl('SINE')}, ${P('lfo_rate')} 0.25 Hz, ${P('lfo_pos')} ±180°. AMP ${P('amp_s')} 100 %.`,
+  `LFO 1: ${ctl('SINE')}, ${P('lfo_rate')} 0.25 Hz, ${P('lfo_pos')} ±180°. AMP ${P('amp_s')} 100 %.`,
   'Hold a note and watch the dashed window travel through the SCALOGRAM: whenever it covers the saw’s jump at 0°/360° the tone darkens; elsewhere the raw saw shines through.',
   `${P('fx_dmix')} 20 %, ${P('fx_rmix')} 20 %.`,
 ], `<b>Try next:</b> ${ctl('SQR')} at 2 Hz for a rhythmic open/closed edge, or ${ctl('S&amp;H')} for random scanning.`)}
 ${recipe('r-notch', 'Octave notch phaser', 'Start from: A · Init', [
   `${P('a_wave')} ${ctl('SAW')}, ${P('wavelet')} Daubechies 20 (the cleanest octaves).`,
   `${P('f_type')} ${ctl('BAND-REJ')}, ${P('f_cutoff')} 4, ${P('f_slope')} 24 dB/band.`,
-  `LFO: ${ctl('TRI')}, ${P('lfo_rate')} 0.3 Hz, ${P('lfo_cut')} 1.5 bands.`,
+  `LFO 1: ${ctl('TRI')}, ${P('lfo_rate')} 0.3 Hz, ${P('lfo_cut')} 1.5 bands.`,
   'Hold a chord: the notch sweeps from band 2.5 to 5.5, hollowing out one octave of harmonics at a time.',
   `Lower ${P('f_slope')} to 6 for a wide, soft notch; raise it to 96 for a narrow notch that only bites as it crosses each band.`,
 ], '<b>Listen for:</b> a phaser-like motion whose notches stay musically aligned to octaves of the note.')}
@@ -400,7 +377,7 @@ ${S.presetsSaving(E)}`;
 
 // ---------------------------------------------------------------- extra troubleshooting
 const extraTrouble = [
-  ['The WIDTH knob is greyed out', `<p>${P('a_width')} only affects ${ctl('PULSE')} (pulse width) and ${ctl('TRI')} (symmetry). For the other waves it has no effect.</p>`],
+  ['The WIDTH knob is greyed out', `<p>${P('a_width')} only affects ${ctl('PULSE')} (pulse width) and ${ctl('TRI')} (symmetry). For SAW, SQUARE, SINE and NOISE it has no effect and stays greyed out: choose PULSE or TRI in the WAVE buttons to use it.</p>`],
   ['SPARSITY does nothing, or jumps', '<p>Only Haar + SQUARE (a single atom) cannot change at all. For other sources, watch the “K / nz ATOMS KEPT” readout: when nz is small — 20 for a Daubechies 2 SAW — the knob moves in coarse steps and neighbouring positions can give the same K. Choose a longer wavelet for finer steps.</p>'],
 ];
 
@@ -412,12 +389,11 @@ const sections = [
   { id: 'filter', num: '5', title: 'Scale filter', html: S.filterSection(E), subs: [{ id: 'filter-types', title: 'The four types in numbers' }] },
   { id: 'position', num: '6', title: 'Position window', html: S.positionSection(E), subs: [{ id: 'edges', title: 'Where the edges are' }, { id: 'window-high', title: 'High notes and modulation' }] },
   { id: 'envelopes', num: '7', title: 'Envelopes', html: S.envelopesSection(E), subs: [{ id: 'amp-env', title: 'Amp envelope' }, { id: 'mod-env', title: 'Mod envelope' }] },
-  { id: 'lfo', num: '8', title: 'LFO', html: S.lfoSection(E) },
+  { id: 'lfo', num: '8', title: 'LFO 1 and LFO 2', html: S.lfoSection(E), subs: [{ id: 'lfo1', title: 'LFO 1' }, { id: 'lfo2', title: 'LFO 2' }, { id: 'lfo-sync', title: 'Tempo sync (plug-in)' }] },
   { id: 'voice', title: 'Voice', html: S.voiceSection(E) },
   { id: 'sub', title: 'Sub oscillator', html: S.subSection(E) },
   { id: 'mix', title: 'Mixing engines A and B', html: S.mixSection(E) },
-  { id: 'chorus', title: 'Chorus (string machine)', html: S.chorusSection(E) },
-  { id: 'effects', num: '10', title: 'Effects and master', html: S.fxSection(E) },
+  { id: 'effects', num: '10', title: 'Effects and master', html: S.fxSection(E), subs: [{ id: 'chorus', title: 'Chorus (string machine)' }, { id: 'delay-sync', title: 'Delay tempo sync (plug-in)' }] },
   { id: 'displays', num: '11', title: 'Displays', html: S.displaysSection(E) },
   { id: 'recipes', num: '12', title: 'Sound-design recipes', html: recipes, subs: [{ id: 'r-sweep', title: 'Classic sweep' }, { id: 'r-decimator', title: 'Pitch-locked decimator' }, { id: 'r-edge', title: 'Edge pluck' }, { id: 'r-sparse', title: 'Lossy keys' }, { id: 'r-brass', title: 'Noise brass' }, { id: 'r-scan', title: 'Scanning edge' }, { id: 'r-notch', title: 'Octave notch phaser' }, { id: 'r-bass', title: 'Expressive mono bass' }, { id: 'r-legato', title: 'Expressive legato lead' }, { id: 'r-polyglide', title: 'Polyphonic glide pad' }, { id: 'r-sub', title: 'Infra sub bass' }] },
   { id: 'presets', num: '13', title: 'Factory presets', html: presets, subs: [{ id: 'saving', title: 'Browsing and saving' }] },

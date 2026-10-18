@@ -25,6 +25,9 @@
   };
   let userPresets = store.get('ws.user', []);
   if (!Array.isArray(userPresets)) userPresets = [];
+  // beta 0.6 (security review): stored data is untrusted (other pages of the same site share it): well-formed entries only
+  userPresets = userPresets.filter(p => p && typeof p === 'object' && typeof p.name === 'string' && p.values && typeof p.values === 'object')
+    .map(p => ({ name: p.name.slice(0, 40), values: p.values }));
 
   const toKeyed = () => { const o = {}; PARAMS.forEach((p, i) => { if (!p.hidden) o[p.key] = +values[i].toFixed(6); }); return o; };
 
@@ -151,7 +154,7 @@
     r.onload = () => {
       try {
         const data = JSON.parse(r.result);
-        if (!data || typeof data.values !== 'object') throw new Error('not a Wavelet Synthesizer preset');
+        if (!data || !data.values || typeof data.values !== 'object') throw new Error('not a Wavelet Synthesizer preset');
         const name = String(data.name || file.name.replace(/\.json$/i, '')).slice(0, 40);
         userPresets.push({ name, values: data.values });
         store.set('ws.user', userPresets);
@@ -194,7 +197,7 @@
       if (actx.state !== 'running') await actx.resume();
       $('st-audio').classList.add('on');
       $('st-audio').lastElementChild.textContent = `Audio on · ${(sampleRate / 1000).toFixed(1)} kHz`;
-      $('start-overlay').classList.add('gone');
+      hideOverlay();
       claimAudio();
       initMIDI();
     })().catch(err => {
@@ -219,12 +222,20 @@
   // stops everything immediately.
   const INSTANCE = Math.random().toString(36).slice(2);
   function claimAudio() { store.set('ws.audioOwner', { id: INSTANCE, t: Date.now() }); }
-  function showOverlay(msg) {
-    const o = $('start-overlay');
-    o.querySelector('p').textContent = msg;
-    o.querySelector('#start-btn span').textContent = 'Click to play here';
-    o.classList.remove('gone');
+  // The welcome window (index.html) comes back with the reason in place of its sub-title; its choices take the audio back.
+  // While it is shown, the panel behind it is inert, so the Tab key stays in the window.
+  const WELCOME_SUB = $('w-sub').textContent;
+  function setOverlay(on) {
+    $('start-overlay').classList.toggle('gone', !on);
+    $('stage').inert = on; $('statusbar').inert = on;
   }
+  function showOverlay(msg) {
+    const sub = $('w-sub');
+    sub.textContent = msg || WELCOME_SUB;
+    sub.classList.toggle('msg', !!msg);
+    setOverlay(true);
+  }
+  function hideOverlay() { setOverlay(false); }
   function pauseAudio(msg) {
     if (demo && demo.running()) demo.stop();
     allOff();
@@ -238,7 +249,7 @@
       if (actx && actx.state !== 'running') actx.resume();
       $('st-audio').classList.add('on');
       $('st-audio').lastElementChild.textContent = `Audio on · ${(sampleRate / 1000).toFixed(1)} kHz`;
-      $('start-overlay').classList.add('gone');
+      hideOverlay();
       claimAudio();
     }).catch(() => {});
   }
@@ -434,11 +445,12 @@
     restore: (s) => { applyKeyed(s.values); presetId = s.presetId; presetName = s.presetName; dirty = s.dirty; ui.setPresetName(presetName, dirty); },
     setPresetLabel: (txt, modified) => ui.setPresetName(txt, !!modified),
   });
+  const playDemo = (i) => demo.start(i).catch(() => {});
   ui.makeDemoButton({
     running: () => demo.running(),
     stop: () => demo.stop(),
     songs: () => demo.songs(),
-    play: (i) => demo.start(i).catch(() => {}),
+    play: playDemo,
     loadFile: () => $('file-midi').click(),
   });
   $('file-midi').onchange = (e) => {
@@ -455,9 +467,15 @@
   build();
   showOct();
 
-  if (/noaudio/.test(location.hash)) $('start-overlay').classList.add('gone');   // screenshots / docs
+  if (/noaudio/.test(location.hash)) hideOverlay(); else showOverlay();   // #noaudio: screenshots / docs
   { const m = /preset=([0-9]+)/.exec(location.hash); if (m) loadPreset('f:' + m[1]); }
+  // The welcome window's choices. resumeAudio, not startAudio: after a pause the context exists but is suspended.
+  // "Run the demo" then plays the default demo as the header's ▶ DEMO does; "Download the VST" is a plain link (new tab).
   $('start-btn').onclick = () => resumeAudio();
+  $('w-demo').onclick = () => resumeAudio().then(() => { if (actx) playDemo(0); });
+  for (const w of ['a', 'b']) {   // the manual viewer, over the window (Ctrl / Shift / Cmd + click: the browser's new tab or window)
+    $('w-man-' + w).onclick = (e) => { if (e.ctrlKey || e.shiftKey || e.metaKey) return; e.preventDefault(); openManual(w); };
+  }
   $('start-overlay').addEventListener('pointerdown', (e) => { if (e.target === $('start-overlay')) resumeAudio(); });
   $('manual-close').onclick = closeManual;
   $('manual-overlay').addEventListener('pointerdown', (e) => { if (e.target === $('manual-overlay')) closeManual(); });

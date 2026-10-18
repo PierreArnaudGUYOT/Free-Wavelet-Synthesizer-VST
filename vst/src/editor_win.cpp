@@ -197,7 +197,12 @@ class WinWindow : public EditorWindow {
     return b;
   }
   void reveal(const std::wstring& path) override {
-    ShellExecuteW(nullptr, L"open", L"explorer.exe", (L"/select,\"" + path + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
+    // beta 0.6 (security review): the full path; a bare "explorer.exe" is looked for in the host's current folder first
+    wchar_t win[MAX_PATH] = {};
+    const UINT n = GetSystemWindowsDirectoryW(win, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return;
+    ShellExecuteW(nullptr, L"open", (std::wstring(win) + L"\\explorer.exe").c_str(), (L"/select,\"" + path + L"\"").c_str(),
+                  nullptr, SW_SHOWNORMAL);
   }
   void openDocument(const std::wstring& path) override { ShellExecuteW(nullptr, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL); }
 

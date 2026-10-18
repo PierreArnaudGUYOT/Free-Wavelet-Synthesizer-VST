@@ -18,7 +18,10 @@ namespace ws {
 
 #define WS_VENDOR "OktoPierre"
 #define WS_NAME "Wavelet Synthesizer"
-#define WS_VERSION "0.5.0"   // beta 0.5; also in vst/src/version.rc and tools/spec.js APP
+#define WS_VERSION "0.6.0"   // beta 0.6; also in vst/src/version.rc and tools/spec.js APP
+
+// beta 0.6 (security review): the sample rates a host may set; others are ignored (the engine keeps its rate)
+inline constexpr double kMinRate = 8000, kMaxRate = 1536000;
 
 // Live state the audio thread publishes for the editor, plus a queue of notes
 // played on the on-screen keyboard. Shared through a process-wide registry

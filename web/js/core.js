@@ -25,6 +25,7 @@ function WSCoreFactory(SPEC) {
   const VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
   const LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
   const CH_BASE = 0.006, CH_DEPTH = 0.003, CH_FAST = 9.7;   // chorus: base delay, sweep per unit of depth (s), fast/slow LFO ratio
+  const DLY_MAX = 4;   // beta 0.6: the longest delay (s): a whole note at 60 BPM (tempo sync)
 
   const P = {};
   SPEC.PARAMS.forEach((p, i) => { P[p.key] = i; });
@@ -451,16 +452,33 @@ function WSCoreFactory(SPEC) {
     this.endPhase = new Float64Array(4); this.lg = new Float64Array(NB); this.endLevel = 0; this.endStage = 0;
     this.disp = { gains: new Float32Array(NB), mode: 0, voices: 0, peakL: 0, peakR: 0, center: 0, width: 1, depth: 0, note: -1 };
     this.lastVoice = -1;
+    this.tempo = 0;   // beta 0.6: the host's tempo (BPM), 0 = none
     this.setSampleRate(sr);
   }
   const E = Engine.prototype;
 
+  // beta 0.6: TEMPO SYNC. The plug-in gives the host's tempo (setTempo); 0 = none (the web app): the delay's TIME and the
+  // LFOs' RATE then stay in seconds and hertz whatever SYNC says. With SYNC off every sound is bit-identical with beta 0.5.
+  // at most 1000 BPM (DAWs stop at 999): a broken host's huge tempo would make the LFO phase infinite (security review)
+  E.setTempo = function (bpm) { this.tempo = bpm > 0 && isFinite(bpm) ? Math.min(bpm, 1000) : 0; };
+  const noteAt = (list, v) => list[Math.max(0, Math.min(list.length - 1, Math.round(v)))];
+  E.delaySec = function () {
+    const p = this.p;
+    if (!(this.tempo > 0) || p[P.fx_dsync] < 0.5) return p[P.fx_dtime];
+    return Math.min(DLY_MAX, noteAt(SPEC.DELAY_BEATS, p[P.fx_ddiv]) * 60 / this.tempo);
+  };
+  E.lfoHz = function (sync, div, rate) {
+    const p = this.p;
+    if (!(this.tempo > 0) || p[sync] < 0.5) return p[rate];
+    return this.tempo / 60 / noteAt(SPEC.LFO_BEATS, p[div]);
+  };
+
   E.setSampleRate = function (sr) {
     this.sr = sr;
     this.fmax = Math.max(0.45 * sr, sr - 19000);
-    this.dlyLen = Math.ceil(sr * 1.1) + 4;
+    this.dlyLen = Math.ceil(sr * (DLY_MAX + 0.1)) + 4;   // beta 0.6: 4 s (was 1.1 s; the reads never reach further back)
     this.dlyL = new Float32Array(this.dlyLen); this.dlyR = new Float32Array(this.dlyLen);
-    this.dlyW = 0; this.dlyT = this.p[P.fx_dtime] * sr; this.lpL = 0; this.lpR = 0;
+    this.dlyW = 0; this.dlyT = this.delaySec() * sr; this.lpL = 0; this.lpR = 0;
     const sc = sr / 44100;
     const cT = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617], aT = [556, 441, 341, 225];
     this.combs = []; this.aps = [];
@@ -604,7 +622,7 @@ function WSCoreFactory(SPEC) {
       default: v = this.sh; break;
     }
     this.lfo = v;
-    this.lfoPhase += p[P.lfo_rate] * n / this.sr;
+    this.lfoPhase += this.lfoHz(P.lfo_sync, P.lfo_div, P.lfo_rate) * n / this.sr;
     if (this.lfoPhase >= 1) { this.lfoPhase -= Math.floor(this.lfoPhase); this.sh = this.lfoRng() * 2 - 1; }
   };
   // LFO 2 (beta 0.3): the same shapes, its own phase and sample & hold sequence
@@ -619,7 +637,7 @@ function WSCoreFactory(SPEC) {
       default: v = this.sh2; break;
     }
     this.lfo2 = v;
-    this.lfo2Phase += p[P.lfo2_rate] * n / this.sr;
+    this.lfo2Phase += this.lfoHz(P.lfo2_sync, P.lfo2_div, P.lfo2_rate) * n / this.sr;
     if (this.lfo2Phase >= 1) { this.lfo2Phase -= Math.floor(this.lfo2Phase); this.sh2 = this.lfo2Rng() * 2 - 1; }
   };
 
@@ -860,7 +878,7 @@ function WSCoreFactory(SPEC) {
     // ---- effects
     const drive = p[P.fx_drive], k = Math.pow(10, drive * 24 / 20), comp = 0.5 / Math.tanh(0.5 * k);
     const fb = p[P.fx_dfb], dmix = p[P.fx_dmix], rmix = p[P.fx_rmix];
-    const dTarget = p[P.fx_dtime] * this.sr, dlen = this.dlyLen;
+    const dTarget = this.delaySec() * this.sr, dlen = this.dlyLen;
     const feedback = 0.7 + 0.28 * p[P.fx_rsize], damp = 0.25;
     const volT = Math.pow(10, p[P.master] / 20);
     const chMix = p[P.ch_mix], chLen = this.chLen, chBuf = this.chBuf;

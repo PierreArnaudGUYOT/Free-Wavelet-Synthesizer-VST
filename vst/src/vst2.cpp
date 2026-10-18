@@ -14,6 +14,7 @@
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
+#include "pluginterfaces/vst/ivstprocesscontext.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstevents.h"
@@ -55,6 +56,12 @@ struct MidiEvent {
 };
 struct Events { int32_t numEvents; intptr_t reserved; Event* events[2]; };
 struct Rect { int16_t top, left, bottom, right; };
+// beta 0.6: the host's time info (audioMasterGetTime), for the tempo of the tempo sync
+struct TimeInfo {
+  double samplePos, sampleRate, nanoSeconds, ppqPos, tempo, barStartPos, cycleStartPos, cycleEndPos;
+  int32_t timeSigNumerator, timeSigDenominator, smpteOffset, smpteFrameRate, samplesToNextClock, flags;
+};
+constexpr int32_t kTempoValid = 1 << 10;
 
 constexpr int32_t kMagic = 0x56737450;   // 'VstP'
 constexpr int32_t kMidiType = 1;
@@ -69,7 +76,7 @@ enum : int32_t {   // plug-in opcodes (dispatcher)
   effGetNumMidiInputChannels = 78, effGetNumMidiOutputChannels = 79
 };
 enum : int32_t {   // host opcodes (callback)
-  audioMasterAutomate = 0, audioMasterVersion = 1, audioMasterSizeWindow = 15, audioMasterGetCurrentProcessLevel = 23,
+  audioMasterAutomate = 0, audioMasterVersion = 1, audioMasterGetTime = 7, audioMasterSizeWindow = 15, audioMasterGetCurrentProcessLevel = 23,
   audioMasterUpdateDisplay = 42, audioMasterBeginEdit = 43, audioMasterEndEdit = 44
 };
 enum : int32_t { effFlagsHasEditor = 1 << 0, effFlagsCanReplacing = 1 << 4, effFlagsProgramChunks = 1 << 5, effFlagsIsSynth = 1 << 8 };
@@ -329,6 +336,10 @@ class Instance {
     bus.numChannels = 2; bus.channelBuffers32 = out;
     d.numOutputs = out ? 1 : 0; d.outputs = out ? &bus : nullptr;
     d.inputParameterChanges = &changes; d.inputEvents = &events;
+    // beta 0.6: the host's tempo, as a VST3 host gives it (the tempo sync of the delay and the LFOs)
+    ProcessContext pc{};
+    const auto* ti = (const vst2::TimeInfo*)host(&fx, vst2::audioMasterGetTime, 0, vst2::kTempoValid, nullptr, 0);
+    if (ti && (ti->flags & vst2::kTempoValid) && ti->tempo > 0) { pc.state = ProcessContext::kTempoValid; pc.tempo = ti->tempo; d.processContext = &pc; }
     proc->process(d);
     events.count = 0;
   }
@@ -423,7 +434,7 @@ class Instance {
     using namespace vst2;
     switch (op) {
       case effOpen: return 0;
-      case effSetSampleRate: if (opt > 0) sampleRate = opt; return 0;
+      case effSetSampleRate: if (opt >= kMinRate && opt <= kMaxRate) sampleRate = opt; return 0;   // real rates only
       case effSetBlockSize: if (value > 0) maxBlock = (int32_t)value; return 0;
       case effMainsChanged: setActive(value != 0); return 0;
       case effSetProgram: setProgram((int)value); return 0;

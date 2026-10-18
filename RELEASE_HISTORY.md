@@ -2,6 +2,38 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.6 — 2026-10-17 (panel ergonomics, tempo sync)
+
+**In short**
+- **A clearer panel** (plug-in and web app): SUB OSC at the top beside the wavelet oscillator; LFO 1 (the former "LFO")
+  and LFO 2 side by side with the same controls (shape tabs); the chorus is part of EFFECTS, shown in the order of the
+  sound SATURATION | CHORUS | PING-PONG DELAY | REVERB (the effects chain itself is unchanged); VOICE, the PITCH / MOD
+  wheels (just left of the keyboard) and the keyboard on the bottom row; "SCALOGRAM" written above the scalogram;
+  "Created by OktoPierre" larger.
+- **One MANUAL button** instead of MANUAL A / MANUAL B: it opens the manual of the engine shown.
+- **Tempo SYNC** (plug-in only): SYNC buttons on the delay, LFO 1 and LFO 2. With SYNC on, the delay's TIME is a note
+  value of the host's tempo (1/32 … 1/1, T = triplet, D = dotted, ordered by length; up to 4 s) and the LFO RATE too
+  (4/1 … 1/32); without a tempo from the host, 120 BPM. The delay can now be up to 4 s long. The web app has no DAW, so
+  it has no SYNC.
+- **Web app**: a welcome window at page open — *Run the demo*, *Play the synth* (MIDI supported; it starts the sound and
+  plays no note), *Download the VST* — and a DOWNLOAD VST link in the header (the GitHub releases page).
+
+**Your projects and presets**: the six SYNC parameters are new and off by default, so every Live Set, preset and presets
+file sounds as before.
+
+**Checked**: 148 of the 150 presets are sample-identical with beta 0.5; A · Steel Pluck and A · Phase Glitch differ by less
+than 4e-9 (−170 dB, inaudible: the longer delay line rounds its read position differently). The plug-in matches the web
+engine on all presets and on the SYNC'd delay and LFOs; the echo times were measured in a DAW-like host at several tempos.
+
+**Security review**: before this release a second, independent AI agent reviewed the plug-in (Windows and macOS) and the
+web page. It found no intentional malicious code (no network access, no hidden process or file access, nothing
+obfuscated) and no serious vulnerability. Its minor findings are fixed in beta 0.6:
+- "Show the presets file" starts Windows Explorer by its full path;
+- an IMPORTed presets file is refused when it is 16 MB or larger or holds more than 2000 user-bank sounds; the bank keeps
+  at most 2000 sounds, and names are cut at 160 bytes;
+- the host's tempo is held at 1000 BPM at most, and only sample rates from 8 kHz to 1.536 MHz are taken;
+- the web app checks the user presets kept in the browser before using them.
+
 ## beta 0.5 — 2026-10-17 (OktoPierre's sort)
 
 **In short**

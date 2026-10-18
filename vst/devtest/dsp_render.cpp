@@ -6,9 +6,10 @@
 #include "../src/dsp.h"
 #include <chrono>
 using namespace ws;
-static void render(const double* params, int idx, const char* name, const char* outdir) {
+static void render(const double* params, int idx, const char* name, const char* outdir, double tempo = 0) {
   const int sr = 48000, n = sr * 3, blk = 128;
   Engine eng(sr);
+  eng.setTempo(tempo);   // beta 0.6: 0 = no tempo (the factory presets, the web app)
   for (int i = 0; i < kNumParams; i++) eng.setParam(i, params[i]);
   Tables t; buildTables(params, true, t);
   eng.setTables(tableRef(t));
@@ -58,6 +59,19 @@ int main(int argc, char** argv) {
     for (int i = 0; i < kNumParams; i++) params[i] = kPresets[0].v[i];
     for (const Set& s : variants[j]) params[s.p] = s.v;
     render(params, kNumPresets + targets + (int)j, names[j], outdir);
+  }
+  // beta 0.6: TEMPO SYNC of the delay and both LFOs at a tempo; the same variants as tools/dsp_compare.js
+  const std::vector<std::vector<Set>> synced = {
+    {{P_FX_DSYNC, 1}, {P_FX_DDIV, 7}, {P_FX_DMIX, 0.4}, {P_FX_DFB, 0.5}},
+    {{P_LFO_SYNC, 1}, {P_LFO_DIV, 13}, {P_LFO_CUT, 3}, {P_LFO_PITCH, 30}},
+    {{P_LFO2_SYNC, 1}, {P_LFO2_DIV, 12}, {P_LFO2_AMT, 0.7}, {P_LFO2_TARGET, 0}, {P_FX_DSYNC, 1}, {P_FX_DDIV, 13}, {P_FX_DMIX, 0.3}},
+  };
+  const double tempos[] = {120, 97, 133};
+  const char* snames[] = {"sync delay 1/8 D @120", "sync LFO 1 1/16 @97", "sync LFO 2 1/8 T + delay 1/1 @133"};
+  for (size_t j = 0; j < synced.size(); j++) {
+    for (int i = 0; i < kNumParams; i++) params[i] = kPresets[0].v[i];
+    for (const Set& s : synced[j]) params[s.p] = s.v;
+    render(params, kNumPresets + targets + (int)variants.size() + (int)j, snames[j], outdir, tempos[j]);
   }
   return 0;
 }

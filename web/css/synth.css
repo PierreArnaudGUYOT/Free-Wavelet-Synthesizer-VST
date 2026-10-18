@@ -112,6 +112,8 @@ button { font-family: inherit; }
   letter-spacing: 0.06em; cursor: pointer; }
 .menu button:hover { border-color: #3a4250; }
 .menu button span { color: var(--dim); font-size: 9px; }
+.menu .mcap { position: absolute; left: 0; right: 0; top: -17px; text-align: center; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--dim); pointer-events: none; }
 .menu .mpop { position: absolute; left: 0; bottom: calc(100% + 4px); min-width: 140px; background: #1d2129; border: 1px solid #343b47;
   border-radius: 8px; padding: 4px 0; z-index: 30; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
 .menu .mpop .it { padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
@@ -169,7 +171,11 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
   cursor: pointer; line-height: 1.15; }
 .hbtn:hover { color: var(--text); border-color: #3a4250; }
 .hbtn b { display: block; font-size: 12px; color: var(--accent-a); }
-.hbtn.b b { color: var(--accent-b); }
+/* beta 0.6: MANUAL in the colour of the engine shown (its manual opens); DOWNLOAD VST is a link styled as a button */
+.hbtn.manual b { color: var(--accent); }
+a.hbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; }
+.hbtn.dl { letter-spacing: 0.04em; }   /* DOWNLOAD fills the 68 px button otherwise */
+.hbtn.dl b { color: #f2b04a; letter-spacing: 0.1em; }
 .zoom { display: none; }
 /* demo */
 .demo-btn { position: absolute; left: 222px; top: 12px; width: 50px; height: 24px; white-space: nowrap; padding: 0; color: var(--accent); border-color: var(--accent);
@@ -204,7 +210,10 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
 .knob.hot .label { color: var(--accent); }
 .seg.hot, .step.hot { box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--accent-soft); }
 .drawbar.hot .track { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-soft); }
-.credit { font-size: 9.5px; line-height: 12px; color: var(--faint); text-align: right; letter-spacing: 0.04em; white-space: nowrap; }
+.credit { font-size: 9.5px; line-height: 15px; color: var(--faint); text-align: right; letter-spacing: 0.04em; white-space: nowrap; }
+.credit b { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--text); }
+/* a caption written like a section title (beta 0.6: SCALOGRAM inside the SCOPE card) */
+.wlabel { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; line-height: 14px; color: var(--dim); white-space: nowrap; }
 
 /* status bar */
 #statusbar { height: 38px; flex: none; display: flex; align-items: center; gap: 18px; padding: 0 18px; font-size: 12px; color: var(--dim);
@@ -223,13 +232,35 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
 .st-btn:hover { border-color: var(--accent-a); }
 
 /* overlays */
-#start-overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+/* beta 0.6: the welcome window (browsers need a click before any sound): run the demo, play, or download the VST.
+   margin: auto centres it and still lets a short screen scroll to its top. */
+#start-overlay { position: fixed; inset: 0; display: flex; padding: 16px; overflow-y: auto;
   background: rgba(8, 10, 13, 0.55); backdrop-filter: blur(2px); z-index: 80; }
 #start-overlay.gone { display: none; }
-#start-btn { display: flex; align-items: center; gap: 12px; padding: 16px 28px; border-radius: 40px; border: 1px solid var(--accent-a);
-  background: #12161b; color: #eef2f7; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 0 40px rgba(47,212,198,0.25); }
-#start-btn svg { color: var(--accent-a); }
-#start-overlay p { color: var(--dim); font-size: 13px; margin: 0; }
+.welcome { width: 640px; max-width: 100%; margin: auto; padding: 26px 28px 20px; background: #161a20; border: 1px solid #2c333e; border-radius: 16px;
+  box-shadow: 0 30px 90px rgba(0,0,0,0.65); color: #eef2f7; }
+.welcome h1 { margin: 0; font-size: 22px; letter-spacing: 0.02em; }
+.welcome h1 span { color: var(--accent-a); }
+.welcome .sub { margin: 6px 0 20px; color: var(--dim); font-size: 13px; }
+.welcome .sub.msg { color: var(--accent-b); }
+.welcome .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.welcome .choice { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 14px; border: 1px solid #2c333e;
+  border-radius: 12px; background: #1b2028; color: #eef2f7; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.welcome .choice:hover { border-color: var(--accent-a); background: #1e252e; }
+.welcome .choice.main { border-color: var(--accent-a); box-shadow: 0 0 30px rgba(47,212,198,0.18); }
+.welcome .choice svg { width: 30px; height: 30px; flex: none; color: var(--accent-a); }
+.welcome .choice.dl svg { color: #f2b04a; }
+.welcome .choice b { font-size: 15px; }
+.welcome .choice small { color: var(--dim); font-size: 12px; line-height: 1.4; }
+.welcome .foot { margin: 16px 0 0; color: var(--dim); font-size: 11.5px; }
+.welcome .foot a { color: var(--accent-a); }
+.welcome .choice:focus-visible, .welcome a:focus-visible { outline: 2px solid #eef2f7; outline-offset: 3px; }
+@media (max-width: 560px) {
+  .welcome { padding: 20px 16px 16px; }
+  .welcome h1 { font-size: 19px; }
+  .welcome .choices { grid-template-columns: 1fr; gap: 8px; }
+  .welcome .choice { padding: 12px 14px; }
+}
 #manual-overlay { position: fixed; inset: 0; background: rgba(5, 6, 8, 0.72); z-index: 90; display: flex; align-items: center; justify-content: center; }
 #manual-overlay[hidden] { display: none; }
 .manual-frame { width: min(1100px, 94vw); height: 90vh; background: #fff; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;

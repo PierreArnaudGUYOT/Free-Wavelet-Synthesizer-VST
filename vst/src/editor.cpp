@@ -53,11 +53,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       const SectionDef& sd = kSections[s];
       for (int k = 0; k < sd.numWidgets; k++) {
         const WidgetDef& w = kWidgets[sd.firstWidget + k];
+        if (w.only == 1) continue;   // beta 0.6: the web app's own (DOWNLOAD VST)
         items.push_back(Item{&w, s, R{sd.x + w.x, sd.y + w.y, w.w, w.h}});
       }
     }
     for (int i = 0; i < kNumParams; i++) lastPlain[i] = host->getPlain(i);
-    // beta 0.3: SAVE PRESET takes the right end of the preset box (left of MANUAL A); the preset browser's categories
+    // beta 0.3: SAVE PRESET takes the right end of the preset box (beta 0.6: where the web app shows DOWNLOAD VST)
     for (auto& it : items) if (it.w->type == W_PRESETS) it.r.w = kSaveBtn.x - 6 - it.r.x;
     buildCategories();
   }
@@ -189,7 +190,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
 
   bool visible(const Item& it) const {
     int m = kSections[it.section].mode;
-    return m < 0 || m == mode;
+    if (m >= 0 && m != mode) return false;
+    // beta 0.6: a knob shown while a SYNC button is on (a note value) or off (seconds / hertz)
+    return it.w->vis < 0 || (lastPlain[it.w->vis] >= 0.5) == it.w->visOn;
   }
 
   void invalidateLogical(const R& r) {
@@ -218,7 +221,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         if (v == lastPlain[i]) continue;
         lastPlain[i] = v; any = true;
         if (kParams[i].structural) structural = true;
-        for (size_t k = 0; k < items.size(); k++) if (items[k].w->param == i) invalidateItem((int)k);
+        for (size_t k = 0; k < items.size(); k++) if (items[k].w->param == i || items[k].w->vis == i) invalidateItem((int)k);
       }
       if (any) {
         rebuildDisplay(false);
@@ -334,11 +337,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       case W_WHEELS: drawWheels(g, it.r); break;
       case W_LOGO: drawLogo(g, it.r); break;
       case W_PRESETS: drawPresets(g, it.r); break;
-      case W_MANUALA: case W_MANUALB: drawManualBtn(g, it); break;
+      case W_MANUAL: drawManualBtn(g, it); break;
       case W_METER: drawMeter(g, it.r); break;
       case W_ZOOM: drawZoom(g, it.r); break;
       case W_MENU: drawMenu(g, idx); break;
-      case W_CREDIT: text(g, toW(std::string(kAppCredit) + " \xC2\xB7 " + kAppVersion + " \xC2\xB7 " + kAppLicense), it.r, 9.5f, false, rgb(kFaint), 2); break;
+      case W_CREDIT: drawCredit(g, it.r); break;
+      case W_TOGGLE: drawToggle(g, idx); break;
+      case W_LABEL: text(g, toW(it.w->text ? it.w->text : ""), it.r, 10.5f, true, rgb(kDim), 0); break;   // beta 0.6: SCALOGRAM
       default: break;
     }
   }
@@ -376,7 +381,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
            Pen(rgb(0xeef2f7, alpha), big ? 3.f : tiny ? 2.f : 2.2f).caps());
     if (!small) {
       bool showVal = (hover == idx || drag == idx);
-      std::wstring s = showVal ? toW(formatValue(p, v)) : toW(p.shortName);
+      // beta 0.6: a note value (tempo sync) is its own label: "1/8D"
+      std::wstring s = showVal ? toW(formatValue(p, v)) : it.w->style == 2 && p.choiceShort ? toW(p.choiceShort[(int)jsRound(v - p.min)]) : toW(p.shortName);
       R lr{it.r.x - 8, it.r.y + (big ? 68.f : tiny ? 31.f : 42.f), it.r.w + 16, 14};
       text(g, s, lr, big ? 10.5f : tiny ? 8.5f : 9.5f, true, showVal ? rgb(accent(), alpha) : rgb(kDim, alpha));
     }
@@ -589,13 +595,32 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     }
   }
 
+  // beta 0.6: the effects in the order of the sound; the delay's title leaves room for its SYNC button
   void drawFxHeads(Canvas& g, R r) {
-    struct H { const wchar_t* t; float x, w; } hs[] = {{L"SATURATION", 26, 52}, {L"PING-PONG DELAY", 78, 156}, {L"REVERB", 234, 104}};
+    struct H { const wchar_t* t; float x, w, lw; } hs[] = {
+        {L"SATURATION", 8, 60, 60}, {L"CHORUS", 64, 156, 156}, {L"PING-PONG DELAY", 214, 118, 162}, {L"REVERB", 376, 104, 104}};
     const Pen ln(argb(20, 255, 255, 255), 1);
     for (auto& h : hs) {
       text(g, h.t, R{r.x + h.x, r.y, h.w, 16}, 9, true, argb(107, 200, 210, 225));
-      g.line(Pt{r.x + h.x + 4, r.y + 17.5f}, Pt{r.x + h.x + h.w - 4, r.y + 17.5f}, ln);
+      g.line(Pt{r.x + h.x + 4, r.y + 17.5f}, Pt{r.x + h.x + h.lw - 4, r.y + 17.5f}, ln);
     }
+  }
+  // beta 0.6: an on / off button (the SYNC of the delay and the LFOs), lit when on
+  void drawToggle(Canvas& g, int idx) {
+    const Item& it = items[idx];
+    const bool on = plainOf(it.w->param) >= 0.5, hot = hover == idx;
+    fillRR(g, it.r, 5, on ? rgb(accent()) : rgb(hot ? 0x262c35 : kInset));
+    strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 5, on ? rgb(accent()) : rgb(hot ? 0x3a4250 : kInsetEdge));
+    text(g, toW(it.w->text ? it.w->text : ""), it.r, 9, true, on ? rgb(0x0d1014) : rgb(hot ? kText : kDim));
+  }
+  // beta 0.6: "Created by OktoPierre" larger, then the version and the licence
+  void drawCredit(Canvas& g, R r) {
+    std::string who = kAppCredit;
+    if (!who.empty()) who[0] = (char)std::toupper((unsigned char)who[0]);
+    const std::wstring rest = toW(std::string(" \xC2\xB7 ") + kAppVersion + " \xC2\xB7 " + kAppLicense), w = toW(who);
+    const float rw = g.textWidth(rest, 10, false), ww = g.textWidth(w, 13, true);
+    text(g, rest, R{r.x + r.w - rw, r.y, rw + 2, r.h}, 10, false, rgb(kFaint), 0);
+    text(g, w, R{r.x + r.w - rw - ww, r.y, ww + 2, r.h}, 13, true, rgb(kText), 0);
   }
 
   bool keyDown(int n) const { return ((liveKeys[n >> 5] >> (n & 31)) & 1) || n == mouseNote; }
@@ -672,11 +697,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     text(g, name, R{r.x + 30, r.y, r.w - 60, r.h}, px, true, rgb(0xeef2f7));
   }
 
+  // beta 0.6: one button, the manual of the engine shown (A or B; each manual links to the other)
   void drawManualBtn(Canvas& g, const Item& it) {
-    bool b = it.w->type == W_MANUALB;
     inset(g, it.r, 8);
-    text(g, L"MANUAL", R{it.r.x, it.r.y + 3, it.r.w, 12}, 9.5f, true, rgb(kDim));
-    text(g, b ? L"B" : L"A", R{it.r.x, it.r.y + 14, it.r.w, 14}, 12, true, rgb(b ? kAccentB : kAccentA));
+    text(g, L"USER", R{it.r.x, it.r.y + 3, it.r.w, 12}, 9.5f, true, rgb(kDim));
+    text(g, L"MANUAL", R{it.r.x, it.r.y + 14, it.r.w, 14}, 12, true, rgb(accent()));
   }
 
   void drawMeter(Canvas& g, R r) {
@@ -765,7 +790,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         return;
       }
       case W_MENU: choiceMenu(it); return;
-      case W_MANUALA: case W_MANUALB: openManual(w.type == W_MANUALA ? L"manual-a.html" : L"manual-b.html"); return;
+      case W_MANUAL: openManual(mode == 1 ? L"manual-b.html" : L"manual-a.html"); return;   // beta 0.6: the engine shown
+      case W_TOGGLE: gesture(w.param, plainOf(w.param) >= 0.5 ? 0 : 1); return;   // beta 0.6: SYNC on / off
       case W_ZOOM: zoomMenu(it); return;
       case W_KEYBOARD: {
         double vel; int n = keyAt(it.r, x, y, vel);
@@ -945,7 +971,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
                        kCmdBankImport = 903,   // beta 0.4
                        kCmdMoveTo = 7000, kCmdTopAdd = 7100, kCmdTopRemove = 7101;   // beta 0.5: the sound menu (ctxRow)
   static constexpr float kBrowserW = 360;                  // logical width added at the right while the browser is open
-  static constexpr R kSaveBtn{800, 9, 68, 30};             // SAVE PRESET, left of MANUAL A (the preset box is shorter)
+  static constexpr R kSaveBtn{876, 9, 68, 30};             // SAVE PRESET, left of MANUAL (beta 0.6: the web app's DOWNLOAD VST place)
   std::vector<BankPreset> menuBank;                        // the bank as listed by the last menu / browser (commands index it)
   struct BCat { std::wstring label; std::vector<int> presets; };   // a factory category of the browser
   std::vector<BCat> fCats;                                 // TOP Sounds, then the categories in factory order
@@ -1636,6 +1662,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 5, rgb(hot ? 0x3a4250 : kInsetEdge));
     text(g, toW(p.choiceShort[v]), R{it.r.x + 6, it.r.y, it.r.w - 18, it.r.h}, 9.5f, true, rgb(accent()), 0);
     text(g, L"\u25BE", R{it.r.x + it.r.w - 14, it.r.y, 12, it.r.h}, 9, false, rgb(kDim));
+    if (it.w->text) text(g, toW(it.w->text), R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(kDim));   // beta 0.6: its caption
   }
   void choiceMenu(const Item& it) {
     const ParamDef& p = kParams[it.w->param];

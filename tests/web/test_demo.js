@@ -15,8 +15,10 @@
 // - Toccata (looked up by title): the agreed scene schedule (SCHED) over the first 30 s.
 // - Every other song: starts, sounds, monotonic scenes, the varied parameter moves, stop restores exactly.
 // - Stop paths (header STOP, window STOP, Esc), user MIDI files, non-MIDI error, Ctrl+click reset.
-// --smoke: menu via the arrow, default tour from a cold start for 4 preset changes, header STOP restore,
-//          another song from the arrow menu + Esc restore (about 1.5 min).
+// - Welcome window (beta 0.6): 'Run the demo' from a cold start plays the default demo; when another tab takes the audio,
+//   the window comes back with the reason, and its 'Play the synth' / 'Run the demo' take the audio back (lifecycle).
+// --smoke: welcome 'Run the demo', menu via the arrow, default tour from a cold start for 4 preset changes, header STOP
+//          restore, another song from the arrow menu + Esc restore, hostile MIDI files, lifecycle (about 2 min).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -324,10 +326,14 @@ const HOOK_SOURCE = `(() => {
   }));
 })();`;
 
+// beta 0.6: the welcome window (#start-overlay): its sub-title (#w-sub) shows why the audio was paused, its 'Play the synth'
+// choice (#start-btn) takes the audio back, 'Run the demo' (#w-demo) starts the default demo
 const OVERLAY_EXPR = `(() => { const o = document.getElementById('start-overlay'); if (!o) return null;
   const vis = !o.classList.contains('gone') && getComputedStyle(o).display !== 'none' && getComputedStyle(o).visibility !== 'hidden';
-  const p = o.querySelector('p'), b = o.querySelector('#start-btn'); const r = b ? b.getBoundingClientRect() : null;
-  return { visible: vis, text: p ? p.textContent.trim() : '', button: b ? b.textContent.trim() : '', bx: r ? r.left + r.width / 2 : 0, by: r ? r.top + r.height / 2 : 0 }; })()`;
+  const p = o.querySelector('#w-sub'), b = o.querySelector('#start-btn'), d = o.querySelector('#w-demo');
+  const r = b ? b.getBoundingClientRect() : null, rd = d ? d.getBoundingClientRect() : null;
+  return { visible: vis, text: p ? p.textContent.trim() : '', button: b ? b.textContent.trim() : '', choices: o.querySelectorAll('.choice').length,
+    bx: r ? r.left + r.width / 2 : 0, by: r ? r.top + r.height / 2 : 0, dx: rd ? rd.left + rd.width / 2 : 0, dy: rd ? rd.top + rd.height / 2 : 0 }; })()`;
 
 async function tabLevel(T, note) {
   await T.evaluate(`WS_TEST.noteOn(${note}, 0.8); true`);
@@ -361,8 +367,8 @@ async function lifecycleTests() {
   log(`  after tab B starts: tab A audio '${aState}', demo running ${aDemo}, overlay ${JSON.stringify(aOv)}`);
   check(aState === 'suspended', "starting audio in tab B suspends tab A's AudioContext", aState);
   check(!aDemo, "starting audio in tab B stops tab A's demo");
-  check(!!aOv && aOv.visible && /playing in another window or tab/.test(aOv.text) && /Click to play here/.test(aOv.button),
-    "tab A shows the overlay 'The synthesizer is playing in another window or tab…' with 'Click to play here'", JSON.stringify(aOv));
+  check(!!aOv && aOv.visible && /playing in another window or tab/.test(aOv.text) && /Play the synth/.test(aOv.button) && aOv.choices === 3,
+    "tab A shows the welcome window again: 'The synthesizer is playing in another window or tab…' and its three choices", JSON.stringify(aOv));
   check(await T2.evaluate('WS_TEST.audioState()') === 'running', "tab B: audioState() 'running'");
   const lvB = await tabLevel(T2, 64);
   check(lvB > 0.003, 'tab B plays (level rises on a note)', `max ${lvB}`);
@@ -372,18 +378,18 @@ async function lifecycleTests() {
   await sleep(1200);
   const a2 = await A.evaluate('WS_TEST.audioState()'), b2 = await T2.evaluate('WS_TEST.audioState()');
   const aOv2 = await A.evaluate(OVERLAY_EXPR), bOv2 = await T2.evaluate(OVERLAY_EXPR);
-  log(`  after 'Click to play here' in tab A: A '${a2}' overlay ${aOv2 && aOv2.visible}, B '${b2}' overlay ${JSON.stringify(bOv2)}`);
-  check(a2 === 'running' && aOv2 && !aOv2.visible, "'Click to play here' in tab A resumes its audio and hides the overlay", `${a2}, overlay ${aOv2 && aOv2.visible}`);
+  log(`  after 'Play the synth' in tab A: A '${a2}' overlay ${aOv2 && aOv2.visible}, B '${b2}' overlay ${JSON.stringify(bOv2)}`);
+  check(a2 === 'running' && aOv2 && !aOv2.visible, "'Play the synth' in tab A resumes its audio and hides the window", `${a2}, overlay ${aOv2 && aOv2.visible}`);
   check(b2 === 'suspended' && bOv2 && bOv2.visible && /another window or tab/.test(bOv2.text), 'tab B is then paused with the same overlay message', `${b2} ${JSON.stringify(bOv2)}`);
   const lvA = await tabLevel(A, 60);
   check(lvA > 0.003, 'tab A plays again (level rises on a note)', `max ${lvA}`);
-  // pagehide: make tab B the player again, run a demo there, then navigate it away
-  if (bOv2 && bOv2.visible) await T2.click(bOv2.bx, bOv2.by);
-  await sleep(1000);
-  await T2.evaluate('WS_TEST.demoStart(0)');
+  // pagehide: make tab B the player again with the 'Run the demo' choice of its paused window, then navigate it away
+  if (bOv2 && bOv2.visible) await T2.click(bOv2.dx, bOv2.dy);
   let t2run = false;
-  for (let i = 0; i < 60 && !t2run; i++) { await sleep(100); t2run = (await T2.evaluate('WS_TEST.demoState()')).running; }
-  check(t2run && await T2.evaluate('WS_TEST.audioState()') === 'running', 'tab B: demo running before leaving the page');
+  for (let i = 0; i < 80 && !t2run; i++) { await sleep(100); t2run = (await T2.evaluate('WS_TEST.demoState()')).running; }
+  const bOv3 = await T2.evaluate(OVERLAY_EXPR);
+  check(t2run && await T2.evaluate('WS_TEST.audioState()') === 'running' && !bOv3.visible,
+    "tab B: 'Run the demo' in its paused window takes the audio back and plays the demo (window closed)", `demo ${t2run}, window ${bOv3.visible}`);
   check(await A.evaluate('WS_TEST.audioState()') === 'suspended', 'tab A paused again while tab B plays');
   await T2.navigate('about:blank');
   await sleep(800);
@@ -490,6 +496,24 @@ async function main() {
     await B.send('Page.addScriptToEvaluateOnNewDocument', { source: HOOK_SOURCE });
     await B.send('DOM.enable');
     B.on('Page.javascriptDialogOpening', (p) => { dialogs.push(p.message); B.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {}); });
+
+    // ---- beta 0.6: the welcome window's 'Run the demo' starts the audio and the default demo as '▶ DEMO' does
+    begin("Welcome window: 'Run the demo' (cold start)");
+    await B.navigate(URL0);
+    await sleep(1200);
+    const ov0 = await ev(OVERLAY_EXPR), a0 = await ev('WS_TEST.audioState()');
+    check(!!ov0 && ov0.visible && ov0.choices === 3 && a0 === 'none', 'the page opens on the welcome window, audio not started', JSON.stringify({ ov0, a0 }));
+    if (ov0 && ov0.visible) await B.click(ov0.dx, ov0.dy);
+    const wd = await waitDemoTime(0, 10000);
+    const song0 = (await ev('WS_TEST.demoSongs()'))[0];
+    const ov1 = await ev(OVERLAY_EXPR), hb0 = await rectOf('.demo-btn');
+    log(`  after 'Run the demo': ${JSON.stringify(wd)}, window ${ov1 && ov1.visible}, header '${hb0 && hb0.text}'`);
+    check(!!wd && wd.song === song0.title && (wd.preset === undefined || wd.preset === TOUR_START), `'Run the demo' plays the default demo (${song0.title}${wd && wd.preset ? ', from ' + TOUR_START : ''})`, JSON.stringify(wd));
+    check(!!ov1 && !ov1.visible && await ev('WS_TEST.audioState()') === 'running' && /STOP/.test(hb0.text), "the window closes, the audio runs and the header shows '■ STOP'",
+      JSON.stringify({ visible: ov1 && ov1.visible, btn: hb0 && hb0.text }));
+    await ev('WS_TEST.demoStop()');
+    check(await waitStopped(2000), 'demoStop() stops it');
+    await B.navigate('about:blank');   // a real reload below (a #hash change alone keeps the document)
 
     begin('Setup (audio not started)');
     await B.navigate(URL0 + '#noaudio');

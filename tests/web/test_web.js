@@ -9,6 +9,8 @@
 //   await start(); noteOn(note, vel0to1); noteOff(note); setParam(key, plain); getParam(key);
 //   paramKeys(); getLevel() -> {peakL, peakR}; presets(); loadPreset(i); openManual('A'|'B'); closeManual()
 // tools/spec.js (the single source of truth for parameters/presets) is used as oracle when present.
+// beta 0.6: the welcome window at load (its choices, the keyboard, 'Play the synth' starts the audio) and the panel
+// against the spec layout (cards, DOWNLOAD VST, one MANUAL button, no tempo SYNC, the credit, MIDI learn, preset browser).
 // Writes <out>/report.txt and PNG screenshots. Exit code: 0 pass, 1 failures, 2 page/API missing.
 'use strict';
 
@@ -67,6 +69,8 @@ function writeReport(abort) {
   fs.writeFileSync(path.join(opt.out, 'report.txt'), lines.join('\n') + '\n');
   return n('FAIL') + (abort ? 1 : 0);
 }
+// beta 0.6: where the free VST plug-in is published (the header's DOWNLOAD VST and the welcome window's third choice)
+const VST_URL = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases';
 const db = (x) => (x > 0 ? (20 * Math.log10(x)).toFixed(1) : '-inf');
 const short = (arr, max = 10) => (arr.length > max ? arr.slice(0, max).join('; ') + `; ... (${arr.length} total)` : arr.join('; '));
 
@@ -399,6 +403,61 @@ async function stepLoad() {
   return true;
 }
 
+// The welcome window (beta 0.6) as the page shows it at load (no #noaudio): its three choices, the keyboard, then
+// "Play the synth" starts the audio (a real click: the browser's user gesture). "Run the demo" is in test_demo.js.
+const WELCOME_EXPR = `(() => { const o = document.getElementById('start-overlay'); if (!o) return null;
+  const cs = getComputedStyle(o), q = (s) => o.querySelector(s);
+  return { visible: !o.classList.contains('gone') && cs.display !== 'none' && cs.visibility !== 'hidden',
+    title: (q('h1') || {}).textContent || '', sub: (q('#w-sub') || {}).textContent || '',
+    choices: [...o.querySelectorAll('.choice')].map((c) => ({ id: c.id, tag: c.tagName, title: (c.querySelector('b') || {}).textContent || '',
+      small: (c.querySelector('small') || {}).textContent || '', href: c.getAttribute('href'), target: c.getAttribute('target'), rel: c.getAttribute('rel') })),
+    manuals: [...o.querySelectorAll('.foot a')].map((a) => a.getAttribute('href')),
+    inert: !!(document.getElementById('stage').inert && document.getElementById('statusbar').inert) }; })()`;
+const centreOf = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height }; })()`);
+
+async function stepWelcome() {
+  begin('Welcome window');
+  const t0 = Date.now();
+  const w = await ev(WELCOME_EXPR);
+  if (!check(!!w && w.visible, 'the welcome window is shown when the page opens', JSON.stringify(w))) return;
+  await shot('welcome');
+  log(`  title '${w.title}'; choices: ${w.choices.map((c) => c.title).join(' | ')}`);
+  check(/OKTOWAVE/.test(w.title) && /Wavelet Synthesizer/.test(w.title), "its title is 'OKTOWAVE · Wavelet Synthesizer'", w.title);
+  const titles = w.choices.map((c) => c.title);
+  check(JSON.stringify(titles) === JSON.stringify(['Run the demo', 'Play the synth', 'Download the VST']), 'three choices: Run the demo, Play the synth, Download the VST', JSON.stringify(titles));
+  const demo = w.choices[0] || {}, play = w.choices.find((c) => c.id === 'start-btn'), dl = w.choices[2] || {};
+  check(/Appassionata/.test(demo.small) && demo.id === 'w-demo', "'Run the demo' (#w-demo) announces the Appassionata tour", JSON.stringify(demo));
+  check(!!play && play.title === 'Play the synth' && play.small.trim() === 'MIDI supported', "'Play the synth' is #start-btn and says only 'MIDI supported'", JSON.stringify(play));
+  check(dl.tag === 'A' && dl.href === VST_URL && dl.target === '_blank' && /\bnoopener\b/.test(dl.rel || ''), `'Download the VST' opens ${VST_URL} in a new tab (rel noopener)`, JSON.stringify(dl));
+  check(w.manuals.some((h) => /manual-a\.html$/.test(h)) && w.manuals.some((h) => /manual-b\.html$/.test(h)), 'its footer links to both manuals', JSON.stringify(w.manuals));
+  check(w.inert, 'the panel and the status bar behind it are inert while it is shown', 'stage / statusbar not inert');
+  // keyboard: Tab goes to a choice of the window (the panel behind is inert), with a visible focus ring
+  await B.key('Tab', { code: 'Tab' });
+  await sleep(150);
+  const f = await ev(`(() => { const a = document.activeElement; if (!a) return null; const cs = getComputedStyle(a);
+    return { inside: !!a.closest('#start-overlay'), id: a.id, outline: cs.outlineStyle + ' ' + cs.outlineWidth }; })()`);
+  check(!!f && f.inside && !/^none/.test(f.outline), 'Tab moves the focus into the window, with a visible focus ring', JSON.stringify(f));
+  // Download: the page stays as it is (the new tab itself is cancelled here: the test needs no network)
+  await ev(`document.getElementById('w-vst').addEventListener('click', (e) => { window.__wsDl = (window.__wsDl || 0) + 1; e.preventDefault(); }, { once: true }); true`);
+  const d = await centreOf('#w-vst');
+  await B.click(d.x, d.y);
+  await sleep(400);
+  const w2 = await ev(WELCOME_EXPR), clicked = await ev('window.__wsDl || 0'), st0 = await ev('WS_TEST.audioState()');
+  check(clicked === 1 && w2.visible && st0 === 'none', "a click on 'Download the VST' leaves the window open and starts no audio", `click ${clicked}, window ${w2.visible}, audio '${st0}'`);
+  // Play: starts the audio, closes the window, plays no note
+  const p = await centreOf('#start-btn');
+  await B.click(p.x, p.y);
+  let st = 'none';
+  for (let i = 0; i < 100 && st !== 'running'; i++) { await sleep(100); st = await ev('WS_TEST.audioState()'); }
+  const w3 = await ev(WELCOME_EXPR);
+  check(st === 'running' && !w3.visible && !w3.inert, "'Play the synth' starts the audio and closes the window (the panel usable again)",
+    `audio '${st}', window ${w3.visible}, inert ${w3.inert}`);
+  const noise = await waitLevel((pk) => pk > 0.001, 800);
+  check(!noise.ok, "'Play the synth' plays no note", `level ${noise.peak}`);
+  check(B.errors(t0).length === 0, 'no console errors in the welcome window', short(B.errors(t0)));
+}
+
 async function stepStart() {
   begin('Start audio');
   const t0 = Date.now();
@@ -547,6 +606,112 @@ async function stepEngines() {
   const d = imageDiff(shots.engine_A, shots.engine_B);
   check(d && d.changedFraction > 0.01, 'UI switches between engine A and B panels', d ? `${(d.changedFraction * 100).toFixed(2)} % pixels changed` : 'size mismatch', 'WARN');
   await ev(`WS_TEST.setParam('engine', 0)`);
+}
+
+// The panel against the spec layout (beta 0.6): cards, captions, the header's DOWNLOAD VST and single MANUAL button, no
+// tempo SYNC (plug-in only: the web app has no tempo), the credit, greyed controls, MIDI learn and the preset browser.
+async function stepPanel() {
+  begin('Panel (spec layout, beta 0.6)');
+  const t0 = Date.now();
+  if (!SPEC) { rec('WARN', 'panel checks', 'tools/spec.js not available'); return; }
+  const r = await deviceRect();
+  if (!r) { rec('WARN', 'device element (1100x720 aspect) found on the page', 'panel checks skipped'); return; }
+  const P = (x, y) => [r.x + (x * r.w) / 1100, r.y + (y * r.h) / 720];
+  const all = [];
+  for (const s of SPEC.SECTIONS) for (const w of s.widgets) all.push(Object.assign({ sx: s.x + w.x, sy: s.y + w.y }, w));
+  // cards and captions follow the spec (no CHORUS card, no 'SCOPE · SCALOGRAM', LFO 1 / LFO 2, the TARGET caption)
+  const ui = await ev(`({ cards: [...document.querySelectorAll('#device .section .title')].map((e) => e.textContent),
+    labels: [...document.querySelectorAll('#device .wlabel')].map((e) => e.textContent),
+    caps: [...document.querySelectorAll('#device .menu .mcap')].map((e) => e.textContent) })`);
+  const cards = SPEC.SECTIONS.filter((s) => s.title).map((s) => s.title);
+  check(JSON.stringify(ui.cards) === JSON.stringify(cards), 'the cards are the spec sections, in order', `${JSON.stringify(ui.cards)} vs spec ${JSON.stringify(cards)}`);
+  const labels = all.filter((w) => w.type === 'label').map((w) => w.text), caps = all.filter((w) => w.type === 'menu' && w.text).map((w) => w.text);
+  check(JSON.stringify(ui.labels) === JSON.stringify(labels) && JSON.stringify(ui.caps) === JSON.stringify(caps), `captions from the spec (${[...labels, ...caps].join(', ')})`,
+    JSON.stringify(ui));
+  // header: DOWNLOAD VST (web only) and one MANUAL button
+  const dw = all.find((w) => w.type === 'download');
+  const dl = await ev(`(() => { const a = document.querySelector('#device a.hbtn.dl'); if (!a) return null; const q = a.getBoundingClientRect();
+    return { text: a.textContent, href: a.getAttribute('href'), target: a.target, rel: a.rel, x: q.left, y: q.top, clipped: a.scrollWidth > a.clientWidth + 1 }; })()`);
+  const [dx, dy] = dw ? P(dw.sx, dw.sy) : [NaN, NaN];
+  check(!!dl && /^DOWNLOAD\s*VST$/.test(dl.text) && dl.href === VST_URL && dl.target === '_blank' && /\bnoopener\b/.test(dl.rel) && !dl.clipped &&
+    Math.abs(dl.x - dx) < 2 && Math.abs(dl.y - dy) < 2, `header 'DOWNLOAD VST' opens ${VST_URL} in a new tab, at its spec place`, JSON.stringify({ dl, spec: [dx, dy] }));
+  const mb = await ev(`[...document.querySelectorAll('#device button, #device a')].filter((b) => /MANUAL/.test(b.textContent)).map((b) => b.textContent)`);
+  check(mb.length === 1 && mb[0] === 'USERMANUAL', "one 'USER MANUAL' button (no MANUAL A / MANUAL B)", JSON.stringify(mb));
+  const eng0 = await ev(`WS_TEST.getParam('engine')`);
+  for (const [e, file] of [[0, 'manual-a.html'], [1, 'manual-b.html']]) {
+    await ev(`WS_TEST.setParam('engine', ${e}); true`);
+    await sleep(200);
+    const c = await centreOf('#device .hbtn.manual');
+    if (c) await B.click(c.x, c.y);
+    await sleep(500);
+    const m = await ev(`({ open: !document.getElementById('manual-overlay').hidden, src: document.getElementById('manual-iframe').getAttribute('src') || '' })`);
+    check(!!c && m.open && m.src.endsWith(file), `MANUAL opens the manual of the engine shown (engine ${e ? 'B' : 'A'}: ${file})`, JSON.stringify(m));
+    await ev('WS_TEST.closeManual(); true');
+    await sleep(200);
+  }
+  await ev(`WS_TEST.setParam('engine', ${eng0}); true`);
+  // tempo SYNC is the plug-in's: neither its buttons nor its note-value knobs here; the hertz / seconds knobs at their place
+  const vstOnly = all.filter((w) => w.only === 'vst' && w.param).map((w) => ({ name: SPEC_BY_KEY[w.param].name, x: w.sx + w.w / 2, y: w.sy + w.h / 2 }));
+  const shown = all.filter((w) => w.vis && w.only !== 'vst').map((w) => ({ name: SPEC_BY_KEY[w.param].name, x: w.sx + w.w / 2, y: w.sy + w.h / 2 }));
+  const probe = (list) => ev(`(() => { const d = document.getElementById('device').getBoundingClientRect();
+    return ${JSON.stringify(list)}.map((w) => { const e = document.elementFromPoint(d.left + w.x * d.width / 1100, d.top + w.y * d.height / 720);
+      const k = e && e.closest('.w'); return { want: w.name, at: k ? (k.title || '').split(' — ')[0] || k.className : (e ? e.tagName : null), text: k ? k.textContent.trim() : '' }; }); })()`);
+  const atVst = await probe(vstOnly), atShown = await probe(shown);
+  const syncEls = await ev(`[...document.querySelectorAll('#device *')].filter((e) => /\\(sync\\)|^(Delay|LFO \\d) Sync/.test(e.title || '') || (e.children.length === 0 && /^SYNC$/.test(e.textContent.trim()))).length`);
+  log(`  plug-in-only places: ${atVst.map((x) => `${x.want} -> ${x.at}${x.text ? ' "' + x.text + '"' : ''}`).join('; ')}`);
+  check(syncEls === 0 && atVst.every((x) => x.at !== x.want && x.text !== 'SYNC'), `no SYNC button and no note-value knob (${vstOnly.length} plug-in-only widgets)`,
+    `${syncEls} sync element(s); ${JSON.stringify(atVst)}`);
+  check(atShown.every((x) => x.at === x.want), `the hertz / seconds knobs are shown at their place (${shown.map((x) => x.name).join(', ')})`, JSON.stringify(atShown));
+  // the credit: "Created by OktoPierre" larger and brighter, then version and licence from the spec
+  const cr = await ev(`(() => { const c = document.querySelector('#device .credit'); if (!c) return null; const b = c.querySelector('b');
+    const cs = getComputedStyle(c), bs = b ? getComputedStyle(b) : cs, q = c.getBoundingClientRect(), d = document.getElementById('device').getBoundingClientRect();
+    return { text: c.textContent, name: b ? b.textContent : '', size: parseFloat(bs.fontSize), weight: +bs.fontWeight, color: bs.color,
+      restSize: parseFloat(cs.fontSize), restColor: cs.color, clipped: c.scrollWidth > c.clientWidth + 1, inside: q.right <= d.right + 1 && q.bottom <= d.bottom + 1 }; })()`);
+  const luma = (c) => { const m = /(\d+), (\d+), (\d+)/.exec(c || ''); return m ? 0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3] : 0; };
+  check(!!cr && cr.name === 'Created by OktoPierre' && cr.size >= 12.5 && cr.weight >= 600 && cr.size >= cr.restSize + 2 && luma(cr.color) > luma(cr.restColor) + 60,
+    "credit: 'Created by OktoPierre' larger (>= 12.5 px), semi-bold and brighter than the rest", JSON.stringify(cr));
+  check(!!cr && cr.text.endsWith(` · ${SPEC.APP.version} · ${SPEC.APP.license}`) && !cr.clipped && cr.inside, `credit: then '${SPEC.APP.version} · ${SPEC.APP.license}', not clipped, inside the panel`, JSON.stringify(cr));
+  // controls greyed out when they do nothing (still driven by the parameters)
+  const greyed = (key) => ev(`(() => { const e = [...document.querySelectorAll('#device .knob')].find((k) => (k.title || '').split(' — ')[0] === ${JSON.stringify(SPEC_BY_KEY[key].name)});
+    return e ? e.classList.contains('disabled') : null; })()`);
+  const wave0 = await ev(`WS_TEST.getParam('a_wave')`), pat0 = await ev(`WS_TEST.getParam('b_pattern')`), g = [];
+  for (const [k, v] of [['a_wave', 0], ['a_wave', 2], ['a_wave', 3], ['b_pattern', 0], ['b_pattern', 5]]) {
+    await ev(`WS_TEST.setParam('${k}', ${v}); true`);
+    g.push(await greyed(k === 'a_wave' ? 'a_width' : 'b_seed'));
+  }
+  await ev(`WS_TEST.setParam('a_wave', ${wave0}); WS_TEST.setParam('b_pattern', ${pat0}); true`);
+  check(JSON.stringify(g) === '[true,false,false,true,false]', 'WIDTH greyed unless PULSE / TRI, SEED unless RANDOM', JSON.stringify(g));
+  // MIDI learn by a right-click on a moved control (the delay TIME, now in EFFECTS), then unlinked again
+  const tw = all.find((w) => w.param === 'fx_dtime' && w.only !== 'vst');
+  const [tx, ty] = P(tw.sx + tw.w / 2, tw.sy + 20);
+  await B.mouse('mouseMoved', tx, ty, { button: 'none', buttons: 0 });
+  await B.mouse('mousePressed', tx, ty, { button: 'right', buttons: 2 });
+  await B.mouse('mouseReleased', tx, ty, { button: 'right', buttons: 0 });
+  await sleep(200);
+  const learnTxt = await ev('WS_TEST.midiStatus()');
+  await ev('WS_TEST.midi([0xB0, 21, 64]); true');
+  const map = await ev('WS_TEST.midiMap()');
+  await ev(`WS_TEST.midiLearn('fx_dtime'); true`);
+  await B.key('Backspace');
+  const unlinked = await ev('WS_TEST.midiMap()');
+  check(/MIDI learn/.test(learnTxt) && /Delay Time/.test(learnTxt) && map[21] === 'fx_dtime' && !Object.values(unlinked).includes('fx_dtime'),
+    'right-click on the delay TIME knob starts MIDI learn; a CC links it; Backspace unlinks it', `status '${learnTxt}', map ${JSON.stringify(map)}, after ${JSON.stringify(unlinked)}`);
+  // the preset browser selects presets (a click on a row, then the arrow key)
+  const rows = await ev(`[...document.querySelectorAll('#browser .blist .bsnd')].map((e) => e.title)`);
+  if (rows.length >= 3) {
+    const rc = await ev(`(() => { const e = document.querySelectorAll('#browser .blist .bsnd')[1]; e.scrollIntoView({ block: 'nearest' }); const q = e.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; })()`);
+    await B.click(rc.x, rc.y);
+    await sleep(300);
+    const l1 = await ev(`(document.querySelector('.presets .pname span') || {}).textContent`);
+    await ev('document.activeElement && document.activeElement.blur && document.activeElement.blur(); true');
+    await B.key('ArrowDown');
+    await sleep(300);
+    const l2 = await ev(`(document.querySelector('.presets .pname span') || {}).textContent`);
+    check(l1 === rows[1] && l2 === rows[2], 'the preset browser: a click on a sound loads it, the down arrow the next one', `'${l1}' / '${l2}' vs '${rows[1]}' / '${rows[2]}'`);
+  } else rec('WARN', 'preset browser rows present', `${rows.length} rows`);
+  await shot('panel');
+  check(B.errors(t0).length === 0, 'no console errors in the panel checks', short(B.errors(t0)));
+  await ev(`${NEUTRAL_EXPR()}; true`);
 }
 
 async function stepManuals() {
@@ -728,6 +893,9 @@ async function stepHashes() {
     await sleep(1200);
     const errs = B.errors(t0);
     check(errs.length === 0, `${hash}: loads without console errors`, short(errs));
+    // #noaudio (screenshots, docs) leaves the welcome window out; any other address shows it
+    const w = await ev(WELCOME_EXPR), noaudio = hash === '#noaudio';
+    check(!!w && w.visible === !noaudio && w.inert === !noaudio, `${hash}: welcome window ${noaudio ? 'hidden (panel not inert)' : 'shown'}`, JSON.stringify(w && { visible: w.visible, inert: w.inert }));
     await shot('hash_' + hash.replace(/[^a-z0-9]/gi, '_'));
     if (idx !== null && SPEC && SPEC.PRESETS[idx]) {
       const v = SPEC.PRESETS[idx].v;
@@ -762,9 +930,11 @@ async function main() {
     const loaded = await stepLoad();
     if (!loaded) { abort = 'page or WS_TEST hook missing'; }
     else {
+      await stepWelcome();
       const started = await stepStart();
       await stepParams();
       if (started) {
+        await stepPanel();   // needs the welcome window closed (the audio started)
         await stepNote();
         await stepPresets();
         await stepEngines();

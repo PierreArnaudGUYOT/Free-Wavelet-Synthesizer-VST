@@ -266,6 +266,7 @@ struct Instance
 	ParameterChanges inParams, outParams;
 	EventList inEvents, outEvents;
 	ProcessContext ctx {};
+	double hostTempo = 120.0; // beta 0.6: the tempo the "host" gives (the tempo sync test changes it)
 	int64 pos = 0; // project position in samples
 	std::mutex outMx;
 	std::map<ParamID, double> outParamLast; // last values reported by the processor
@@ -459,7 +460,7 @@ struct Instance
 		ctx.projectTimeSamples = pos;
 		ctx.continousTimeSamples = pos;
 		ctx.systemTime = (int64)(nowUs () * 1000.0);
-		ctx.tempo = 120.0;
+		ctx.tempo = hostTempo;
 		ctx.timeSigNumerator = 4;
 		ctx.timeSigDenominator = 4;
 		ctx.projectTimeMusic = (double)pos / sr * ctx.tempo / 60.0;
@@ -3233,6 +3234,66 @@ static void testPolyPorta (Instance& in, AudioCtx& ac)
 	restoreDefault (in, ac);
 }
 
+// beta 0.6: the delay's tempo sync. A short note, the delay alone (mix 100 %, no feedback): its first echo comes one note
+// value after the note at the tempo the host gives, a fixed TIME with SYNC off, at most 4 s.
+static void testTempoSync (Instance& in, AudioCtx& ac)
+{
+	beginSection ("Tempo sync (beta 0.6)");
+	const int iSync = in.findParam ("Delay Sync"), iDiv = in.findParam ("Delay Time (sync)"), iMix = in.findParam ("Delay Mix"),
+	          iFb = in.findParam ("Delay Feedback"), iTime = in.findParam ("Delay Time"), iD = in.findParam ("Amp Decay"),
+	          iS = in.findParam ("Amp Sustain"), iR = in.findParam ("Amp Release"), iL1 = in.findParam ("LFO 1 Sync"),
+	          iL2 = in.findParam ("LFO 2 Sync");
+	if (std::min ({iSync, iDiv, iMix, iFb, iTime, iD, iS, iR, iL1, iL2}) < 0)
+	{
+		fail ("tempo sync parameters present (Delay Sync, Delay Time (sync), LFO 1 Sync, LFO 2 Sync ...)");
+		return;
+	}
+	const ParamRec &pDiv = in.params[(size_t)iDiv], &pSync = in.params[(size_t)iSync];
+	check (pSync.info.stepCount == 1 && pSync.info.defaultNormalizedValue == 0 && pDiv.info.stepCount == 13,
+	       "Delay Sync is an off / on switch, off by default; Delay Time (sync) has 14 note values",
+	       strf ("steps %d / %d, default %.2f", pSync.info.stepCount, pDiv.info.stepCount, pSync.info.defaultNormalizedValue));
+	auto id = [&] (int i) { return in.params[(size_t)i].info.id; };
+	auto echoAt = [&] (bool sync, int div, double tempo, double len) {
+		std::vector<std::pair<ParamID, double>> norm;
+		for (auto& p : in.params)
+			norm.push_back ({p.info.id, p.info.defaultNormalizedValue});
+		norm.push_back ({id (iSync), sync ? 1.0 : 0.0});
+		norm.push_back ({id (iDiv), (double)div / pDiv.info.stepCount});
+		norm.push_back ({id (iMix), 1.0});
+		norm.push_back ({id (iFb), 0.0});
+		in.hostTempo = tempo;
+		applyPlainValues (in, {{id (iD), 0.05}, {id (iS), 0.0}, {id (iR), 0.02}}, norm);
+		Scenario s;
+		s.name = "tempo_sync";
+		s.note (sec (0.05, in.sr), sec (0.1, in.sr), 60, 0.8f);
+		s.finish (sec (len, in.sr));
+		RenderOptions o;
+		o.block = g_opt.block;
+		RenderResult r = in.render (s, o);
+		float dry = 0;
+		for (int64 i = sec (0.05, in.sr); i < sec (0.2, in.sr); i++) dry = std::max (dry, std::fabs (r.L[(size_t)i]));
+		for (int64 i = sec (0.25, in.sr); i < (int64)r.L.size (); i++)
+			if (std::fabs (r.L[(size_t)i]) > 0.3f * dry) return (double)i / in.sr;
+		return -1.0;
+	};
+	struct Case { const char* what; bool sync; int div; double tempo, expect; };
+	const Case cases[] = {
+	    {"SYNC 1/4 at 120 BPM: 0.5 s", true, 8, 120, 0.05 + 0.5},
+	    {"SYNC 1/4 at 90 BPM: 0.667 s", true, 8, 90, 0.05 + 60.0 / 90},
+	    {"SYNC 1/8 D at 120 BPM: 0.375 s", true, 7, 120, 0.05 + 0.375},
+	    {"SYNC 1/8 T at 50 BPM: 0.4 s", true, 3, 50, 0.05 + 0.4},
+	    {"SYNC 1/1 at 30 BPM: 8 s, held at the 4 s maximum", true, 13, 30, 0.05 + 4.0},
+	    {"SYNC off at 90 BPM: TIME (0.35 s by default), whatever the tempo", false, 8, 90, 0.05 + 0.35},
+	};
+	for (const Case& c : cases)
+	{
+		const double t = echoAt (c.sync, c.div, c.tempo, c.expect + 0.35);
+		check (t > 0 && std::fabs (t - c.expect) < 0.012, std::string ("first echo, ") + c.what, strf ("at %.4f s (expected %.4f s)", t, c.expect));
+	}
+	in.hostTempo = 120.0;
+	restoreDefault (in, ac);
+}
+
 static void testSubOsc (Instance& in, AudioCtx& ac)
 {
 	beginSection ("Sub oscillator");
@@ -4419,10 +4480,10 @@ static void testEditor (Instance& in, AudioCtx& ac)
 				lastEdits[kv.first] = kv.second;
 		}
 		{
-			// preset browsing from the header (spec 'presets' widget x 566..866, y 9..39; beta 0.3: the VST box ends at x 794,
-			// SAVE PRESET follows it, so its next arrow is at x 779)
+			// preset browsing from the header (spec 'presets' widget x 566..866, y 9..39; beta 0.6: the VST box ends at x 870,
+			// SAVE PRESET follows it, so its next arrow is at x 855)
 			int changed = 0;
-			for (auto& ar : std::vector<std::pair<const char*, LONG>> {{"next", 779}, {"previous", 580}})
+			for (auto& ar : std::vector<std::pair<const char*, LONG>> {{"next", 855}, {"previous", 580}})
 			{
 				size_t m = in.handler->mark ();
 				s1.click (s1.scaled ({ar.second, 24}));
@@ -4678,7 +4739,7 @@ static void testPresetParity (Instance& in, AudioCtx& ac)
 	std::vector<std::string> bad;
 	for (size_t k = 0; k < n + 1; k++)
 	{
-		e.click (e.scaled ({779, 24})); // next-preset arrow
+		e.click (e.scaled ({855, 24})); // next-preset arrow (beta 0.6: the box is 304 wide)
 		pump (150);
 		if (start < 0)
 		{
@@ -5378,7 +5439,7 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 		const int baseW = er.size.getWidth (), baseH = er.size.getHeight ();
 		// beta 0.5: the factory order starts with TOP Sounds, 'B · Mirror Sub Bass' first; 'A · Warm Pad' (the opening
 		// preset) and 'A · Wavelet Lead' are further on
-		const POINT prev = er.scaled ({581, 24}), next = er.scaled ({779, 24});
+		const POINT prev = er.scaled ({581, 24}), next = er.scaled ({855, 24});
 		const int iWarm = spec (kWarm)->index, iWL = spec (kWL)->index;
 		for (int k = 0; k < iWarm; k++)
 		{
@@ -5827,6 +5888,8 @@ int main ()
 			testOffline (in, ac);
 		if (want ("sub"))
 			testSubOsc (in, ac);
+		if (want ("sync"))
+			testTempoSync (in, ac);
 		if (want ("porta"))
 		{
 			testPortamento (in, ac);

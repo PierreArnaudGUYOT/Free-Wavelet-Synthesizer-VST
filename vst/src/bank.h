@@ -52,6 +52,18 @@ struct BankPreset {
   double v[kNumParams];   // plain values (hidden parameters at their default)
 };
 
+// beta 0.6 (security review): limits for a presets file from someone else. The save windows allow 48 characters
+// (≤ 144 bytes of UTF-8), so a name above kMaxNameBytes never comes from the plug-in; a user bank of millions of sounds
+// would freeze the host (every edit and repaint copies the library).
+inline constexpr size_t kMaxBankSounds = 2000, kMaxNameBytes = 160;
+inline std::string clipName(std::string s) {
+  if (s.size() <= kMaxNameBytes) return s;
+  size_t n = kMaxNameBytes;
+  while (n > 0 && ((unsigned char)s[n] & 0xC0) == 0x80) n--;   // not inside a UTF-8 character
+  s.resize(n);
+  return s;
+}
+
 inline int bankSectionOf(const std::string& s) {
   for (int i = 0; i < kNumBankSections; i++) if (s == kBankSections[i]) return i;
   return -1;
@@ -148,7 +160,9 @@ class Library {
     t.user.erase(std::remove_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) {
       return q.section == p.section && q.name == p.name && q.name != key; }), t.user.end());   // a renamed sound replaces a namesake
     auto it = std::find_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) { return q.section == p.section && q.name == key; });
-    if (it != t.user.end()) *it = p; else t.user.push_back(p);
+    if (it != t.user.end()) *it = p;
+    else if (t.user.size() >= kMaxBankSounds) return L"the user bank is full (2000 sounds): delete some first";
+    else t.user.push_back(p);
     return commit(t);
   }
   std::wstring removeUser(int section, const std::string& n) {
@@ -250,11 +264,13 @@ class Library {
     bool found = false;
     const std::string all = readTextFile(from, found);
     if (!found) return L"the file cannot be read";
+    if (all.size() >= (16u << 20)) return L"the file is too large for a presets file (16 MB or more)";
     if (all.find("\nPreset: ") == std::string::npos && all.compare(0, 8, "Preset: ") != 0)
       return L"it holds no preset of the Wavelet Synthesizer (no \"Preset:\" line)";
     State t;
     builtIn(t);
     parse(all, t);
+    if (t.tooMany) return L"its user bank holds more than 2000 sounds";
     if (existed) {
       bool had = false;
       const std::string cur = readTextFile(pathOf(), had);
@@ -283,6 +299,7 @@ class Library {
     std::vector<char> adj, del;
     std::vector<std::vector<int>> lists;   // the preset browser's factory lists (listLabels order)
     std::vector<BankPreset> user;
+    bool tooMany = false;   // parse met more than kMaxBankSounds bank sounds (the rest is left out)
   };
   std::mutex m;
   State s;
@@ -425,7 +442,7 @@ class Library {
       if (part == 1) {
         if (line.compare(0, 8, "Preset: ") == 0) {
           endFb();
-          inFb = true; fb.name = line.substr(8); fb.orig.clear(); fb.adj = false; fb.del = false;
+          inFb = true; fb.name = clipName(line.substr(8)); fb.orig.clear(); fb.adj = false; fb.del = false;
           for (int i = 0; i < kNumParams; i++) fb.v[i] = kParams[i].def;
         } else if (inFb && line.compare(0, 9, "Factory: ") == 0) fb.orig = line.substr(9);
         else if (inFb && line.compare(0, 10, "Adjusted: ") == 0) fb.adj = line.compare(10, 3, "yes") == 0;
@@ -438,12 +455,14 @@ class Library {
         sec = bankSectionOf(line.substr(3, line.size() - 6));
         cur = nullptr;
       } else if (line.compare(0, 8, "Preset: ") == 0 && sec >= 0 && line.size() > 8) {
+        cur = nullptr;
+        if (t.user.size() >= kMaxBankSounds) { t.tooMany = true; continue; }   // its value lines are ignored too
         BankPreset np;
-        np.section = sec; np.name = line.substr(8);
+        np.section = sec; np.name = clipName(line.substr(8));
         for (int i = 0; i < kNumParams; i++) np.v[i] = kParams[i].def;
         t.user.push_back(np);
         cur = &t.user.back();
-      } else if (line.compare(0, 6, "From: ") == 0 && cur) cur->from = line.substr(6);
+      } else if (line.compare(0, 6, "From: ") == 0 && cur) cur->from = clipName(line.substr(6));
       else if (cur) parseParamLine(line, cur->v);
     }
     endFb();

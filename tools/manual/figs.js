@@ -401,12 +401,12 @@ function flow(E) {
   const w2 = E === 'a' ? [170, 250, 230, 180] : [170, 290, 200, 170], xs = [0];
   for (let i = 1; i < w2.length; i++) xs.push(xs[i - 1] + w2[i - 1] + 10);
   const r2 = E === 'a'
-    ? [['PLAY AT NOTE PITCH', 'OCTAVE · FINE · GLIDE\nBEND · LFO PITCH'],
-       ['SCALE FILTER', 'one gain per band: TYPE · CUTOFF\nSLOPE · RESO · KEY TRK · VEL AMT\nENV AMT (MOD ENV) · LFO CUTOFF', 'acc'],
-       ['POSITION WINDOW', 'dry ↔ filtered within the cycle\nPOSITION · WIDTH · DEPTH\nLFO POSITION', 'acc'],
+    ? [['PLAY AT NOTE PITCH', 'OCTAVE · FINE · GLIDE\nBEND · LFO 1 PITCH'],
+       ['SCALE FILTER', 'one gain per band: TYPE · CUTOFF\nSLOPE · RESO · KEY TRK · VEL AMT\nENV AMT (MOD ENV) · LFO 1 CUTOFF', 'acc'],
+       ['POSITION WINDOW', 'dry ↔ filtered within the cycle\nPOSITION · WIDTH · DEPTH\nLFO 1 POSITION', 'acc'],
        ['UNISON', 'up to 4 copies per note\nUNISON · DETUNE · STEREO']]
-    : [['PLAY AT NOTE PITCH', 'OCTAVE · FINE · GLIDE\nBEND · LFO PITCH'],
-       ['BAND GAINS', 'DRAWBARS × TILT × SCALE ENVELOPE\n× SCALE FILTER, then ÷ sum of levels\nENV AMT (MOD ENV) · LFO CUTOFF', 'acc'],
+    : [['PLAY AT NOTE PITCH', 'OCTAVE · FINE · GLIDE\nBEND · LFO 1 PITCH'],
+       ['BAND GAINS', 'DRAWBARS × TILT × SCALE ENVELOPE\n× SCALE FILTER, then ÷ sum of levels\nENV AMT (MOD ENV) · LFO 1 CUTOFF', 'acc'],
        ['POSITION (FOCUS)', 'band 1 + window ×\nbands 2–11', 'acc'],
        ['UNISON', 'up to 4 copies per note\nUNISON · DETUNE · STEREO']];
   r2.forEach(([t, s, k], i) => { b += box(xs[i], y2, w2[i], h2, t, s, k); if (i) b += arrow(xs[i - 1] + w2[i - 1], y2 + h2 / 2, xs[i], y2 + h2 / 2); });
@@ -419,8 +419,9 @@ function flow(E) {
   b += box(xa, y3, wa, h3, 'AMP ENVELOPE', 'ADSR × VELOCITY');
   // row 4: all voices
   b += lab(0, y4 - 12, 'ALL VOICES TOGETHER');
-  const w4 = [124, 112, 150, 100, 176, 64], x4 = [0]; for (let i = 1; i < w4.length; i++) x4.push(x4[i - 1] + w4[i - 1] + 26);
-  const t4 = ['SUM OF VOICES', 'SATURATION', 'PING-PONG DELAY', 'REVERB', 'VOLUME · LIMITER', 'OUT'];
+  // the EFFECTS section's order (beta 0.6 shows the chorus there): saturation, chorus, ping-pong delay, reverb
+  const w4 = [122, 104, 82, 140, 78, 148, 52], x4 = [0]; for (let i = 1; i < w4.length; i++) x4.push(x4[i - 1] + w4[i - 1] + 22);
+  const t4 = ['SUM OF VOICES', 'SATURATION', 'CHORUS', 'PING-PONG DELAY', 'REVERB', 'VOLUME · LIMITER', 'OUT'];
   b += elbow(xa + wa / 2, y3 + h3, x4[0] + w4[0] / 2, y4);
   t4.forEach((t1, i) => { b += box(x4[i], y4, w4[i], h4, t1, '', 'fx'); if (i) b += arrow(x4[i - 1] + w4[i - 1], y4 + h4 / 2, x4[i], y4 + h4 / 2); });
   return svgDoc(Wd, y4 + h4 + 4, b, E === 'a' ? 'Signal flow of engine A' : 'Signal flow of engine B', true);

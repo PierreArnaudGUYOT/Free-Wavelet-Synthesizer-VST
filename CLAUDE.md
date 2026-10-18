@@ -41,6 +41,14 @@ products identical. Read it before changing the DSP, the parameters or the prese
 - **Layout**: sections (cards) with widgets in panel coordinates (1100 × 720). Both GUIs (`web/js/ui.js` and
   `vst/src/editor.cpp`) are generated from it. A widget may appear in several sections (the A/B MIX knob is in both
   engine sections; sections with `mode 'A'/'B'` are shown for one engine tab only).
+  beta 0.6 widget fields (generated into `WidgetDef` too): `only: 'web' | 'vst'` (C++ `only` 1 / 2: the other GUI skips
+  the widget), `vis` + `visOn` (shown only while that choice parameter is on / off: the SYNC'd RATE / TIME knobs share
+  their place with the free ones), `style: 'value'` (C++ 2: a knob labelled with its value, the note values), `text`
+  (caption of a `toggle`, `label` or `menu`). Types `manual` (one MANUAL button: the manual of the engine shown),
+  `download` (web header link to the GitHub releases page), `toggle` (SYNC), `label` (SCALOGRAM).
+  beta 0.6 panel: SUB OSC at the top beside the oscillator; LFO 1 and LFO 2 side by side; EFFECTS shows SATURATION |
+  CHORUS | PING-PONG DELAY | REVERB (`fxheads`: the panel order only, the DSP chain is unchanged, §3.5); VOICE, the
+  PITCH / MOD wheels and the keyboard on the bottom row.
 - **Presets**: `PRESET_LIST` (name + sparse values over the defaults; presets added in beta 0.2 carry `cat`, older ones get
   theirs from `CATEGORY_OF`). beta 0.5 = OktoPierre's sort (his file "OKTOWAVE presets V4.txt"): 150 kept, `LEFT_OUT` the
   103 others (a Live Set saved with one keeps its name: `kLeftOutPresets`, controller `formerName`). `LIST_ORDER` gives
@@ -147,6 +155,20 @@ products identical. Read it before changing the DSP, the parameters or the prese
   `tools/phase_effect.js` (≥ 6 dB on some harmonic, ≥ 4 dB among those within 20 dB of the strongest); beta 0.5 keeps 44,
   second in `CATEGORIES`.
 
+### 3.3e TEMPO SYNC (beta 0.6, plug-in only)
+- `fx_dsync` / `fx_ddiv`, `lfo_sync` / `lfo_div`, `lfo2_sync` / `lfo2_div` (appended; SYNC off by default). The note values
+  are `DELAY_NOTES` / `LFO_NOTES` in `tools/spec.js`, ordered by length (T = triplet, D = dotted), their lengths in beats
+  `DELAY_BEATS` / `LFO_BEATS` (web `SPEC.*`, C++ `kDelayBeats` / `kLfoBeats`).
+- `Engine.tempo` (BPM, 0 = none): `setTempo` (anything not finite or ≤ 0 → 0). `delaySec()` = TIME, or with SYNC on and a
+  tempo `beats · 60 / tempo` capped at `DLY_MAX = 4` s; `lfoHz(sync, div, rate)` = RATE, or `tempo / 60 / beats`. The note
+  index is rounded and clamped (`noteAt`). The delay buffer holds `DLY_MAX + 0.1` s (it was 1.1 s).
+- The web app never sets a tempo (no DAW): its SYNC widgets are `only: 'vst'` and its sound ignores the SYNC parameters.
+  The VST3 processor asks for the tempo (`getProcessContextRequirements` → `kNeedTempo`) and calls `setTempo` at each
+  `process` with `ProcessContext::tempo` when `kTempoValid`, else 120 BPM; VST2 (`vst2.cpp`) reads it through
+  `audioMasterGetTime` (the `TimeInfo` layout, `kTempoValid = 1 << 10`) into the same `ProcessContext`.
+- The longer delay buffer changes rounding of the read position: 2 presets (Steel Pluck, Phase Glitch) differ from
+  beta 0.5 by < 4e-9 (−170 dB); the 148 others are bit-identical.
+
 ### 3.4 Table rebuilds
 - Structural changes rebuild tables **off the audio thread** and switch with a 512-sample crossfade (`setTables`).
 - Web: `app.js` throttles builds (45 ms) on the main thread and transfers the arrays to the worklet (`'tables'` message).
@@ -156,7 +178,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
 
 ### 3.5 Effects and output (`block`)
 Voices → **drive** (tanh) → **triple chorus** (beta 0.2: three 6–12 ms delay lines swept by a slow and a fast LFO 120°
-apart, L / C / R, on the mono sum) → **ping-pong delay** → **reverb** (Freeverb topology) → 10 Hz **DC blocker** →
+apart, L / C / R, on the mono sum) → **ping-pong delay** (up to 4 s, tempo sync §3.3e) → **reverb** (Freeverb topology) → 10 Hz **DC blocker** →
 master volume (smoothed) → **soft limiter** (`LIMIT_T = 0.7`, never above 0 dBFS). `VOICE_GAIN = 0.4` gives chord headroom.
 The C++ side also sets FTZ/DAZ during `process`.
 
@@ -189,6 +211,12 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   (`app.js` keydown → `ui.browserKey`: ↑ ↓ the sound above / below, ← → the category; browser hidden: `presetStep`). Open state
   in `localStorage 'ws.browser'`; `#nobrowser` in the address leaves it out (manual screenshots, `tools/manual/shots.js`).
   The preset name opens it when hidden, else the classic menu.
+- beta 0.6 **welcome window** (`index.html` `.welcome`, shown at page open): "Run the demo" (`#w-demo`), "Play the synth"
+  (`#start-btn`, starts the audio, plays no note; "MIDI supported"), "Download the VST" (`#w-vst`, the GitHub releases
+  page, `target _blank rel noopener`). Browsers allow sound only after a click: each choice is that click. `setOverlay`
+  makes the panel `inert` while it is shown; it comes back (paused audio, another window playing) with the reason in
+  `#w-sub`. Header: DOWNLOAD VST (`VST_RELEASES` in `ui.js`) and one MANUAL button (the manual of the engine shown, in
+  the overlay viewer).
 - Test hooks: `window.WS_TEST` (used by the test suites).
 - Other storage keys: `ws.user` (user presets), `ws.state`.
 
@@ -202,8 +230,10 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
   = zoom, modified flag, **preset name** (older `"WSC1"` index states are translated through `kBeta01Order`). beta 0.5: a
   name of `kLeftOutPresets` is kept as `formerName` (`EditorHost::formerPresetName`: the panel shows it, getState
   writes it back, SAVE PRESET saves it to the user bank); any other unknown name is still ignored.
-- `editor.cpp`: the panel, drawn from the layout tables, zoom menu, preset popup, manual buttons (open
-  `Contents/Resources/manual/*.html` of the bundle) — the same code on both systems. It draws through `Canvas`
+- `editor.cpp`: the panel, drawn from the layout tables, zoom menu, preset popup, the MANUAL button (beta 0.6: one button,
+  opens `Contents/Resources/manual/manual-a.html` or `manual-b.html` of the bundle for the engine shown), the SYNC toggles
+  (`W_TOGGLE`, a gesture 0 / 1; widgets with `vis` are redrawn when their choice parameter changes) — the same code on
+  both systems. It draws through `Canvas`
   (`editor_platform.h`: rectangles, rounded rectangles, ellipses, arcs, lines, polygons, linear gradients, text with
   GDI+'s layout — 1/6 em margins —, a nearest-neighbour image) and talks to the system window through `EditorWindow`
   (invalidate, size, capture, modifier keys, pop-up menus as a `MenuItem` tree, message / Yes-No / save windows, save-file
@@ -269,6 +299,14 @@ and run `node tools/dsp_compare.js <dir>`: every preset must match within ~2.4e-
 MIDI file reader bounds every length to the bytes present (VLQ ≤ 4 bytes, binary-search tempo map); oscillator phase
 wrap and above-Nyquist silence (prevented an out-of-bounds read); state/chunk/attribute parsing validated; MIDI-learn
 and channel data validated; `install.bat` relaunches itself elevated instead of building a command line.
+beta 0.6 (independent security review, no intentional malicious code found): `reveal` starts explorer.exe by its full
+path (`GetSystemWindowsDirectoryW`); the presets library limits a file from someone else (`kMaxBankSounds` 2000 — IMPORT
+refused above, `putUser` refuses a new sound when full —, `kMaxNameBytes` 160 via `clipName`, IMPORT refused at 16 MB);
+`setTempo` holds the tempo at 1000 BPM (JS and C++); the processor and VST2 ignore sample rates outside `kMinRate` /
+`kMaxRate` (8 kHz – 1.536 MHz, `common.h`); the web app keeps only well-formed `ws.user` entries. Known and accepted: the
+test hooks (`WS_PRESETS_*` environment variables, `WM_APP + 1`, `wsTestCommand:`) stay in the release build because the
+suites drive the shipped binary (they cross no privilege boundary); no CSP meta (the worklet is a `data:` URL and the app
+runs from `file://`); GitHub Actions pinned by tag.
 
 ## 7. Building and manuals
 - `vst/build_mac.sh` (macOS): `plugin editor iids` + `editor_mac.mm` (ARC) + `funknown.cpp`, universal, **`-ffp-contract=off`**
@@ -301,6 +339,11 @@ and channel data validated; `install.bat` relaunches itself elevated instead of 
   the 144 presets kept unchanged are bit-identical with beta 0.4 (commit 2a929cb), the 6 adjusted differ only in the
   values OktoPierre changed; `tests/vst3host` checks a WSC1 / WSC2 state naming a left-out preset.
 - `tests/vst3host`: `scaled()` maps layout points with the height scale (the browser makes the editor wider).
+- beta 0.6 (tempo sync): `tests/vst3host --only sync` measures the first echo of a note with the delay SYNC'd at several
+  host tempos (`Instance::hostTempo`; 1/4, 1/8 D, 1/8 T, 1/1 held at 4 s, SYNC off); `dsp_compare` / `dsp_render` take a
+  tempo and render 3 sync variants (delay, LFO 1, LFO 2); `dsp_selftest` 10 checks note lengths at several tempos, the
+  4 s cap (a 1/1 echo at 60 BPM after 4 s), no tempo or SYNC off = the knobs' values; `bank_session` step 9b clicks the three SYNC buttons and steps TIME with the wheel; `machost`
+  clicks the delay SYNC. The 150 presets were rendered against beta 0.5 (commit bc4196a): see §3.3e.
 - macOS (`.github/workflows/mac.yml`, `macos-14`, Apple silicon + Rosetta for Intel): `dsp_render.cpp` + `dsp_compare.js` on
   both architectures, then `tests/machost/machost <bundle> <outdir>` (built by `tests/machost/build.sh`): bundle and
   exports, sound, states, editor in a window (PNG screenshots, synthetic mouse events at logical points, Cmd-click), HIDE /
