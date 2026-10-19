@@ -182,10 +182,25 @@ products identical. Read it before changing the DSP, the parameters or the prese
   rendering** (`kOffline`) the rebuild is synchronous so exports never depend on thread timing.
 
 ### 3.5 Effects and output (`block`)
-Voices → **drive** (tanh) → **triple chorus** (beta 0.2: three 6–12 ms delay lines swept by a slow and a fast LFO 120°
+Voices → **chord compensation** (beta 0.7.1, `polyComp`) → **drive** (tanh) → **triple chorus** (beta 0.2: three 6–12 ms
+delay lines swept by a slow and a fast LFO 120°
 apart, L / C / R, on the mono sum) → **ping-pong delay** (up to 4 s, tempo sync §3.3e) → **reverb** (Freeverb topology) → 10 Hz **DC blocker** →
 master volume (smoothed) → **soft limiter** (`LIMIT_T = 0.7`, never above 0 dBFS). `VOICE_GAIN = 0.4` gives chord headroom.
 The C++ side also sets FTZ/DAZ during `process`.
+- **Crackle** (beta 0.7.1): the soft limiter works sample by sample, so a voice sum above 0.7 is clipped every period
+  (harmonic distortion heard as crackle). The presets' masters are set for about 3 notes, so 5–6-note chords of sustained,
+  bright presets (B organs) went far over the knee: limiter share up to 8 % of the sound (`B · Church Organ`), > 3 % =
+  audible. `polyComp` scales the voice sum before the effects by `sqrt(POLY_FREE / nv)` when `nv > POLY_FREE (3) + 1e-6`, nv
+  = Σ (voice level × velocity gain)² / loudest² (release tails count by their level, so a note played over tails is not
+  ducked and the tails do not swell); smoothing `POLY_DOWN` 20 ms / `POLY_UP` 50 ms per sample, snapped within 1e-6; 1 at once
+  when no voice is active, after `allSoundOff`, `reset`, `setSampleRate`. Up to 3 voices the gain is exactly 1: single notes
+  and 3-note chords are bit-identical with beta 0.7 (keep it so: the presets were voiced through that path). Do not "fix"
+  crackle by raising `LIMIT_T`, lowering `VOICE_GAIN` or the masters (every preset would change); measure the limiter share
+  (render at the master and at master − 12 dB scaled back, rms of the difference) for a 6-note chord when touching the
+  output stage. Still ≈ 1.5–2 % after it: B · Church / Full Drawbar / Jazz Organ (their 6-note peaks ≈ 1.4).
+- Ring buffers (beta 0.7.1): after `if (rp < 0) rp += len`, a tiny negative `rp` (a delay just above a whole number of
+  samples: 0.28 s at 48 kHz) rounds to `len` — read one past the end (NaN for ever in the delay feedback, out of bounds in
+  C++). The delay and chorus reads also wrap `rp >= len`; keep it for any new delay line.
 
 ### 3.6 JS ↔ C++ parity (non-negotiable)
 `core.js` is the reference; `dsp.h` must follow it operation for operation (same constants, same order of floating-point
@@ -353,6 +368,11 @@ runs from `file://`); GitHub Actions pinned by tag.
   tempo and render 3 sync variants (delay, LFO 1, LFO 2); `dsp_selftest` 10 checks note lengths at several tempos, the
   4 s cap (a 1/1 echo at 60 BPM after 4 s), no tempo or SYNC off = the knobs' values; `bank_session` step 9b clicks the three SYNC buttons and steps TIME with the wheel; `machost`
   clicks the delay SYNC. The 150 presets were rendered against beta 0.5 (commit bc4196a): see §3.3e.
+- beta 0.7.1 (crackle): `dsp_selftest` 11 checks the chord compensation (exactly 1 with 3 voices, sqrt(3/6) with 6, smooth,
+  no swell of release tails, 1 with no voice and after allSoundOff) and B · Music Box over a whole turn of the delay line
+  (NaN in beta 0.7); `dsp_compare` / `dsp_render` add 5 "6 notes" variants (chord, release, a note over the tails, all
+  notes off: going down, back up, tails). Single notes and 3-note chords of the 150 presets were checked bit-identical with
+  beta 0.7 (commit f16b46a), Music Box apart (NaN before).
 - beta 0.7: `bank_session` locates the browser's categories through `L_TOP`, `L_BASS`, `L_KEYS`, `L_ORGAN`, `L_SP` (checked
   against `kCategories` first, so a new category order fails with a clear message) and imports a "LIST ORDER v2" file to
   check that its lists are rebuilt (written back as v3 with the 22 TOP Sounds, adjusted preset and bank kept);

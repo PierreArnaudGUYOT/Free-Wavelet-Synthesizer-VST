@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23431760.svg)](https://doi.org/10.5281/zenodo.23431760)
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.7** (2026-10-18), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — version **beta 0.7.1** (2026-10-19), see [RELEASE_HISTORY.md](RELEASE_HISTORY.md).
 Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 A polyphonic synthesizer that shapes sound with the **discrete wavelet transform** instead of Fourier filters.
@@ -27,7 +27,8 @@ beta 0.6 rearranges the panel (SUB OSC beside the oscillator, LFO 1 and LFO 2 si
 one MANUAL button) and adds **tempo SYNC** to the plug-in: the delay and both LFOs can follow the DAW's tempo in note
 values (1/4, 1/8 D, 1/16 T…); the web app opens with a welcome window (run the demo, play the synth, download the VST).
 beta 0.7 gives the scope more room (SUB OSC's three knobs in a column), a taller keyboard and more space for VOICE, and a
-new demo tour that starts by explaining the idea in plain words.
+new demo tour that starts by explaining the idea in plain words. beta 0.7.1 removes the crackle of dense chords (more
+than three notes): the voices are then scaled down a little, so the output limiter no longer distorts them.
 A **sub oscillator** (sine, triangle or square, one or two octaves below) adds low end and infra-bass, and a
 **polyphonic portamento** selector (Off / Poly / Legato, Poly by default) works with the GLIDE time: in Poly mode every voice
 glides from its own previous note, so chord changes glide voice by voice.
@@ -37,9 +38,9 @@ a hardware keyboard, sequencer or controller plays it directly, no DAW needed).
 **Download the plugin**: see the
 [Releases](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases) page of the
 [GitHub repository](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST) —
-*V0.7 (beta)*, this version, with one zip for **Windows** 64-bit (VST3 / VST2) and one for **macOS** 10.13 or later (VST3,
+*V0.7.1 (beta)*, this version, with one zip for **Windows** 64-bit (VST3 / VST2) and one for **macOS** 10.13 or later (VST3,
 one universal plug-in for Apple silicon and Intel Macs; `INSTALL-mac.txt` in the zip explains the first start). The
-earlier versions (V0.6, V0.5, V0.4, V0.3, V0.3 for Mac…) stay on the same page. The web app also works offline:
+earlier versions (V0.7, V0.6, V0.5, V0.4, V0.3, V0.3 for Mac…) stay on the same page. The web app also works offline:
 download the repository and open `web/index.html`.
 
 **MIDI without a DAW (web app):** all inputs, notes, pitch bend, mod wheel, sustain; a channel selector in the status

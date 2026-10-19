@@ -2,6 +2,25 @@
 
 Created by **Pierre Arnaud GUYOT** ("OktoPierre").
 
+## beta 0.7.1 — 2026-10-19 (no more crackle on dense chords)
+
+**In short**
+- **Chords of more than three notes no longer crackle.** The output limiter works sample by sample: when the sum of the
+  voices went over its threshold it clipped every period of the wave, which is heard as crackle — above all on sustained,
+  bright sounds (organs, reeds) played with 5 or 6 notes. Now, when more than three voices sound, the voices are scaled
+  down by sqrt(3 / voices) (−3 dB for 6 notes), smoothly (20 ms down, 50 ms back up); a voice fading out counts for its
+  level, so a note played over the release of a chord is not lowered and the release does not swell.
+- **Single notes and chords of up to three notes are unchanged, sample for sample**, for all 150 presets (the TOP Sounds
+  included); no preset value was changed.
+- **Fixed: B · Music Box could go silent.** Its 0.28 s delay is a whole number of samples plus a rounding error at 48 kHz;
+  the delay line was then read one sample past its end, which made the sound NaN (silence, or worse in a DAW) from
+  0.28 s on. The delay and chorus lines now wrap that case.
+
+**Checked** (6-note chord C2 G2 C3 E3 G3 C4, velocity 0.9, 3 s; the limiter's share of the sound = the difference with
+the same chord 12 dB lower, scaled back): presets above 3 % (audible): 7 → 0; above 1 %: 27 → 3; the worst 7.97 % → 1.99 %
+(B · Church Organ; B · Full Drawbar Organ 1.82 %, B · Jazz Organ 1.56 % — still the loudest organs); the TOP Sounds at most
+0.43 %. The plug-in matches the web engine, also on 6-note chords with their releases.
+
 ## beta 0.7 — 2026-10-18 (OktoPierre's TOP Sounds, a roomier panel, a new demo)
 
 **In short**

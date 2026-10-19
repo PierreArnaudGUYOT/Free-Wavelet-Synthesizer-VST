@@ -10,16 +10,24 @@ const C = require('../web/js/core.js')(SPEC);
 const dir = process.argv[2];
 const sr = 48000, n = sr * 3, blk = 128;
 let worst = 0, fails = 0;
-function compare(values, idx, name, tempo = 0) {
+// scenario 1 (beta 0.7.1, chord crackle): a 6-note chord, released at 1.5 s, a note over its release tails at 1.6 s
+function compare(values, idx, name, tempo = 0, scenario = 0) {
   const params = Float64Array.from(values);
   const eng = new C.Engine(sr); params.forEach((v, i) => eng.setParam(i, v));
   eng.setTempo(tempo);   // beta 0.6: 0 = no tempo (the factory presets, the web app)
   eng.setTables(C.buildTables(params, true));
   const L = new Float32Array(n), R = new Float32Array(n);
   for (let o = 0; o < n; o += blk) {
-    if (o === 0) eng.noteOn(60, 0.9);
-    if (o === 36000) eng.noteOff(60);
-    if (o === 48000) { eng.noteOn(57, 0.8); eng.noteOn(64, 0.8); eng.noteOn(67, 0.8); }
+    if (scenario === 0) {
+      if (o === 0) eng.noteOn(60, 0.9);
+      if (o === 36000) eng.noteOff(60);
+      if (o === 48000) { eng.noteOn(57, 0.8); eng.noteOn(64, 0.8); eng.noteOn(67, 0.8); }
+    } else {
+      const chord = [48, 55, 60, 64, 67, 72];
+      if (o === 0) for (const k of chord) eng.noteOn(k, 0.9);
+      if (o === 72000) for (const k of chord) eng.noteOff(k);
+      if (o === 76800) eng.noteOn(76, 0.7);
+    }
     if (o === 105600) eng.allNotesOff();
     eng.process(L.subarray(o, o + blk), R.subarray(o, o + blk), Math.min(blk, n - o));
   }
@@ -64,6 +72,12 @@ const PHT = SPEC.LFO2_TARGETS.indexOf(P.a_phase);
   const v = SPEC.PRESETS[0].values.slice();
   for (const [key, x] of Object.entries(set)) v[P[key]] = x;
   compare(v, SPEC.PRESETS.length + SPEC.LFO2_TARGETS.length + 4 + k, name, tempo);
+});
+// beta 0.7.1: the chord compensation (going down, back up over release tails, a note over the tails, no voice left); the
+// same presets as vst/devtest/dsp_render.cpp
+['B · Church Organ', 'B · Full Drawbar Organ', 'B · Theatre Organ', 'A · Warm Pad', 'AB · Glass Choir'].forEach((nm, j) => {
+  const pi = Math.max(0, SPEC.PRESETS.findIndex(p => p.name === nm));
+  compare(SPEC.PRESETS[pi].values, SPEC.PRESETS.length + SPEC.LFO2_TARGETS.length + 4 + 3 + j, '6 notes: ' + nm, 0, 1);
 });
 console.log(fails ? `${fails} mismatch(es)` : `C++ port matches the JS reference (worst ${worst.toExponential(2)})`);
 process.exit(fails ? 1 : 0);

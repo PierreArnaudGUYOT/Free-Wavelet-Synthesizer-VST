@@ -24,6 +24,11 @@ function WSCoreFactory(SPEC) {
   const LN1000 = Math.log(1000);
   const VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
   const LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
+  // beta 0.7.1 (chord crackle): the presets' masters are set for about 3 notes; denser chords drove the soft limiter into
+  // audible distortion. The voice sum is scaled by sqrt(POLY_FREE / n) when n > POLY_FREE voices sound (n weighted by
+  // their energy relative to the loudest, so release tails count little), smoothed: up to 3 voices nothing changes.
+  const POLY_FREE = 3;
+  const POLY_DOWN = 0.02, POLY_UP = 0.05;   // time constants (s) of the compensation going down / back up
   const CH_BASE = 0.006, CH_DEPTH = 0.003, CH_FAST = 9.7;   // chorus: base delay, sweep per unit of depth (s), fast/slow LFO ratio
   const DLY_MAX = 4;   // beta 0.6: the longest delay (s): a whole note at 60 BPM (tempo sync)
 
@@ -491,6 +496,8 @@ function WSCoreFactory(SPEC) {
     this.chLen = Math.ceil(sr * 0.03) + 4;
     this.chBuf = new Float32Array(this.chLen); this.chW = 0; this.chPh = 0; this.chPh2 = 0;
     this.mixSm = this.p[P.ab_mix];
+    this.polyG = 1;   // beta 0.7.1: the chord compensation (1 = none)
+    this.polyDown = 1 - Math.exp(-1 / (POLY_DOWN * sr)); this.polyUp = 1 - Math.exp(-1 / (POLY_UP * sr));
   };
 
   E.setParam = function (id, v) {
@@ -609,6 +616,7 @@ function WSCoreFactory(SPEC) {
     for (const c of this.combs) { c.buf.fill(0); c.f = 0; }
     for (const a of this.aps) a.buf.fill(0);
     this.chBuf.fill(0);
+    this.polyG = 1;
   };
 
   E.lfoTick = function (n) {
@@ -838,6 +846,37 @@ function WSCoreFactory(SPEC) {
     this.renderTable(vc, n, t.alt, fade0, fadeInc, invert, (1 - s0) * k0, ((1 - s1) * k1 - (1 - s0) * k0) / n, false);
   };
 
+  // beta 0.7.1 (chord crackle): scales this block's voice sum (before the effects) when more than POLY_FREE voices sound.
+  // nv = sum of the voices' energies over the loudest one's (each voice's level at the end of the block, with its velocity
+  // gain): equal voices count 1 each, a release tail 20 dB down counts 0.01. Target sqrt(POLY_FREE / nv), reached with
+  // POLY_DOWN / POLY_UP per sample; it snaps to the target within 1e-6, so up to POLY_FREE voices the gain is exactly 1 and
+  // the sound bit-identical with beta 0.7; with no voice sounding it is 1 at once (the next note starts unscaled).
+  E.polyComp = function (L, R, n) {
+    const p = this.p;
+    let amax = 0, sum = 0, any = false;
+    for (let k = 0; k < MAXV; k++) {
+      const vc = this.voices[k];
+      if (!vc.active) continue;
+      any = true;
+      const a = vc.amp.level * (1 - p[P.amp_vel] * (1 - vc.vel));
+      if (a > amax) amax = a;
+      sum += a * a;
+    }
+    if (!any) { this.polyG = 1; return; }
+    const nv = amax > 0 ? sum / (amax * amax) : 0;
+    // + 1e-6: three equal voices give nv = 3.0000000000000004 (rounding), which must still mean "no compensation"
+    const gT = nv > POLY_FREE + 1e-6 ? Math.sqrt(POLY_FREE / nv) : 1;
+    let g = this.polyG;
+    if (g === 1 && gT === 1) return;
+    const c = gT < g ? this.polyDown : this.polyUp;
+    for (let i = 0; i < n; i++) {
+      g += (gT - g) * c;
+      if (Math.abs(gT - g) < 1e-6) g = gT;
+      L[i] *= g; R[i] *= g;
+    }
+    this.polyG = g;
+  };
+
   // Process n samples (any n) into outL/outR (overwrites).
   E.process = function (outL, outR, n) {
     let done = 0;
@@ -874,6 +913,7 @@ function WSCoreFactory(SPEC) {
       voices |= 1 << k;
     }
     if (fading) { this.fade += n * fadeInc; if (this.fade >= 1) { this.fade = 1; this.prev = null; } }
+    this.polyComp(L, R, n);
 
     // ---- effects
     const drive = p[P.fx_drive], k = Math.pow(10, drive * 24 / 20), comp = 0.5 / Math.tanh(0.5 * k);
@@ -901,6 +941,7 @@ function WSCoreFactory(SPEC) {
         for (let c = 0; c < 3; c++) {
           const mo = 0.8 * Math.sin(2 * Math.PI * (this.chPh + c / 3)) + 0.2 * Math.sin(2 * Math.PI * (this.chPh2 + c / 3));
           let rp = this.chW - (chBase + chDepth * (1 + mo)); if (rp < 0) rp += chLen;
+          if (rp >= chLen) rp -= chLen;   // beta 0.7.1: a tiny negative rp rounds to chLen (a read past the end)
           const i0 = Math.floor(rp), fr = rp - i0, i1 = (i0 + 1) % chLen;
           const v = chBuf[i0] + fr * (chBuf[i1] - chBuf[i0]);
           if (c === 0) v0 = v; else if (c === 1) v1 = v; else v2 = v;
@@ -913,6 +954,9 @@ function WSCoreFactory(SPEC) {
       this.dlyT += (dTarget - this.dlyT) * 0.0005;
       if (dmix > 0 || fb > 0) {
         let rp = this.dlyW - this.dlyT; if (rp < 0) rp += dlen;
+        // beta 0.7.1: a tiny negative rp (dlyT just above an integer, e.g. 0.28 s at 48 kHz) rounds to dlen once added: the
+        // read went one sample past the end (NaN for ever in the feedback; out of bounds in C++)
+        if (rp >= dlen) rp -= dlen;
         const i0 = rp | 0, fr = rp - i0, i1 = (i0 + 1) % dlen;
         const dl = this.dlyL[i0] + fr * (this.dlyL[i1] - this.dlyL[i0]);
         const dr = this.dlyR[i0] + fr * (this.dlyR[i1] - this.dlyR[i0]);

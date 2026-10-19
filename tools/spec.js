@@ -12,6 +12,8 @@
 //                           the web app's welcome window and DOWNLOAD VST button.
 //   beta 0.7 (2026-10-18) — TOP Sounds = OktoPierre's 22 favourites (presets file V7), Source Phase last again; SUB OSC's
 //                           knobs in a column (wider scope), taller keyboard; discreet credit; a new demo tour.
+//   beta 0.7.1 (2026-10-19) — no more crackle on dense chords (the voice sum scaled by sqrt(3 / voices) above 3 voices);
+//                           the delay / chorus reads no longer run one sample past their line (NaN in B · Music Box).
 // Parameters, panel layout and factory presets are defined here once and
 // generated into web/js/spec.js and vst/src/generated/spec.h by gen_spec.js.
 // Parameter order defines the VST3 ParamIDs: append only, never reorder.
@@ -25,9 +27,9 @@ const APP = {
   panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: 'beta 0.7',
-  versionNum: '0.7.0',
-  date: '2026-10-18',
+  version: 'beta 0.7.1',
+  versionNum: '0.7.1',
+  date: '2026-10-19',
   doi: '10.5281/zenodo.23431760',   // the Zenodo record of the code (https://zenodo.org/records/23431760)
 };
 const DEFAULT_PRESET = 'A · Warm Pad';   // sound loaded when the app / a new plugin instance opens (first preset)

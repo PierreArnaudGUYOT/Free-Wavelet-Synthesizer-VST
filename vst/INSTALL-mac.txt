@@ -1,11 +1,13 @@
-Wavelet Synthesizer beta 0.7 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+Wavelet Synthesizer beta 0.7.1 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in WaveletSynthesizer.vst3/Contents/Resources/LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
 How to cite: Guyot, P. A. (2026). Wavelet Synthesizer [Computer software]. Zenodo.
 DOI 10.5281/zenodo.23431760 - https://doi.org/10.5281/zenodo.23431760 (record: https://zenodo.org/records/23431760)
 
-The same instrument as the Windows beta 0.7 (same sound, panel, 150 presets, preset browser and presets file).
+The same instrument as the Windows beta 0.7.1 (same sound, panel, 150 presets, preset browser and presets file).
+NEW IN BETA 0.7.1: no more crackle when you play chords of more than three notes (organs, reeds); single notes and
+chords of up to three notes sound exactly as before.
 NEW IN BETA 0.7: TOP Sounds = OktoPierre's 22 favourites (the best first), Source Phase the last category
 again (same 150 presets, same sounds); a wider scope (SUB OSC's three knobs in a column), a taller keyboard, more room in
 VOICE. The lists of a presets file saved by beta 0.5 / 0.6 are rebuilt (adjusted presets and user bank kept).

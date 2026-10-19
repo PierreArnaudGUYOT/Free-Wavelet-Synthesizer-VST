@@ -6,7 +6,8 @@
 #include "../src/dsp.h"
 #include <chrono>
 using namespace ws;
-static void render(const double* params, int idx, const char* name, const char* outdir, double tempo = 0) {
+// scenario 1 (beta 0.7.1, chord crackle): a 6-note chord, released at 1.5 s, a note over its release tails at 1.6 s
+static void render(const double* params, int idx, const char* name, const char* outdir, double tempo = 0, int scenario = 0) {
   const int sr = 48000, n = sr * 3, blk = 128;
   Engine eng(sr);
   eng.setTempo(tempo);   // beta 0.6: 0 = no tempo (the factory presets, the web app)
@@ -16,9 +17,16 @@ static void render(const double* params, int idx, const char* name, const char* 
   std::vector<float> L(n), R(n);
   auto t0 = std::chrono::steady_clock::now();
   for (int o = 0; o < n; o += blk) {
-    if (o == 0) eng.noteOn(60, 0.9);
-    if (o == 36000) eng.noteOff(60);
-    if (o == 48000) { eng.noteOn(57, 0.8); eng.noteOn(64, 0.8); eng.noteOn(67, 0.8); }
+    if (scenario == 0) {
+      if (o == 0) eng.noteOn(60, 0.9);
+      if (o == 36000) eng.noteOff(60);
+      if (o == 48000) { eng.noteOn(57, 0.8); eng.noteOn(64, 0.8); eng.noteOn(67, 0.8); }
+    } else {
+      static const int chord[6] = {48, 55, 60, 64, 67, 72};
+      if (o == 0) for (int k : chord) eng.noteOn(k, 0.9);
+      if (o == 72000) for (int k : chord) eng.noteOff(k);
+      if (o == 76800) eng.noteOn(76, 0.7);
+    }
     if (o == 105600) eng.allNotesOff();
     eng.process(L.data() + o, R.data() + o, std::min(blk, n - o));
   }
@@ -72,6 +80,17 @@ int main(int argc, char** argv) {
     for (int i = 0; i < kNumParams; i++) params[i] = kPresets[0].v[i];
     for (const Set& s : synced[j]) params[s.p] = s.v;
     render(params, kNumPresets + targets + (int)variants.size() + (int)j, snames[j], outdir, tempos[j]);
+  }
+  // beta 0.7.1: the chord compensation (going down, back up over release tails, a note over the tails, no voice left); the
+  // same presets as tools/dsp_compare.js
+  const char* dense[] = {"B \xC2\xB7 Church Organ", "B \xC2\xB7 Full Drawbar Organ", "B \xC2\xB7 Theatre Organ", "A \xC2\xB7 Warm Pad",
+                         "AB \xC2\xB7 Glass Choir"};
+  for (int j = 0; j < 5; j++) {
+    int pi = 0;
+    for (int k = 0; k < kNumPresets; k++) if (std::strcmp(kPresets[k].name, dense[j]) == 0) pi = k;
+    for (int i = 0; i < kNumParams; i++) params[i] = kPresets[pi].v[i];
+    char name[64]; std::snprintf(name, sizeof name, "6 notes: %s", kPresets[pi].name);
+    render(params, kNumPresets + targets + (int)variants.size() + (int)synced.size() + j, name, outdir, 0, 1);
   }
   return 0;
 }

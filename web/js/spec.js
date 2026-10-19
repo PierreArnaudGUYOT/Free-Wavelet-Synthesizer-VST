@@ -13,9 +13,9 @@ var WS_SPEC = {
   "panelCredit": "By OktoPierre",
   "copyright": "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)",
   "license": "GPL v3",
-  "version": "beta 0.7",
-  "versionNum": "0.7.0",
-  "date": "2026-10-18",
+  "version": "beta 0.7.1",
+  "versionNum": "0.7.1",
+  "date": "2026-10-19",
   "doi": "10.5281/zenodo.23431760"
  },
  "DEFAULT_PRESET": 11,

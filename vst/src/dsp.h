@@ -30,6 +30,11 @@ constexpr int PHASE_K = 12;
 constexpr double LN1000 = 6.907755278982137;
 constexpr double VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
 constexpr double LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
+// beta 0.7.1 (chord crackle): the presets' masters are set for about 3 notes; denser chords drove the soft limiter into
+// audible distortion. The voice sum is scaled by sqrt(POLY_FREE / n) when n > POLY_FREE voices sound (n weighted by
+// their energy relative to the loudest, so release tails count little), smoothed: up to 3 voices nothing changes.
+constexpr double POLY_FREE = 3;
+constexpr double POLY_DOWN = 0.02, POLY_UP = 0.05;   // time constants (s) of the compensation going down / back up
 constexpr double PI = 3.14159265358979323846;
 constexpr double CH_BASE = 0.006, CH_DEPTH = 0.003, CH_FAST = 9.7;   // chorus: base delay, sweep per unit of depth (s), fast/slow LFO ratio
 constexpr double DLY_MAX = 4;   // beta 0.6: the longest delay (s): a whole note at 60 BPM (tempo sync)
@@ -599,6 +604,8 @@ class Engine {
     chLen = (int)std::ceil(sr * 0.03) + 4;
     chBuf.assign(chLen, 0.0f); chW = 0; chPh = 0; chPh2 = 0;
     mixSm = p[P_AB_MIX];
+    polyG = 1;   // beta 0.7.1: the chord compensation (1 = none)
+    polyDown = 1 - std::exp(-1 / (POLY_DOWN * sr)); polyUp = 1 - std::exp(-1 / (POLY_UP * sr));
   }
 
   // Called on deactivation: also forgets the voices' pitch memory so that a render (export, freeze)
@@ -612,6 +619,7 @@ class Engine {
     for (auto& a : aps) std::fill(a.buf.begin(), a.buf.end(), 0.0f);
     std::fill(chBuf.begin(), chBuf.end(), 0.0f);
     dcxL = dcyL = dcxR = dcyR = 0;
+    polyG = 1;
   }
 
   void setParam(int id, double v) {
@@ -714,6 +722,7 @@ class Engine {
     for (auto& c : combs) { std::fill(c.buf.begin(), c.buf.end(), 0.0f); c.f = 0; }
     for (auto& a : aps) std::fill(a.buf.begin(), a.buf.end(), 0.0f);
     std::fill(chBuf.begin(), chBuf.end(), 0.0f);
+    polyG = 1;
   }
 
   // Process n samples (any n) into outL/outR (overwrites).
@@ -730,10 +739,40 @@ class Engine {
   double vol = 0.5, dcR = 0.999, dcxL = 0, dcyL = 0, dcxR = 0, dcyR = 0;
   std::vector<float> chBuf; int chLen = 0, chW = 0; double chPh = 0, chPh2 = 0;   // triple chorus
   double mixSm = 0;                                                               // smoothed A/B MIX
+  double polyG = 1, polyDown = 0, polyUp = 0;                                     // beta 0.7.1: chord compensation
   float bufL[CTRL], bufR[CTRL];
   double fg[NB], tmpB[NB], lg[NB], panL[4], panR[4], inc[4], endPhase[4];
   int act[NL];
   double endLevel = 0, endSubPhase = 0; int endStage = 0;
+
+  // beta 0.7.1 (chord crackle): scales this block's voice sum (before the effects) when more than POLY_FREE voices sound
+  // (core.js polyComp, operation for operation). nv = sum of the voices' energies over the loudest one's; target
+  // sqrt(POLY_FREE / nv) reached with POLY_DOWN / POLY_UP per sample, snapped within 1e-6: up to POLY_FREE voices the gain
+  // is exactly 1 (bit-identical with beta 0.7); with no voice sounding it is 1 at once.
+  void polyComp(float* L, float* R, int n) {
+    double amax = 0, sum = 0; bool any = false;
+    for (int k = 0; k < MAXV; k++) {
+      const Voice& vc = voices[k];
+      if (!vc.active) continue;
+      any = true;
+      const double a = vc.amp.level * (1 - p[P_AMP_VEL] * (1 - vc.vel));
+      if (a > amax) amax = a;
+      sum += a * a;
+    }
+    if (!any) { polyG = 1; return; }
+    const double nv = amax > 0 ? sum / (amax * amax) : 0;
+    // + 1e-6: three equal voices give nv = 3.0000000000000004 (rounding), which must still mean "no compensation"
+    const double gT = nv > POLY_FREE + 1e-6 ? std::sqrt(POLY_FREE / nv) : 1;
+    double g = polyG;
+    if (g == 1 && gT == 1) return;
+    const double c = gT < g ? polyDown : polyUp;
+    for (int i = 0; i < n; i++) {
+      g += (gT - g) * c;
+      if (std::fabs(gT - g) < 1e-6) g = gT;
+      L[i] = (float)(L[i] * g); R[i] = (float)(R[i] * g);
+    }
+    polyG = g;
+  }
 
   void removeFromStack(int note) {
     for (int i = 0; i < stackN; i++) if (stack[i] == note) { std::memmove(stack + i, stack + i + 1, sizeof(int) * (stackN - i - 1)); stackN--; break; }
@@ -1014,6 +1053,7 @@ class Engine {
       fade += n * fadeInc;
       if (fade >= 1) { fade = 1; hasPrev = false; if (nReleased < 4) released[nReleased++] = prev.owner; }
     }
+    polyComp(bufL, bufR, n);
 
     // effects
     const double drive = p[P_FX_DRIVE], kd = std::pow(10.0, drive * 24 / 20), comp = 0.5 / std::tanh(0.5 * kd);
@@ -1040,6 +1080,7 @@ class Engine {
         for (int c = 0; c < 3; c++) {
           const double mo = 0.8 * std::sin(2 * PI * (chPh + c / 3.0)) + 0.2 * std::sin(2 * PI * (chPh2 + c / 3.0));
           double rp = chW - (chBase + chDepth * (1 + mo)); if (rp < 0) rp += chLen;
+          if (rp >= chLen) rp -= chLen;   // beta 0.7.1: a tiny negative rp rounds to chLen (a read past the end)
           const int i0 = (int)std::floor(rp), i1 = (i0 + 1) % chLen; const double fr = rp - i0;
           v[c] = chBuf[i0] + fr * (chBuf[i1] - chBuf[i0]);
         }
@@ -1050,6 +1091,9 @@ class Engine {
       dlyT += (dTarget - dlyT) * 0.0005;
       if (dmix > 0 || fb > 0) {
         double rp = dlyW - dlyT; if (rp < 0) rp += dlyLen;
+        // beta 0.7.1: a tiny negative rp (dlyT just above an integer, e.g. 0.28 s at 48 kHz) rounds to dlyLen once added: the
+        // read went one sample past the end of the delay line (core.js)
+        if (rp >= dlyLen) rp -= dlyLen;
         int i0 = (int)rp; double fr = rp - i0; int i1 = (i0 + 1) % dlyLen;
         double dl = dlyL[i0] + fr * (dlyL[i1] - dlyL[i0]);
         double dr = dlyR[i0] + fr * (dlyR[i1] - dlyR[i0]);

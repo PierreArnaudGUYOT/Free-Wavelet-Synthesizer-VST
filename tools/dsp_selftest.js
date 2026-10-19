@@ -243,5 +243,45 @@ console.log('10. tempo sync of the delay and the LFOs (beta 0.6)');
   check(Math.abs(at - 4) < 0.01, `60 BPM, 1/1: the first echo after ${at.toFixed(3)} s (4 s)`);
 }
 
+console.log('11. chord compensation and ring-buffer reads (beta 0.7.1)');
+{
+  const prep = (name) => {
+    const pr = SPEC.PRESETS.find(q => q.name === name), e = new C.Engine(sr);
+    pr.values.forEach((v, i) => e.setParam(i, v)); e.setTables(C.buildTables(pr.values, true)); e.setSampleRate(sr);
+    return e;
+  };
+  const L = new Float32Array(128), R = new Float32Array(128);
+  // three voices: the gain never leaves 1 (three equal voices once summed to nv = 3.0000000000000004)
+  let e = prep('B · Theatre Organ'), min = 1;
+  for (const k of [60, 64, 67]) e.noteOn(k, 0.9);
+  for (let o = 0; o < sr; o += 128) { e.process(L, R, 128); min = Math.min(min, e.polyG); }
+  check(min === 1, `3 notes: the compensation stays exactly 1 (lowest ${min})`);
+  // six voices: sqrt(3/6) after the attack, with no step from one block to the next larger than the smoothing allows
+  e = prep('B · Church Organ');
+  for (const k of [48, 55, 60, 64, 67, 72]) e.noteOn(k, 0.9);
+  let prev = 1, step = 0;
+  for (let o = 0; o < sr; o += 128) { e.process(L, R, 128); step = Math.max(step, Math.abs(e.polyG - prev)); prev = e.polyG; }
+  check(Math.abs(e.polyG - Math.sqrt(0.5)) < 1e-6, `6 notes: the compensation settles at sqrt(3/6) (${e.polyG.toFixed(6)})`);
+  // 20 ms going down: at most 12.5 % of the 0.29 gap per 128 samples (0.037)
+  check(step < 0.04, `6 notes: smooth (largest change per 128 samples ${step.toFixed(4)})`);
+  // released: it stays down while the six tails sound together, then is exactly 1 once no voice sounds
+  for (const k of [48, 55, 60, 64, 67, 72]) e.noteOff(k);
+  let downWhileTails = true;
+  for (let o = 0; o < 6 * sr && e.voices.some(v => v.active); o += 128) { e.process(L, R, 128); if (e.voices.some(v => v.active) && e.polyG > 0.75) downWhileTails = false; }
+  e.process(L, R, 128);
+  check(downWhileTails && e.polyG === 1 && !e.voices.some(v => v.active), `released: no swell of the six tails, then exactly 1 with no voice (${e.polyG})`);
+  for (const k of [48, 55, 60, 64, 67, 72]) e.noteOn(k, 0.9);
+  for (let o = 0; o < 0.2 * sr; o += 128) e.process(L, R, 128);
+  e.allSoundOff();
+  check(e.polyG === 1, 'allSoundOff (panic) puts the compensation back to 1');
+  // B · Music Box: a 0.28 s delay is 13440.000000000002 samples at 48 kHz; the read just before the write position rounded to
+  // the end of the line (one sample past it: NaN for ever in beta 0.7). Five seconds pass the 4.1 s line once.
+  e = prep('B · Music Box');
+  e.noteOn(60, 0.9);
+  let finite = true;
+  for (let o = 0; o < 5 * sr && finite; o += 128) { e.process(L, R, 128); for (let i = 0; i < 128; i++) if (!Number.isFinite(L[i]) || !Number.isFinite(R[i])) finite = false; }
+  check(finite, 'B · Music Box (delay 0.28 s at 48 kHz): no NaN over a whole turn of the delay line');
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL PASS');
 process.exit(fails ? 1 : 0);
