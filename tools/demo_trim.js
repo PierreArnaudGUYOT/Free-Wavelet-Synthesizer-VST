@@ -4,17 +4,17 @@
 // so that it stays under 0.7 before the output stage. Read by tools/spec.js (DEMO_TRIM); web/js/demo.js applies it.
 'use strict';
 module.exports = {
-  "A · Siren Sweep": 2,
-  "A · Warm Pad": 3,
-  "A · Wave Atom Choir Shift": 2,
-  "A · Wave Pulse Lead": 10,
-  "A · Wavelet Lead": 4,
-  "AA · Chalk Edge Call": 4,
-  "AA · Deep Ripple": 5,
-  "AA · Knock Sweep": 1,
+  "A · Siren Sweep": 1,
+  "A · Warm Pad": 1,
+  "A · Wave Atom Choir Shift": 3,
+  "A · Wave Pulse Lead": 9,
+  "A · Wavelet Lead": 3,
+  "AA · Chalk Edge Call": 6,
+  "AA · Deep Ripple": 3,
+  "AA · Knock Sweep": 2,
+  "AA · Morph of Brass": 1,
   "AA · Sweep of Pixel": 1,
   "AB · Organ Lead": 5,
   "AB · Silk Strings": 2,
-  "AB · Step Sub": 1,
-  "B · Flute Lead": 6
+  "B · Flute Lead": 7
 };

@@ -763,12 +763,12 @@ let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { i
 // most starred first; the first two heard are two of his 10-star favourites, a pad and a kalimba) and eight sounds of the old tour that he keeps, spread over the piece: they play with the values of the
 // Wavelet Synthesizer (DEMO_PRESETS). The first two entries (not heard: the demo starts at 7.8 s) and the last two (after the end of the piece) are fillers.
 {
-  // version 1.0.6: the demo opens on A · Wavelet Lead (the owner's request), then the two favourites
+  // version 1.0.6: the demo opens on A · Wavelet Lead (the owner's request), then AA · Deep Ripple in the place of AA · Flint Ripple Haze, which is out of the demo (the owner's request, 2026-10-21: not in the opening, and not later either), then a favourite
   const FIRST_OLD = 'A · Wavelet Lead';
   const KEEP_OLD = ['B · Mirror Sub Bass', 'A · Wave Atom Choir Shift', 'A · String Machine', 'B · Flute Lead', 'AB · Dream Pad', 'A · Warm Pad', 'AB · Organ Lead'];
-  const FIRST_NEW = ['AA · Flint Ripple Haze', 'AB · Kalimba Lung Machine'], HEARD = 28, OPENING = 1 + FIRST_NEW.length;
+  const FIRST_NEW = ['AA · Deep Ripple', 'AB · Kalimba Lung Machine'], NOT_IN_DEMO = ['AA · Flint Ripple Haze'], HEARD = 28, OPENING = 1 + FIRST_NEW.length;
   for (const n of [FIRST_OLD, ...KEEP_OLD]) if (!DEMO_PRESETS.some(p => p.name === n)) throw new Error('TOUR: the old tour has no ' + n);
-  const best = PRESETS.map((p, i) => i).filter(i => stars3(PRESETS[i])).sort(before3).map(i => PRESETS[i].name).filter(n => n !== FIRST_OLD && !KEEP_OLD.includes(n) && !FIRST_NEW.includes(n));
+  const best = PRESETS.map((p, i) => i).filter(i => stars3(PRESETS[i])).sort(before3).map(i => PRESETS[i].name).filter(n => n !== FIRST_OLD && !KEEP_OLD.includes(n) && !FIRST_NEW.includes(n) && !NOT_IN_DEMO.includes(n));
   const fresh = [...FIRST_NEW, ...best];
   const slots = new Array(HEARD).fill(null);
   slots[0] = FIRST_OLD;

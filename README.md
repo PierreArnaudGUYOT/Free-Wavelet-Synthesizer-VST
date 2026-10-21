@@ -33,7 +33,8 @@ this version is built for Windows and the web (the code is portable, but no macO
 
 ## Web app update of 2026-10-21 (the plug-in stays 1.0.5)
 
-- **The demo opens on A · Wavelet Lead**, and a change of preset in the demo no longer clicks or buzzes (the output dips for 35 ms, the continuous parameters travel in 64 ms, the first preset is loaded before the first note).
+- **The demo opens on A · Wavelet Lead** (then AA · Deep Ripple; AA · Flint Ripple Haze is no longer in it), and a change of preset in the demo no longer clicks or buzzes (the output dips for 35 ms, the continuous parameters travel in 64 ms, the first preset is loaded before the first note).
+- **The demo window sits at the far right** (over the preset list), so it no longer hides the cards of the panel.
 - **Nothing overlaps on the panel any more** (the envelope pictures and the knobs under them, the selectors of the filter cards ...); a rule, with two tests.
 - The plug-in takes the layout and the other sources with its next release (1.0.6).
 

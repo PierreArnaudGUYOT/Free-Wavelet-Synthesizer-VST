@@ -27,7 +27,7 @@ button { font-family: inherit; }
 
 #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
 #device {
-  position: absolute; left: 0; top: 0; width: 1100px; height: 894px; transform-origin: 0 0;   /* ui.js sets 980 with CHORD MODE (the chord card) */
+  position: absolute; left: 0; top: 0; width: 1100px; height: 894px; transform-origin: 0 0; z-index: 2;   /* ui.js sets 980 with CHORD MODE (the chord card); above the preset list (the demo window may sit over it) */
   background: linear-gradient(180deg, #1c2027 0%, var(--panel) 9%, #14171c 100%);
   border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
   user-select: none; -webkit-user-select: none; touch-action: none;

@@ -125,10 +125,21 @@ function WSDemo(api) {
     bar.addEventListener('pointermove', (e) => {
       if (!drag) return;
       const s = api.ui.scale;
-      w.style.left = Math.max(0, Math.min(1100 - w.offsetWidth, drag.l + (e.clientX - drag.x) / s)) + 'px';
+      w.style.left = Math.max(0, Math.min(place().left, drag.l + (e.clientX - drag.x) / s)) + 'px';
       w.style.top = Math.max(0, Math.min(WS_SPEC.DEVICE.h - w.offsetHeight, drag.t + (e.clientY - drag.y) / s)) + 'px';
     });
     bar.addEventListener('pointerup', () => { drag = null; });
+  }
+
+  // Where the window sits (version 1.0.6, the owner's request: "more to the right"): as far right as the page allows, so that it hides as little of the panel as possible. In panel pixels (the panel is
+  // scaled to the page): the content is the panel, and the preset list at its right while it is open (348 wide: the window is then as wide as the list and sits over it, off the panel); the
+  // room the page leaves beyond the content is used as well.
+  function place() {
+    const dev = document.getElementById('device').getBoundingClientRect(), s = api.ui.scale || 1;
+    const listOn = !!(api.ui.browser && api.ui.bOpen), contentW = 1100 + (listOn ? 360 : 0);
+    const free = Math.max(0, (document.documentElement.clientWidth - (dev.left + contentW * s)) / s);
+    const edge = contentW + free - 8, w = listOn ? Math.min(386, edge - 1104) : 386;
+    return { w, left: edge - w };
   }
 
   const mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
@@ -206,6 +217,7 @@ function WSDemo(api) {
     win.title.title = song.title;
     win.src.textContent = 'MIDI: ' + song.source.replace(/ \(mutopiaproject\.org\)/, '') + ' · public domain';
     win.el.style.display = 'block';
+    { const p = place(); win.el.style.width = p.w + 'px'; win.el.style.left = p.left + 'px'; }   // as far to the right as the page allows
     api.ui.setDemoRunning(true);
     // version 1.0.6: the first preset is in place BEFORE the piece starts: building its tables takes 60 to 190 ms here (more on a slow machine), and the first notes, started by the audio thread
     // 0.25 s after the click, sounded with the sound that was loaded before the demo, then changed under the player's ears
