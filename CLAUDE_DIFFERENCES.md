@@ -13,7 +13,7 @@ Read this file first, then CLAUDE.md for the part you are going to touch.
 | Repository | Free-Wavelet-Synthesizer-VST (public; its `main` carried the Wavelet Synthesizer up to beta 0.7.1, tag `v0.7.1-beta`, and carries OktoWave from 1.0.3) | Okto-MultiWave-Synth (public: source + web app on GitHub Pages, `main`, path `/web/`) |
 | Plug-in zips | its Releases (Windows, macOS) | the **test** repository `Wavelet-Synthesizer-TEST`, release `multiwave-v1.0` (only the VST zip there: no web app, no code pushed) |
 | Sound sources | two **engines**: A (subtractive wavelet) and B (additive wavelet), blended by `ab_mix` | three **oscillators**: A1, A2 (subtractive) and B1 (additive), each with its own tone, scale filter, window, tuning, envelope and pitch envelope; OSC MIX levels |
-| Parameters | 88 | 175 (`tools/spec.js`, one definition for the web app, the plug-in and the manuals) |
+| Parameters | 88 | 175 (`tools/spec.js`, one definition for the web app and the plug-in) |
 | Filter | the *scale filter* only (it gains the 11 wavelet bands) | the scale filter **plus a real 4-pole resonant low-pass per voice** (LADDER or OTA) |
 | LFOs | LFO 1, LFO 2 (one target) | LFO 1, LFO 2, LFO 3 (the last two share one card with two tabs; 17 targets each, "SuperModulation") |
 | Playing | keyboard, MIDI | + **CHORD MODE** (a chord harp with bass), + **oriental tunings** (WEST / ARAB / TURK, maqam, tonic) |
@@ -34,8 +34,8 @@ Rules that follow from the family tie (do not break them):
 
 **One specification, three outputs.** `tools/spec.js` defines the parameters (key, range, curve, default), the panel (sections and widgets with
 their coordinates), the presets, the categories and the demo tour. `tools/gen_spec.js` turns it into `web/js/spec.js` (the web app and the tests) and
-`vst/src/generated/spec.h` (the plug-in). The manuals (`tools/manual/`) are built from the same data, so a change of a parameter, a preset or a
-widget is made once and the screenshots and tables follow (`node tools/manual/shots.js`, then `node tools/manual/build.js a b`).
+`vst/src/generated/spec.h` (the plug-in). The manual (version 1.0.6) is ONE hand-written page, `web/manual/manual.html`, with one picture of the panel (`node tools/manual_shot.js`);
+`tests/quick.js` checks that it names every card of the panel, so a renamed card cannot be forgotten.
 
 **One engine, two implementations.** `web/js/core.js` (JavaScript, runs in an AudioWorklet) and `vst/src/dsp.h` (C++) are the same algorithm.
 `tools/dsp_compare.js` + `vst/devtest/dsp_render.cpp` render 323 cases in both and compare them (worst difference 2.1e-7): keep them in step and run
@@ -73,4 +73,4 @@ ignores the stars of a file that does not say `LIST ORDER v5`. The tests: `vst/d
 - Checks: `node tests/quick.js [--dsp]` (30 s), `node tests/full.js --parallel` (two lanes, about 14 minutes) before an official release (pre-releases only need the quick checks).
 - Release: zip `OktoMultiWaveSynth.vst3` + `INSTALL.txt` (Windows `tar.exe -a`), SHA-256 in the notes, GitHub REST API with the token of the Git Credential Manager (never printed); the web app = push `main` of the public repository.
 - Pitfalls: several files are CRLF (edit with a script that keeps the line ends); bash heredocs lose backslashes (write scripts with the Write tool); in Git Bash set `MSYS_NO_PATHCONV=1` for API paths;
-  headless Edge always with `--mute-audio` and closed afterwards; after a change of the spec run `node tools/gen_spec.js`, rebuild the plug-in and the manuals (`tests/quick.js` complains when they are older than their sources).
+  headless Edge always with `--mute-audio` and closed afterwards; after a change of the spec run `node tools/gen_spec.js`, rebuild the plug-in (`tests/quick.js` complains when it is older than its sources).

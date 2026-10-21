@@ -1,10 +1,10 @@
 # OktoWave — Okto MultiWave Synth
 
-# ⬇ DOWNLOAD THE PLUG-IN (Windows, VST3 / VST2)
+# ⬇ DOWNLOAD THE PLUG-IN (Windows VST3 / VST2, macOS VST3)
 
-1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.5**).
-2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.5-win64.zip**.
-3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (VST3; needs administrator rights) or into your VST2 plug-in folder. `INSTALL.txt` in the zip says more.
+1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.6**).
+2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.6-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.6-mac.zip** (macOS).
+3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (Windows, VST3; needs administrator rights) or into your VST2 plug-in folder; on a Mac into `~/Library/Audio/Plug-Ins/VST3`. `INSTALL.txt` (`INSTALL-mac.txt`) in the zip says more.
 4. In your DAW, rescan the plug-ins (Ableton Live: *Preferences → Plug-ins → Rescan*), then open *Plug-ins → OktoPierre → Okto MultiWave Synth*.
 
 # ▶ PLAY IT ONLINE (nothing to install)
@@ -13,14 +13,14 @@
 
 ---
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **version 1.0.5**, the final version with its fixes (2026-10-20), see
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **version 1.0.6**, the Crépuscule look (2026-10-21), see
 [RELEASE_HISTORY.md](RELEASE_HISTORY.md). Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 Okto MultiWave Synth is the [Wavelet Synthesizer](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v0.7.1-beta)
 (beta 0.7.1) with **three oscillators instead of two engines**: two subtractive wavelet oscillators (**A1, A2**) and one
 additive wavelet oscillator (**B1**). It is a polyphonic synthesizer that shapes sound with the **discrete wavelet
 transform** instead of Fourier filters: one cycle of each tone is split into 11 octave-spaced wavelet bands and resynthesised
-band by band. It comes as a **web application** and a **VST3 / VST2 instrument** for Windows x64 (Ableton Live and other
+band by band. It comes as a **web application** and a **VST3 instrument** for Windows x64 (also VST2) and macOS (Apple silicon and Intel) (Ableton Live and other
 hosts).
 
 The listening test of the earlier betas (**EVALUATE SOUNDS**, which asked for 1 to 10 stars for each new preset) was removed in the final
@@ -29,15 +29,14 @@ the preset list (see the notes of the betas below), and the demo is one piece, B
 
 The web app also works offline: download the repository and open `web/index.html`. The same web app is at https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/ too (the development repository).
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
-this version is built for Windows and the web (the code is portable, but no macOS build is made or tested here).
+from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
 
-## Web app update of 2026-10-21 (the plug-in stays 1.0.5)
+## What version 1.0.6 changes
 
-- **The demo opens on A · Wavelet Lead** (then AA · Deep Ripple; AA · Flint Ripple Haze is no longer in it), and a change of preset in the demo no longer clicks or buzzes (the output dips for 35 ms, the continuous parameters travel in 64 ms, the first preset is loaded before the first note).
-- **AA · Morph of Brass is out of the demo** (it was too heavy for the owner's browser): A · Wave Brass plays at its place.
-- **The demo window sits at the far right** (over the preset list), so it no longer hides the cards of the panel.
+- **A new look, Crépuscule**: frosted glass over an orange-violet gradient, gold and cyan accents, one flat outline round the oscillator tab; the preset browser, the menus and the demo window in the same style. The web app and the plug-in (Windows and Mac) have it.
+- **The manual is one page** (`web/manual/manual.html`), short and written by hand.
+- **The demo window presents the synthesizer** in 30 short sentences: the wavelets, the idea of an oscillator made of them, how it differs from the other synthesizers. The demo opens on A · Wavelet Lead, then AA · Deep Ripple; AA · Flint Ripple Haze and AA · Morph of Brass are out of it (A · Wave Brass plays in the place of the second); a change of preset in the demo no longer clicks.
 - **Nothing overlaps on the panel any more** (the envelope pictures and the knobs under them, the selectors of the filter cards ...); a rule, with two tests.
-- The plug-in takes the layout and the other sources with its next release (1.0.6).
 
 ## What version 1.0.5 changes
 
@@ -188,7 +187,7 @@ Beta 0.3.1 applies the first ratings of OktoPierre (80 of the new presets rated 
 
 ### Web app
 Open `web/index.html` in Chrome, Edge or Firefox (double-click; no server or install needed). A welcome window offers **Run
-the demo**, **Play the synth** or **Download the VST**. **MANUAL** (header) opens the manual of the oscillator shown.
+the demo**, **Play the synth** or **Download the VST**. **MANUAL** (header) opens the manual (one page).
 - Play with the mouse on the keyboard, a MIDI keyboard (Web MIDI), or the computer keyboard: digits **1 2 3 4 5 6 7 8 9 0** =
   C D E F G A B C D E; the letter rows A W S E D F T G Y H U J K O L P = a chromatic piano; **Z** / **X** = octave down / up.
 - **MIDI**: notes, pitch bend, mod wheel, sustain; Program Change selects a preset; **MIDI learn** by a right-click on a control.
@@ -236,7 +235,7 @@ tools/make_presets.js  builds the presets of beta 0.1 from tools/recipes_*.js (t
                        matching, distinctness check, contact sheets)
 tools/supermod/        composes the presets of beta 0.2 and 0.3 from oscillator layers, drums and LFO 2 / LFO 3 recipes, measures and selects them
 tools/dsp_selftest.js  engine self-test;  tools/dsp_compare.js  C++ engine against the JavaScript reference
-tools/manual/          generator of the user manuals
+web/manual/manual.html  the manual: one hand-written page + panel.jpg (tools/manual_shot.js takes the picture)
 web/                   web application (vanilla JS, Web Audio AudioWorklet, no libraries)
   js/core.js           DSP reference implementation (also runs inside the AudioWorklet and the table-building Worker)
   js/ui.js, app.js     panel UI, presets, MIDI, computer keyboard

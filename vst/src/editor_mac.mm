@@ -81,7 +81,16 @@ class MacCanvas : public Canvas {
     drawLine(ln, r, px, align, vcenter);
     CFRelease(ln);
   }
-  void textVertical(const std::wstring& s, R r, float px, bool bold, Col c) override { text(s, r, px, bold, c, 1, true); }   // beta 0.3.3: not turned here (macOS is not built in this version)
+  // version 1.0.6: turned a quarter turn, reading from the bottom to the top, as GdiCanvas::textVertical (the title strip of the EFFECTS and PLAY cards).
+  // The view is flipped (y down), so a rotation of -90 degrees turns the text anticlockwise on the screen, as GDI+ does.
+  void textVertical(const std::wstring& s, R r, float px, bool bold, Col c) override {
+    if (s.empty()) return;
+    CGContextSaveGState(ctx);
+    CGContextTranslateCTM(ctx, r.x + r.w / 2, r.y + r.h / 2);
+    CGContextRotateCTM(ctx, -M_PI / 2);
+    text(s, R{-r.h / 2, -r.w / 2, r.h, r.w}, px, bold, c, 1, true);
+    CGContextRestoreGState(ctx);
+  }
   void textEllipsis(const std::wstring& s, R r, float px, bool bold, Col c, bool vcenter) override {
     if (s.empty()) return;
     CTLineRef ln = makeLine(s, px, bold, c);
@@ -116,7 +125,7 @@ class MacCanvas : public Canvas {
     CGContextRestoreGState(ctx);
     CGImageRelease(img); CGDataProviderRelease(dp); CFRelease(data);
   }
-  // beta 0.3.4: the clip of the oriental pattern (not built or tested in this version: macOS is not built)
+  // beta 0.3.4: the clip of the oriental pattern and of the panel's backdrop (built and tested on GitHub's Macs since 1.0.6)
   void pushClipRR(R r, float rad) override { CGContextSaveGState(ctx); CGPathRef p = rr(r, rad); CGContextAddPath(ctx, p); CGContextClip(ctx); CGPathRelease(p); }
   void popClip() override { CGContextRestoreGState(ctx); }
 

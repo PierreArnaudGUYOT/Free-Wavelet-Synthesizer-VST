@@ -29,8 +29,14 @@ using namespace Steinberg;
 namespace ws {
 
 // ------------------------------------------------------------------ palette
-static const uint32_t kText = 0xd5dce6, kDim = 0x8792a1, kFaint = 0x566070, kInset = 0x101317, kInsetEdge = 0x262c35;
-static const uint32_t kAccentA = 0xffcf3d, kAccentB = 0x4aa8ff;   // beta 0.3: A1 A2 yellow, B1 blue (the oriental opal().a / opal().b: generated/spec.h)
+// Version 1.0.6, the CRÉPUSCULE theme (the same look as the web app's css/synth.css): frosted glass over an orange-violet gradient. The cards are translucent white, the controls' insets
+// translucent black (28 %) with a white 20 % edge, the text pale blue-white, the accents gold (A1 A2) and cyan (B1). Every system draws it the same way (the Canvas has alpha and gradients).
+static const uint32_t kText = 0xf6f9ff, kDim = 0xc2d1e6, kFaint = 0x7f93b0, kTitle = 0xdbe6f6, kOnAccent = 0x10222e;   // kOnAccent: the text on an accent fill
+static const uint32_t kAccentA = 0xffd166, kAccentB = 0x7ae7ff;   // A1 A2 gold, B1 cyan (the oriental opal().a / opal().b: generated/spec.h)
+static const uint32_t kPage = 0x0f0a12;   // behind the panel (and the gap before the preset browser)
+inline Col insetC() { return argb(71, 0, 0, 0); }            // rgba(0,0,0,.28)
+inline Col edgeC(bool hot = false) { return argb(hot ? 102 : 51, 255, 255, 255); }   // rgba(255,255,255,.2), .4 hovered
+inline Col hotC() { return argb(26, 255, 255, 255); }         // a hovered control's fill
 
 struct Item { const WidgetDef* w; int section; R r; };
 
@@ -337,23 +343,84 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   void fillRR(Canvas& g, R r, float rad, const Brush& b) { g.fillRR(r, rad, b); }
   void strokeRR(Canvas& g, R r, float rad, Col c, float w = 1) { g.strokeRR(r, rad, Pen(c, w)); }
-  void inset(Canvas& g, R r, float rad = 7) {
-    fillRR(g, r, rad, rgb(kInset)); strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, rgb(kInsetEdge));
+  // a dark translucent control (selector, stepper, preset box, button): fill + white 20 % edge; hot: the hovered look
+  void inset(Canvas& g, R r, float rad = 9, bool hot = false) {
+    g.fillRR(r, rad, Brush(hot ? hotC() : insetC())); g.strokeRR(R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, Pen(edgeC(hot), 1));
+  }
+  // a glass card: translucent white fading downwards, a 1 px white 20 % edge, a lit top edge
+  void glass(Canvas& g, R r, float rad = 14) {
+    g.fillRR(r, rad, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, argb(26, 255, 255, 255), argb(12, 255, 255, 255)));
+    g.strokeRR(R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, Pen(edgeC(), 1));
+    g.line(Pt{r.x + rad, r.y + 1.5f}, Pt{r.x + r.w - rad, r.y + 1.5f}, Pen(argb(71, 255, 255, 255), 1));
   }
   void screen(Canvas& g, R r) {
-    fillRR(g, r, 7, rgb(0x0c0f13)); strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 7, rgb(0x252b34));
+    fillRR(g, r, 10, Brush(argb(115, 0, 0, 0))); g.strokeRR(R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, Pen(edgeC(), 1));
   }
   void pill(Canvas& g, const std::wstring& s, float x, float y, bool right, Col c) {
     float w = g.textWidth(s, 9.5f, true) + 6, x0 = right ? x - w + 4 : x - 4;
-    g.fillRect(R{x0, y - 11, w, 14.f}, rgb(0x0c0f13, 200));
+    g.fillRect(R{x0, y - 11, w, 14.f}, argb(140, 0, 0, 0));
     text(g, s, R{x0 + 1, y - 11, w, 14}, 9.5f, true, c, 0);
+  }
+
+  // ---------------------------------------------------------------- the Crépuscule backdrop
+  // The panel is a diagonal gradient (CSS 135 degrees: t = (x + y) / (w + h), violet to amber in five stops) under three soft colour blobs, the web app's #device::before (radial
+  // gradients, opacity .45, blurred: a smooth fall-off stands for the blur). The preset browser has its own (160 degrees). Each is computed once into an opaque ARGB image at half
+  // resolution (it is smooth) and drawn with Canvas::pixels; the glass cards are translucent fills over it.
+  struct Stop { float t; uint32_t c; };
+  struct Blob { float cx, cy, rx, ry; uint32_t c; };
+  struct Backdrop { int w = 0, h = 0, key = 0; std::vector<uint32_t> px; };   // w, h: the image's size (half the logical size); key: what it was made for
+  static void makeBackdrop(Backdrop& b, int lw, int lh, float angleDeg, const Stop* st, int ns, const Blob* bl, int nb) {
+    b.w = (lw + 1) / 2; b.h = (lh + 1) / 2; b.px.assign((size_t)b.w * b.h, 0);
+    const float th = angleDeg * (float)PI / 180, dx = std::sin(th), dy = -std::cos(th), len = std::fabs(lw * dx) + std::fabs(lh * dy);
+    for (int y = 0; y < b.h; y++) for (int x = 0; x < b.w; x++) {
+      const float X = (x + 0.5f) * 2, Y = (y + 0.5f) * 2;
+      const float t = std::min(1.f, std::max(0.f, ((X - lw / 2.f) * dx + (Y - lh / 2.f) * dy) / len + 0.5f));
+      int k = 0; while (k + 2 < ns && t > st[k + 1].t) k++;
+      const float u = std::min(1.f, std::max(0.f, (t - st[k].t) / (st[k + 1].t - st[k].t)));
+      float c[3];
+      for (int ch = 0; ch < 3; ch++) { const int sh = 16 - 8 * ch; c[ch] = ((st[k].c >> sh) & 255) * (1 - u) + ((st[k + 1].c >> sh) & 255) * u; }
+      // the blobs (the last listed is the bottom one): premultiplied colour and alpha of the layer, then the layer's opacity .45 over the gradient
+      float pc[3] = {0, 0, 0}, pa = 0;
+      for (int i = nb - 1; i >= 0; i--) {
+        const float ex = (X / lw - bl[i].cx) / bl[i].rx, ey = (Y / lh - bl[i].cy) / bl[i].ry, d = std::sqrt(ex * ex + ey * ey);
+        float a = std::max(0.f, 1.f - d / 0.6f); a = a * a * (3 - 2 * a);   // transparent at 60 % of the radius, softened like the blur
+        for (int ch = 0; ch < 3; ch++) pc[ch] = ((bl[i].c >> (16 - 8 * ch)) & 255) * a + pc[ch] * (1 - a);
+        pa = a + pa * (1 - a);
+      }
+      uint32_t out = 0xff000000u;
+      for (int ch = 0; ch < 3; ch++) out |= (uint32_t)std::lround(std::min(255.f, std::max(0.f, c[ch] * (1 - 0.45f * pa) + 0.45f * pc[ch]))) << (16 - 8 * ch);
+      b.px[(size_t)y * b.w + x] = out;
+    }
+  }
+  // draws the part of an image (its pixel (0,0) at org, each pixel 2 x 2 logical units) that meets dirty
+  static void drawHalf(Canvas& g, const Backdrop& b, R org, R dirty) {
+    const int x0 = std::max(0, (int)std::floor((dirty.x - org.x) / 2)), y0 = std::max(0, (int)std::floor((dirty.y - org.y) / 2));
+    const int x1 = std::min(b.w, (int)std::ceil((dirty.x + dirty.w - org.x) / 2)), y1 = std::min(b.h, (int)std::ceil((dirty.y + dirty.h - org.y) / 2));
+    if (x1 <= x0 || y1 <= y0) return;
+    std::vector<uint32_t> sub((size_t)(x1 - x0) * (y1 - y0));
+    for (int y = y0; y < y1; y++) std::memcpy(sub.data() + (size_t)(y - y0) * (x1 - x0), b.px.data() + (size_t)y * b.w + x0, (size_t)(x1 - x0) * 4);
+    g.pixels(sub.data(), x1 - x0, y1 - y0, R{org.x + x0 * 2.f, org.y + y0 * 2.f, (x1 - x0) * 2.f, (y1 - y0) * 2.f});
+  }
+  Backdrop bgPanel, bgBrowser;
+  void drawBackdrop(Canvas& g, R dirty) {
+    g.fillRect(dirty, Brush(rgb(kPage)));
+    const int H = (int)devH();
+    if (bgPanel.key != H) {
+      static const Stop st[5] = {{0, 0x2b0f2e}, {0.25f, 0x5a1f4a}, {0.55f, 0x8a3a3a}, {0.85f, 0xc25a2a}, {1, 0xe08a2a}};
+      static const Blob bl[3] = {{0.08f, 0.15f, 0.56f, 0.42f, 0xff7a3d}, {0.85f, 0.08f, 0.49f, 0.42f, 0x7a3dff}, {0.57f, 1.06f, 0.63f, 0.49f, 0xff3d8a}};
+      makeBackdrop(bgPanel, (int)kDeviceW, H, 135, st, 5, bl, 3); bgPanel.key = H;
+    }
+    const R panel{0, 0, kDeviceW, (float)H};
+    if (!panel.hits(dirty)) return;
+    g.pushClipRR(panel, 18);   // rounded corners, as the web app's panel
+    drawHalf(g, bgPanel, R{0, 0, 0, 0}, dirty);
+    g.popClip();
   }
 
   // ---------------------------------------------------------------- paint
   // the window has set its scale, clip and smoothing; dirty is the logical area to draw again
   void paint(Canvas& g, R dirty) override {
-    // device background
-    g.fillRect(dirty, Brush(Pt{0, 0}, Pt{0, devH()}, rgb(0x1a1d23), rgb(0x13161b)));
+    drawBackdrop(g, dirty);   // the page colour, then the panel's gradient and blobs
     for (int si = 0; si < kNumSections; si++) {
       const SectionDef& sd = kSections[si];
       if (!sectionShown(sd)) continue;
@@ -362,12 +429,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       if (!r.hits(dirty)) continue;
       if (sd.title[0] == 0) { if (std::strcmp(sd.id, "oscframe") == 0) drawOscFrame(g, r); continue; }   // beta 0.3: the frame round the oscillator cards
       if (orient && std::strcmp(sd.id, "play") == 0) { drawOrientCard(g, r, dirty); continue; }   // beta 0.3.4: the PLAY card in its oriental dress
-      fillRR(g, r, 10, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(0x1f242c), rgb(0x1a1e25)));
-      strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, rgb(0x2b313b));
+      glass(g, r);
       if (sd.tabbed) continue;   // beta 0.3.4: the LFO 2/3 card has a tab bar instead of a title (its lfotabs item draws it)
       if (sd.vtitle) {   // beta 0.3.3: the title is a vertical strip at the left of the card
-        g.line(Pt{r.x + 23.5f, r.y + 6}, Pt{r.x + 23.5f, r.y + r.h - 6}, Pen(rgb(0x2b313b), 1));
-        g.textVertical(toW(sd.title), R{r.x + 1, r.y + 1, 22, r.h - 2}, 9.5f, true, std::strcmp(sd.id, "play") == 0 ? rgb(accent()) : rgb(kDim));
+        g.line(Pt{r.x + 23.5f, r.y + 6}, Pt{r.x + 23.5f, r.y + r.h - 6}, Pen(edgeC(), 1));
+        g.textVertical(toW(sd.title), R{r.x + 1, r.y + 1, 22, r.h - 2}, 9.5f, true, std::strcmp(sd.id, "play") == 0 ? rgb(accent()) : rgb(kTitle));
         continue;
       }
       std::string t = sd.title; size_t dot = t.find(" \xC2\xB7 ");
@@ -375,8 +441,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         std::wstring a = toW(t.substr(0, dot)), b = toW(t.substr(dot));
         const float aw = g.textWidth(a, 10.5f, true);
         text(g, a, R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(accent()), 0);
-        text(g, b, R{r.x + 12 + aw - 3, r.y + 4, 400, 16}, 10.5f, true, rgb(kDim), 0);
-      } else text(g, toW(t), R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(kDim), 0);
+        text(g, b, R{r.x + 12 + aw - 3, r.y + 4, 400, 16}, 10.5f, true, rgb(kTitle), 0);
+      } else text(g, toW(t), R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(kTitle), 0);
     }
     const bool chordSide = chordInBrowser();
     for (size_t k = 0; k < items.size(); k++) {
@@ -398,7 +464,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     float w = g.textWidth(s, 11, false) + 12, x = it.r.x + it.r.w / 2 - w / 2;
     x = std::max(4.0f, std::min(kDeviceW - w - 4, x));
     R r{x, it.r.y - 26, w, 20};
-    fillRR(g, r, 5, rgb(0x0b0d10, 240)); strokeRR(g, r, 5, rgb(0x343b47));
+    fillRR(g, r, 7, rgb(0x1c0a20, 240)); strokeRR(g, r, 7, argb(71, 255, 255, 255));
     text(g, s, r, 11, false, rgb(kText));
   }
 
@@ -467,18 +533,18 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     double v = plainOf(it.w->param), n = toNorm(p, v);
     const double A0 = -0.75 * PI, A1 = 0.75 * PI, a = A0 + (A1 - A0) * n;
     const R ring{cx - ar, cy - ar, 2 * ar, 2 * ar};
-    g.arc(ring, gdiDeg(A0), 270, Pen(rgb(0x2a303a, alpha), sw).caps());
+    g.arc(ring, gdiDeg(A0), 270, Pen(argb(46 * alpha / 255, 255, 255, 255), sw).caps());
     bool bip = p.min < 0 && p.max > 0;
     double from = bip ? A0 + (A1 - A0) * toNorm(p, 0) : A0;
     double lo = std::min(from, a), hi = std::max(from, a);
     if (hi - lo > 1e-3) g.arc(ring, gdiDeg(lo), (float)((hi - lo) * 180 / PI), Pen(rgb(accent(), alpha), sw).caps());
     const R body{cx - r + 1, cy - r + 1, 2 * r - 2, 2 * r - 2};
-    g.fillEllipse(body, Brush(Pt{cx - r, cy - r}, Pt{cx + r, cy + r}, rgb(0x3a414c, alpha), rgb(0x161a1f, alpha)));
-    g.strokeEllipse(body, Pen(rgb(0x0b0d10, alpha), 1.5f));
+    g.fillEllipse(body, Brush(Pt{cx - r, cy - r}, Pt{cx + r, cy + r}, argb(140 * alpha / 255, 255, 255, 255), argb(31 * alpha / 255, 255, 255, 255)));
+    g.strokeEllipse(body, Pen(argb(89 * alpha / 255, 255, 255, 255), 1.5f));
     g.strokeEllipse(R{cx - r + 4, cy - r + 4, 2 * r - 8, 2 * r - 8}, Pen(argb(alpha / 20, 255, 255, 255), 1));
     float r0 = r * 0.25f, r1 = r - 4;
     g.line(Pt{cx + r0 * (float)std::sin(a), cy - r0 * (float)std::cos(a)}, Pt{cx + r1 * (float)std::sin(a), cy - r1 * (float)std::cos(a)},
-           Pen(rgb(0xeef2f7, alpha), big ? 2.6f : tiny ? 2.f : 2.2f).caps());
+           Pen(rgb(0xffffff, alpha), big ? 2.6f : tiny ? 2.f : 2.2f).caps());
     if (!small) {
       bool showVal = (hover == idx || drag == idx);
       // beta 0.3.4, style 4 (the LFO SHAPE): a knob with a few positions, its choice (SINE TRI SAW SQR S&H) written under it in the accent colour, hovered or not
@@ -496,7 +562,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     int n = p.numChoices, cur = (int)jsRound(plainOf(it.w->param));
     if (it.w->style == 3) {   // beta 0.3.4: underlined (the LFO 1 wave selector): no frame, a hairline under all, the wave shown in the accent colour with a 2 px line under it
       const float bw = it.r.w / n, by = it.r.y + it.r.h;
-      g.line(Pt{it.r.x, by - 0.5f}, Pt{it.r.x + it.r.w, by - 0.5f}, Pen(rgb(0x2b313b), 1));
+      g.line(Pt{it.r.x, by - 0.5f}, Pt{it.r.x + it.r.w, by - 0.5f}, Pen(edgeC(), 1));
       for (int k = 0; k < n; k++) {
         const R b{it.r.x + k * bw, it.r.y, bw, it.r.h - 2};
         if (k == cur) g.fillRect(R{b.x, by - 2, bw, 2}, rgb(accent()));
@@ -504,16 +570,16 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       }
       return;
     }
-    inset(g, it.r, engine ? 9.f : 7.f);
+    inset(g, it.r, 9.f);
     float pad = engine ? 3.f : 2.f, gap = 2, bw = (it.r.w - 2 * pad - gap * (n - 1)) / n;
     for (int k = 0; k < n; k++) {
       R b{it.r.x + pad + k * (bw + gap), it.r.y + pad, bw, it.r.h - 2 * pad};
       bool on = k == cur;
       if (on) {
         uint32_t c = engine ? (k < 2 ? kAccentA : kAccentB) : accent();   // the old oscillator tabs (beta 0.3: ENGINE A / B and the folder tabs replaced them): teal then orange
-        fillRR(g, b, 5, rgb(c));
+        fillRR(g, b, 7, rgb(c));
       }
-      text(g, toW(p.choiceShort[k]), b, engine ? 11.f : 10.f, true, on ? rgb(0x0d1014) : rgb(kDim));
+      text(g, toW(p.choiceShort[k]), b, engine ? 11.f : 10.f, true, on ? rgb(kOnAccent) : rgb(kDim));
     }
   }
 
@@ -539,8 +605,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     // the notch: half way between the tone card and OSC MIX, half way between the bottom of OSC MIX / SCOPE and the second row
     const float xl = s.x + 0.5f, xr = s.x + s.w - 0.5f, yt = s.y + 38.5f, yb = s.y + s.h - 0.5f;
     const float xn = (tone->x + tone->w + mix->x) / 2, yn = (mix->y + mix->h + flt->y) / 2;
-    // version 1.0.5 (the owner's choice "trail of light"): one outline for the folder tab of the oscillator shown and the plate; the stroke is the accent where it leaves the tab and fades along the plate
-    // (the web app's gradient: 1 -> 0.45 -> 0.06 of the accent from the tab's left edge to the plate's right edge), the fill fades the same way (0.14 -> 0.01), a faint glow all round
+    // Crépuscule: one outline for the folder tab of the oscillator shown and the plate: the accent colour, solid, 2.5 px, no glow, and a flat tint of 10 % inside (the 1.0.5 "trail of light" is gone)
     const float tabL = std::max(s.x + view * 182.f, xl), tabR = s.x + view * 182.f + 176.f, tt = s.y + 0.5f;
     std::vector<Pt> corners; std::vector<float> rad;
     auto add = [&](float x, float y, float r) { corners.push_back(Pt{x, y}); rad.push_back(r); };
@@ -549,23 +614,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     add(tabR, tt, 9); add(tabR, yt, 0); add(xn, yt, 12); add(xn, yn, 12); add(xr, yn, 12); add(xr, yb, 12); add(xl, yb, 12);
     std::vector<Pt> poly; roundedPoly(corners, rad, poly);
     const uint32_t ac = accentOf(kSlots[view].mode);
-    g.fillPolygon(poly.data(), (int)poly.size(), Brush(Pt{tabL, 0}, Pt{xr, 0}, rgb(ac, 36), rgb(ac, 3)));
+    g.fillPolygon(poly.data(), (int)poly.size(), Brush(rgb(ac, 26)));
     poly.push_back(poly.front());
-    g.lines(poly.data(), (int)poly.size(), Pen(rgb(ac, 12), 7.f).join());   // the glow
-    g.lines(poly.data(), (int)poly.size(), Pen(rgb(ac, 24), 4.f).join());
-    auto alphaAt = [&](float x) {   // 255 at the tab, 115 half way, 15 at the right edge
-      const float t = std::max(0.f, std::min(1.f, (x - tabL) / std::max(1.f, xr - tabL)));
-      return t < 0.5f ? 255.f - 140.f * (t / 0.5f) : 115.f - 100.f * ((t - 0.5f) / 0.5f);
-    };
-    for (size_t k = 0; k + 1 < poly.size(); k++) {   // the stroke in short pieces (about 4 px), each with the alpha of its place
-      const Pt a = poly[k], b = poly[k + 1];
-      const float len = std::hypot(b.x - a.x, b.y - a.y);
-      const int n = std::max(1, (int)std::ceil(len / 4.f));
-      for (int j = 0; j < n; j++) {
-        const Pt p0{a.x + (b.x - a.x) * j / n, a.y + (b.y - a.y) * j / n}, p1{a.x + (b.x - a.x) * (j + 1) / n, a.y + (b.y - a.y) * (j + 1) / n};
-        g.line(p0, p1, Pen(rgb(ac, (int)alphaAt((p0.x + p1.x) / 2)), 2.f));
-      }
-    }
+    g.lines(poly.data(), (int)poly.size(), Pen(rgb(ac), 2.5f).join());
   }
 
   // beta 0.3: the three folder tabs OSC1 A1 · SUBTRACTIVE | OSC2 A2 · SUBTRACTIVE | OSC3 B1 · ADDITIVE (176 x 40 px every 182): the colour of the engine (A1 A2 yellow,
@@ -576,14 +627,14 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       const R t{it.r.x + s * 182.f, it.r.y, 176.f, 40.f};
       const int mode_s = kSlots[s].mode, ord = mode_s == 0 ? ++nA : ++nB;
       const bool on = s == view, heard = plainOf(kSlots[s].lvl) > 0;
-      const float rad = 10;
-      const Col ac = rgb(accentOf(mode_s)), dark = rgb(0x0c1117);   // (beta 0.3.4: terracotta / turquoise while the TUNING switch is ARAB or TURK)
+      const float rad = 14;
+      const Col ac = rgb(accentOf(mode_s)), dark = rgb(kOnAccent);   // (beta 0.3.4: terracotta / turquoise while the TUNING switch is ARAB or TURK)
       const float th = on ? 40.f : 38.f;
-      const Brush fill = on ? Brush(ac) : Brush(rgb(0x1a1f27));
+      const Brush fill = on ? Brush(ac) : Brush(argb(31, 0, 0, 0));
       fillRR(g, R{t.x, t.y, t.w, 2 * rad + 2}, rad, fill);   // rounded on top, square below
       g.fillRect(R{t.x, t.y + rad, t.w, th - rad}, fill);
       if (!on) {
-        Pen pen(rgb(0x3a4452), 2.f);
+        Pen pen(edgeC(), 2.f);
         const float x0 = t.x + 1, y0 = t.y + 1, x1 = t.x + t.w - 1, y1 = t.y + th;
         g.arc(R{x0, y0, 2 * rad, 2 * rad}, 180, 90, pen);
         g.line(Pt{x0 + rad, y0}, Pt{x1 - rad, y0}, pen);
@@ -591,8 +642,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         g.line(Pt{x0, y0 + rad}, Pt{x0, y1}, pen);
         g.line(Pt{x1, y0 + rad}, Pt{x1, y1}, pen);
       }
-      g.fillEllipse(R{t.x + 14, t.y + 15, 8.f, 8.f}, heard ? (on ? dark : ac) : (on ? rgb(0x0c1117, 90) : rgb(0x3a4452)));
-      const Col c1 = on ? dark : rgb(kDim), c2 = on ? rgb(0x0c1117, 190) : rgb(kFaint);
+      g.fillEllipse(R{t.x + 14, t.y + 15, 8.f, 8.f}, heard ? (on ? dark : ac) : (on ? rgb(kOnAccent, 90) : argb(77, 255, 255, 255)));
+      const Col c1 = on ? dark : rgb(kDim), c2 = on ? rgb(kOnAccent, 190) : rgb(kFaint);
       text(g, std::wstring(L"OSC") + std::to_wstring(s + 1) + L" " + (mode_s == 0 ? L"A" : L"B") + std::to_wstring(ord), R{t.x + 32, t.y + 5, t.w - 38, 16}, 12.f, true, c1, 0);
       text(g, mode_s == 0 ? L"SUBTRACTIVE" : L"ADDITIVE", R{t.x + 32, t.y + 21, t.w - 38, 13}, 8.5f, true, c2, 0);
     }
@@ -602,20 +653,20 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   // oscillators'; the tab of the LFO shown is filled with the accent colour. A lit dot says the LFO is heard (its amount is not 0).
   void drawLfoTabs(Canvas& g, const Item& it) {
     const R bar{it.r.x + 1, it.r.y + 1, it.r.w - 2, 25.f};
-    fillRR(g, R{bar.x, bar.y, bar.w, 20.f}, 9, rgb(0x000000, 64));   // rounded on top, square below (the bar's lower edge is a hairline)
-    g.fillRect(R{bar.x, bar.y + 9, bar.w, 16.f}, rgb(0x000000, 64));
-    g.line(Pt{bar.x, bar.y + 24.5f}, Pt{bar.x + bar.w, bar.y + 24.5f}, Pen(rgb(0x2b313b), 1));
+    fillRR(g, R{bar.x, bar.y, bar.w, 20.f}, 13, argb(46, 0, 0, 0));   // rounded on top, square below (the bar's lower edge is a hairline)
+    g.fillRect(R{bar.x, bar.y + 13, bar.w, 12.f}, argb(46, 0, 0, 0));
+    g.line(Pt{bar.x, bar.y + 24.5f}, Pt{bar.x + bar.w, bar.y + 24.5f}, Pen(edgeC(), 1));
     const int cur = (int)jsRound(plainOf(P_LFO_VIEW));
     for (int k = 0; k < 2; k++) {
       const R t{it.r.x + 6.f + k * 60.f, it.r.y + 3.f, 58.f, 22.f};
       const bool on = k == cur, heard = std::fabs(plainOf(k == 0 ? P_LFO2_AMT : P_LFO3_AMT)) > 0.001;
-      const Col ac = rgb(accent()), dark = rgb(0x0c1117);
+      const Col ac = rgb(accent()), dark = rgb(kOnAccent);
       const float rad = 10;
-      const Brush fill = on ? Brush(ac) : Brush(rgb(0x1a1f27));
+      const Brush fill = on ? Brush(ac) : Brush(argb(56, 0, 0, 0));
       fillRR(g, R{t.x, t.y, t.w, 2 * rad + 2}, rad, fill);   // rounded on top, square below
       g.fillRect(R{t.x, t.y + rad, t.w, t.h - rad}, fill);
       if (!on) {
-        Pen pen(rgb(0x3a4452), 2.f);
+        Pen pen(edgeC(), 2.f);
         const float x0 = t.x + 1, y0 = t.y + 1, x1 = t.x + t.w - 1, y1 = t.y + t.h;
         g.arc(R{x0, y0, 2 * rad, 2 * rad}, 180, 90, pen);
         g.line(Pt{x0 + rad, y0}, Pt{x1 - rad, y0}, pen);
@@ -623,7 +674,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         g.line(Pt{x0, y0 + rad}, Pt{x0, y1}, pen);
         g.line(Pt{x1, y0 + rad}, Pt{x1, y1}, pen);
       }
-      g.fillEllipse(R{t.x + 7, t.y + 8, 8.f, 8.f}, heard ? (on ? dark : ac) : (on ? rgb(0x0c1117, 77) : rgb(0x3a4452)));
+      g.fillEllipse(R{t.x + 7, t.y + 8, 8.f, 8.f}, heard ? (on ? dark : ac) : (on ? rgb(kOnAccent, 77) : argb(77, 255, 255, 255)));
       text(g, std::wstring(L"LFO ") + std::to_wstring(k + 2), R{t.x + 19, t.y + 2, t.w - 19, 20.f}, 10.f, true, on ? dark : rgb(kDim), 0);
     }
   }
@@ -644,12 +695,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   void drawOrientCard(Canvas& g, R r, R dirty) {
     const float T = kOrientTile, Ro = 0.5412f * T, dq = 0.2929f * T, op = kOrientOpacity, pi8 = (float)PI / 8;
-    fillRR(g, r, 10, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(opal().pl0), rgb(opal().pl1)));
+    fillRR(g, r, 14, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(opal().pl0), rgb(opal().pl1)));
     const R in{r.x + 1, r.y + 1, r.w - 2, r.h - 2};
     const uint32_t mid = mixRGB(opal().pl0, opal().pl1, 0.5f);
     auto pc = [&](uint32_t c) { return rgb(mixRGB(c, mid, op)); };
     const Col c1 = pc(opal().c1), c2 = pc(opal().c2), c3 = pc(opal().c3), c4 = pc(opal().c4), c5 = pc(opal().c5);
-    g.pushClipRR(in, 9);
+    g.pushClipRR(in, 13);
     g.fillRect(in, Brush(Pt{0, in.y}, Pt{0, in.y + in.h}, rgb(mixRGB(opal().c4, opal().pl0, op)), rgb(mixRGB(opal().c4, opal().pl1, op))));
     std::vector<Pt> pts;
     const int i0 = std::max(-1, (int)std::floor((dirty.x - in.x - T) / T)), i1 = std::min((int)std::ceil(in.w / T) + 1, (int)std::ceil((dirty.x + dirty.w - in.x + Ro) / T));
@@ -674,14 +725,14 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     g.fillRect(R{in.x, in.y, 22, in.h}, Brush(Pt{in.x, 0}, Pt{in.x + 22, 0}, rgb(opal().c4, 255), rgb(opal().c4, 219)));
     g.line(Pt{r.x + 22.5f, in.y}, Pt{r.x + 22.5f, in.y + in.h}, Pen(rgb(opal().c2), 1));
     g.popClip();
-    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, rgb(opal().c2));
-    strokeRR(g, R{r.x + 1.5f, r.y + 1.5f, r.w - 3, r.h - 3}, 9, rgb(opal().c2, 64));
+    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 14, rgb(opal().c2));
+    strokeRR(g, R{r.x + 1.5f, r.y + 1.5f, r.w - 3, r.h - 3}, 13, rgb(opal().c2, 64));
     g.textVertical(L"PLAY", R{r.x + 1, r.y + 1, 22, r.h - 2}, 9.5f, true, rgb(opal().c2));
   }
 
   void drawStep(Canvas& g, const Item& it) {
     const ParamDef& p = kParams[it.w->param];
-    inset(g, it.r, 7);
+    inset(g, it.r, 9);
     text(g, L"◀", R{it.r.x, it.r.y, 30, it.r.h}, 11, false, rgb(kDim));
     text(g, L"▶", R{it.r.x + it.r.w - 30, it.r.y, 30, it.r.h}, 11, false, rgb(kDim));
     int v = (int)jsRound(plainOf(it.w->param));
@@ -696,11 +747,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     const Item& it = items[idx];
     double v = plainOf(it.w->param);
     R tr{it.r.x + 7, it.r.y, it.r.w - 14, it.r.h};
-    fillRR(g, tr, 5, rgb(kInset));
+    fillRR(g, tr, 5, Brush(insetC()));
     float fh = (float)(v * tr.h);
     if (fh > 0.5f)
       g.fillRect(R{tr.x + 1, tr.y + tr.h - fh, tr.w - 2, fh}, Brush(Pt{0, tr.y + tr.h - fh - 1}, Pt{0, tr.y + tr.h + 1}, rgb(accent(), 220), rgb(accent(), 90)));
-    strokeRR(g, tr, 5, rgb(kInsetEdge));
+    strokeRR(g, tr, 5, edgeC());
     float cy = it.r.y + (float)((1 - v) * (it.r.h - 10));
     fillRR(g, R{it.r.x, cy, it.r.w, 10}, 3, Brush(Pt{0, cy}, Pt{0, cy + 10}, rgb(0xf1f4f8), rgb(0xb9c1cc)));
     bool hot = hover == idx || drag == idx;
@@ -860,7 +911,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       bool on = (liveVoices >> k) & 1, avail = k < std::max(1, maxV);
       float x = r.x + 5 + k * step, y = r.y + 8.5f;
       if (on) g.fillEllipse(R{x - 7, y - 7, 14.f, 14.f}, rgb(accent(), 70));
-      g.fillEllipse(R{x - 4, y - 4, 8.f, 8.f}, on ? rgb(accent()) : avail ? rgb(0x2a303a) : rgb(0x1a1e24));
+      g.fillEllipse(R{x - 4, y - 4, 8.f, 8.f}, on ? rgb(accent()) : avail ? argb(120, 0, 0, 0) : argb(60, 0, 0, 0));
     }
   }
 
@@ -878,9 +929,10 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void drawToggle(Canvas& g, int idx) {
     const Item& it = items[idx];
     const bool on = plainOf(it.w->param) >= 0.5, hot = hover == idx;
-    fillRR(g, it.r, 5, on ? rgb(accent()) : rgb(hot ? 0x262c35 : kInset));
-    strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 5, on ? rgb(accent()) : rgb(hot ? 0x3a4250 : kInsetEdge));
-    text(g, toW(it.w->text ? it.w->text : ""), it.r, 9, true, on ? rgb(0x0d1014) : rgb(hot ? kText : kDim));
+    const float tr = std::min(9.f, it.r.h / 2);
+    fillRR(g, it.r, tr, Brush(on ? rgb(accent()) : hot ? hotC() : insetC()));
+    strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, tr, on ? rgb(accent()) : edgeC(hot));
+    text(g, toW(it.w->text ? it.w->text : ""), it.r, 9, true, on ? rgb(kOnAccent) : rgb(hot ? kText : kDim));
   }
   // beta 0.7: "By OktoPierre · version · licence" at the bottom left, small and discreet as before beta 0.6 (owner's choice)
   void drawCredit(Canvas& g, R r) {
@@ -949,11 +1001,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     for (const PadR& p : padRects(it.r)) {
       const int type = kChordKeys[p.key];
       const bool active = type == cur, black = isBlack(p.key), hot = hover == idx && padHover == p.key;
-      if (active) fillRR(g, R{p.r.x - 1, p.r.y - 1, p.r.w + 2, p.r.h + 2}, 7, rgb(accent(), alpha / 4));
-      fillRR(g, p.r, 6, rgb(active ? accent() : black ? (hot ? 0x1c2129 : 0x121519) : (hot ? 0x343b47 : 0x262c35), alpha));
-      if (!active) strokeRR(g, R{p.r.x + 0.5f, p.r.y + 0.5f, p.r.w - 1, p.r.h - 1}, 6, rgb(black ? 0x2a303a : 0x3a4250, alpha));
-      text(g, toW(kChords[type].label), R{p.r.x, p.r.y + 3, p.r.w, 14}, 11, true, rgb(active ? 0x0d1014 : black ? 0xaeb7c4 : 0xeef2f7, alpha));
-      text(g, noteName(base + p.key), R{p.r.x, p.r.y + 18, p.r.w, 11}, 8, true, active ? rgb(0x0d1014, alpha * 3 / 4) : rgb(0x566070, alpha));
+      if (active) fillRR(g, R{p.r.x - 1, p.r.y - 1, p.r.w + 2, p.r.h + 2}, 9, rgb(accent(), alpha / 4));
+      fillRR(g, p.r, 8, active ? Brush(rgb(accent(), alpha)) : black ? Brush(argb(alpha * (hot ? 140 : 100) / 255, 0, 0, 0)) : Brush(argb(alpha * (hot ? 64 : 38) / 255, 255, 255, 255)));
+      if (!active) strokeRR(g, R{p.r.x + 0.5f, p.r.y + 0.5f, p.r.w - 1, p.r.h - 1}, 8, argb(alpha * (black ? 51 : 77) / 255, 255, 255, 255));
+      text(g, toW(kChords[type].label), R{p.r.x, p.r.y + 3, p.r.w, 14}, 11, true, active ? rgb(kOnAccent, alpha) : black ? rgb(kDim, alpha) : rgb(kText, alpha));
+      text(g, noteName(base + p.key), R{p.r.x, p.r.y + 18, p.r.w, 11}, 8, true, active ? rgb(kOnAccent, alpha * 3 / 4) : rgb(kFaint, alpha));
     }
   }
   // the chord sounding: its name (root and type) and its notes; the type chosen while no root is held
@@ -978,7 +1030,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (held) {
       for (int w = 0; w < 4; w++) for (int k = 0; k < 32; k++) if ((liveChordBits[w] >> k) & 1) { if (!line.empty()) line += L" \u00b7 "; line += noteName(w * 32 + k); }
     } else line = toW(kParams[P_CHORD_TYPE].choices[type]) + L" \u00b7 play a key above " + noteName(24 + 12 * (int)jsRound(plainOf(P_CHORD_OCT)) + 11);
-    text(g, line, R{r.x + 4, r.y + 50, r.w - 8, 14}, 9.5f, true, held ? rgb(0xeef2f7) : rgb(kFaint));
+    text(g, line, R{r.x + 4, r.y + 50, r.w - 8, 14}, 9.5f, true, held ? rgb(kText) : rgb(kFaint));
   }
   // the strum plate: the chord's notes over three octaves as strings; drag across them (as on the touch plate of an electronic chord harp)
   int plateList(int* notes) const {
@@ -987,8 +1039,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   void drawStrumPlate(Canvas& g, R r) {
     int notes[12]; const int n = plateList(notes); const float sw = r.w / n;
-    g.fillRR(r, 7, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(0x0e1116), rgb(0x171b22)));
-    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 7, rgb(0x252b34));
+    screen(g, r);
     for (int k = 0; k < n; k++) {
       const float x = r.x + std::round((k + 0.5f) * sw) + 0.5f;
       const bool lit = keyDown(notes[k]) || plateTouch == notes[k];
@@ -1042,15 +1093,15 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
 
   void drawLogo(Canvas& g, R r) {
     R m{r.x, r.y + 1, 30, 30};
-    fillRR(g, m, 8, rgb(kInset)); strokeRR(g, m, 8, rgb(0x2a303a));
+    inset(g, m, 9);
     const Pt pts[] = {{m.x + 3, m.y + 15}, {m.x + 8, m.y + 15}, {m.x + 11, m.y + 7}, {m.x + 15, m.y + 23}, {m.x + 19, m.y + 11}, {m.x + 22, m.y + 17}, {m.x + 27, m.y + 17}};
     g.lines(pts, 7, Pen(rgb(accent()), 2.2f).join().caps());
-    text(g, L"OKTOWAVE", R{r.x + 40, r.y + 1, 180, 18}, 13.5f, true, rgb(0xeef2f7), 0);   // version 1.0 (the product's name in the header)
+    text(g, L"OKTOWAVE", R{r.x + 40, r.y + 1, 180, 18}, 13.5f, true, rgb(kText), 0);   // version 1.0 (the product's name in the header)
     text(g, L"FRACTAL WAVELET SYNTHESIZER", R{r.x + 40, r.y + 17, 196, 14}, 9, true, rgb(accent()), 0);
   }
 
   void drawPresets(Canvas& g, R r) {
-    inset(g, r, 8);
+    inset(g, r, 9);
     text(g, L"◀", R{r.x, r.y, 30, r.h}, 11, false, rgb(kDim));
     text(g, L"▶", R{r.x + r.w - 30, r.y, 30, r.h}, 11, false, rgb(kDim));
     std::wstring name = toW(shownName());
@@ -1059,14 +1110,14 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     // a long name gets a smaller font rather than overflowing the arrows
     float px = 12.5f;
     for (; px > 9.5f; px -= 0.5f) if (g.textWidth(name, px, true) <= r.w - 64) break;
-    text(g, name, R{r.x + 30, r.y, r.w - 60, r.h}, px, true, rgb(0xeef2f7));
+    text(g, name, R{r.x + 30, r.y, r.w - 60, r.h}, px, true, rgb(kText));
   }
 
-  // beta 0.6: one button, the manual of the engine shown (A or B; each manual links to the other)
+  // beta 0.6: one button; version 1.0.6: the manual is one page (Resources/manual/manual.html)
   void drawManualBtn(Canvas& g, const Item& it) {
-    inset(g, it.r, 8);
+    inset(g, it.r, 9);
     text(g, L"USER", R{it.r.x, it.r.y + 3, it.r.w, 12}, 9.5f, true, rgb(kDim));
-    text(g, L"MANUAL", R{it.r.x, it.r.y + 14, it.r.w, 14}, 12, true, rgb(accent()));
+    text(g, L"MANUAL", R{it.r.x, it.r.y + 14, it.r.w, 14}, 12, true, rgb(kText));
   }
 
   void drawMeter(Canvas& g, R r) {
@@ -1074,7 +1125,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     float lv[2] = {meterL, meterR};
     for (int k = 0; k < 2; k++) {
       float x = r.x + k * (bw + 2);
-      g.fillRect(R{x, r.y, bw, r.h}, rgb(0x0c0f13));
+      g.fillRect(R{x, r.y, bw, r.h}, argb(115, 0, 0, 0));
       double db = 20 * std::log10(lv[k] + 1e-9), t = std::min(1.0, std::max(0.0, (db + 48) / 48));
       float h = (float)(t * r.h);
       if (h > 0.5f) g.fillRect(R{x, r.y + r.h - h, bw, h}, Brush(Pt{0, r.y + r.h}, Pt{0, r.y}, rgb(0x2fd4c6), rgb(0xff5d5d)));
@@ -1169,7 +1220,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         return;
       }
       case W_MENU: choiceMenu(it); return;
-      case W_MANUAL: openManual(mode == 1 ? L"manual-b.html" : L"manual-a.html"); return;   // beta 0.6: the engine shown
+      case W_MANUAL: openManual(L"manual.html"); return;   // version 1.0.6: one page
       case W_TOGGLE: gesture(w.param, plainOf(w.param) >= 0.5 ? 0 : 1); return;   // beta 0.6: SYNC on / off
       case W_ZOOM: zoomMenu(it); return;
       case W_KEYBOARD: {
@@ -1705,9 +1756,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void drawChordInBrowser(Canvas& g, R dirty) {
     const R r = bChordCard();
     if (!r.hits(dirty)) return;
-    fillRR(g, r, 10, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(0x1f242c), rgb(0x1a1e25)));
-    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, rgb(0x2b313b));
-    text(g, toW(kSections[chordSec].title), R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(kDim), 0);
+    glass(g, r);
+    text(g, toW(kSections[chordSec].title), R{r.x + 12, r.y + 4, 300, 16}, 10.5f, true, rgb(kTitle), 0);
     for (int k : chordItems) if (visible(items[k]) && items[k].r.hits(dirty)) drawItem(g, k);
   }
   R bScrollR() const { const R l = bList(); return R{l.x + l.w + 2, l.y, 12, l.h}; }   // the list's scroll bar (beta 0.4)
@@ -1976,28 +2026,35 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     buildCategories();
     menuBank = lib.bank();
     const R c = bCard();
-    fillRR(g, c, 10, Brush(Pt{0, c.y}, Pt{0, c.y + c.h}, rgb(0x1f242c), rgb(0x1a1e25)));
-    strokeRR(g, R{c.x + 0.5f, c.y + 0.5f, c.w - 1, c.h - 1}, 10, rgb(0x2b313b));
+    if (bgBrowser.key != 1) {   // the same colours as the panel, at another angle
+      static const Stop st[4] = {{0, 0x2b0f2e}, {0.30f, 0x5a1f4a}, {0.62f, 0x8a3a3a}, {1, 0xc25a2a}};
+      static const Blob bl[3] = {{0.08f, 0.15f, 0.56f, 0.42f, 0xff7a3d}, {0.85f, 0.08f, 0.49f, 0.42f, 0x7a3dff}, {0.57f, 1.06f, 0.63f, 0.49f, 0xff3d8a}};
+      makeBackdrop(bgBrowser, (int)c.w, (int)c.h, 160, st, 4, bl, 3); bgBrowser.key = 1;
+    }
+    g.pushClipRR(c, 18);
+    drawHalf(g, bgBrowser, R{c.x, c.y, 0, 0}, c);
+    g.popClip();
+    strokeRR(g, R{c.x + 0.5f, c.y + 0.5f, c.w - 1, c.h - 1}, 18, edgeC());
+    g.line(Pt{c.x + 18, c.y + 1.5f}, Pt{c.x + c.w - 18, c.y + 1.5f}, Pen(argb(71, 255, 255, 255), 1));
     text(g, L"PRESET BROWSER", R{c.x + 12, c.y + 6, 200, 18}, 10.5f, true, rgb(accent()), 0);
     {   // HIDE
       const R h = bHide(); const bool hot = bHover == 1;
-      fillRR(g, h, 5, rgb(hot ? 0x262c35 : kInset));
-      strokeRR(g, R{h.x + 0.5f, h.y + 0.5f, h.w - 1, h.h - 1}, 5, rgb(hot ? 0x3a4250 : kInsetEdge));
+      inset(g, h, 7, hot);
       text(g, L"HIDE \u25B8", h, 9, true, rgb(hot ? kText : kDim));
     }
     // tabs
     const std::wstring tabs[2] = {L"FACTORY  " + std::to_wstring(kNumPresets), L"USER BANK  " + std::to_wstring(menuBank.size())};
     {
       const R all{bTabR(0).x, bTabR(0).y, bTabR(0).w * 2, bTabR(0).h};
-      inset(g, all, 7);
+      inset(g, all, 9);
       for (int t = 0; t < 2; t++) {
         const R r = bTabR(t);
-        if (t == bTab) fillRR(g, R{r.x + 2, r.y + 2, r.w - 4, r.h - 4}, 5, rgb(accent()));
-        text(g, tabs[t], r, 10, true, t == bTab ? rgb(0x0d1014) : rgb(bHover == 10 + t ? kText : kDim));
+        if (t == bTab) fillRR(g, R{r.x + 2, r.y + 2, r.w - 4, r.h - 4}, 7, rgb(accent()));
+        text(g, tabs[t], r, 10, true, t == bTab ? rgb(kOnAccent) : rgb(bHover == 10 + t ? kText : kDim));
       }
     }
     // categories
-    inset(g, R{c.x + 8, c.y + 68, 126, bList().h + 34}, 7);
+    inset(g, R{c.x + 8, c.y + 68, 126, bList().h + 34}, 10);
     for (int i = 0; i < bNumCats(); i++) {
       const R r = bCatR(i);
       const bool sel = i == bCat, hot = bHover == 100 + i;
@@ -2005,13 +2062,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       std::wstring label;
       if (bTab == 0) { for (int k : fCats[i].presets) n += !lib.deleted(k); label = fCats[i].label; }
       else { for (const BankPreset& p : menuBank) n += p.section == i; label = toW(kBankSections[i]); }
-      if (sel || hot) fillRR(g, R{r.x, r.y, r.w, r.h}, 5, sel ? rgb(accent(), 46) : rgb(0xffffff, 10));
+      if (sel || hot) fillRR(g, R{r.x, r.y, r.w, r.h}, 7, sel ? rgb(accent(), 46) : argb(23, 255, 255, 255));
       if (sel) g.fillRect(R{r.x, r.y + 4, 2.5f, r.h - 8}, rgb(accent()));
       if (rowMoving && i == dropCat) {   // beta 0.5: where the sound being dragged would go
         fillRR(g, r, 5, rgb(accent(), 70));
         strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 5, rgb(accent()));
       }
-      const Col col = sel ? rgb(0xeef2f7) : n ? rgb(hot ? kText : 0xaeb7c4) : rgb(kFaint);
+      const Col col = sel ? rgb(kText) : n ? rgb(hot ? kText : kDim) : rgb(kFaint);
       text(g, label, R{r.x + 8, r.y, r.w - 34, r.h}, 11, sel, col, 0);
       text(g, std::to_wstring(n), R{r.x + r.w - 30, r.y, 24, r.h}, 9.5f, false, rgb(n ? kDim : kFaint), 2);
     }
@@ -2027,12 +2084,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       for (int d : {-1, 1}) {
         const R b = bMoveR(d);
         const bool hot = en && bHover == (d < 0 ? 20 : 21);
-        fillRR(g, b, 5, rgb(hot ? 0x262c35 : kInset));
-        strokeRR(g, R{b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, 5, rgb(hot ? 0x3a4250 : kInsetEdge));
+        inset(g, b, 7, hot);
         text(g, d < 0 ? L"\u25B2" : L"\u25BC", b, 9, false, en ? rgb(hot ? kText : kDim) : rgb(kFaint));
       }
     }
-    inset(g, R{l.x - 4, l.y - 4, l.w + 22, l.h + 8}, 7);   // the list and its scroll bar
+    inset(g, R{l.x - 4, l.y - 4, l.w + 22, l.h + 8}, 10);   // the list and its scroll bar
     const int vis = bVisibleRows();
     if (rows.empty())
       text(g, bTab == 1 ? L"Empty — SAVE TO BANK keeps the sound you hear here." : L"No preset.", R{l.x + 8, l.y + 8, l.w - 16, 18}, 10, false, rgb(kFaint), 0);
@@ -2040,7 +2096,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       const int row = rows[j + bScroll];
       const R r = bRowR(j);
       const bool cur = bRowIsCurrent(row), hot = bHover == 1000 + j;
-      if (cur || hot) fillRR(g, r, 4, cur ? rgb(accent(), 52) : rgb(0xffffff, 12));
+      if (cur || hot) fillRR(g, r, 6, cur ? rgb(accent(), 52) : argb(23, 255, 255, 255));
       if (cur) g.fillRect(R{r.x, r.y + 3, 2.5f, r.h - 6}, rgb(accent()));
       std::string name;
       bool fav = false, adj = false;
@@ -2055,8 +2111,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         text(g, L"ADJ", p, 8, true, rgb(accent()));
         right -= 30;
       }
-      if (fav) { starShape(g, right - 7, r.y + r.h / 2, 5, rgb(0xffcf4a)); right -= 16; }   // a favourite (in TOP Sounds)
-      nameText(g, name, R{r.x + 8, r.y, right - r.x - 10, r.h}, 11.5f, cur, cur ? rgb(0xffffff) : rgb(0xd5dce6), 255);
+      if (fav) { starShape(g, right - 7, r.y + r.h / 2, 5, rgb(kAccentA)); right -= 16; }   // a favourite (in TOP Sounds)
+      nameText(g, name, R{r.x + 8, r.y, right - r.x - 10, r.h}, 11.5f, cur, cur ? rgb(0xffffff) : rgb(kText), 255);
     }
     if ((int)rows.size() > vis) {   // scroll bar (beta 0.4: wide enough for a trackpad; drag the thumb or click the bar)
       const R s = bScrollR(), t = bThumb((int)rows.size());
@@ -2068,8 +2124,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     for (int b = 0; b < kBtns; b++) {
       const R r = bBtnR(b);
       const bool en = bBtnEnabled(b), hot = en && bHover == 500 + b;
-      fillRR(g, r, 6, rgb(hot ? 0x262c35 : kInset));
-      strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 6, rgb(hot ? 0x3a4250 : kInsetEdge));
+      inset(g, r, 8, hot);
       text(g, labels[b], r, 9, true, en ? (b == 2 && hot ? rgb(0xff6b6b) : rgb(hot ? kText : kDim)) : rgb(kFaint));
     }
     // status: the last message, else the library in one line
@@ -2078,13 +2133,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (st.empty())
       st = std::to_wstring(lib.adjustedCount()) + L" adjusted \u00B7 " + std::to_wstring(lib.deletedCount()) + L" deleted \u00B7 " +
            std::to_wstring(menuBank.size()) + L" in the user bank \u00B7 OKTOMULTIWAVE presets.txt";
-    g.textEllipsis(st, R{c.x + 12, c.y + 684, c.w - 24, 14}, 9, false, rgb(kFaint), false);
+    g.textEllipsis(st, R{c.x + 12, c.y + c.h - 21, c.w - 24, 14}, 9, false, rgb(kDim), false);   // (version 1.0.6: under the buttons; at y 684 it was drawn over the rows of the list since the panel was compacted)
     if (rowMoving && rowDrag >= 0) {   // beta 0.5: the sound being dragged, under the pointer (inside the browser)
       const std::string nm = bTab == 0 ? lib.name(rowDrag) : rowDrag < (int)menuBank.size() ? menuBank[rowDrag].name : "";
       const float w = std::min(c.w - 8, g.textWidth(toW(nm), 11, true) + 20);
       const R gr{std::max(c.x + 4, std::min(rowX + 14, c.x + c.w - w - 4)), std::max(c.y + 4, std::min(rowY - 10, c.y + c.h - 24)), w, 20};
       fillRR(g, gr, 5, rgb(accent(), 225));
-      g.textEllipsis(toW(nm), R{gr.x + 10, gr.y, gr.w - 14, gr.h}, 11, true, rgb(0x0d1014), true);
+      g.textEllipsis(toW(nm), R{gr.x + 10, gr.y, gr.w - 14, gr.h}, 11, true, rgb(kOnAccent), true);
     }
   }
   void starShape(Canvas& g, float cx, float cy, float r, Col c) {
@@ -2117,8 +2172,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     for (int i = 0; i < 5; i++) {
       const float cx = s.x + i * kStarW + kStarW / 2, cy = s.y + s.h / 2;
       starShape(g, cx, cy, 5, rgb(0xffffff, n > 0 ? 34 : 22));   // the empty star
-      if (n >= 2 * i + 2) starShape(g, cx, cy, 5, rgb(0xffcf4a));
-      else if (n == 2 * i + 1) starHalf(g, cx, cy, 5, rgb(0xffcf4a));
+      if (n >= 2 * i + 2) starShape(g, cx, cy, 5, rgb(kAccentA));
+      else if (n == 2 * i + 1) starHalf(g, cx, cy, 5, rgb(kAccentA));
     }
   }
   // a click on the stars of a row (dx: where, from the left of the stars): the left half of a star gives a half star, the right half the whole star, 1..10;
@@ -2141,8 +2196,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void drawSaveBtn(Canvas& g) {
     const R r = kSaveBtn;
     const bool hot = hover == -2;
-    fillRR(g, r, 8, rgb(hot ? 0x262c35 : kInset));
-    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 8, rgb(hot ? 0x3a4250 : kInsetEdge));
+    inset(g, r, 9, hot);
     text(g, L"SAVE", R{r.x, r.y + 3, r.w, 12}, 9.5f, true, rgb(kDim));
     text(g, L"PRESET", R{r.x, r.y + 14, r.w, 14}, 10.5f, true, rgb(accent()));
   }
@@ -2151,8 +2205,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     const ParamDef& p = kParams[it.w->param];
     const int v = (int)jsRound(plainOf(it.w->param));
     const bool hot = hover == idx;
-    fillRR(g, it.r, 5, rgb(kInset));
-    strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 5, rgb(hot ? 0x3a4250 : kInsetEdge));
+    fillRR(g, it.r, 9, Brush(insetC()));
+    strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 9, edgeC(hot));
     g.textEllipsis(toW(p.choiceShort[v]), R{it.r.x + (kSections[it.section].tabbed ? 5.f : 6.f), it.r.y, it.r.w - 19, it.r.h}, 9.5f, true, rgb(accent()), true);   // (beta 0.3.4: the TARGET menu is 80 px wide: a long name ends with \u2026)
     text(g, L"\u25BE", R{it.r.x + it.r.w - 14, it.r.y, 12, it.r.h}, 9, false, rgb(kDim));
     if (it.w->text) {   // beta 0.6: its caption

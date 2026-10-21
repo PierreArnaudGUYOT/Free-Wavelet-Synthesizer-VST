@@ -489,22 +489,14 @@
   window.addEventListener('blur', () => { for (const n of heldCodes.values()) noteOff(n); heldCodes.clear(); });
 
   // ---------------------------------------------------------------- manuals
-  function openManual(which) {
-    const w = String(which).toUpperCase() === 'B' ? 'b' : 'a';
-    const url = 'manual/manual-' + w + '.html';
+  // version 1.0.6: the manual is one page (manual/manual.html), shown over the window
+  function openManual() {
+    const url = 'manual/manual.html';
     $('manual-iframe').src = url;
     $('manual-newtab').href = url;
-    $('manual-title').textContent = w === 'a' ? 'Manual A — subtractive oscillators A1 · A2' : 'Manual B — additive oscillator B1';
+    $('manual-title').textContent = 'OktoWave — user manual';
     $('manual-overlay').hidden = false;
   }
-  // The manual pages announce themselves (postMessage works across file:// frames),
-  // so the overlay title follows the A <-> B cross-links.
-  window.addEventListener('message', (e) => {
-    const w = e.data && e.data.wsManual;
-    if ((w !== 'a' && w !== 'b') || $('manual-overlay').hidden) return;
-    $('manual-newtab').href = 'manual/manual-' + w + '.html';
-    $('manual-title').textContent = w === 'a' ? 'Manual A — subtractive oscillators A1 · A2' : 'Manual B — additive oscillator B1';
-  });
 
   function closeManual() {
     if ($('manual-overlay').hidden) return;
@@ -582,9 +574,8 @@
   // "Run the demo" then plays the default demo as the header's ▶ DEMO does; "Download the VST" is a plain link (new tab).
   $('start-btn').onclick = () => resumeAudio();
   $('w-demo').onclick = () => resumeAudio().then(() => { if (actx) playDemo(); });
-  for (const w of ['a', 'b']) {   // the manual viewer, over the window (Ctrl / Shift / Cmd + click: the browser's new tab or window)
-    $('w-man-' + w).onclick = (e) => { if (e.ctrlKey || e.shiftKey || e.metaKey) return; e.preventDefault(); openManual(w); };
-  }
+  // the manual viewer, over the window (Ctrl / Shift / Cmd + click: the browser's new tab or window)
+  $('w-manual').onclick = (e) => { if (e.ctrlKey || e.shiftKey || e.metaKey) return; e.preventDefault(); openManual(); };
   $('start-overlay').addEventListener('pointerdown', (e) => { if (e.target === $('start-overlay')) resumeAudio(); });
   $('manual-close').onclick = closeManual;
   $('manual-overlay').addEventListener('pointerdown', (e) => { if (e.target === $('manual-overlay')) closeManual(); });

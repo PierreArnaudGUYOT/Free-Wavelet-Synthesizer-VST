@@ -10,7 +10,7 @@
 // - The demo plays the PRESET TOUR of tools/spec.js (TOUR: the TOP Sounds mixed with new presets; the first two are not heard, the song
 //   starts at 7.8 s): a change every ~4 s on a chord (WS_TEST.demoTour gives the times), with Voices 16, Octave 0,
 //   Glide 0 and Amp Attack capped at 0.08 s forced; all other values must equal the spec preset. During the first presets the demo
-//   window shows the welcome sentences (TOUR_INTRO), then the summary of each preset.
+//   window shows the presentation of the synth, one sentence per preset (tools/spec.js DEMO_STORY: a chapter in .dw-chap, the sentence in .dw-text).
 // - Stop paths (header STOP, window STOP, Esc), Ctrl+click reset.
 // - Welcome window: 'Run the demo' from a cold start plays the demo; when another tab takes the audio, the window comes
 //   back with the reason, and its 'Play the synth' / 'Run the demo' take the audio back (lifecycle).
@@ -47,16 +47,9 @@ const TOUR_STEP = 4; // s per preset in the tour (TOL_T = 0.3 s leaves a 3.4 s c
 const TOUR = SPEC.TOUR;
 const tourFrom = (first, n) => Array.from({ length: n }, (_, i) => TOUR[(first + i) % TOUR.length]);
 const TOUR_START = TOUR[2];   // first preset heard on the default song
-// the sentences the demo window shows during the first presets of the tour (one each, web/js/demo.js TOUR_INTRO), before the summary
-const TOUR_INTRO = [
-  'Welcome to OKTOMULTIWAVE. Every sound you hear is built from wavelets: tiny waves, like bricks of sound.',
-  'This synth has three oscillators: two that shape a classic waveform (A1, A2) and one that builds the sound brick by brick (B1).',
-  'Most presets use two of them: a body that sings, and a second oscillator that adds a colour, a shimmer or the attack.',
-  'An oscillator can live for a few milliseconds only: a click, a pluck, a breath. It gives the sound its attack.',
-  'CHORD MODE turns the keyboard into a chord harp: one key plays a whole chord. Try it under the keyboard.',
-  'Pads, plucks, organs, basses: each one is a preset you can play. Enjoy the tour!',
-];
-const SUMMARY_END = 'Played polyphonic at its normal octave, with short echoes.';   // the end of every preset summary (demo.js presetSummary)
+// version 1.0.6: the demo window presents the synth while the piece plays: one sentence per preset of the tour (web/js/demo.js, the spec's DEMO_STORY: [chapter, sentence]; the last one stays if the tour is longer)
+const STORY = SPEC.DEMO_STORY;
+const storyAt = (k) => STORY[Math.min(k, STORY.length - 1)];
 const FORCED = { v_voices: 16, v_oct: 0, v_glide: 0 }; // + caps: amp_a <= 0.08, fx_dmix <= 0.1, fx_dfb <= 0.3
 const CAPS = { amp_a: 0.08, fx_dmix: 0.1, fx_dfb: 0.3 };
 
@@ -97,7 +90,7 @@ const SNAP_EXPR = `(() => { const s = WS_TEST.demoState(); const l = WS_TEST.get
   const q = (c) => { const e = document.querySelector(c); return e ? e.textContent.trim() : null; };
   const w = document.querySelector('.demo-win');
   return { s, all, lv: Math.max(l.peakL, l.peakR), hot: document.querySelectorAll('.hot').length,
-    sec: q('.dw-sec'), param: q('.dw-param'), val: q('.dw-val'), text: q('.dw-text'), btn: q('.demo-btn'), win: !!w && getComputedStyle(w).display !== 'none',
+    sec: q('.dw-sec'), param: q('.dw-param'), val: q('.dw-val'), chap: q('.dw-chap'), text: q('.dw-text'), btn: q('.demo-btn'), win: !!w && getComputedStyle(w).display !== 'none',
     lbl: (() => { const n = document.querySelector('.presets .pname'); if (!n) return null; const sp = n.querySelector('span');
       return { name: (sp ? sp.textContent : n.textContent).trim(), dirty: !!n.querySelector('.dirty') }; })() }; })()`;
 
@@ -173,10 +166,9 @@ function tourChecks(name, song, samples, plan, full, intro = true, start = plan[
     if (!((x.sec || '').includes('Preset tour') && (x.sec || '').includes(`${k + 1}/${N}`) && (x.param || '').includes(want)))
       badText.push(`t=${t.toFixed(1)} sec '${x.sec}' param '${x.param}'`);
     else if (full && next && !(x.val || '').includes(next)) badText.push(`t=${t.toFixed(1)} next '${x.val}' (expected '${next}')`);
-    // beta 0.7: the welcome sentence of the place in the tour during the first presets, then the summary of the preset
-    if (k < TOUR_INTRO.length) { if (x.text === TOUR_INTRO[k]) introSeen.add(k); else badIntro.push(`t=${t.toFixed(1)} #${k + 1} text '${x.text}' expected '${TOUR_INTRO[k]}'`); }
-    else if (!((x.text || '').endsWith(SUMMARY_END) && !TOUR_INTRO.some((s) => (x.text || '').includes(s)))) badIntro.push(`t=${t.toFixed(1)} #${k + 1} text '${x.text}' (expected the preset summary)`);
-    else summarySeen++;
+    // version 1.0.6: the chapter and the sentence of the presentation for the place in the tour
+    const [wantChap, wantLine] = storyAt(k);
+    if (x.text === wantLine && x.chap === wantChap) { introSeen.add(k); summarySeen++; } else badIntro.push(`t=${t.toFixed(1)} #${k + 1} chapter '${x.chap}' text '${x.text}' expected '${wantChap}' / '${wantLine}'`);
   }
   log(`  ${name}: presets in order of appearance (${seen.length}): ${seen.join(' | ')}`);
   check(seen[0] === start, `${name}: the tour starts at '${start}'`, `first preset '${seen[0]}'`);
@@ -185,10 +177,10 @@ function tourChecks(name, song, samples, plan, full, intro = true, start = plan[
   check(badVals.length === 0, `${name}: each preset's spec values with Voices 16, Octave 0, Glide 0 forced and Amp Attack <= 0.08 s, Delay Mix <= 0.1, Delay Feedback <= 0.3, and the demo trim of the master`, short(badVals));
   check(badText.length === 0, `${name}: window shows 'Preset tour · n/${N}', 'Now playing: <preset>' and the next preset`, short(badText));
   if (intro) {
-    const nIntro = Math.min(TOUR_INTRO.length, N);
+    const nIntro = Math.min(STORY.length, N);
     check(badIntro.length === 0 && introSeen.size === nIntro && summarySeen > 0,
-      `${name}: the window explains the idea during the first ${nIntro} presets (one welcome sentence each, in order), then shows each preset's summary`,
-      `${short(badIntro, 4)}${badIntro.length ? '; ' : ''}sentences seen ${[...introSeen].map((k) => k + 1).join(',') || 'none'} of ${nIntro}, ${summarySeen} samples with a summary`);
+      `${name}: the window presents the synth, one sentence (with its chapter) per preset of the tour, in order`,
+      `${short(badIntro, 4)}${badIntro.length ? '; ' : ''}sentences seen ${introSeen.size} of ${nIntro}, ${summarySeen} samples`);
   }
   if (full) {
     // one run plays every preset of the plan exactly once
@@ -256,7 +248,8 @@ async function lifecycleTests() {
   log(`  tab B before start: audioState() = '${st2}'`);
   check(st2 === 'none' || st2 === 'suspended', "tab B: audioState() reports no running context before start ('none' or 'suspended')", st2);
   await T2.evaluate('Promise.resolve(WS_TEST.start()).then(() => true)');
-  await sleep(1000);
+  // tab A is told by a message, then suspends its context (a promise): under a heavy load (the other lane of full.js) that takes longer than a second, so wait for it (version 1.0.6)
+  for (let i = 0; i < 40; i++) { await sleep(250); if (await A.evaluate('WS_TEST.audioState()') === 'suspended' && !(await A.evaluate('WS_TEST.demoState()')).running) break; }
   const aState = await A.evaluate('WS_TEST.audioState()'), aDemo = (await A.evaluate('WS_TEST.demoState()')).running, aOv = await A.evaluate(OVERLAY_EXPR);
   log(`  after tab B starts: tab A audio '${aState}', demo running ${aDemo}, overlay ${JSON.stringify(aOv)}`);
   check(aState === 'suspended', "starting audio in tab B suspends tab A's AudioContext", aState);
@@ -378,9 +371,9 @@ async function main() {
     check(isTour, 'the demo is a preset tour (demoState().preset)', JSON.stringify(st0.s.preset));
     log(`  preset tour: ${isTour ? 'yes' : 'no'} (demoState().preset = ${JSON.stringify(st0.s.preset)})`);
     let shot = false;
-    // smoke: up to the first preset after the welcome sentences (beta 0.7), so that the switch to the preset summary is seen
+    // smoke: the first seven presets of the tour (the first sentences of the presentation)
     const plan0 = isTour ? await ev('WS_TEST.demoTour()') : null;
-    const smokeEnd = plan0 && plan0[TOUR_INTRO.length] ? plan0[TOUR_INTRO.length].t + 1.5 : 4 * TOUR_STEP + 2;
+    const smokeEnd = plan0 && plan0[6] ? plan0[6].t + 1.5 : 4 * TOUR_STEP + 2;
     const tourSamples = await follow(opt.smoke ? smokeEnd : song.duration + 6, async (s) => {
       if (!shot && s.s.time > 13) { shot = true; await B.screenshot(path.join(opt.out, 'tour_t13.png')); }
     });

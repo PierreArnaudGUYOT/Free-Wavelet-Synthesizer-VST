@@ -31,9 +31,9 @@ const APP = {
   panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: '1.0.5',
-  versionNum: '1.0.5',
-  date: '2026-10-20',
+  version: '1.0.6',
+  versionNum: '1.0.6',
+  date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
 };
@@ -782,6 +782,41 @@ let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { i
   TOUR.splice(2, TOUR.length - 2, ...slots, fresh[f], fresh[f + 1]);
 }
 for (const n of TOUR) if (!DEMO_PRESETS.some(p => p.name === n) && !PRESETS.some(p => p.name === n)) throw new Error('TOUR: preset not found: ' + n);
+// version 1.0.6: what the demo window says while the piece plays (the owner's request: a short, readable presentation of the synth, the wavelets and the idea of an oscillator made of them, and how it
+// differs from the other synthesizers). One sentence per preset of the tour (every ~4 s, so about 13 words at the most, simple words), [chapter, sentence]; the web app shows them in order, the last one stays
+// if the tour is longer. Only facts of the engine: tools/ and CLAUDE.md section 3.1 (a cycle is split into 11 bands of wavelets; the scale filter works on bands, the position window on a part of the cycle).
+const DEMO_STORY = [
+  ['WELCOME', 'Welcome to OKTOWAVE, a synthesizer built on wavelets.'],
+  ['WELCOME', 'Listen to the music. We will explain the idea, one step at a time.'],
+  ['WHAT IS A WAVELET?', 'A normal wave goes on and on, like a long smooth ripple.'],
+  ['WHAT IS A WAVELET?', 'A wavelet is a tiny wave: it starts, rings for a moment, and fades.'],
+  ['WHAT IS A WAVELET?', 'It lives in one place and one moment only.'],
+  ['WHAT IS A WAVELET?', 'Like a small brick of sound, it is simple on its own.'],
+  ['WHAT IS A WAVELET?', 'Many bricks of different sizes can build any sound.'],
+  ['WHAT IS A WAVELET?', 'Big bricks make the deep body. Small bricks make the shine.'],
+  ['AN OSCILLATOR MADE OF WAVELETS', 'OKTOWAVE turns this idea into an oscillator.'],
+  ['AN OSCILLATOR MADE OF WAVELETS', 'The oscillator is the part of a synth that makes the raw sound.'],
+  ['AN OSCILLATOR MADE OF WAVELETS', 'Here, that raw sound is built from wavelets, brick by brick.'],
+  ['AN OSCILLATOR MADE OF WAVELETS', 'You choose the wavelet: Haar, Daubechies, Symlet, Coiflet.'],
+  ['AN OSCILLATOR MADE OF WAVELETS', 'A blocky wavelet sounds raw. A smooth one sounds soft.'],
+  ['AN OSCILLATOR MADE OF WAVELETS', 'The SCALOGRAM shows the bricks: each row is a size.'],
+  ['AN OSCILLATOR MADE OF WAVELETS', 'Turn a knob and you add or remove bricks, while you play.'],
+  ['HOW IT DIFFERS', 'Most synthesizers start from one long, repeating wave.'],
+  ['HOW IT DIFFERS', 'They carve it with a filter. That is subtractive synthesis.'],
+  ['HOW IT DIFFERS', 'Others stack pure sine waves. That is additive synthesis.'],
+  ['HOW IT DIFFERS', 'A sine wave never stops, so it has no place in time.'],
+  ['HOW IT DIFFERS', 'A wavelet knows where it sits, so you can shape just one part of the sound.'],
+  ['HOW IT DIFFERS', 'The SCALE FILTER keeps or removes bricks by size.'],
+  ['HOW IT DIFFERS', 'SPARSITY keeps only the strongest bricks: fewer bricks, a stranger tone.'],
+  ['HOW IT DIFFERS', 'WAVELET MORPH slides from one wavelet to another.'],
+  ['NOW PLAY', 'A1 and A2 start from a classic wave. B1 builds the sound from bricks alone.'],
+  ['NOW PLAY', 'Add the filter, three LFOs and effects, and a sound is born.'],
+  ['NOW PLAY', 'CHORD MODE turns one key into a whole chord.'],
+  ['NOW PLAY', 'The ARAB and TURK tunings bring quarter tones to the keyboard.'],
+  ['NOW PLAY', 'Pads, plucks, organs, basses: every preset is yours to play.'],
+  ['NOW PLAY', 'Press STOP, touch a knob, and make the sound your own.'],
+  ['NOW PLAY', 'Thank you for listening to OKTOWAVE.'],
+];
 if (!PRESETS.some(p => p.name === DEFAULT_PRESET)) throw new Error('DEFAULT_PRESET not found: ' + DEFAULT_PRESET);
 
 // Validate preset keys and ranges at generation time.
@@ -800,5 +835,5 @@ for (const s of S) {
   }
 }
 
-module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_COUNT, TOP_EXTRA, TOP_LIST, DEMO_PRESETS, DEMO_TRIM, KEYATTAC, CATEGORIES,
+module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_COUNT, TOP_EXTRA, TOP_LIST, DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, CATEGORIES,
   LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, CHORDS, CHORD_KEYS, MICRO_TABLES, NEW_FIRST: TOP_COUNT, NEW_COUNT: NEW_RAW.length, DESCRIPTIONS, TOUR };

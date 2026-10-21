@@ -44,8 +44,10 @@ x86_64-w64-mingw32-clang++ -shared -static -s -o "%BUNDLE%\Contents\x86_64-win\O
 rem the same DLL as a VST2 plug-in: hosts scanning a VST2 folder find this .dll inside the bundle folder
 copy /Y "%BUNDLE%\Contents\x86_64-win\OktoMultiWaveSynth.vst3" "%BUNDLE%\Contents\x86_64-win\OktoMultiWaveSynth.dll" >nul || exit /b 1
 
-echo [4/4] copying manuals and licences into the bundle
-if not exist "%BUNDLE%\Contents\Resources\manual" mkdir "%BUNDLE%\Contents\Resources\manual"
+echo [4/4] copying the manual and licences into the bundle
+rem the manual folder is replaced, not merged: the manuals of 1.0.5 (manual-a.html, manual-b.html, img\) must not linger in a bundle built before
+if exist "%BUNDLE%\Contents\Resources\manual" rmdir /S /Q "%BUNDLE%\Contents\Resources\manual"
+mkdir "%BUNDLE%\Contents\Resources\manual"
 xcopy /E /I /Y /Q "%ROOT%\web\manual" "%BUNDLE%\Contents\Resources\manual" >nul
 copy /Y "%ROOT%\LICENSE" "%BUNDLE%\Contents\Resources\LICENSE.txt" >nul
 copy /Y "%HERE%external\pluginterfaces\LICENSE.txt" "%BUNDLE%\Contents\Resources\THIRD-PARTY-VST3-INTERFACES-LICENSE.txt" >nul

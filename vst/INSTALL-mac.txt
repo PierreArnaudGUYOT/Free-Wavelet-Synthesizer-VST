@@ -1,41 +1,26 @@
-Wavelet Synthesizer beta 0.7 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+OktoWave (Okto MultiWave Synth) 1.0.6 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
-the licence text is in WaveletSynthesizer.vst3/Contents/Resources/LICENSE.txt.
+the licence text is in OktoMultiWaveSynth.vst3/Contents/Resources/LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
-How to cite: Guyot, P. A. (2026). Wavelet Synthesizer [Computer software]. Zenodo.
-DOI 10.5281/zenodo.23431760 - https://doi.org/10.5281/zenodo.23431760 (record: https://zenodo.org/records/23431760)
+Play it online (nothing to install): https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/
 
-The same instrument as the Windows beta 0.7 (same sound, panel, 150 presets, preset browser and presets file).
-NEW IN BETA 0.7: TOP Sounds = OktoPierre's 22 favourites (the best first), Source Phase the last category
-again (same 150 presets, same sounds); a wider scope (SUB OSC's three knobs in a column), a taller keyboard, more room in
-VOICE. The lists of a presets file saved by beta 0.5 / 0.6 are rebuilt (adjusted presets and user bank kept).
-NEW IN BETA 0.6: a clearer panel (SUB OSC beside the oscillator, LFO 1 and LFO 2 side by side, the chorus inside
-EFFECTS, one MANUAL button for the engine shown) and TEMPO SYNC: the SYNC buttons of the delay, LFO 1 and LFO 2 follow
-your DAW's tempo in note values (1/4, 1/8 D = dotted, 1/16 T = triplet...; the delay up to 4 s). Your Live Sets and
-presets sound as before.
-NEW IN BETA 0.5: OktoPierre's sort of the presets (150 kept of 253; TOP Sounds = his 37 best, Source Phase second, each
-category in his order); a preset moves to another category by dragging it onto that category in the browser (onto TOP
-Sounds: added there) or by its menu (Control-click or right-click on it); the arrow keys choose sounds after a click in the
-browser (Up / Down the sound above / below, Left / Right the category). A Live Set made with a preset that is left out keeps
-its sound and shows its name. NEW IN BETA 0.4: SOURCE PHASE (the PHASE knob of engine A, also an LFO 2 target) and the 100 presets of the Source Phase
-section (see RELEASE_HISTORY.md on GitHub); IMPORT... in the preset browser (another presets file replaces yours, a
-backup copy is kept), a wide scroll bar for its long lists (no mouse wheel needed), and a fix for a note that could keep
-sounding after a preset change (mono <-> poly). It was built and tested automatically on Apple's Macs, but not yet in every DAW: please
-report any problem at https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/issues
+The same instrument as the Windows version (same sound, panel and presets: 237 sounds, a preset browser and a presets file). It is
+built and tested automatically on Apple's Macs (GitHub Actions), but not yet in every DAW: please report any problem at
+https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/issues
 
 INSTALL
 1. Quit your DAW. Double-click the zip to unzip it.
-2. Copy the "WaveletSynthesizer.vst3" plug-in into YOUR OWN plug-in folder: in the Finder, menu Go > Go to Folder...
+2. Copy the "OktoMultiWaveSynth.vst3" plug-in into YOUR OWN plug-in folder: in the Finder, menu Go > Go to Folder...
    (Shift-Cmd-G), type  ~/Library/Audio/Plug-Ins/VST3  and press Return (create the "VST3" folder if it is missing).
    Use this folder rather than the system folder /Library/Audio/Plug-Ins/VST3: the presets file is written next to the
    plug-in, and only your own folder can be written without an administrator password.
 3. FIRST START - macOS security. The plug-in is free and is not signed with a paid Apple developer certificate, so macOS
    blocks it the first time (it may say that it "cannot be opened", that "Apple could not verify" it, or that it "is
    damaged"). To allow it once: open Terminal (Applications > Utilities > Terminal), paste this line and press Return:
-       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/WaveletSynthesizer.vst3
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/OktoMultiWaveSynth.vst3
    (or, after macOS has blocked it: System Settings > Privacy & Security, scroll down, "Open Anyway").
 4. In Ableton Live: Settings > Plug-ins > switch on "Use VST3 Plug-in System Folders", then click "Rescan".
-   In Live's browser: Plug-ins > OktoPierre > Wavelet Synthesizer. Drag it onto a MIDI track.
+   In Live's browser: Plug-ins > OktoPierre > Okto MultiWave Synth. Drag it onto a MIDI track.
    Other VST3 hosts (Cubase, Bitwig Studio, Reaper, Studio One...) find it after a plug-in rescan. Logic Pro and GarageBand
    only load Audio Units (AU): they cannot use this VST3 version.
 
@@ -43,11 +28,13 @@ ON A MAC
 - Cmd-click (or double-click) a knob: back to its default value. Shift-drag: fine adjustment.
 - Control-click (or right-click) on the preset name: the classic preset menu. A click opens the preset browser.
   Control-click on a sound of the browser: its menu (Move to, Add to / Remove from TOP Sounds).
-- The MANUAL button opens the user manual of the engine shown (included in the plug-in), in your web browser.
-- Your adjusted presets, deleted presets and user bank are kept in "OKTOWAVE presets.txt", next to WaveletSynthesizer.vst3
+- The MANUAL button opens the user manual (one page, included in the plug-in) in your web browser.
+- Your adjusted presets, deleted presets and user bank are kept in "OKTOMULTIWAVE presets.txt", next to OktoMultiWaveSynth.vst3
   ("Show the presets file" in the preset-name menu shows it in the Finder; IMPORT... reads another one).
 
+THE SAME SOUND AS ON WINDOWS
+The sound engine is the same code as the web app's and the Windows plug-in's, compiled without fused multiply-adds, and
+checked against the web engine on every build (Apple silicon and Intel).
+
 ACKNOWLEDGMENTS
-- Thanks to Jeremi Palmigani (aka Saoul Machine) and Flo (aka Go Tiger) for testing the synth and providing valuable
-  feedback and improvement suggestions.
-- Thanks to Arnaud Grignard for the technical review of the concept.
+Steinberg VST3 interface headers (MIT licence), in OktoMultiWaveSynth.vst3/Contents/Resources/.

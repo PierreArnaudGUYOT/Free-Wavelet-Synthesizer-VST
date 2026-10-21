@@ -339,7 +339,7 @@ int wmain(int argc, wchar_t** argv) {
   }
   std::printf("2. beta 0.3.4: the LFO 2 | LFO 3 tabs, the stepped SHAPE knob, TUNING ARAB / TURK (oriental colour code and pattern)\n");
   {
-    const uint32_t kAccentColA = 0xffcf3d;   // the yellow of the subtractive oscillators
+    const uint32_t kAccentColA = 0xffd166;   // the gold of the subtractive oscillators (version 1.0.6: the Crepuscule look; it was yellow 0xffcf3d)
     auto setP = [&](int id, double plain) { h.ctrl->setParamNormalized(id, h.ctrl->plainParamToNormalized(id, plain)); h.run(0.3); };
     float lt[4], ob[4], shx = 0, shy = 0, vx = 0, vy = 0, tgx = 0, tgy = 0;
     check(widgetBox(W_LFOTABS, lt) && widgetBox(W_OSCTABS, ob), "the LFO tabs and the folder tabs are in the layout", fmt("lfotabs (%.0f, %.0f), osctabs at y %.0f", lt[0], lt[1], ob[1]));

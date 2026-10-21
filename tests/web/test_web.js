@@ -430,7 +430,7 @@ async function stepWelcome() {
   check(/Appassionata/.test(demo.small) && demo.id === 'w-demo', "'Run the demo' (#w-demo) announces the Appassionata tour", JSON.stringify(demo));
   check(!!play && play.title === 'Play the synth' && play.small.trim() === 'MIDI supported', "'Play the synth' is #start-btn and says only 'MIDI supported'", JSON.stringify(play));
   check(dl.tag === 'A' && dl.href === VST_URL && dl.target === '_blank' && /\bnoopener\b/.test(dl.rel || ''), `'Download the VST' opens ${VST_URL} in a new tab (rel noopener)`, JSON.stringify(dl));
-  check(w.manuals.some((h) => /manual-a\.html$/.test(h)) && w.manuals.some((h) => /manual-b\.html$/.test(h)), 'its footer links to both manuals', JSON.stringify(w.manuals));
+  check(w.manuals.length === 1 && /manual\.html$/.test(w.manuals[0]), 'its footer links to the manual (one page)', JSON.stringify(w.manuals));
   check(w.inert, 'the panel and the status bar behind it are inert while it is shown', 'stage / statusbar not inert');
   // keyboard: Tab goes to a choice of the window (the panel behind is inert), with a visible focus ring
   await B.key('Tab', { code: 'Tab' });
@@ -648,14 +648,14 @@ async function stepPanel() {
   const mb = await ev(`[...document.querySelectorAll('#device button, #device a')].filter((b) => /MANUAL/.test(b.textContent)).map((b) => b.textContent)`);
   check(mb.length === 1 && mb[0] === 'USERMANUAL', "one 'USER MANUAL' button (no MANUAL A / MANUAL B)", JSON.stringify(mb));
   const eng0 = await ev(`WS_TEST.getParam('osc_view')`);
-  for (const [e, file] of [[0, 'manual-a.html'], [2, 'manual-b.html']]) {
+  for (const e of [0, 2]) {   // (version 1.0.6: the same page whatever oscillator is shown)
     await ev(`WS_TEST.setParam('osc_view', ${e}); true`);
     await sleep(200);
     const c = await centreOf('#device .hbtn.manual');
     if (c) await B.click(c.x, c.y);
     await sleep(500);
     const m = await ev(`({ open: !document.getElementById('manual-overlay').hidden, src: document.getElementById('manual-iframe').getAttribute('src') || '' })`);
-    check(!!c && m.open && m.src.endsWith(file), `MANUAL opens the manual of the oscillator shown (${['A1', 'A2', 'B1'][e]}: ${file})`, JSON.stringify(m));
+    check(!!c && m.open && m.src.endsWith('manual/manual.html'), `MANUAL opens the manual (${['A1', 'A2', 'B1'][e]} shown: manual/manual.html)`, JSON.stringify(m));
     await ev('WS_TEST.closeManual(); true');
     await sleep(200);
   }

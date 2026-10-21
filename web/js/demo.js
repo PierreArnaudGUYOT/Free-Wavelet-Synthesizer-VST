@@ -12,16 +12,9 @@ function WSDemo(api) {
   // The preset sequence of the tour (tools/spec.js TOUR: the tour of the Wavelet Synthesizer's web app, same piece, same presets, same level; the presets are
   // WS_SPEC.DEMO_PRESETS, app.js applyPreset): written out so that a new menu order does not change the demo. The demo starts at song.origin (7.8 s: its opening chords are cut).
   const TOUR_STEP = 4;
-  // the demo window says the idea in plain words during the first presets of the tour (one sentence each, about 4 s), then
-  // describes each preset
-  const TOUR_INTRO = [
-    'Welcome to OKTOMULTIWAVE. Every sound you hear is built from wavelets: tiny waves, like bricks of sound.',
-    'This synth has three oscillators: two that shape a classic waveform (A1, A2) and one that builds the sound brick by brick (B1).',
-    'Most presets use two of them: a body that sings, and a second oscillator that adds a colour, a shimmer or the attack.',
-    'An oscillator can live for a few milliseconds only: a click, a pluck, a breath. It gives the sound its attack.',
-    'CHORD MODE turns the keyboard into a chord harp: one key plays a whole chord. Try it under the keyboard.',
-    'Pads, plucks, organs, basses: each one is a preset you can play. Enjoy the tour!',
-  ];
+  // version 1.0.6: the window presents the synth while the piece plays, one short sentence per preset of the tour (the wavelets, the idea of an oscillator made of them, how it differs from the
+  // other synthesizers): WS_SPEC.DEMO_STORY ([chapter, sentence], tools/spec.js); the last one stays if the tour is longer
+  const STORY = WS_SPEC.DEMO_STORY;
 
   // Preset tour: about every `step` seconds the next preset of the spec's TOUR (wraps around).
   // Each change is moved to a change of chord of the piece: near every `step`-second mark (within TOUR_SNAP), the onset
@@ -74,28 +67,6 @@ function WSDemo(api) {
     const on = playing();
     return on.length ? 'Oscillators ' + on.map(s => SLOT_NAMES[s]).join(' + ') : 'No oscillator';
   }
-  function presetSummary() {
-    const v = api.values(), f = (i) => C.format(PARAMS[i], v[i]);
-    const parts = [];
-    for (const s of playing()) {
-      const k = SPEC_SLOTS[s].k, lvl = Math.round(v[k.lvl] * 100);
-      const tone = SPEC_SLOTS[s].mode === 0 ? `${f(k.wave).toLowerCase()} wave, ${f(k.ftype).toLowerCase()} ${f(k.fcut)}` : `${f(k.pattern).toLowerCase()} atoms, tilt ${f(k.tilt)}`;
-      const extra = [];
-      if (v[k.oct] !== 0 || v[k.semi] !== 0) extra.push(`${(12 * v[k.oct] + v[k.semi]) > 0 ? '+' : '−'}${Math.abs(12 * v[k.oct] + v[k.semi])} st`);
-      if (v[k.eon] >= 0.5) extra.push('own envelope');
-      if (v[k.pamt] !== 0) extra.push('pitch envelope');
-      parts.push(`${SLOT_NAMES[s]} ${lvl}% ${tone}${extra.length ? ' (' + extra.join(', ') + ')' : ''}`);
-    }
-    if (v[P.sub_level] > 0) parts.push(`sub ${f(P.sub_shape).toLowerCase()} ${f(P.sub_oct)}`);
-    const fx = [];
-    if (v[P.ch_mix] > 0.05) fx.push('chorus');
-    if (v[P.fx_drive] > 0.02) fx.push('drive');
-    if (v[P.fx_dmix] > 0.05) fx.push('delay');
-    if (v[P.fx_rmix] > 0.05) fx.push('reverb');
-    if (fx.length) parts.push(fx.join(' + '));
-    return parts.join(' · ') + '. Played polyphonic at its normal octave, with short echoes.';
-  }
-
   let st = null;        // running state
   let win = null;       // window elements
 
@@ -106,12 +77,12 @@ function WSDemo(api) {
     w.className = 'demo-win';
     w.innerHTML =
       '<div class="dw-bar"><span class="dw-title"></span><button class="dw-stop" title="Stop the demo">■ STOP</button></div>' +
-      '<div class="dw-body"><div class="dw-sec"></div><div class="dw-param"></div><div class="dw-val"></div><div class="dw-text"></div>' +
+      '<div class="dw-body"><div class="dw-sec"></div><div class="dw-param"></div><div class="dw-val"></div><div class="dw-chap"></div><div class="dw-text"></div>' +
       '<div class="dw-prog"><i></i></div><div class="dw-foot"><span class="dw-time"></span><span class="dw-src"></span></div></div>';
     dev.appendChild(w);
     win = {
       el: w, title: w.querySelector('.dw-title'), sec: w.querySelector('.dw-sec'), param: w.querySelector('.dw-param'),
-      val: w.querySelector('.dw-val'), text: w.querySelector('.dw-text'), prog: w.querySelector('.dw-prog i'),
+      val: w.querySelector('.dw-val'), chap: w.querySelector('.dw-chap'), text: w.querySelector('.dw-text'), prog: w.querySelector('.dw-prog i'),
       time: w.querySelector('.dw-time'), src: w.querySelector('.dw-src'),
     };
     w.querySelector('.dw-stop').onclick = () => stop();
@@ -173,7 +144,9 @@ function WSDemo(api) {
       const engine = engineLabel();
       win.sec.textContent = `Preset tour · ${sc.pos + 1}/${sc.of} · ${engine}`;
       win.param.textContent = 'Now playing: ' + sc.preset;
-      win.text.textContent = sc.pos < TOUR_INTRO.length ? TOUR_INTRO[sc.pos] : presetSummary();
+      const line = STORY[Math.min(sc.pos, STORY.length - 1)];
+      win.chap.textContent = line[0];
+      win.text.textContent = line[1];
       return;
     }
   }

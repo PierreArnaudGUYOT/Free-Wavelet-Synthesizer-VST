@@ -10,7 +10,7 @@ const wav = JSON.parse(fs.readFileSync(path.join(__dirname, 'wavelets.json'), 'u
 
 const root = path.join(__dirname, '..');
 const { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS, INDEX, SECTIONS, PRESETS, TOP, TOP_EXTRA, TOP_LIST, CATEGORIES, LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, MICRO_TABLES,
-  CHORDS, CHORD_KEYS, NEW_FIRST, NEW_COUNT, DESCRIPTIONS, TOUR, DEMO_PRESETS, DEMO_TRIM, KEYATTAC } = spec;
+  CHORDS, CHORD_KEYS, NEW_FIRST, NEW_COUNT, DESCRIPTIONS, TOUR, DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC } = spec;
 // the fields of an oscillator, in the order of the C++ SlotDef (a field an oscillator lacks is -1: the subtractive ones have no
 // atom pattern, the additive ones no source wave)
 const SLOT_FIELDS = ['lvl', 'wavelet', 'wave', 'width', 'sparsity', 'phase', 'pattern', 'seed', 'tilt', 'bar1', 'atk', 'spread', 'body', 'bright', 'sus',
@@ -37,6 +37,7 @@ const web = {
   PRESETS: presetValues,
   DEMO_PRESETS: demoPresets,
   DEMO_TRIM,   // version 1.0.4: the whole dB each preset of the tour goes down in the demo
+  DEMO_STORY,   // version 1.0.6: [chapter, sentence] the demo window says, one per preset of the tour
   KEYATTAC: keyAttac,
   LFO2_TARGETS: LFO2_TARGETS.map(k => INDEX[k]),   // beta 0.3: the parameters LFO 2 can move (lfo2_target order, the parameters of A1)
   MICRO: MICRO_TABLES,   // beta 0.2: the oriental tunings: [Arabic, Turkish][scale][semitone above the tonic] = cents from the equal-tempered key

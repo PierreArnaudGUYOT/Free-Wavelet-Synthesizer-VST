@@ -1,10 +1,10 @@
 # Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The macOS plug-in (Mac port of the Wavelet Synthesizer beta 0.3; not part of Okto MultiWave Synth beta 0.1, run by hand): built and tested on GitHub's Apple-silicon Macs, for Apple silicon and Intel.
+# The macOS plug-in of OktoWave (Okto MultiWave Synth), built and tested on GitHub's Apple-silicon Macs, for Apple silicon and Intel (version 1.0.6: it has the Crepuscule look and is released with the Windows one).
 # Results (Actions tab, "Artifacts"): the release zip and the test output (logs, editor screenshots).
 name: macOS plug-in
 on:
-  workflow_dispatch:   # no macOS build is made for beta 0.1 (Windows and web only): run it by hand to try the port
+  workflow_dispatch:   # run by hand (Actions tab > macOS plug-in > Run workflow), on the branch to build
 permissions:
   contents: read
 jobs:
@@ -24,6 +24,7 @@ jobs:
       - name: Sound identical to the web engine (Apple silicon)
         run: |
           mkdir -p out/dsp-arm64
+          node tools/dsp_compare.js --list out/dsp-arm64
           clang++ -std=c++17 -O2 -ffp-contract=off -arch arm64 -Ivst/src vst/devtest/dsp_render.cpp -o build/mac/dsp_render_arm64
           build/mac/dsp_render_arm64 out/dsp-arm64 > out/dsp-arm64/render.log
           node tools/dsp_compare.js out/dsp-arm64 | tee out/dsp-arm64/compare.log
@@ -31,6 +32,7 @@ jobs:
       - name: Sound identical to the web engine (Intel, Rosetta)
         run: |
           mkdir -p out/dsp-x86_64
+          node tools/dsp_compare.js --list out/dsp-x86_64
           clang++ -std=c++17 -O2 -ffp-contract=off -arch x86_64 -Ivst/src vst/devtest/dsp_render.cpp -o build/mac/dsp_render_x86_64
           arch -x86_64 build/mac/dsp_render_x86_64 out/dsp-x86_64 > out/dsp-x86_64/render.log
           node tools/dsp_compare.js out/dsp-x86_64 | tee out/dsp-x86_64/compare.log
@@ -46,12 +48,12 @@ jobs:
           arch -x86_64 build/mac/machost build/mac/OktoMultiWaveSynth.vst3 out/host-x86_64 | tee out/host-x86_64/machost.log
       - name: Release zip
         run: |
-          VERSION=$(sed -n 's/^#define WS_VERSION "\([^"]*\)".*/\1/p' vst/src/common.h | cut -d. -f1-2)
+          VERSION=$(sed -n 's/^#define WS_VERSION "\([^"]*\)".*/\1/p' vst/src/common.h)
           mkdir -p dist/stage
           ditto build/mac/OktoMultiWaveSynth.vst3 dist/stage/OktoMultiWaveSynth.vst3
           cp vst/INSTALL-mac.txt dist/stage/INSTALL-mac.txt
-          ditto -c -k --sequesterRsrc dist/stage "dist/OktoMultiWaveSynth-beta${VERSION}-mac.zip"
-          unzip -l "dist/OktoMultiWaveSynth-beta${VERSION}-mac.zip" | tail -3
+          ditto -c -k --sequesterRsrc dist/stage "dist/OktoMultiWaveSynth-${VERSION}-mac.zip"
+          unzip -l "dist/OktoMultiWaveSynth-${VERSION}-mac.zip" | tail -3
       - uses: actions/upload-artifact@v4
         with:
           name: OktoMultiWaveSynth-mac

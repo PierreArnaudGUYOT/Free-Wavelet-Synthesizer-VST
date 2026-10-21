@@ -73,7 +73,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       await q(`WS_TEST.setParam('lfo_view', 0); true`);
       // the oriental colour code: ARAB / TURK on the PLAY card's TUNING switch
       const accent = () => q(`getComputedStyle(document.getElementById('device')).getPropertyValue('--accent').trim()`);
-      check((await accent()) === '#ffcf3d' && !(await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING WEST: the yellow accent, no oriental class');
+      check((await accent()) === '#ffd166' && !(await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING WEST: the yellow accent, no oriental class');
       await q(`WS_TEST.setParam('mt_mode', 1); true`); await sleep(250);
       check((await accent()) === '#f0b84a' && (await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING ARAB: the sand-gold accent', await accent());
       check(await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'block'`), 'TUNING ARAB: the PLAY card shows its pattern');
@@ -89,7 +89,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       await q(`WS_TEST.setParam('osc_view', 2); true`); await sleep(250);
       await B.screenshot(path.join(out, 'tuning-turk-b1.png'), { width: 1500, height: 1160 });
       await q(`WS_TEST.setParam('osc_view', 0); WS_TEST.setParam('mt_mode', 0); true`); await sleep(250);
-      check((await accent()) === '#ffcf3d' && await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'none'`), 'TUNING WEST again: the yellow accent, no pattern');
+      check((await accent()) === '#ffd166' && await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'none'`), 'TUNING WEST again: the yellow accent, no pattern');
     }
     check(!(await shown()).some(x => x.includes('CHORD KEYBOARD')), 'the chord card is hidden while CHORD MODE is off');
     const h0 = await B.evaluate(`document.getElementById('device').style.height`);
