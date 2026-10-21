@@ -383,6 +383,11 @@ async function main() {
       planChecks(plan, song, 2);
       const n = tourChecks('tour', song, [st0, ...tourSamples], plan, !opt.smoke, true, TOUR_START);
       check(n >= (opt.smoke ? 5 : plan.length), `tour: at least ${opt.smoke ? 5 : plan.length} presets observed`, `${n}`);
+      // version 1.0.8: the audio thread made the changes at their chords. The page sent each one ahead with the song time of its chord, and the worklet reported when it made it
+      const ch = await ev('WS_TEST.changes()'), wantCh = opt.smoke ? 5 : plan.length - 1;   // (the first preset is in place before the piece starts)
+      check(ch.length >= wantCh - 1, `tour: the audio thread made the changes at their chords (at least ${wantCh - 1} reported)`, `${ch.length}`);
+      const dts = ch.map(c => c.seq - c.at);
+      check(dts.length > 0 && dts.every(d => d > -0.045 && d < -0.02), 'tour: each change was made about 33 ms before its chord (the bottom of the dip, 12 render quanta before it)', dts.map(d => (d * 1000).toFixed(1)).join(' '));
     }
     if (opt.smoke) {
       const hb = await rectOf('.demo-btn');

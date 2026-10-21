@@ -52,7 +52,7 @@ const ok = (r, re) => r.code === 0 && (!re || re.test(r.out));
 step('build plug-in', () => { const r = run('cmd', ['/c', 'vst\\build.bat']); return { ok: r.code === 0, detail: tail(r.out, 2) }; });
 step('quick + C++/JS cross-check', () => { const r = node('tests/quick.js', '--dsp', '--force'); return { ok: ok(r, /^PASS/m), detail: tail(r.out, 7) }; });
 step('TOP Sounds vs beta 0.7', () => { const r = node('tests/regress_v07.js'); return { ok: ok(r), detail: tail(r.out, 1) }; });
-for (const t of ['idle_skip', 'filter', 'supermod', 'display_live', 'preset_change']) step('engine: ' + t, () => { const r = node('tests/' + t + '.js'); return { ok: ok(r), detail: tail(r.out, 1) }; });
+for (const t of ['idle_skip', 'filter', 'supermod', 'display_live', 'preset_change', 'demo_sync']) step('engine: ' + t, () => { const r = node('tests/' + t + '.js'); return { ok: ok(r), detail: tail(r.out, 1) }; });
 for (const t of ['smoke', 'test_manual', 'test_demo', 'test_web']) step('web: ' + t, () => { const r = node('tests/web/' + t + '.js'); return { ok: ok(r), detail: tail(r.out, 2) }; });
 // the plug-in's developer checks (each is compiled here)
 const cc = (src, exe, extra) => run(CXX, ['-std=c++17', '-O2', '-static', '-DNOMINMAX', '-I', 'vst/external', '-I', 'vst/src', ...src, '-o', exe, ...extra]);

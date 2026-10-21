@@ -10,7 +10,13 @@ function WSWorkletMain() {
   // the dip that hides what a change of structure does (a new unison count, octave, filter type, LFO target, the new tables ...): the output goes down in DUCK_DOWN quanta, the change is made
   // while it is silent (DUCK_HOLD quanta), the output comes back in DUCK_UP quanta. 2 + 3 + 8 quanta = 35 ms at 48 kHz.
   const DUCK_DOWN = 2, DUCK_HOLD = 3, DUCK_UP = 8;
-  const duckGain = (t) => (t <= DUCK_DOWN ? 1 - t / DUCK_DOWN : t <= DUCK_DOWN + DUCK_HOLD ? 0 : Math.min(1, (t - DUCK_DOWN - DUCK_HOLD) / DUCK_UP));
+  const duckGain = (t, up, hold) => (t <= DUCK_DOWN ? 1 - t / DUCK_DOWN : t <= DUCK_DOWN + hold ? 0 : Math.min(1, (t - DUCK_DOWN - hold) / up));
+  // version 1.0.8: a preset change that has a time ('bulk' with `at`, the song time of the chord it goes with: the demo) is made by the audio thread, not when the page happens to send it (a page
+  // that was 100 ms late made the change 30 ms after the chord): the dip is started so that it ENDS at the chord (the old sound goes down in DUCK_DOWN quanta, the change is made in the silence of
+  // SCHED_HOLD quanta, the new sound comes up in SCHED_UP quanta and is up when the chord starts), and the continuous parameters take SCHED_MORPH quanta, so that they have almost arrived when it
+  // does. The change is made 12 quanta (33 ms) before the chord: the tables it brings have been read for a few quanta (they are cold) and the crossfade is over when the chord's voices start.
+  // (tools/demo_sim.js measures it on the piece with the real worklet.)
+  const SCHED_UP = 8, SCHED_HOLD = 4, SCHED_MORPH = 16;
   class WSProcessor extends AudioWorkletProcessor {
     constructor(options) {
       super();
@@ -25,16 +31,18 @@ function WSWorkletMain() {
       // their new value in MORPH_QUANTA render quanta (64 ms at 48 kHz); the choices and integers (a filter type, the number of unison voices ...) and the tables, which have their own
       // 10 ms crossfade, change at the start. The engine itself is untouched (it is the same in the plug-in).
       this.morph = null;
-      this.pending = null;   // a preset change waiting for the dip to reach silence: { v, tables }
+      this.pending = null;   // a preset change waiting for the dip to reach silence: { v, tables, mq }
       this.dk = -1;          // the dip's position in render quanta (-1: none)
+      this.up = DUCK_UP; this.hold = DUCK_HOLD;   // the way up and the silent hold of the dip running, in quanta
+      this.sched = null;     // a preset change waiting for its chord: { v, tables, at }
       this.discrete = Uint8Array.from(options.processorOptions.spec.PARAMS, p => (p.curve === 'choice' || p.curve === 'int' ? 1 : 0));
       this.port.onmessage = (e) => {
         const m = e.data, eng = this.eng;
         switch (m.t) {
           case 'p': if (this.morph) this.morph.idx = this.morph.idx.filter(j => j !== m.i);   // the player's own move wins over the morph
             if (Number.isFinite(m.v)) eng.setParam(m.i, m.v); break;   // a NaN would stay in the engine's state
-          case 'all': this.applyPending(); this.endMorph(); for (let i = 0; i < m.v.length; i++) if (Number.isFinite(m.v[i])) eng.setParam(i, m.v[i]); break;
-          case 'bulk': this.presetChange(m.v, m.tables); break;   // version 1.0.6: a preset change, the parameters and the tables together
+          case 'all': this.sched = null; this.applyPending(); this.endMorph(); for (let i = 0; i < m.v.length; i++) if (Number.isFinite(m.v[i])) eng.setParam(i, m.v[i]); break;
+          case 'bulk': this.sched = null; if (m.at !== undefined && this.seq) this.sched = { v: m.v, tables: m.tables, at: m.at }; else this.presetChange(m.v, m.tables); break;   // version 1.0.6: a preset change, the parameters and the tables together (1.0.8: at the song time `at`, if there is one)
           case 'tables': eng.setTables(m.tables); break;   // { needs, slots: [A1, A2, B1] }: per oscillator { mode, mips, rms, ph?, w2? } or null
           case 'on': eng.keyOn(m.n, m.v); break;      // Okto MultiWave Synth: the player's keys go through the chord layer
           case 'off': eng.keyOff(m.n); break;
@@ -42,8 +50,8 @@ function WSWorkletMain() {
           case 'plateoff': eng.plateOff(m.n); break;
           case 'alloff': eng.allNotesOff(); break;
           case 'soundoff': eng.allSoundOff(); break;
-          case 'seq': this.startSeq(m.notes, m.delay); break;
-          case 'seqstop': if (this.seq) { this.seq = null; eng.allNotesOff(); } break;
+          case 'seq': this.sched = null; this.startSeq(m.notes, m.delay); break;
+          case 'seqstop': this.sched = null; if (this.seq) { this.seq = null; eng.allNotesOff(); } break;
         }
       };
       this.port.postMessage({ t: 'ready', sr: sampleRate });
@@ -51,29 +59,32 @@ function WSWorkletMain() {
 
     // a preset change (message 'bulk'): under sounding notes the output dips, and the change is made at the bottom of the dip; with nothing sounding (a tail, or silence) it is made at once, and so
     // it is while a dip is already running (a fast succession of changes)
-    presetChange(v, tables) {
+    presetChange(v, tables, scheduled, at) {
       this.applyPending();
-      if (this.dk >= 0 || !this.eng.anyVoice()) { this.startMorph(v, tables); return; }
-      this.pending = { v, tables };
+      const mq = scheduled ? SCHED_MORPH : MORPH_QUANTA;
+      if (this.dk >= 0 || !this.eng.anyVoice()) { this.startMorph(v, tables, mq, at); return; }
+      this.pending = { v, tables, mq, at };
       this.dk = 0;
+      this.up = scheduled ? SCHED_UP : DUCK_UP; this.hold = scheduled ? SCHED_HOLD : DUCK_HOLD;
     }
     applyPending() {
       const pd = this.pending;
       if (!pd) return;
       this.pending = null;
-      this.startMorph(pd.v, pd.tables);
+      this.startMorph(pd.v, pd.tables, pd.mq, pd.at);
     }
     // the discrete parameters and the tables now, the continuous ones step by step (see the constructor)
-    startMorph(v, tables) {
+    startMorph(v, tables, mq, at) {
       const eng = this.eng;
       this.endMorph();
+      if (at !== undefined) this.port.postMessage({ t: 'changed', at, seq: this.seq ? (currentFrame - this.seq.start) / sampleRate : -1 });   // (the tests of the page read it)
       const from = Float64Array.from(eng.p), idx = [];
       for (let i = 0; i < v.length; i++) {
         if (!Number.isFinite(v[i])) continue;
         if (this.discrete[i]) eng.setParam(i, v[i]); else if (v[i] !== from[i]) idx.push(i);
       }
       eng.setTables(tables);
-      if (idx.length) this.morph = { from, to: v, idx, k: 0 };
+      if (idx.length) this.morph = { from, to: v, idx, k: 0, q: mq || MORPH_QUANTA };
     }
     endMorph() {
       const mo = this.morph;
@@ -84,8 +95,8 @@ function WSWorkletMain() {
     stepMorph() {
       const mo = this.morph;
       if (!mo) return;
-      if (++mo.k >= MORPH_QUANTA) { this.endMorph(); return; }
-      const t = mo.k / MORPH_QUANTA, e = t * t * (3 - 2 * t);   // smoothstep
+      if (++mo.k >= mo.q) { this.endMorph(); return; }
+      const t = mo.k / mo.q, e = t * t * (3 - 2 * t);   // smoothstep
       for (const i of mo.idx) this.eng.setParam(i, mo.from[i] + (mo.to[i] - mo.from[i]) * e);
     }
 
@@ -105,11 +116,16 @@ function WSWorkletMain() {
     process(inputs, outputs) {
       const out = outputs[0], eng = this.eng;
       let g0 = 1, g1 = 1;
+      if (this.sched) {   // a change that goes with a chord: its dip starts at the last quantum that lets it end by the chord (or now, if the chord is near or past)
+        const sc = this.sched, s0 = this.seq, q = out[0].length;
+        if (!s0) { this.sched = null; this.presetChange(sc.v, sc.tables); }
+        else if (currentFrame + q > s0.start + Math.round(sc.at * sampleRate) - (DUCK_DOWN + SCHED_HOLD + SCHED_UP) * q) { this.sched = null; this.presetChange(sc.v, sc.tables, true, sc.at); }
+      }
       if (this.dk >= 0) {
         const k = this.dk++;
-        g0 = duckGain(k); g1 = duckGain(k + 1);
+        g0 = duckGain(k, this.up, this.hold); g1 = duckGain(k + 1, this.up, this.hold);
         if (this.pending && g0 === 0) this.applyPending();   // the first silent quantum: the change is made now
-        if (this.dk >= DUCK_DOWN + DUCK_HOLD + DUCK_UP) this.dk = -1;
+        if (this.dk >= DUCK_DOWN + this.hold + this.up) this.dk = -1;
       }
       this.stepMorph();
       const L = out[0], R = out[1] || (this.tmp || (this.tmp = new Float32Array(L.length)));

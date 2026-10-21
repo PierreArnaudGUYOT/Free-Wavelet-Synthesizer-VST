@@ -3,6 +3,16 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.8 — 2026-10-21 (the demo changes preset exactly on the chord)
+
+**In short**
+- **In the demo, the preset now changes WITH the chord of the music, every time.** Before, the page made the change when its own clock reached the scene's time, so the new sound arrived anywhere from 44 ms before the chord to 106 ms after it depending on how busy the page was (measured on the real audio code with a model of the page: a page 100 ms late put the change 27 ms after the chord and muffled the chord's attack). Now the page sends the next preset 0.6 s ahead with the time of its chord and **the audio thread makes the change by itself**: about 33 ms before the chord, the output comes up again as the chord starts (the dip is 37 ms: 2 down, 4 silent, 8 up). The panel, the label and the demo window still follow at the chord. Web app only (`web/js/demo.js`, `app.js`, `worklet.js`); the plug-in is the 1.0.7 one with its version number.
+- **No more crackle than before, and not more CPU at the chord**: checked on the whole tour (29 changes) with the real worklet, the CPU of the audio thread within 60 ms of each chord: the longest quantum that is not silent is 1.8 ms at the median and 4.3 ms at worst with the change at the chord, against 2.1 ms and 5.5 ms for the page at its best (the 1.0.7 way) and 2.1 / 5.9 for a late page; the held-chord click of the change is the same as in 1.0.6 (median 0.5 of the old per-parameter way, worst 1.1). The change is made 12 quanta before the chord on purpose: the new tables are read for the first time (cold) in the silence, and the crossfade is over when the chord's notes start.
+- **New tools**: `tools/demo_sim.js` (the demo's changes against the chords on the real worklet: offsets, the chord's level, the click, the CPU per quantum, several models of the page side by side), `tests/demo_sync.js` (a step of the full suite), checks in `tests/preset_change.js` and `tests/web/test_demo.js` (`WS_TEST.changes()`).
+
+**Checked**
+- `tests/preset_change.js` (the scheduled change: made at the right quantum, the dip ends at the chord, the cancellations), `tests/demo_sync.js`, the demo in Edge (57 checks in the smoke run, the 6 first changes made 32-35 ms before their chords by the audio thread). The full validation is in the release notes.
+
 ## Okto MultiWave Synth 1.0.7 — 2026-10-21 (a manual of seven pages, a door to it in the welcome window, 10 % less CPU)
 
 **In short**

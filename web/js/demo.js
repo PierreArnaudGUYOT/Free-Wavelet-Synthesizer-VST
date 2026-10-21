@@ -27,6 +27,10 @@ function WSDemo(api) {
   const TOUR_MAX_ATTACK = 0.08;
   const TOUR_MAX_DELAY_MIX = 0.1, TOUR_MAX_DELAY_FB = 0.3;   // long echoes on a fast piece sound like a canon
   const TOUR_SNAP = 1.5, TOUR_LEAD = 0.08, TOUR_CUT = 0.25;
+  // version 1.0.8: the change of preset is made by the audio thread, at the chord. The page sends it SEND_LEAD seconds ahead (the new sound's values and tables, with the song time of the chord:
+  // worklet.js starts the dip so that it ends at the chord); the panel, the window and the label follow at TOUR_LEAD before the chord, as before. A page that was late (a busy main thread) made the
+  // change late, 100 ms after the chord for a delay of 100 ms: the audio thread's clock does not wait for the page.
+  const SEND_LEAD = 0.6;
   function chordOnsets(notes) {   // notes: flat [time, duration, note, velocity] * n, sorted by time
     const ev = [];
     for (let i = 0; i < notes.length; i += 4) {
@@ -39,7 +43,7 @@ function WSDemo(api) {
     const names = WS_SPEC.TOUR, ev = chordOnsets(notes);
     let out = [], prev = -origin;
     for (let k = 0; k * step < origin + duration; k++) {
-      let t = k * step - origin;
+      let t = k * step - origin, chord = t + TOUR_LEAD;   // chord: the song time of the chord the change goes with (version 1.0.8)
       if (k > 0) {
         let best = null, score = -Infinity;
         for (const e of ev) {
@@ -48,9 +52,9 @@ function WSDemo(api) {
           const s = e.n - Math.abs(e.t - t);   // a full chord close to the mark wins
           if (s > score) { score = s; best = e; }
         }
-        if (best) t = best.t - TOUR_LEAD;
+        if (best) { t = best.t - TOUR_LEAD; chord = best.t; }
       }
-      out.push({ t, tour: true, preset: names[k % names.length] });
+      out.push({ t, chord, tour: true, preset: names[k % names.length] });
       prev = t;
     }
     let first = 0;
@@ -134,7 +138,8 @@ function WSDemo(api) {
     if (sc.tour) {
       // version 1.0.6: the preset and the demo's rules (polyphonic, short attack, little delay, and from 1.0.4 the trim that keeps the piece under the output stage: tools/demo_trim.js) reach the
       // audio thread together, in one message (app.js applyKeyed): changing them one by one made a burst of noise at every change of preset
-      api.applyPreset(sc.preset, sceneRules(sc));
+      // (1.0.8: when the message was sent ahead (sc.sent), the audio thread has made or will make the change by itself: the panel only follows)
+      api.applyPreset(sc.preset, sceneRules(sc), { audio: !sc.sent });
       st.scene = k;
       // the next preset's tables are built ahead, in a Worker, a second after this one is in place
       clearTimeout(st.pre);
@@ -164,6 +169,8 @@ function WSDemo(api) {
     const t = now();
     let k = 0;
     for (let i = 0; i < st.scenes.length; i++) if (t >= st.scenes[i].t) k = i;
+    const nx = st.scenes[st.scene + 1];
+    if (nx && nx.tour && !nx.sent && t >= nx.chord - SEND_LEAD && t < nx.t) { nx.sent = true; api.sendPreset(nx.preset, sceneRules(nx), nx.chord); }   // (1.0.8: ahead of the chord, for the audio thread)
     if (t >= 0 && k !== st.scene) enterScene(k);
     const sc = st.scenes[st.scene];
     if (sc && sc.tour && t >= 0) {
@@ -224,7 +231,7 @@ function WSDemo(api) {
     start, stop, onSeqTime,
     running: () => !!st,
     // the preset tour ([{ t, preset }]): for the tests and the manual
-    tourPlan: () => tourScenes(SONG.notes, SONG.duration, TOUR_STEP, SONG.origin || 0).map(x => ({ t: x.t, preset: x.preset })),
+    tourPlan: () => tourScenes(SONG.notes, SONG.duration, TOUR_STEP, SONG.origin || 0).map(x => ({ t: x.t, chord: x.chord, preset: x.preset })),
     song: () => ({ title: SONG.title, short: SONG.short || SONG.title, composer: SONG.composer, duration: SONG.duration, license: SONG.license }),
     state: () => (st ? { running: true, song: st.song.title, scene: st.scene, preset: st.scenes[Math.max(0, st.scene)].preset,
       scenes: st.scenes.length, time: now() } : { running: false }),

@@ -121,7 +121,7 @@
   }
 
   // the tables to the worklet (their arrays are transferred); held until the audio has started
-  function deliver(tb, all) {   // all (a preset change): the values go with the tables, in one message
+  function deliver(tb, all, at) {   // all (a preset change): the values go with the tables, in one message; at (version 1.0.8): the song time the audio thread makes the change at
     if (!node) { heldTables = tb; return; }
     const transfer = [];
     const pack = s => {
@@ -132,7 +132,7 @@
       if (s.w2) o.w2 = pack(s.w2);
       return o;
     };
-    post(all ? { t: 'bulk', v: Array.from(all), tables: { needs: tb.needs, slots: tb.slots.map(pack) } } : { t: 'tables', tables: { needs: tb.needs, slots: tb.slots.map(pack) } }, transfer);
+    post(all ? Object.assign({ t: 'bulk', v: Array.from(all), tables: { needs: tb.needs, slots: tb.slots.map(pack) } }, at !== undefined ? { at } : null) : { t: 'tables', tables: { needs: tb.needs, slots: tb.slots.map(pack) } }, transfer);
   }
   let buildTimer2 = null, displayKey = '';
   // the display is a function of the values: built again only when they changed since the last one (version 1.0.7)
@@ -189,10 +189,24 @@
     if (modify) modify((key, x) => { if (key in P) v[P[key]] = fit(P[key], x); }, key => v[P[key]]);
     return v;
   }
-  function applyKeyed(obj, modify) {
+  // Version 1.0.8: the audio side of a preset change of the demo, sent ahead of the chord it goes with: the values and the tables (built ahead by prebuild, else here) with the song time `at`;
+  // nothing is changed on the page (applyKeyed with { audio: false } does that, at the chord)
+  function sendKeyed(obj, modify, at) {
+    const v = finalValues(obj, modify);
+    const tb = prebuilt && prebuilt.key === v.join(',') ? prebuilt.tb : C.buildTables(v, true);
+    prebuilt = null;
+    deliver(tb, v, at);
+  }
+  function applyKeyed(obj, modify, o) {
     const v = finalValues(obj, modify);
     hold = { n: 0 };
     try { for (let i = 0; i < v.length; i++) setParam(i, v[i], false); } finally { hold = null; }
+    if (o && o.audio === false) {   // the audio thread has this change already (sendKeyed): the panel follows, nothing is sent
+      if (buildTimer) { clearTimeout(buildTimer); buildTimer = null; }
+      if (buildTimer2) { clearTimeout(buildTimer2); buildTimer2 = null; }
+      buildDisplay();
+      return;
+    }
     const tb = prebuilt && prebuilt.key === v.join(',') ? prebuilt.tb : null;   // built ahead by the demo (prebuild)
     prebuilt = null;
     build(false, true, tb);
@@ -328,7 +342,9 @@
     return startPromise;
   }
 
+  const changeLog = [];   // the changes the audio thread made at a chord of the demo: { at: the chord, seq: when it made them } (song times in seconds), for the tests
   function onWorklet(m) {
+    if (m.t === 'changed') { if (changeLog.length < 200) changeLog.push({ at: m.at, seq: m.seq }); return; }
     if (m.t !== 'disp') return;
     live = m;
     lastLevel = { peakL: m.peakL, peakR: m.peakR };
@@ -560,7 +576,8 @@
     setParam: (i, v) => setParam(i, v, false),
     values: () => values,
     ctxTime: () => (actx ? actx.currentTime : 0),
-    applyPreset: (name, modify) => { const o = demoPreset(name); if (o) applyKeyed(o, modify); },
+    applyPreset: (name, modify, o) => { const p = demoPreset(name); if (p) applyKeyed(p, modify, o); },
+    sendPreset: (name, modify, at) => { const p = demoPreset(name); if (p) sendKeyed(p, modify, at); },   // version 1.0.8: the audio side, ahead of the chord
     prebuildPreset: (name, modify) => { const o = demoPreset(name); if (o) prebuild(finalValues(o, modify)); },   // the tables of a preset the demo will load in a few seconds
     snapshot: () => ({ values: toKeyed(), presetId, presetName, dirty }),
     restore: (s) => { applyKeyed(s.values); presetId = s.presetId; presetName = s.presetName; dirty = s.dirty; ui.setPresetName(presetName, dirty); },
@@ -616,6 +633,7 @@
     demoTour: () => demo.tourPlan(),
     demoStop: () => demo.stop(),
     demoState: () => demo.state(),
+    changes: () => changeLog.slice(),   // version 1.0.8
     midi: (bytes) => onMIDI({ data: bytes }),
     chord: () => (live && live.chord ? Object.assign({}, live.chord) : null),   // Okto MultiWave Synth: the chord sounding
     plateOn: (n, v) => plateOn(n, v == null ? 0.8 : v),

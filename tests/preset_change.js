@@ -5,6 +5,7 @@
 // the parameters and the tables), the output dips for 35 ms around it, the continuous parameters travel to their new values in 64 ms and the choices and the tables change at the bottom of
 // the dip. The old way (one 'p' message per parameter, then the tables) is still understood, and is what this test compares with. The engine is the same as the plug-in's: only the
 // way the web app hands it a new sound changed.
+// Version 1.0.8: a change that has a time ('bulk' with `at`, the song time of the chord it goes with: the demo) is made by the audio thread, so that its dip ends at the chord (section 4).
 //   node tests/preset_change.js
 'use strict';
 const fs = require('fs');
@@ -90,6 +91,72 @@ for (const [from, to] of PAIRS) {
   send({ t: 'p', i: P[key], v: mine });
   for (let s = 3; s < 200; s++) { global.currentFrame = s * Q; proc.process([[]], [[new Float32Array(Q), new Float32Array(Q)]]); }
   check(Math.abs(proc.eng.p[P[key]] - mine) < 1e-9, `a move of ${key} made during the change is kept`, `${proc.eng.p[P[key]]} against ${mine}`);
+}
+// 4. version 1.0.8: a change with a time waits in the worklet and its dip ends at the chord
+{
+  const m = /const SCHED_UP = (\d+), SCHED_HOLD = (\d+), SCHED_MORPH = (\d+);/.exec(fs.readFileSync(path.join(__dirname, '..', 'web', 'js', 'worklet.js'), 'utf8'));
+  const up = +m[1], hold = +m[2], D = 2 + hold + up, T = 2.0, tf = Math.round(T * sr);
+  const fromName = 'AA · Flint Ripple Haze', toName = 'AB · Kalimba Lung Machine';
+  const vf = valuesOf(fromName), vt = valuesOf(toName), tbTo = tablesOf(toName, vt);
+  const start = () => {
+    const proc = new Proc({ processorOptions: { spec: SPEC } }), send = (mm) => proc.port.onmessage({ data: mm });
+    vf.forEach((x, i) => send({ t: 'p', i, v: x })); send({ t: 'tables', tables: tablesOf(fromName, vf) });
+    global.currentFrame = 0;
+    const notes = []; for (const n of CHORD) notes.push(0, 6, n, 0.8);   // a chord held for 6 s from the start of the sequence
+    send({ t: 'seq', notes, delay: 0 });
+    const log = { made: -1, dipStart: -1, dipEnd: -1 };
+    const orig = proc.startMorph.bind(proc); let cur = 0;
+    proc.startMorph = (v, t, mq) => { if (log.made < 0) log.made = cur; return orig(v, t, mq); };
+    const step = (s) => {   // one quantum at frame s
+      global.currentFrame = s; cur = s;
+      const before = proc.dk, o = [new Float32Array(Q), new Float32Array(Q)];
+      proc.process([[]], [o]);
+      if (before < 0 && proc.dk >= 0 && log.dipStart < 0) log.dipStart = s;
+      if (before >= 0 && proc.dk < 0 && log.dipEnd < 0) log.dipEnd = s + Q;
+    };
+    return { proc, send, log, step };
+  };
+  // a. the change is made at the right quantum and its dip ends at the chord
+  {
+    const { proc, send, log, step } = start();
+    send({ t: 'bulk', v: Array.from(vt), tables: tbTo, at: T });
+    let preDiff = 0;
+    for (let s = 0; s < 3 * sr; s += Q) { if (log.dipStart < 0) proc.eng.p.forEach((x, i) => { preDiff = Math.max(preDiff, Math.abs(x - vf[i])); }); step(s); }
+    check(preDiff === 0, 'a change with a time waits: not one parameter has moved before its dip', `largest difference ${preDiff}`);
+    check(log.dipStart >= tf - (D + 1) * Q && log.dipStart <= tf - D * Q, `the dip starts so that it can end at the chord (frame ${log.dipStart}, the chord at ${tf}, ${D} quanta of dip)`);
+    check(log.dipEnd > tf - Q && log.dipEnd <= tf, `the dip ends at the chord (within one quantum): ${((tf - log.dipEnd) / sr * 1000).toFixed(1)} ms before it`);
+    check(log.made === log.dipStart + 2 * Q, `the change is made at the bottom of the dip (${((log.made - tf) / sr * 1000).toFixed(1)} ms from the chord)`);
+    let diff = 0; proc.eng.p.forEach((x, i) => { diff = Math.max(diff, Math.abs(x - vt[i])); });
+    check(diff < 1e-9 && proc.sched === null && proc.pending === null && proc.morph === null, 'every parameter has reached its new value and nothing is left waiting', `largest difference ${diff}`);
+  }
+  // b. a plain change, or the end of the sequence, cancels a change that is waiting
+  {
+    const { proc, send, step } = start();
+    send({ t: 'bulk', v: Array.from(vt), tables: tbTo, at: T });
+    for (let s = 0; s < Math.round(0.5 * sr); s += Q) step(s);
+    check(proc.sched !== null, 'a change with a time is held until its chord');
+    send({ t: 'seqstop' });
+    check(proc.sched === null, 'seqstop cancels a change that is waiting');
+    const q = start();
+    q.send({ t: 'bulk', v: Array.from(vt), tables: tbTo, at: T });
+    q.send({ t: 'bulk', v: Array.from(vt), tables: tbTo });
+    check(q.proc.sched === null, 'a change without a time replaces one that is waiting');
+    const w = start();
+    w.send({ t: 'bulk', v: Array.from(vt), tables: tbTo, at: T }); w.send({ t: 'all', v: Array.from(vf) });
+    check(w.proc.sched === null, "a full set of parameters ('all') cancels a change that is waiting");
+  }
+  // c. a chord that is already near or past: made at once; no sequencer: made at once
+  {
+    const { proc, send, log, step } = start();
+    for (let s = 0; s < Math.round(1.0 * sr); s += Q) step(s);
+    send({ t: 'bulk', v: Array.from(vt), tables: tbTo, at: 0.5 });   // the chord was half a second ago
+    for (let k = 0; k < 4; k++) step(Math.round(1.0 * sr) + k * Q);
+    check(log.made === Math.round(1.0 * sr) + 2 * Q, 'a change whose chord is past is made at once (its dip starts at the next quantum)', `made at ${log.made}`);
+    const p2 = new Proc({ processorOptions: { spec: SPEC } }), s2 = (mm) => p2.port.onmessage({ data: mm });
+    vf.forEach((x, i) => s2({ t: 'p', i, v: x })); s2({ t: 'tables', tables: tablesOf(fromName, vf) });
+    s2({ t: 'bulk', v: Array.from(vt), tables: tbTo, at: T });
+    check(p2.sched === null, 'without a sequence there is no chord to wait for: the change is made at once');
+  }
 }
 console.log(bad ? `${bad} failure(s)` : 'preset change test passed');
 process.exit(bad ? 1 : 0);
