@@ -3,6 +3,17 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.4 — 2026-10-20 (a new tour for the demo, Flint Ripple Haze first)
+
+**In short**
+- **The demo's tour is made again.** The 28 presets heard are **the best presets of the last list** (the third listening, the most starred first: the 10-star sounds, then the 9-, 8-, 7- and 6-star ones) and **eight sounds of the old tour that OktoPierre keeps**, spread over the piece: *B · Mirror Sub Bass*, *A · Wavelet Lead*, *A · Wave Atom Choir Shift*, *A · String Machine*, *B · Flute Lead*, *AB · Dream Pad*, *A · Warm Pad* and *AB · Organ Lead* (with the values of the Wavelet Synthesizer, as before), in the 3rd, 6th, 10th, 13th, 17th, 20th, 24th and 27th places. The first two heard are two of his 10-star favourites. `TOUR` in `tools/spec.js`.
+- **The piece does not saturate.** With every note at velocity 1 on 16 voices, five presets of the new tour were touched by the output stage (*A · Wave Pulse Lead* the most: peak 2.14, a third of the sound changed). Thirteen presets of the tour now play 1 to 10 dB lower in the demo (`tools/demo_trim.js`, written by `node tools/demo_level.js --trims 0 --write-trim`, applied by `web/js/demo.js`): the loudest peak of the whole tour is 0.69 and no preset is touched. The presets of the plug-in are not changed.
+- **AA · Flint Ripple Haze comes first**: first of TOP Sounds (so the sound the synth opens on), first of its section (Pad) and first heard in the demo (`PIN_FIRST` in `tools/spec.js`).
+
+**Checked**
+- The plug-in and engine lane of `node tests/full.js` (13 steps): the quick suite, the C++ engine against the JavaScript reference (323 cases, worst difference 2.1e-7), the 18 TOP Sounds of beta 0.7, the engine tests, the presets file, the VST2 entry point, the plug-in window in a host, the crackle of three chords.
+- **The demo**: the tour of 28 presets rendered window by window with the engine, as the demo plays it (every note at velocity 1, 16 voices): before the trims, 5 presets were touched by the output stage (*A · Wave Pulse Lead*: a third of the sound changed, peak 2.14); with the trims, **the loudest peak is 0.69 and none is touched**. The demo test in the browser (67 checks) passes, the full web run on every preset (`test_web`, 104 checks) passes too.
+
 ## Okto MultiWave Synth 1.0.3 — 2026-10-20 (the best 20 % lead, stars on the web, the KeyAttac folder)
 
 A release after three more requests of OktoPierre, using his third listening (the export of 2026-10-20, 20:51).

@@ -2,8 +2,8 @@
 
 # ⬇ DOWNLOAD THE PLUG-IN (Windows, VST3 / VST2)
 
-1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.3**).
-2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.3-win64.zip**.
+1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.4**).
+2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.4-win64.zip**.
 3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (VST3; needs administrator rights) or into your VST2 plug-in folder. `INSTALL.txt` in the zip says more.
 4. In your DAW, rescan the plug-ins (Ableton Live: *Preferences → Plug-ins → Rescan*), then open *Plug-ins → OktoPierre → Okto MultiWave Synth*.
 
@@ -13,7 +13,7 @@
 
 ---
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **version 1.0.3**, the final version with its fixes (2026-10-20), see
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **version 1.0.4**, the final version with its fixes (2026-10-20), see
 [RELEASE_HISTORY.md](RELEASE_HISTORY.md). Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 Okto MultiWave Synth is the [Wavelet Synthesizer](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v0.7.1-beta)
@@ -30,6 +30,10 @@ the preset list (see the notes of the betas below), and the demo is one piece, B
 The web app also works offline: download the repository and open `web/index.html`. The same web app is at https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/ too (the development repository).
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 this version is built for Windows and the web (the code is portable, but no macOS build is made or tested here).
+
+## What version 1.0.4 changes
+
+- **A new tour for the demo**: the best presets of the last list plus eight sounds of the old tour, spread over the piece, each at a volume that does not saturate; **Flint Ripple Haze comes first** (first of TOP Sounds, the opening sound, first of the demo).
 
 ## What version 1.0.3 changes
 

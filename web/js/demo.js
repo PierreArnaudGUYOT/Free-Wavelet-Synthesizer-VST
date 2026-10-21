@@ -144,6 +144,9 @@ function WSDemo(api) {
       if (api.values()[P.amp_a] > TOUR_MAX_ATTACK) set('amp_a', TOUR_MAX_ATTACK);
       if (api.values()[P.fx_dmix] > TOUR_MAX_DELAY_MIX) set('fx_dmix', TOUR_MAX_DELAY_MIX);
       if (api.values()[P.fx_dfb] > TOUR_MAX_DELAY_FB) set('fx_dfb', TOUR_MAX_DELAY_FB);
+      // version 1.0.4: the piece (every note at velocity 1, 16 voices) must not reach the output stage: some presets of the tour play a few dB lower (tools/demo_trim.js)
+      const trim = (WS_SPEC.DEMO_TRIM || {})[sc.preset];
+      if (trim) set('master', Math.max(PARAMS[P.master].min, api.values()[P.master] - trim));
       st.scene = k;
       api.setPresetLabel(sc.preset, false);
       const engine = engineLabel();

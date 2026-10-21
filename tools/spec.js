@@ -25,8 +25,8 @@ const APP = {
   panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: '1.0.3',
-  versionNum: '1.0.3',
+  version: '1.0.4',
+  versionNum: '1.0.4',
   date: '2026-10-20',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -700,7 +700,8 @@ for (const p of PRESETS) {
   if (p.cat === 'SuperModulation' && !stars3(p)) p.cat = 'Other';
   if (stars3(p)) p.vote = stars3(p);   // (version 1.0.3: the web app shows it, read only)
 }
-const before3 = (x, y) => stars3(PRESETS[y]) - stars3(PRESETS[x]) || (PRESETS[y].stars || 0) - (PRESETS[x].stars || 0) || x - y;   // x before y: more stars now, then the stars of the second listening, then the array order
+const PIN_FIRST = 'AA · Flint Ripple Haze';   // version 1.0.4: the owner's favourite leads everything: first of TOP Sounds (so the sound the synth opens on) and first of its section, then the order by stars
+const before3 = (x, y) => (PRESETS[x].name === PIN_FIRST ? -1 : PRESETS[y].name === PIN_FIRST ? 1 : 0) || stars3(PRESETS[y]) - stars3(PRESETS[x]) || (PRESETS[y].stars || 0) - (PRESETS[x].stars || 0) || x - y;   // x before y: more stars now, then the stars of the second listening, then the array order
 TOP_LIST.sort(before3);
 // version 1.0.3: the best 20 % of the rated presets (all sections together: with 36 rated, the seven he gave 10 stars to) lead TOP Sounds, the most starred first
 {
@@ -738,8 +739,21 @@ const DEFAULT_PRESET = PRESETS[TOP_LIST[0]].name;   // sound loaded when the app
 const DEMO_RAW = require('./demo_presets.js');
 const DEMO_PRESETS = DEMO_RAW.presets.map(r => ({ name: r.name, v: convertLegacy(r.v) }));
 const TOUR = DEMO_RAW.order.slice();
-// version 1.0.2: the first two presets heard (the opening of the piece) are two of the owner's latest favourites (10 stars in his third listening), played as they are in the factory list
-TOUR[2] = 'AA · Flint Ripple Haze'; TOUR[3] = 'AB · Kalimba Lung Machine';
+let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }   // version 1.0.4: the whole dB each preset of the tour goes down while the piece plays (tools/demo_level.js --write-trim)
+// version 1.0.4: the tour is made again. The 28 presets heard (the piece lasts 119 s, one preset about every 4 s, from the third entry on) are the best presets of the owner's last list (his third listening, the
+// most starred first; the first two heard are two of his 10-star favourites, a pad and a kalimba) and eight sounds of the old tour that he keeps, spread over the piece: they play with the values of the
+// Wavelet Synthesizer (DEMO_PRESETS). The first two entries (not heard: the demo starts at 7.8 s) and the last two (after the end of the piece) are fillers.
+{
+  const KEEP_OLD = ['B · Mirror Sub Bass', 'A · Wavelet Lead', 'A · Wave Atom Choir Shift', 'A · String Machine', 'B · Flute Lead', 'AB · Dream Pad', 'A · Warm Pad', 'AB · Organ Lead'];
+  const FIRST_NEW = ['AA · Flint Ripple Haze', 'AB · Kalimba Lung Machine'], HEARD = 28;
+  for (const n of KEEP_OLD) if (!DEMO_PRESETS.some(p => p.name === n)) throw new Error('TOUR: the old tour has no ' + n);
+  const best = PRESETS.map((p, i) => i).filter(i => stars3(PRESETS[i])).sort(before3).map(i => PRESETS[i].name).filter(n => !KEEP_OLD.includes(n) && !FIRST_NEW.includes(n));
+  const fresh = [...FIRST_NEW, ...best];
+  const slots = new Array(HEARD).fill(null);
+  KEEP_OLD.forEach((n, j) => { let at = Math.max(2, Math.round((j + 0.5) * HEARD / KEEP_OLD.length)); while (slots[at]) at++; slots[at] = n; });   // spread, never the first two
+  let f = 0; for (let i = 0; i < HEARD; i++) if (!slots[i]) slots[i] = fresh[f++];
+  TOUR.splice(2, TOUR.length - 2, ...slots, fresh[f], fresh[f + 1]);
+}
 for (const n of TOUR) if (!DEMO_PRESETS.some(p => p.name === n) && !PRESETS.some(p => p.name === n)) throw new Error('TOUR: preset not found: ' + n);
 if (!PRESETS.some(p => p.name === DEFAULT_PRESET)) throw new Error('DEFAULT_PRESET not found: ' + DEFAULT_PRESET);
 
@@ -759,5 +773,5 @@ for (const s of S) {
   }
 }
 
-module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_COUNT, TOP_EXTRA, TOP_LIST, DEMO_PRESETS, KEYATTAC, CATEGORIES,
+module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_COUNT, TOP_EXTRA, TOP_LIST, DEMO_PRESETS, DEMO_TRIM, KEYATTAC, CATEGORIES,
   LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, CHORDS, CHORD_KEYS, MICRO_TABLES, NEW_FIRST: TOP_COUNT, NEW_COUNT: NEW_RAW.length, DESCRIPTIONS, TOUR };

@@ -165,6 +165,7 @@ function tourChecks(name, song, samples, plan, full, intro = true, start = plan[
         if (SPEC_BY_KEY[key].hidden) continue;
         let e = key in FORCED ? FORCED[key] : v;
         if (key in CAPS) e = Math.min(v, CAPS[key]);
+        if (key === 'master' && (SPEC.DEMO_TRIM || {})[want]) e = Math.max(SPEC_BY_KEY.master.min, v - SPEC.DEMO_TRIM[want]);   // (version 1.0.4: the master of a few presets of the tour goes down in the demo)
         if (!(Math.abs(x.all[key] - e) <= 1e-6 * Math.max(1, Math.abs(SPEC_BY_KEY[key].max - SPEC_BY_KEY[key].min)))) { badVals.push(`t=${t.toFixed(1)} ${want}: ${key}=${x.all[key]} expected ${e}`); break; }
       }
     }
@@ -181,7 +182,7 @@ function tourChecks(name, song, samples, plan, full, intro = true, start = plan[
   check(seen[0] === start, `${name}: the tour starts at '${start}'`, `first preset '${seen[0]}'`);
   check(badOrder.length === 0, `${name}: at every moment the preset of the tour plan`, short(badOrder));
   check(badLbl.length === 0, `${name}: preset label shows exactly the tour preset (no modified dot)`, short(badLbl));
-  check(badVals.length === 0, `${name}: each preset's spec values with Voices 16, Octave 0, Glide 0 forced and Amp Attack <= 0.08 s, Delay Mix <= 0.1, Delay Feedback <= 0.3`, short(badVals));
+  check(badVals.length === 0, `${name}: each preset's spec values with Voices 16, Octave 0, Glide 0 forced and Amp Attack <= 0.08 s, Delay Mix <= 0.1, Delay Feedback <= 0.3, and the demo trim of the master`, short(badVals));
   check(badText.length === 0, `${name}: window shows 'Preset tour · n/${N}', 'Now playing: <preset>' and the next preset`, short(badText));
   if (intro) {
     const nIntro = Math.min(TOUR_INTRO.length, N);

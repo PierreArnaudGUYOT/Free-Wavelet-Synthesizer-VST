@@ -20,14 +20,14 @@ Read this file first, then CLAUDE.md for the part you are going to touch.
 | Presets | 150 (22 TOP Sounds, then the categories, an Init list and Source Phase) | **237**: 21 of the 22 TOP Sounds (identical sound) + 216 new ones, named by type (A, AA, AB, AAB, B), 11 sections |
 | Panel | 1100 x 720 | 1100 x 944 (+120 with the chord card under the keyboard on the web) |
 | Header | WAVELET SYNTHESIZER | **OKTOWAVE / FRACTAL WAVELET SYNTHESIZER** |
-| Demo | 8 songs, a menu, MIDI file loading | **one** song (Beethoven, Appassionata III), the same tour as the initial web app, no menu, no MIDI loading |
+| Demo | 8 songs, a menu, MIDI file loading | **one** song (Beethoven, Appassionata III), a tour of the best presets of the owner's last list plus eight sounds of the initial web app's tour, each at a volume that does not saturate (`tools/demo_trim.js`), no menu, no MIDI loading |
 | Stars | none | 1-10 stars (five stars with half stars) in the plug-in's browser, saved in the presets file, EXPORT / IMPORT; the web app shows the author's stars, read only |
 | User bank | the player's own sounds | + a folder **KeyAttac** (the 36 starred presets retouched to be percussive), put there by `bank.h` while the presets file is older than `LIST ORDER v7` |
 | Platforms | web, VST3/VST2 Windows, VST3 macOS | web, VST3/VST2 Windows (the macOS editor `editor_mac.mm` follows the Windows one but is not built or tested here) |
 
 Rules that follow from the family tie (do not break them):
 - **The TOP Sounds must sound exactly as in the Wavelet Synthesizer beta 0.7**: `tools/presets_top.js` keeps them in that version's parameters and `convertLegacy` (`tools/spec.js`) turns `ab_mix` / `engine` into the levels of A1 and B1. `tests/regress_v07.js` checks it (worst difference 8.8e-8 of the peak).
-- **The demo tour is the initial web app's tour**: `tools/demo_presets.js` holds its 30 presets (values of beta 0.7.1, written by `tools/demo_presets_extract.js` from that web app), played by `WS_SPEC.DEMO_PRESETS` in no browser list. At the same notes the Okto engine renders them at the same RMS level (median difference 0.00 dB, never louder).
+- **The demo plays eight sounds of the initial web app's tour** with the values of the Wavelet Synthesizer: `tools/demo_presets.js` holds its 30 presets (beta 0.7.1, written by `tools/demo_presets_extract.js` from that web app), played by `WS_SPEC.DEMO_PRESETS` in no browser list; at the same notes the Okto engine renders them at the same level. The rest of the tour is the owner's best presets (`TOUR` in `tools/spec.js`).
 - The Free-Wavelet-Synthesizer-VST repository carries this version since 1.0.3 (a normal commit on top of beta 0.7.1, never a rewrite: the Wavelet Synthesizer is in its history and in its Releases, tag `v0.7.1-beta`); do not force-push it. Never push code to the test repository (zips only); never write the trademark "Omnichord" (the chord keyboard is "chord harp" / "CHORD MODE"); no brand names for the filter types (LADDER / OTA).
 
 ## 2. How the code is organised (the design of the program)
