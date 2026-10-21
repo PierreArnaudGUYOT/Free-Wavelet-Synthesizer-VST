@@ -3,9 +3,9 @@
 // The cases of the CPU measure (vst/devtest/cpu_bench.cpp): writes a file of presets, one per line "index v0 v1 ... | name" (the values with 17
 // digits: the exact doubles; the index is the preset's place in SPEC.PRESETS), and the table of their features (cases.json) that tools/cpu_report.js
 // aggregates.
-//   node tools/cpu_cases.js <dir> all         every preset (1182)
-//   node tools/cpu_cases.js <dir> check       the set of the equality check: every TOP Sound, the loud-chord presets of tools/dsp_cases.js and a stratified sample of
-//                                             every category (about 200 presets); written as <dir>/cases_check.txt
+//   node tools/cpu_cases.js <dir> all         every preset (237)
+//   node tools/cpu_cases.js <dir> check       the set of the equality check: every TOP Sound, four fixed presets and a stratified sample of
+//                                             every category (about 90 presets; `all` is the complete proof); written as <dir>/cases_check.txt
 //   node tools/cpu_cases.js <dir> sample [k]  every k-th preset (default 8) and the TOP Sounds: a quick CPU measure; written as <dir>/cases_sample.txt
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -20,11 +20,11 @@ let ids;
 if (what === 'check') {
   const set = new Set();
   for (let i = 0; i < SPEC.TOP; i++) set.add(i);
-  [3, 40, 120, 200, 360, 500, 641, 700, 900, 1105, 1170, 1181].forEach(i => set.add(i));
-  // every category: about one preset in 6 (the stratified sample: the same share of every category, spread over its list)
+  [3, 40, 120, 200].forEach(i => { if (i < n) set.add(i); });
+  // every category: about one preset in 3 (the stratified sample: the same share of every category, spread over its list; version 1.0.7: the list has 237 presets)
   const by = {};
   SPEC.PRESETS.forEach((p, i) => { (by[p.cat] = by[p.cat] || []).push(i); });
-  for (const cat of Object.keys(by)) { const l = by[cat]; for (let j = 2; j < l.length; j += 6) set.add(l[j]); }
+  for (const cat of Object.keys(by)) { const l = by[cat]; for (let j = 0; j < l.length; j += 3) set.add(l[j]); }
   ids = [...set].sort((a, b) => a - b);
 } else if (what === 'sample') {
   const k = +process.argv[4] || 8, set = new Set();

@@ -34,7 +34,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
 | `tools/wavelets.json` | Wavelet filter coefficients (generated with PyWavelets, MIT). |
 | `web/js/core.js` | **Reference DSP** (`WSCoreFactory(SPEC)`): transforms, table building, `Engine`, formats. |
 | `vst/src/dsp.h` | **1:1 C++ port** of `core.js` (same algorithm, same operation order). |
-| `web/` | Web app: `index.html`, `css/synth.css`, `js/{spec,core,worklet,ui,app,demo,demo_data}.js`, `manual/` (hand-written: `manual.html` + `panel.jpg`). |
+| `web/` | Web app: `index.html`, `css/synth.css`, `js/{spec,core,worklet,ui,app,demo,demo_data}.js`, `manual/` (hand-written, eight pages, §7). |
 | `vst/src/` | Plugin: `plugin.cpp` (VST3 processor, controller, factory), `editor.cpp` (GUI, every system) + `editor_platform.h` (its drawing / window interface) + `editor_win.cpp` (Win32, GDI+) + `editor_mac.mm` (Cocoa), `platform.h` (files, folders, text: Windows / macOS), `bank.h` (presets library), `vst2.cpp` (VST2 entry point, Windows), `common.h`, `iids.cpp`, `version.rc`. |
 | `vst/external/pluginterfaces/` | Steinberg VST3 interface headers (MIT, licence kept). No other SDK code is used. |
 | `vst/build.bat`, `vst/install.bat` | Build with the portable llvm-mingw toolchain (`-static`); install to the VST3 system folder (elevated, path never pasted into a command). |
@@ -47,7 +47,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
 | `tools/make_presets.js`, `preset_dsl.js`, `preset_lab.js`, `recipes_*.js` | The presets of beta 0.1 and the language the composer writes: one recipe file per group (`P(category, title, description, {A1, A2, B1, g, win})`; the recipes of beta 0.1 wrote B2 and can no longer run), the loudness / distinctness / contact-sheet tooling. |
 | `vst/devtest/vote_session.cpp` | The plug-in window test (it was the EVALUATE SOUNDS test, a feature removed in the final version): folder tabs, CHORD MODE, fit to the screen, preset browser and its stars. |
 | `tools/make_demo.js`, `tools/midi.js`, `tools/demo/` | The demo song: the MIDI file of Appassionata III (+ `SOURCE.md` licence) → `web/js/demo_data.js` (`WS_DEMO_SONGS`, one song); `tools/midi.js` is the MIDI reader of the converter (the web app reads no MIDI file). |
-| `web/manual/manual.html`, `tools/manual_shot.js` | The manual (version 1.0.6): ONE hand-written page, no generator; `panel.jpg` is its only picture, taken by `node tools/manual_shot.js` (headless Edge, muted). `tests/quick.js` (`manual`) checks that the page names every card of the panel (the titles of `SECTIONS`) and that its picture is there. The plug-in's MANUAL button opens `Contents/Resources/manual/manual.html`. |
+| `web/manual/*.html`, `manual.css`, `manual.js`, `img/`, `tools/manual_figs.js`, `tools/manual_shot.js` | The manual: eight pages written by hand (`manual.html` = the contents, the panel map, playing, presets, install, help; `wavelets.html` = the idea of the wavelet decomposition; `subtractive-1..3.html` and `additive-1..3.html` = three pages each on subtractive and additive synthesis with wavelets), `manual.css` (one look, dark on screen, light on paper: each page of the explanation prints on one A4 sheet), `manual.js` (the menu and the previous / next buttons, built from ONE list: to add or rename a page edit `PAGES` there), the figures `img/*.svg` (made from the real engine by `node tools/manual_figs.js`, committed: the manual works offline) and `panel.jpg` (`node tools/manual_shot.js`). No page generator. `tests/quick.js` (`manual`) checks that the pages together name every card of the panel (the titles of `SECTIONS`), that the menu of `manual.js` lists exactly the pages of the folder, that every picture, link and anchor is there and that no figure is left unused; `tests/web/test_manual.js` loads every page (no console error, menu, pager, pictures, phone width, print style, one A4 sheet each). The plug-in's MANUAL button opens `Contents/Resources/manual/manual.html`. |
 | `tests/` | Independent test suites (see §8), `tests/quick.js`, `regress_v07.js` (+ `ref/v07/`, the published beta 0.7 engine), `idle_skip.js`. |
 | `index.html`, `.nojekyll` | GitHub Pages home: redirects to `web/index.html`. |
 
@@ -67,7 +67,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
   other GUI skips the widget), `vis` + `visOn` (the SYNC'd RATE / TIME knobs share their place with the free ones), `style`
   (`'value'`: a knob labelled with its value), `text`, `env`
   (an ADSR display: 0 amp, 1 mod, 2 an oscillator's own envelope, whose `param` is its `eon` + 1 .. + 4). Types include `manual`
-  (the one-page manual), `download` (web only, the GitHub releases page), `toggle`, `label`, `chordpads`, `chordname`, `strumplate` (the `evaluate` type, the EVALUATE SOUNDS button, was removed in the final version).
+  (the manual, contents page), `download` (web only, the GitHub releases page), `toggle`, `label`, `chordpads`, `chordname`, `strumplate` (the `evaluate` type, the EVALUATE SOUNDS button, was removed in the final version).
   Panel (beta 0.3, §3.3i): header y 0 (logo, zoom, preset box x 384 w 296, SAVE PRESET 862 (plug-in)
   / DOWNLOAD VST (web), MANUAL 936, master, meter); section `oscframe` y 50 (the three folder tabs `osctabs` and the plate drawn by the section); at y 98 the tone card of the oscillator
   shown (544 × 260) inside the plate, and at its right, outside the plate, **OSC MIX** (572, 56; 124 wide: three level knobs + SUB OSC) and the SCOPE · ALL OSCILLATORS (704, 56; 384 wide); y 366:
@@ -117,7 +117,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
   each oscillator's tuning and pitch envelope, mip level, band gains ramped per sample, band envelopes of the additive
   oscillators, the window), `ampPass` (the AMP ENVELOPE with the velocity gain, per sample, into `envA`) and `ownPass` (an
   oscillator's own envelope, which multiplies `envA`).
-- `renderSlot` → `renderTable` → `renderVoice(vc, n, s, mode, mips, rms, fade0, fadeInc, invert, gain0, gainInc)` renders one
+- `renderSlot` → `addPasses` → `renderPasses(vc, n, s, passes, np, fade0, fadeInc, invert)` (version 1.0.7: every table set of the oscillator in one loop, sample by sample; `renderSingle` is the loop of 1.0.6 for one set) renders one
   oscillator of a voice: unison copies (≤ 4, detuned and panned) with its own envelope × the amp envelope per sample;
   `renderSub` the **sub oscillator** (sine / triangle / PolyBLEP square, −1 or −2 octaves, unfiltered, once per voice). No render
   mutates the voice: the end state goes to `endLevel/endStage/endPh/endSubPhase` so that several renders of the same oscillator
@@ -248,7 +248,7 @@ products identical. Read it before changing the DSP, the parameters or the prese
   selector octave while CHORD is on. Same geometry in `ui.js` (`padRects`) and `editor.cpp` (`padRects`).
 - Tests: `dsp_selftest` 11 (18 cases), `dsp_compare` / `dsp_render` 3 chord scenarios (`CHORD_SCRIPT` / `kChordScript`: keys,
   plate, all notes off), `quick.js` (a strummed chord and a plate note in the JS engine), `vst2_smoke` (MIDI selector key →
-  Chord Type + automation, a root → the chord, release). Manual: up to 1.0.5 `shared.js chordSection` of the generated manuals (the generator is gone); now the PLAYING part of `web/manual/manual.html`.
+  Chord Type + automation, a root → the chord, release). Manual: up to 1.0.5 `shared.js chordSection` of the generated manuals (the generator is gone); now the PLAYING part of `web/manual/manual.html` (and the chord pages of the additive part).
 
 **Beta 0.2 (chord layer).** BASS is on by default and is the first note of the chord: `chordNotes` puts it at `rootNote - 24` (+ 12 while under 24),
 its voice plays `BASS_GAIN` = 1.4 louder (`vc.gain`, set by `trigger` from `nextGain`, which `holdOn(note, vel, gain)` loads; 1 for every other
@@ -426,6 +426,13 @@ The CPU load of a chord was measured and cut by about 35-40 % (167 presets, chor
 - **Rule**: a change here must give the same bits as the build before it. Check with `cpu_bench --dump` (reference) then `--check` on `cases_check.txt` (224 presets x chords of 3 / 6 / 8 x velocity 1 / 0.7), and render
   all cases of `dsp_render` with both builds and compare the files (`cmp`). A change that moves the sound (CTRL = 64, a higher threshold for the bands that are skipped, ...) belongs in the owner's decisions, see `Revue_CPU.md` §7.
 
+### 3.7b VERSION 1.0.7 (2026-10-21): the CPU review of 1.0.6 (the sound is the same bit for bit; `Revue_CPU_1.0.7.md` has the table, the measures and the commands)
+- **The proof is part of the work**: `cpu_bench --dump` / `--check` (570 renders), `dsp_render` + `cmp` (323 cases), `dsp_compare` (worst 1.79e-7, unchanged), `tools/cpu_jsab.js` (the web engine, 711 renders), `tables_equal` (a step of `tests/full.js`), the macOS workflow (NEON against `-DWS_NO_NEON`, byte for byte), and `cpu_ab` + `tools/cpu_ab_report.js` for the CPU (two builds in turn). A change that cannot be proved identical is not made.
+- **`dsp.h`**: `renderPasses` renders the table sets of one oscillator (own, WAVELET 2 twin, LFO variants) together: the phases, the table row, the position window and the envelope once per sample, each set's own operations in their own order, the mix read and written once, the sets added in the order of the old passes (`renderLoop<K>` is compiled for 2-4 sets, run time for more; one set keeps `renderSingle`, which is faster than the fused loop for it). The `v2_*` layer (two doubles in a register) is SSE2 on x86 and NEON on Apple silicon (`-DWS_NO_NEON` and `_BAND` / `_FILTER` / `_REVERB` leave kernels out for a measure): `bandTerms`, `rampGains`, `filterVoices` and the reverb (comb k with k + 8, all-pass k with k + 4) use it; no fused multiply-add anywhere (`#pragma STDC FP_CONTRACT OFF`, `-ffp-contract=off`). `buildTables(params, withMips, t, threads)` builds the sets as independent jobs (`BuildJob`, `variantJobs`), on up to `threads` threads (the plug-in: `buildThreads()`, helpers below normal priority through `gBuildThreadInit`, never offline); `SlotTables::begin()` / `end()` keep the vectors of a set between builds and free what a build did not use; `Tables::ensureWork()` allocates the raw layers only for the builds that use them; `filter()` is a function-local static (two threads may be its first callers).
+- **`plugin.cpp`**: the builder thread waits on `wake` (a condition variable, 50 ms time-out) and `kick()` is called after every `structVersion` bump (the one call added to the audio thread); the mono scratch is sized in `setupProcessing`. **`vst2.cpp`**: `anyToProc` guards the 175 flags. **`editor.cpp`**: the preset box / browser are invalidated from the timer when `shownName()`, the modified dot, the open state, the browser's key or its tab / bank / scroll changed; `bCacheVer` rebuilds the browser's lists when `Library::version()` changed.
+- **Web**: `core.js` has the C++ memos (`ExpMemo`, `Slot.m*`, `fgMemo`, `ownZero`, the unison memo): the key of a memo must hold every input of what it saves; `app.js`: `SPEC_CORE` (the 11 entries of the spec the engine reads) goes to the worklet and the Workers, `buildDisplay()` builds the display tables once per set of values; `ui.js`: `canvasDeps()` (a canvas type that is not listed follows every parameter; a new canvas that reads a parameter must be listed with it, or be left out of the map). `tests/web/smoke.js` checks that a knob moved does not redraw the keyboard and that CHORD MODE does.
+- **Not done** (and why): web scalogram / glow (measured cheap: 0.1-0.2 ms per redraw), preset loads through the Worker (the sound would start later and meet half-sent parameters: needs a design), shared table cache, pruned inverse FFT, AVX2.
+
 ### 3.3o VERSION 1.0.6 (2026-10-21): the Crépuscule look, a one-page manual, a demo that presents the synth
 - **Crépuscule** (the owner's choice among 50 mock-ups, `GIT\Exchange Claude\OktoWave Themes`): the look lives in `web/css/synth.css` (tokens `--card --card-edge --inset --text --dim --faint --title --on-accent --accent-a #ffd166 --accent-b #7ae7ff --brand --grad --glow-*`) and in `vst/src/editor.cpp` (`kText kDim kFaint kTitle kOnAccent kAccentA kAccentB kPage`, `insetC() edgeC() hotC()`, `glass()`, `inset()`, `screen()`). Panel: a diagonal gradient (CSS 135 deg: `t = (x + y) / (w + h)`, stops #2b0f2e 0 / #5a1f4a .25 / #8a3a3a .55 / #c25a2a .85 / #e08a2a 1) under three blurred blobs (`#device::before`, opacity .45): the blobs are clipped by `clip-path`, NOT by `overflow: hidden`, so the demo window can leave the panel. Cards = translucent white (10 % to 4.5 %), a white 20 % edge, a lit top edge, radius 14; controls = black 28 % insets with the white 20 % edge, radius 9; screens black 45 %. The oscillator tab + plate is ONE flat outline (accent, 2.5 px, a 10 % tint, no glow; `svg.oscframe` / `drawOscFrame`): the 1.0.5 "trail of light" gradients are gone. The preset browser is its own panel (CSS `#browser`, C++ `drawBrowser`, 160 deg). **Plug-in, both systems**: the backdrop is computed once per panel height into an opaque ARGB image at half resolution (`makeBackdrop`, drawn by `drawHalf` through `Canvas::pixels`, clipped to a rounded rectangle with `pushClipRR`): the glass cards are translucent fills over it, so a partial repaint stays exact (the backdrop is drawn first in every dirty rectangle). No platform file knows a colour: `editor_win.cpp` and `editor_mac.mm` did not change. `tests/web/smoke.js` asserts the WEST accent `#ffd166` (ARAB / TURK keep `#f0b84a`, `#ff5468`).
 - **Manual**: one hand-written page (§1 table); a renamed card must be renamed in it (`tests/quick.js` says which).
@@ -491,9 +498,11 @@ The CPU load of a chord was measured and cut by about 35-40 % (167 presets, chor
   The plug-in's `bFollow()` (called by `onTimer` when the parameters change) does the same and keeps the scroll when the row is already in view.
 - beta 0.6 **welcome window** (`index.html` `.welcome`, shown at page open): "Run the demo" (`#w-demo`), "Play the synth"
   (`#start-btn`, starts the audio, plays no note; "MIDI supported"), "Download the VST" (`#w-vst`, the GitHub releases
-  page, `target _blank rel noopener`). Browsers allow sound only after a click: each choice is that click. `setOverlay`
+  page, `target _blank rel noopener`) and, a whole row under them, "Learn more about the sound engine" (`#w-learn`, a link to `manual/wavelets.html`: a click
+  shows it in the manual viewer over the window with `openManual('wavelets.html')`, Ctrl / Shift / Cmd opens a new tab; it starts no audio, Esc closes it and the window is still there;
+  `openManual(page)` only accepts a plain page name of `web/manual/`, anything else opens the contents). Browsers allow sound only after a click: each choice is that click. `setOverlay`
   makes the panel `inert` while it is shown; it comes back (paused audio, another window playing) with the reason in
-  `#w-sub`. Header: DOWNLOAD VST (`VST_RELEASES` in `ui.js`) and one MANUAL button (the one-page manual, in
+  `#w-sub`. Header: DOWNLOAD VST (`VST_RELEASES` in `ui.js`) and one MANUAL button (the manual's contents page, in
   the overlay viewer).
 - Test hooks: `window.WS_TEST` (used by the test suites). `node.onprocessorerror` tells the player when the worklet fails. The animated
   canvases are drawn when `setLive` saw a change (`liveVer`), while the meter falls back and twice a second at rest.
@@ -597,7 +606,7 @@ runs from `file://`); GitHub Actions pinned by tag.
 - `vst\build.bat`: regenerates the spec (if Node is present), compiles `plugin editor editor_win iids vst2` + `funknown.cpp`
   (`-ffp-contract=off`), links statically (`-lgdiplus -lgdi32 -luser32 -lshell32 -lole32 -luuid`), copies the `.dll`, the manual and licences
   into the bundle. The DLL cannot be relinked while a host has it loaded.
-- Manual (version 1.0.6): `web/manual/manual.html` is written by hand; after a change of the panel's look run `node tools/manual_shot.js` (the one picture). `tests/quick.js` `manual` keeps it in step with the cards of the panel.
+- Manual: the pages of `web/manual/` are written by hand; after a change of the panel's look run `node tools/manual_shot.js` (the panel picture), after a change of the engine or of the colours `node tools/manual_figs.js` (the figures: they use `core.js`, so a number in a figure can never disagree with the synthesizer), then commit the files. `tests/quick.js` `manual` keeps the pages in step with the cards of the panel and with each other.
 
 ## 8. Tests
 Beta 0.3 (B2 removed, folder tabs, LFO 3, FILTER, 600 presets): the cases of the cross-check are 1000 (930 presets + 70 variants of `tools/dsp_cases.js`: B2 variants use B1 and A2, LFO 3 on
@@ -613,7 +622,7 @@ on the 222 presets + chord layer + hostile MIDI, the VST3 host's `params,audio,o
 checks), `tests/regress_v07.js`, `tests/idle_skip.js`, `tests/web/smoke.js` (three oscillator views with their folder tabs, CHORD MODE, no console error), `tools/dsp_compare.js` + `vst/devtest/dsp_render.cpp` (1000 cases), `vst/devtest/vote_session.cpp` (the plug-in's window in an off-screen window: folder tabs, CHORD MODE, fit to the screen, the preset browser and its stars, screenshots; build line at its
 top; its presets file goes to its output folder through `WS_PRESETS_FILE`, so it never touches the player's file; it was the EVALUATE SOUNDS test, removed in the final version), `tests/web/test_web.js` (adapted: the
 oscillator tabs, 860 px panel, no Source Phase, a neutral patch made of the spec defaults — there is no Init preset; the full run plays all
-222 presets and takes about 10 minutes), `tests/web/test_demo.js` (the demo, one song, is a preset tour: the plan against the spec's `TOUR`, the
+222 presets and takes about 10 minutes), `tests/web/test_manual.js` (the eight pages of the manual, about 20 s), `tests/web/test_demo.js` (the demo, one song, is a preset tour: the plan against the spec's `TOUR`, the
 welcome sentences, the forced playing rules, stop paths, no arrow / menu / MIDI input / EVALUATE button; `--smoke` about 1.5 minutes), `tools/dsp_selftest.js` (12 sections; 12 =
 the four oscillators), `vst/devtest/library_test.cpp` (the presets file, no window), `vst/devtest/vst2_smoke.cpp`. `tests/vst3host` with `--skip-editor`: the sections params, audio, state, offline, presets, sub, porta, stress, instances and sync pass (190 checks).
 **Not ported** (they drive the Wavelet Synthesizer's presets, panel or screenshots, or the macOS build): `vst/devtest/bank_session.cpp`,
@@ -665,7 +674,7 @@ the controller-state and editor sections of `tests/vst3host` (the editor one han
 
 ## 9. Common changes — checklist
 - **New parameter**: append in `tools/spec.js` (never insert), choose `structural`, place a widget in the layout, run
-  `gen_spec`, implement in `core.js` **and** `dsp.h`, name a new card in `web/manual/manual.html` (`tests/quick.js` says which one is missing),
+  `gen_spec`, implement in `core.js` **and** `dsp.h`, name a new card in the manual (`web/manual/*.html`; `tests/quick.js` says which one is missing),
   think about compatibility of old states (default must reproduce the old sound), run the cross-check and the suites.
 - **New preset, beta 0.2 and later**: the 300 of `presets_super.js` (beta 0.2) and the 600 of `presets_lfo3.js` (beta 0.3) are generated: `MW_NO_LFO3=1 node tools/gen_spec.js` (the builder compares its candidates
   with the 330 presets that exist without them), `node tools/supermod/calib.js tools/out/calib03.json` (their measures), then `node tools/supermod/build.js --per 5 --procs 22 --pool --keep [--cats "Bass,Pad"]`

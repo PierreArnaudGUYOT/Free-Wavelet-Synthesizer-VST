@@ -6,6 +6,9 @@
 (function () {
   'use strict';
   const SPEC = WS_SPEC, C = WSCoreFactory(SPEC), P = C.P;
+  // Version 1.0.7: the engine reads 11 entries of the spec (the whole of it is 300 KB: the presets, their descriptions, the demo's data); the worklet and the Workers get these, not a copy of everything
+  const SPEC_CORE = {};
+  for (const k of ['PARAMS', 'SLOTS', 'ROLES', 'LFO2_ROLE', 'LFO2_TARGETS', 'WAVELETS', 'CHORDS', 'CHORD_KEYS', 'MICRO', 'DELAY_BEATS', 'LFO_BEATS']) SPEC_CORE[k] = SPEC[k];
   const PARAMS = SPEC.PARAMS;
   const values = Float64Array.from(C.defaults());
   const $ = id => document.getElementById(id);
@@ -87,7 +90,7 @@
         if (workerAgain) { workerAgain = false; build(true); }
       };
       worker.onerror = () => { worker = null; workerReady = false; workerBusy = false; };   // not allowed here (file:// in some browsers): build on this thread
-      worker.postMessage({ spec: SPEC });
+      worker.postMessage({ spec: SPEC_CORE });
     } catch (_) { worker = null; workerReady = false; }
   }
   startWorker();
@@ -104,7 +107,7 @@
         pwait = null;
       };
       pworker.onerror = () => { pworker = null; pready = false; };
-      pworker.postMessage({ spec: SPEC });
+      pworker.postMessage({ spec: SPEC_CORE });
     } catch (_) { pworker = null; pready = false; }
   }
   function prebuild(vals) {
@@ -131,7 +134,14 @@
     };
     post(all ? { t: 'bulk', v: Array.from(all), tables: { needs: tb.needs, slots: tb.slots.map(pack) } } : { t: 'tables', tables: { needs: tb.needs, slots: tb.slots.map(pack) } }, transfer);
   }
-  let buildTimer2 = null;
+  let buildTimer2 = null, displayKey = '';
+  // the display is a function of the values: built again only when they changed since the last one (version 1.0.7)
+  function buildDisplay() {
+    const key = values.join(',');
+    if (key === displayKey) return;
+    displayKey = key;
+    ui.setTables(C.buildTables(values, false));
+  }
   function scheduleBuild() {
     if (buildTimer) return;
     buildTimer = setTimeout(() => { buildTimer = null; build(true); }, Math.max(0, 45 - (performance.now() - lastBuild)));
@@ -139,7 +149,7 @@
   // the display of the oscillator shown (its source, its atoms, the scope and the scalogram)
   function scheduleDisplay() {
     if (buildTimer2) return;
-    buildTimer2 = setTimeout(() => { buildTimer2 = null; ui.setTables(C.buildTables(values, false)); }, 20);
+    buildTimer2 = setTimeout(() => { buildTimer2 = null; buildDisplay(); }, 20);
   }
   // inWorker: a knob being moved (the Worker builds, if it can); else at once, here
   function build(inWorker, bulk, tables) {
@@ -154,7 +164,7 @@
       deliver(tables || C.buildTables(values, true), bulk ? values : null);
     }
     if (buildTimer2) { clearTimeout(buildTimer2); buildTimer2 = null; }
-    ui.setTables(C.buildTables(values, false));
+    buildDisplay();
   }
 
   let saveTimer = null;
@@ -290,7 +300,7 @@
       // (file pages have an opaque origin and blob:null module loads are rejected).
       const url = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(src);
       await actx.audioWorklet.addModule(url);
-      node = new AudioWorkletNode(actx, 'wavelet-synth', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { spec: SPEC } });
+      node = new AudioWorkletNode(actx, 'wavelet-synth', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { spec: SPEC_CORE } });
       // the processor threw (a bug, or a broken state): the audio stops for good; say so rather than stay silent
       node.onprocessorerror = () => {
         $('st-audio').classList.remove('on');
@@ -489,9 +499,11 @@
   window.addEventListener('blur', () => { for (const n of heldCodes.values()) noteOff(n); heldCodes.clear(); });
 
   // ---------------------------------------------------------------- manuals
-  // version 1.0.6: the manual is one page (manual/manual.html), shown over the window
-  function openManual() {
-    const url = 'manual/manual.html';
+  // the manual has eight pages in manual/: the MANUAL button opens its contents (manual.html), the welcome window's "Learn more" box the introduction to
+  // wavelets (wavelets.html); both are shown over the window and neither starts the audio. Only a plain page name of the folder is accepted.
+  const MANUAL_PAGE = /^[a-z0-9-]+\.html$/;
+  function openManual(page) {
+    const url = 'manual/' + (typeof page === 'string' && MANUAL_PAGE.test(page) ? page : 'manual.html');
     $('manual-iframe').src = url;
     $('manual-newtab').href = url;
     $('manual-title').textContent = 'OktoWave — user manual';
@@ -576,6 +588,7 @@
   $('w-demo').onclick = () => resumeAudio().then(() => { if (actx) playDemo(); });
   // the manual viewer, over the window (Ctrl / Shift / Cmd + click: the browser's new tab or window)
   $('w-manual').onclick = (e) => { if (e.ctrlKey || e.shiftKey || e.metaKey) return; e.preventDefault(); openManual(); };
+  $('w-learn').onclick = (e) => { if (e.ctrlKey || e.shiftKey || e.metaKey) return; e.preventDefault(); openManual('wavelets.html'); };
   $('start-overlay').addEventListener('pointerdown', (e) => { if (e.target === $('start-overlay')) resumeAudio(); });
   $('manual-close').onclick = closeManual;
   $('manual-overlay').addEventListener('pointerdown', (e) => { if (e.target === $('manual-overlay')) closeManual(); });

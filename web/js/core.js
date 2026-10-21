@@ -507,14 +507,18 @@ function WSCoreFactory(SPEC) {
   function Env() { this.stage = 0; this.level = 0; }
   // stage: 0 idle, 1 attack, 2 decay/sustain, 3 release
   Env.prototype.gate = function (on) { this.stage = on ? 1 : (this.stage ? 3 : 0); };
-  Env.prototype.step = function (n, sr, a, d, s, r) {
+  // exp() of an argument that is the same in every call of a block (it depends on the settings and on the block length only): computed once, the same value as the call it replaces
+  function ExpMemo() { this.arg = NaN; this.val = 0; }
+  ExpMemo.prototype.get = function (a) { if (a !== this.arg) { this.arg = a; this.val = Math.exp(a); } return this.val; };
+  const expOf = (m, a) => (m ? m.get(a) : Math.exp(a));
+  Env.prototype.step = function (n, sr, a, d, s, r, decay, release) {
     if (this.stage === 1) {
       this.level += n / (a * sr);
       if (this.level >= 1) { this.level = 1; this.stage = 2; }
     } else if (this.stage === 2) {
-      this.level = s + (this.level - s) * Math.exp(-n * LN1000 / (d * sr));
+      this.level = s + (this.level - s) * expOf(decay, -n * LN1000 / (d * sr));
     } else if (this.stage === 3) {
-      this.level *= Math.exp(-n * LN1000 / (r * sr));
+      this.level *= expOf(release, -n * LN1000 / (r * sr));
       if (this.level < 1e-5) { this.level = 0; this.stage = 0; }
     }
     return this.level;
@@ -530,6 +534,9 @@ function WSCoreFactory(SPEC) {
     this.live = false;                                      // rendered in the last block
     // its place among the sets of each kind of variant (VK_*: phase, sparsity, width), from the start to the end of the block
     this.vq0 = new Float64Array(3); this.vq1 = new Float64Array(3);
+    // memos of what the last block computed from the same inputs (compared exactly): the oscillator's pitch, the scale filter's gains, the mip level
+    this.mA = NaN; this.mF0 = 0; this.mL2f0 = NaN; this.mL2 = 0; this.mTop = NaN; this.mFmax = NaN; this.mMip = 0;
+    this.mType = -1; this.mCut = 0; this.mSlope = 0; this.mRes = 0; this.mFg = new Float64Array(NB);
   }
   function Voice() {
     this.active = false; this.gate = false; this.held = false;
@@ -545,6 +552,7 @@ function WSCoreFactory(SPEC) {
     this.fresh = true;
     this.wm0 = 0; this.wm1 = 0;   // WAVELET MORPH position
     this.gain = 1; this.quick = false;   // the chord's bass note plays louder; a note dropped by a live chord change fades out quickly
+    this.mSemis = NaN; this.mPitchF0 = 0;   // memo: the voice's frequency for its last pitch in semitones
   }
   // releases the voice's own envelopes (with the AMP and MOD envelopes)
   function relOwn(vc) { for (let s = 0; s < NS; s++) vc.sl[s].own.gate(false); }
@@ -582,6 +590,13 @@ function WSCoreFactory(SPEC) {
     this.fltOn = false; this.dFltOct = 0; this.dFltRes = 0;               // the filter is in the path; the moves LFO 2 / LFO 3 give its cutoff (octaves) and resonance
     this.panL = new Float64Array(4); this.panR = new Float64Array(4); this.inc = new Float64Array(4); this.detMul = new Float64Array(4);
     this.lg = new Float64Array(NB);
+    // exp() memos of the envelopes' factors and of the filter gains of the last voice that asked (per oscillator); the unison copies; the output stage's factors
+    this.mAmpD = new ExpMemo(); this.mAmpR = new ExpMemo(); this.mAmpQ = new ExpMemo(); this.mModD = new ExpMemo(); this.mModR = new ExpMemo(); this.mFeD = new ExpMemo(); this.mFeR = new ExpMemo();
+    this.mOwnD = []; this.mOwnR = []; this.mOwnStepD = []; this.mOwnStepR = []; this.mPe = []; this.fgMemo = [];
+    for (let s = 0; s < NS; s++) { this.mOwnD.push(new ExpMemo()); this.mOwnR.push(new ExpMemo()); this.mOwnStepD.push(new ExpMemo()); this.mOwnStepR.push(new ExpMemo()); this.mPe.push(new ExpMemo()); this.fgMemo.push({ type: -1, cut: 0, slope: 0, res: 0, fg: new Float64Array(NB) }); }
+    this.mKd = new ExpMemo(); this.mVol = new ExpMemo(); this.mLvl = new ExpMemo(); this.mCompKd = NaN; this.mComp = 0;
+    this.uMemoU = -1; this.uMemoDet = NaN; this.uMemoWidth = NaN;
+    this.ownZero = new Uint8Array(NS);
     // per block, computed once for all voices (prepBlock): the oscillators' levels and settings
     this.lvlSm = new Float64Array(NS); this.m0 = new Float64Array(NS); this.m1 = new Float64Array(NS); this.live = new Uint8Array(NS);
     this.pr = [];
@@ -1067,16 +1082,20 @@ function WSCoreFactory(SPEC) {
     this.dFltOct = (c2 ? d2 : 0) + (c3 ? d3 : 0); this.dFltRes = (r2 ? d2 : 0) + (r3 ? d3 : 0);
     this.fltOn = !(p[P.vf_cut] >= 20000 && p[P.vf_res] === 0 && p[P.vf_drive] === 0 && p[P.vf_env] === 0 && !c2 && !r2 && !c3 && !r3);
     // unison copies (detune and pan are the same for every oscillator)
-    const U = Math.round(p[P.v_unison]), det = p[P.v_detune], width = p[P.v_width], uGain = 1 / Math.sqrt(U);
+    const U = Math.round(p[P.v_unison]), det = p[P.v_detune], width = p[P.v_width];
     this.U = U;
-    this.topMul = Math.pow(2, (U > 1 ? det : 0) / 1200);
-    for (let u = 0; u < U; u++) {
-      const pos = U > 1 ? 2 * u / (U - 1) - 1 : 0;
-      this.detMul[u] = Math.pow(2, det * pos / 1200);
-      const th = (pos * width + 1) * Math.PI / 4;
-      this.panL[u] = Math.SQRT2 * Math.cos(th) * uGain; this.panR[u] = Math.SQRT2 * Math.sin(th) * uGain;
+    if (U !== this.uMemoU || det !== this.uMemoDet || width !== this.uMemoWidth) {   // topMul, detMul, panL, panR depend on these three only
+      this.uMemoU = U; this.uMemoDet = det; this.uMemoWidth = width;
+      const uGain = 1 / Math.sqrt(U);
+      this.topMul = Math.pow(2, (U > 1 ? det : 0) / 1200);
+      for (let u = 0; u < U; u++) {
+        const pos = U > 1 ? 2 * u / (U - 1) - 1 : 0;
+        this.detMul[u] = Math.pow(2, det * pos / 1200);
+        const th = (pos * width + 1) * Math.PI / 4;
+        this.panL[u] = Math.SQRT2 * Math.cos(th) * uGain; this.panR[u] = Math.SQRT2 * Math.sin(th) * uGain;
+      }
     }
-    const a = 1 - Math.exp(-n / (0.02 * sr));
+    const a = 1 - this.mLvl.get(-n / (0.02 * sr));
     for (let s = 0; s < NS; s++) {
       const k = K[s], q = this.pr[s];
       this.m0[s] = this.lvlSm[s];
@@ -1150,8 +1169,9 @@ function WSCoreFactory(SPEC) {
     } else vc.pitch = vc.target;
     const semis = vc.pitch + this.microSemis(vc.pitch) + 12 * p[P.v_oct] + p[P.v_fine] / 100 + 2 * p[P.bend] +
       this.lfo * (p[P.lfo_pitch] + 50 * p[P.modwheel]) / 100;
-    vc.f0 = 440 * Math.pow(2, (semis - 69) / 12);   // the voice's pitch (the sub oscillator follows it); each oscillator adds its tuning
-    const mod = vc.mod.step(n, sr, p[P.mod_a], p[P.mod_d], p[P.mod_s], p[P.mod_r]);
+    if (semis !== vc.mSemis) { vc.mSemis = semis; vc.mPitchF0 = 440 * Math.pow(2, (semis - 69) / 12); }
+    vc.f0 = vc.mPitchF0;   // the voice's pitch (the sub oscillator follows it); each oscillator adds its tuning
+    const mod = vc.mod.step(n, sr, p[P.mod_a], p[P.mod_d], p[P.mod_s], p[P.mod_r], this.mModD, this.mModR);
     // WAVELET MORPH position of this voice (0 = WAVELET, 1 = WAVELET 2): MORPH + LFO + mod envelope, moving from wm0 to wm1
     // across the block
     // (beta 0.2: LFO 2 can add to the morph, LFO 1 can swing the envelope's reach: ENV>WAV + LFO1 TO ENV>WAV · LFO)
@@ -1162,22 +1182,36 @@ function WSCoreFactory(SPEC) {
     for (let s = 0; s < NS; s++) {
       const sl = vc.sl[s], k = K[s], q = this.pr[s];
       // the pitch envelope and the own envelope go on whether the oscillator sounds or not
-      if (p[k.pamt] !== 0) sl.pe *= Math.exp(-n * LN1000 / (p[k.ptime] * sr));
+      if (p[k.pamt] !== 0) sl.pe *= this.mPe[s].get(-n * LN1000 / (p[k.ptime] * sr));
       if (!this.live[s]) {
-        if (p[k.eon] >= 0.5) sl.own.step(n, sr, p[k.ea], p[k.ed], p[k.es], p[k.er]);
+        if (p[k.eon] >= 0.5) sl.own.step(n, sr, p[k.ea], p[k.ed], p[k.es], p[k.er], this.mOwnStepD[s], this.mOwnStepR[s]);
         sl.live = false;
         continue;
       }
-      const f0 = 440 * Math.pow(2, (semis + q.tune + p[k.pamt] * sl.pe - 69) / 12);
+      const pa = (semis + q.tune + p[k.pamt] * sl.pe - 69) / 12;
+      if (pa !== sl.mA) { sl.mA = pa; sl.mF0 = 440 * Math.pow(2, pa); }
+      const f0 = sl.mF0;
       sl.f0 = f0;
       const fTop = f0 * this.topMul;
-      const maxH = Math.floor(this.fmax / fTop);
-      sl.mip = maxH >= 1024 ? 0 : maxH < 1 ? NMIP - 1 : Math.min(NMIP - 1, Math.ceil(Math.log2(1024 / maxH) - 1e-9));
+      if (fTop !== sl.mTop || this.fmax !== sl.mFmax) {
+        sl.mTop = fTop; sl.mFmax = this.fmax;
+        const maxH = Math.floor(this.fmax / fTop);
+        sl.mMip = maxH >= 1024 ? 0 : maxH < 1 ? NMIP - 1 : Math.min(NMIP - 1, Math.ceil(Math.log2(1024 / maxH) - 1e-9));
+      }
+      sl.mip = sl.mMip;
       // scale filter
-      const cut = q.fcut + (1 - q.fkey) * Math.log2(261.63 / f0) + q.fenv * mod + p[P.lfo_cut] * this.lfo + q.fvel * (vc.vel - 1);
+      if (f0 !== sl.mL2f0) { sl.mL2f0 = f0; sl.mL2 = Math.log2(261.63 / f0); }
+      const cut = q.fcut + (1 - q.fkey) * sl.mL2 + q.fenv * mod + p[P.lfo_cut] * this.lfo + q.fvel * (vc.vel - 1);
       // LFO 1 TO RESO: the resonance swings by ± the amount (dB), kept in 0 .. 24
       const res = p[P.lfo_res] > 0 ? Math.min(24, Math.max(0, q.fres + p[P.lfo_res] * this.lfo)) : q.fres;
-      filterGains(q.ftype, cut, q.fslope, res, this.fg);
+      // the band gains are a function of (type, cut, slope, res) only: the voice's last ones, or the last ones computed for this oscillator, are reused when those four are the same
+      if (sl.mType === q.ftype && sl.mCut === cut && sl.mSlope === q.fslope && sl.mRes === res) this.fg.set(sl.mFg);
+      else {
+        const m = this.fgMemo[s];
+        if (m.type === q.ftype && m.cut === cut && m.slope === q.fslope && m.res === res) this.fg.set(m.fg);
+        else { filterGains(q.ftype, cut, q.fslope, res, this.fg); m.type = q.ftype; m.cut = cut; m.slope = q.fslope; m.res = res; m.fg.set(this.fg); }
+        sl.mType = q.ftype; sl.mCut = cut; sl.mSlope = q.fslope; sl.mRes = res; sl.mFg.set(this.fg);
+      }
       const fresh = !sl.live;   // a note's first block, or the oscillator just came in: the gains start at their target
       if (SLOTS[s].mode === 0) {
         // the voice's place among the sets of each kind of variant (the tables' own kind decides which one is read, renderTable):
@@ -1226,11 +1260,11 @@ function WSCoreFactory(SPEC) {
     const p = this.p, sr = this.sr, env = this.envA;
     let lev = vc.amp.level, st = vc.amp.stage;
     const s = p[P.amp_s];
-    const aInc = 1 / (p[P.amp_a] * sr), dC = Math.exp(-LN1000 / (p[P.amp_d] * sr)), rC = Math.exp(-LN1000 / (p[P.amp_r] * sr));
+    const aInc = 1 / (p[P.amp_a] * sr), dC = this.mAmpD.get(-LN1000 / (p[P.amp_d] * sr)), rC = this.mAmpR.get(-LN1000 / (p[P.amp_r] * sr));
     // beta 0.2: the chord's bass note plays louder (vc.gain; exactly the old value when it is 1), and a note dropped by a live chord
     // change fades out in QUICK_REL at most
     const velGain = VOICE_GAIN * (1 - p[P.amp_vel] * (1 - vc.vel)) * vc.gain;
-    const rQ = vc.quick && p[P.amp_r] > QUICK_REL ? Math.exp(-LN1000 / (QUICK_REL * sr)) : rC;
+    const rQ = vc.quick && p[P.amp_r] > QUICK_REL ? this.mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : rC;
     for (let i = 0; i < n; i++) {
       if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
       else if (st === 2) lev = s + (lev - s) * dC;
@@ -1244,13 +1278,16 @@ function WSCoreFactory(SPEC) {
     const p = this.p, sr = this.sr, k = K[s], buf = this.ownBuf[s], sl = vc.sl[s];
     let lev = sl.own.level, st = sl.own.stage;
     const sus = p[k.es];
-    const aInc = 1 / (p[k.ea] * sr), dC = Math.exp(-LN1000 / (p[k.ed] * sr)), rC = Math.exp(-LN1000 / (p[k.er] * sr));
+    const aInc = 1 / (p[k.ea] * sr), dC = this.mOwnD[s].get(-LN1000 / (p[k.ed] * sr)), rC = this.mOwnR[s].get(-LN1000 / (p[k.er] * sr));
+    let zero = true;
     for (let i = 0; i < n; i++) {
       if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
       else if (st === 2) { lev = sus + (lev - sus) * dC; if (Math.abs(lev - sus) < 1e-9) lev = sus; }
       else if (st === 3) { lev *= rC; if (lev < 1e-5) { lev = 0; st = 0; } }
       buf[i] = lev;
+      if (lev !== 0) zero = false;
     }
+    this.ownZero[s] = zero ? 1 : 0;
     this.ownLevel[s] = lev; this.ownStage[s] = st;
   };
 
@@ -1275,6 +1312,10 @@ function WSCoreFactory(SPEC) {
     for (let b = 0; b < NB; b++) lg[b] = g[b];
     const pc = sl.pc, pw = sl.pw, pd = sl.pd;
     const L = this.bufL, R = this.bufR, envA = this.envA, own = this.ownOn[s] ? this.ownBuf[s] : null;
+    if (own && this.ownZero[s]) {
+      for (let i = 0; i < n; i++) for (let u = 0; u < U; u++) { let x = ph[u] + inc[u]; if (x >= 1) x -= Math.floor(x); ph[u] = x; }
+      return;
+    }
     const unity = gain0 === 1 && gainInc === 0;
     let fade = fade0, gain = gain0;
     for (let i = 0; i < n; i++) {
@@ -1424,7 +1465,7 @@ function WSCoreFactory(SPEC) {
       this.control(vc, n);
       this.ampPass(vc, n);
       // the FILTER (beta 0.3): the voice is rendered with a unit envelope into its own buffers, filtered, then shaped by the real amp envelope and added to the mix
-      const feLev = vc.fe.step(n, this.sr, p[P.vf_a], p[P.vf_d], p[P.vf_s], p[P.vf_r]);
+      const feLev = vc.fe.step(n, this.sr, p[P.vf_a], p[P.vf_d], p[P.vf_s], p[P.vf_r], this.mFeD, this.mFeR);
       let realEnv = null;
       if (this.fltOn) {
         this.fltPrep(vc, n, feLev);
@@ -1459,11 +1500,13 @@ function WSCoreFactory(SPEC) {
     this.polyComp(L, R, n);
 
     // ---- effects
-    const drive = p[P.fx_drive], k = Math.exp(drive * 24 * (Math.LN10 / 20)), comp = 0.5 / Math.tanh(0.5 * k);
+    const drive = p[P.fx_drive], k = this.mKd.get(drive * 24 * (Math.LN10 / 20));
+    if (k !== this.mCompKd) { this.mCompKd = k; this.mComp = 0.5 / Math.tanh(0.5 * k); }
+    const comp = this.mComp;
     const fb = p[P.fx_dfb], dmix = p[P.fx_dmix], rmix = p[P.fx_rmix];
     const dTarget = this.delaySec() * this.sr, dlen = this.dlyLen;
     const feedback = 0.7 + 0.28 * p[P.fx_rsize], damp = this.damp;
-    const volT = Math.exp(p[P.master] * (Math.LN10 / 20));
+    const volT = this.mVol.get(p[P.master] * (Math.LN10 / 20));
     const kDly = this.kDly, kLp = this.kLp, kVol = this.kVol;
     const chMix = p[P.ch_mix], chLen = this.chLen, chBuf = this.chBuf;
     const chBase = CH_BASE * this.sr, chDepth = p[P.ch_depth] * CH_DEPTH * this.sr;

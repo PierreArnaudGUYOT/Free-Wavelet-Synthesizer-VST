@@ -202,7 +202,7 @@ getLevel, presets, loadPreset, openManual, closeManual` (and `allNotesOff` if pr
 4. Note C4 (and MIDI 24/96): the level must rise above 0 and return below 0.001 after noteOff + release.
 5. All presets: values applied as in the spec, every preset sounds and releases (`preset_NN.png`).
 6. Engine A/B (`engine_A.png`, `engine_B.png`).
-7. The manual (one page, `manual/manual.html`): the overlay is shown and the page actually loads (`manual_*.png`); `quick.js` checks that it names every card of the panel.
+7. The manual (the contents page and the introduction to wavelets): the overlay is shown and the page actually loads (`manual_*.png`); the welcome window's fourth box opens the introduction without starting the audio and the four boxes do not overlap (desktop and phone width). `test_manual.js` loads all eight pages; `quick.js` checks that they name every card of the panel.
 8. Computer keyboard: Digit/Numpad/letter keys play and release, held auto-repeat does not stick, Z/X octave.
 9. Mouse on the UI, using spec layout coordinates mapped onto the device element: engine selector, Cutoff drag,
    on-screen keyboard.

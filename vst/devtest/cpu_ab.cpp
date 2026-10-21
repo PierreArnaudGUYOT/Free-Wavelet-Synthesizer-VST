@@ -9,12 +9,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#if defined(_WIN32)
 #include <intrin.h>
+#endif
 #include <sstream>
 #include <string>
 #include <vector>
+#if defined(_WIN32)
 #include <windows.h>
+#endif
+#if defined(__SSE__)
 #include <xmmintrin.h>
+#endif
 constexpr int kNumParamsAb = 175;   // checked against the cases at run time (the number of values on a line)
 AbRunner* makeOld();
 AbRunner* makeNew();
@@ -31,11 +37,23 @@ int main(int argc, char** argv) {
     else if (a == "--shard") { std::sscanf(v, "%d/%d", &shardI, &shardN); i++; }
     else if (a == "--pin") { pin = std::atoi(v); i++; }
   }
+#if defined(__SSE__)
   _mm_setcsr(_mm_getcsr() | 0x8040);   // flush-to-zero, denormals-are-zero, as the plug-in sets them
+#elif defined(__aarch64__)
+  { uint64_t o; __asm__ __volatile__("mrs %0, fpcr" : "=r"(o)); const uint64_t n = o | (1ull << 24); __asm__ __volatile__("msr fpcr, %0" : : "r"(n)); }   // the FZ bit, as plugin.cpp sets it
+#endif
+#if defined(_WIN32)
   if (pin >= 0) SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)1 << pin);
+#else
+  (void)pin;
+#endif
+#if defined(_WIN32)
   LARGE_INTEGER f, a, b; QueryPerformanceFrequency(&f); double hz[3];
   for (int k = 0; k < 3; k++) { QueryPerformanceCounter(&a); const uint64_t t0 = __rdtsc(); do { Sleep(0); QueryPerformanceCounter(&b); } while ((b.QuadPart - a.QuadPart) * 1000.0 / f.QuadPart < 100); hz[k] = (double)(__rdtsc() - t0) / ((double)(b.QuadPart - a.QuadPart) / f.QuadPart); }
   std::sort(hz, hz + 3); const double cycHz = hz[1];
+#else
+  const double cycHz = 1e9;   // cpu_ab_engine.cpp counts nanoseconds of thread CPU time
+#endif
   FILE* csv = out.empty() ? stdout : std::fopen(out.c_str(), "w");
   std::fprintf(csv, "# cycles per second %.0f\n", cycHz);
   AbRunner* A = makeOld(); AbRunner* B = makeNew();

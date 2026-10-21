@@ -13,8 +13,11 @@
 #ifdef __APPLE__
 #define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0   // no check() / verify() macros from Apple's headers
 #include <CoreFoundation/CoreFoundation.h>
+#include <pthread.h>
+#include <pthread/qos.h>
 #endif
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -222,6 +225,20 @@ static bool readState(IBStream* s, double* plain) {
   return true;
 }
 
+// version 1.0.7 (CPU review 3.4): the sets of a preset are built by up to buildThreads() threads (the same bits, a third of the time on a heavy preset). The helper threads run below
+// the normal priority so that they do not take the cores of the DAW's audio threads.
+static void lowerBuildPriority() {
+#if defined(_WIN32)
+  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+#elif defined(__APPLE__)
+  pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
+#endif
+}
+static int buildThreads() {
+  static const int n = [] { const unsigned hw = std::thread::hardware_concurrency(); gBuildThreadInit = lowerBuildPriority; return (int)std::max(1u, std::min(4u, hw / 2)); }();
+  return n;
+}
+
 // ================================================================== processor
 class Processor : public IComponent, public IAudioProcessor, public IConnectionPoint, public IProcessContextRequirements {
  public:
@@ -295,7 +312,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
         int idx = claimFree();
         if (idx >= 0) {
           try {
-            buildTables(snap, true, sets[idx]);
+            buildTables(snap, true, sets[idx], buildThreads());
           } catch (...) {   // out of memory: the host is told, it does not crash
             setState_[idx].store(kFree);
             return kResultFalse;
@@ -321,6 +338,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     for (int i = 0; i < kNumParams; i++) if (!kParams[i].hidden) plain[i].store(v[i]);
     stateDirty.store(true);
     structVersion.fetch_add(1);
+    kick();
     return kResultOk;
   }
   tresult PLUGIN_API getState(IBStream* state) override {
@@ -353,6 +371,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     // beta 0.6 (security review): only real rates; an absurd one would overflow the 4 s delay line's size
     if (setup.sampleRate >= kMinRate && setup.sampleRate <= kMaxRate && setup.sampleRate != engine.sr) engine.setSampleRate(setup.sampleRate);
     offline = setup.processMode == kOffline;
+    if (setup.maxSamplesPerBlock > 0 && setup.maxSamplesPerBlock <= 1 << 20) scratch.resize((size_t)setup.maxSamplesPerBlock);   // (version 1.0.7: the right channel of a mono host layout is not allocated on the audio thread)
     return kResultOk;
   }
   tresult PLUGIN_API setProcessing(TBool) override { return kResultOk; }
@@ -397,7 +416,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
             const bool morph = morphNeeded(engine.p); const int vsig = variantSig(engine.p);
             const bool tablesEnd = morph != lastMorph || vsig != lastVarSig;
             lastMorph = morph; lastVarSig = vsig;
-            if ((kParams[id].structural && id != (ParamID)P_OSC_VIEW) || levelEnds || tablesEnd) structVersion.fetch_add(1);
+            if ((kParams[id].structural && id != (ParamID)P_OSC_VIEW) || levelEnds || tablesEnd) { structVersion.fetch_add(1); kick(); }
           }
         }
       }
@@ -545,6 +564,11 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
   std::atomic<int> setState_[kSets];
   std::atomic<int> pendingIdx{-1};
   std::mutex buildMutex;        // serialises table builds (builder thread, activation, offline rendering)
+  // version 1.0.7: the builder thread sleeps until a structural edit (it used to wake every 3 ms for the life of the instance: 0.2 % of a core per instance).
+  // kick() is the only call added to the audio thread, once per structural edit: it takes no lock (a wake-up that falls between the thread's check and its wait
+  // is caught by the 50 ms time-out)
+  std::mutex wakeMutex; std::condition_variable wake;
+  void kick() { wake.notify_one(); }
   bool offline = false;
   std::thread worker;
   std::atomic<bool> quit{false};
@@ -571,7 +595,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
           if (idx < 0) { lk.unlock(); std::this_thread::sleep_for(std::chrono::milliseconds(2)); continue; }
           double snap[kNumParams]; for (int i = 0; i < kNumParams; i++) snap[i] = plain[i].load();
           try {
-            buildTables(snap, true, sets[idx]);
+            buildTables(snap, true, sets[idx], buildThreads());
           } catch (...) {   // out of memory: the sound keeps its tables, this state is given up (the next change tries again)
             setState_[idx].store(kFree);
             builtVersion.store(v);
@@ -583,11 +607,14 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
           setState_[idx].store(kPending);
           int old = pendingIdx.exchange(idx);
           if (old >= 0) setState_[old].store(kFree);
-        } else std::this_thread::sleep_for(std::chrono::milliseconds(3));
+        } else {
+          std::unique_lock<std::mutex> wl(wakeMutex);
+          wake.wait_for(wl, std::chrono::milliseconds(50), [this] { return quit.load() || structVersion.load() != builtVersion.load(); });
+        }
       }
     });
   }
-  void stopWorker() { quit.store(true); if (worker.joinable()) worker.join(); }
+  void stopWorker() { quit.store(true); kick(); if (worker.joinable()) worker.join(); }
   void sendShared() {
     if (!peer || !sharedId) return;
     IMessage* m = makeMessage(hostContext, "ws.shared");

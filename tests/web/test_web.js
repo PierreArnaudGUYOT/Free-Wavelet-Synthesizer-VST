@@ -31,8 +31,10 @@ for (let i = 2; i < process.argv.length; i++) {
   else if (a === '--quick') opt.quick = true;
   else if (a === '--headed') opt.headed = true;
   else if (a === '--no-file-access') opt.fileAccess = false; // like a normal browser opening file://
-  else { console.log('usage: node test_web.js [--url URL] [--out DIR] [--quick] [--headed] [--no-file-access]'); process.exit(64); }
+  else if (a === '--steps') opt.steps = process.argv[++i].split(',');   // only these steps (welcome, params, panel, note, presets, engines, manuals, keyboard, portamento, polyporta, highnotes, mouse, stress, hashes); the audio start always runs
+  else { console.log('usage: node test_web.js [--url URL] [--out DIR] [--quick] [--headed] [--no-file-access] [--steps welcome,manuals]'); process.exit(64); }
 }
+const want = (name) => !opt.steps || opt.steps.includes(name);
 const PAGE = path.join(ROOT, 'web', 'index.html');
 const BASE_URL = opt.url || pathToFileURL(PAGE).href;
 
@@ -403,7 +405,7 @@ async function stepLoad() {
   return true;
 }
 
-// The welcome window (beta 0.6) as the page shows it at load (no #noaudio): its three choices, the keyboard, then
+// The welcome window (beta 0.6) as the page shows it at load (no #noaudio): its four boxes, the keyboard, then
 // "Play the synth" starts the audio (a real click: the browser's user gesture). "Run the demo" is in test_demo.js.
 const WELCOME_EXPR = `(() => { const o = document.getElementById('start-overlay'); if (!o) return null;
   const cs = getComputedStyle(o), q = (s) => o.querySelector(s);
@@ -425,12 +427,42 @@ async function stepWelcome() {
   log(`  title '${w.title}'; choices: ${w.choices.map((c) => c.title).join(' | ')}`);
   check(/OKTOMULTIWAVE/.test(w.title) && /Wavelet Synthesizer/.test(w.title), "its title is 'OKTOMULTIWAVE · Wavelet Synthesizer'", w.title);
   const titles = w.choices.map((c) => c.title);
-  check(JSON.stringify(titles) === JSON.stringify(['Run the demo', 'Play the synth', 'Download the VST']), 'three choices: Run the demo, Play the synth, Download the VST', JSON.stringify(titles));
+  check(JSON.stringify(titles) === JSON.stringify(['Run the demo', 'Play the synth', 'Download the VST', 'Learn more about the sound engine']), 'four boxes: Run the demo, Play the synth, Download the VST, Learn more about the sound engine', JSON.stringify(titles));
   const demo = w.choices[0] || {}, play = w.choices.find((c) => c.id === 'start-btn'), dl = w.choices[2] || {};
   check(/Appassionata/.test(demo.small) && demo.id === 'w-demo', "'Run the demo' (#w-demo) announces the Appassionata tour", JSON.stringify(demo));
   check(!!play && play.title === 'Play the synth' && play.small.trim() === 'MIDI supported', "'Play the synth' is #start-btn and says only 'MIDI supported'", JSON.stringify(play));
   check(dl.tag === 'A' && dl.href === VST_URL && dl.target === '_blank' && /\bnoopener\b/.test(dl.rel || ''), `'Download the VST' opens ${VST_URL} in a new tab (rel noopener)`, JSON.stringify(dl));
-  check(w.manuals.length === 1 && /manual\.html$/.test(w.manuals[0]), 'its footer links to the manual (one page)', JSON.stringify(w.manuals));
+  check(w.manuals.length === 1 && /manual\.html$/.test(w.manuals[0]), 'its footer links to the manual (the contents page)', JSON.stringify(w.manuals));
+  // the fourth box: a link to the introduction to wavelets (a new tab with Ctrl / Shift / Cmd), shown in the manual viewer over the window; nothing starts the audio
+  const learn = w.choices.find((c) => c.id === 'w-learn') || {};
+  check(learn.tag === 'A' && /manual\/wavelets\.html$/.test(learn.href || '') && learn.target === '_blank' && /\bnoopener\b/.test(learn.rel || '') && /wavelet transform/.test(learn.small || ''),
+    "'Learn more about the sound engine' (#w-learn) links to manual/wavelets.html and speaks of the wavelet transform", JSON.stringify(learn));
+  {
+    const lc = await centreOf('#w-learn');
+    await B.click(lc.x, lc.y);
+    await sleep(700);
+    const m = await ev(`({ open: !document.getElementById('manual-overlay').hidden, src: document.getElementById('manual-iframe').getAttribute('src') || '', tab: document.getElementById('manual-newtab').getAttribute('href') })`);
+    const wl = await ev(WELCOME_EXPR), au = await ev('WS_TEST.audioState()');
+    check(m.open && m.src === 'manual/wavelets.html' && m.tab === 'manual/wavelets.html' && wl.visible && au === 'none', "a click on that box opens the introduction to wavelets over the welcome window and starts no audio", JSON.stringify({ m, window: wl.visible, audio: au }));
+    await B.key('Escape', { code: 'Escape' });
+    await sleep(300);
+    const m2 = await ev("document.getElementById('manual-overlay').hidden"), wl2 = await ev(WELCOME_EXPR);
+    check(m2 === true && wl2.visible && (await ev('WS_TEST.audioState()')) === 'none', 'Esc closes the manual and the welcome window is still there, the audio still off', JSON.stringify({ hidden: m2, window: wl2.visible }));
+    // the owner's rule, nothing overlaps: the four boxes sit inside the window and apart from each other, on a desktop and on a phone
+    const boxes = `(() => { const w = document.querySelector('.welcome').getBoundingClientRect(); const r = [...document.querySelectorAll('.welcome .choice')].map((c) => { const q = c.getBoundingClientRect(); return [q.left, q.top, q.right, q.bottom]; }); return { w: [w.left, w.top, w.right, w.bottom], r }; })()`;
+    for (const [vw, vh] of [[1280, 860], [390, 800]]) {
+      await B.setViewport(vw, vh);
+      await sleep(300);
+      const g = await ev(boxes), bad = [];
+      g.r.forEach((p, i) => {
+        if (p[0] < g.w[0] - 0.5 || p[2] > g.w[2] + 0.5 || p[1] < g.w[1] - 0.5 || p[3] > g.w[3] + 0.5) bad.push('box ' + (i + 1) + ' leaves the window');
+        g.r.forEach((q, j) => { if (j > i && p[0] < q[2] - 0.5 && q[0] < p[2] - 0.5 && p[1] < q[3] - 0.5 && q[1] < p[3] - 0.5) bad.push('boxes ' + (i + 1) + ' and ' + (j + 1) + ' overlap'); });
+      });
+      check(g.r.length === 4 && bad.length === 0, `the four boxes of the welcome window sit apart and inside it (${vw} px wide)`, bad.join('; ') || g.r.length + ' boxes');
+    }
+    await B.setViewport(1280, 860);
+    await sleep(200);
+  }
   check(w.inert, 'the panel and the status bar behind it are inert while it is shown', 'stage / statusbar not inert');
   // keyboard: Tab goes to a choice of the window (the panel behind is inert), with a visible focus ring
   await B.key('Tab', { code: 'Tab' });
@@ -793,7 +825,7 @@ async function stepManuals() {
   begin('Manuals');
   await sleep(200);
   const { img: base } = await shot('manual_base');
-  for (const m of ['A', 'B']) {
+  for (const m of ['manual.html', 'wavelets.html']) {
     const t0 = Date.now();
     try { await ev(`Promise.resolve(WS_TEST.openManual('${m}')).then(() => true)`); }
     catch (e) { rec('FAIL', `openManual('${m}')`, e.message); continue; }
@@ -1007,25 +1039,25 @@ async function main() {
     const loaded = await stepLoad();
     if (!loaded) { abort = 'page or WS_TEST hook missing'; }
     else {
-      await stepWelcome();
+      if (want('welcome')) await stepWelcome();
       const started = await stepStart();
-      await stepParams();
+      if (want('params')) await stepParams();
       if (started) {
-        await stepPanel();   // needs the welcome window closed (the audio started)
-        await stepNote();
-        await stepPresets();
-        await stepEngines();
+        if (want('panel')) await stepPanel();   // needs the welcome window closed (the audio started)
+        if (want('note')) await stepNote();
+        if (want('presets')) await stepPresets();
+        if (want('engines')) await stepEngines();
       }
-      await stepManuals();
+      if (want('manuals')) await stepManuals();
       if (started) {
-        await stepKeyboard();
-        await stepPortamento();
-        await stepPolyPorta();
-        await stepHighNotes();
-        await stepMouse();
-        await stepStress();
+        if (want('keyboard')) await stepKeyboard();
+        if (want('portamento')) await stepPortamento();
+        if (want('polyporta')) await stepPolyPorta();
+        if (want('highnotes')) await stepHighNotes();
+        if (want('mouse')) await stepMouse();
+        if (want('stress')) await stepStress();
       }
-      await stepHashes();
+      if (want('hashes')) await stepHashes();
       begin('Console summary');
       const all = B.errors(0), warns = B.warnings(0);
       log(`  total console errors: ${all.length}, warnings: ${warns.length}`);

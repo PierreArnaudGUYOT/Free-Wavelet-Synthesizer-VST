@@ -697,6 +697,17 @@ class SynthUI {
   hideTip() { this.tip.style.display = 'none'; }
 
   // ------------------------------------------------------------------ state from app
+  // Version 1.0.7 (CPU review 7.3): a parameter change used to mark all the canvases dirty, so a knob dragged redrew the keyboard, the wheels, the voice LEDs ... at every frame. The displays of the
+  // sound (scope, scalogram, atom, source, window, envelopes) still follow any parameter; the others only the few they read, and the oscillator shown / the tuning, which change their colour
+  // (accent()). A type that is not listed here follows every parameter.
+  canvasDeps() {
+    if (this._canvasDeps) return this._canvasDeps;
+    const P = this.P, col = [P.osc_view, P.mt_mode], chord = [P.chord_mode, P.chord_type, P.chord_oct, ...col];
+    const d = { keyboard: [P.chord_mode, P.chord_oct, P.mt_scale, P.mt_tonic, ...col], wheels: [P.bend, P.modwheel, ...col], leds: [P.v_voices, ...col],
+      chordpads: chord, chordname: chord, strumplate: chord, meter: [], fxheads: [] };
+    for (const k in d) d[k] = new Set(d[k]);
+    return (this._canvasDeps = d);
+  }
   refresh(i) {
     const ws = this.byParam.get(i);
     if (ws) for (const w of ws) w.update();
@@ -706,7 +717,8 @@ class SynthUI {
     if (i === this.P.chord_mode) { this.chordOn = this.host.get(i) >= 0.5; this.setView(this.view); this.fit(); }
     this.applyWidgetVis(i);
     this.updateEnables();
-    for (const c of this.canvases) c.dirty = true;
+    const deps = this.canvasDeps();
+    for (const c of this.canvases) { const d = deps[c.w.type]; if (!d || d.has(i)) c.dirty = true; }
   }
   refreshAll() {
     for (const [, ws] of this.byParam) for (const w of ws) w.update();

@@ -3,6 +3,19 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.7 — 2026-10-21 (a manual of seven pages, a door to it in the welcome window, 10 % less CPU)
+
+**In short**
+- **The manual explains the idea.** Eight short pages, each about one printed A4 sheet, in the dark look, with 17 figures computed from the engine itself: a contents page (start in a minute, the panel map, playing, install), **one page on the wavelet decomposition and the idea of an oscillator made of wavelets**, **three on subtractive synthesis with wavelets** (the oscillator A1 / A2: source waves, atoms, sparsity, morph; the scale filter and the position window; making it move, the voice filter, effects, three recipes) and **three on additive synthesis with wavelets** (B1: the 11 drawbars as bands, the six patterns, the band envelopes; atoms, scope and scalogram; playing it with the others, chords, quarter tones, three recipes). The menu and the previous / next buttons come from one list (`web/manual/manual.js`); `tools/manual_figs.js` writes the figures; `tests/web/test_manual.js` loads every page.
+- **A door to it in the welcome window of the web app**: a fourth box, "Learn more about the sound engine - an innovative engine built on the wavelet transform", opens the introduction to wavelets (the manual viewer; no sound starts; Esc closes it and the welcome window is still there; the footer link and the MANUAL button open the contents page). The welcome text now says 237 presets (it said over a thousand).
+- **Less CPU, the same sound, bit for bit** (the review of 1.0.6 in `GIT\Exchange Claude\CPU Load analysis`; the table, the measures and the commands are in `Revue_CPU_1.0.7.md`): the table sets of an oscillator are rendered together (-8.6 % on x86, -13 % on the heaviest third); the web engine takes the memoisations of the C++ engine (**-16.6 %**); **Apple silicon gets NEON kernels (about -19 %)**; the reverb runs two chains at a time; the builder threads of the plug-in no longer wake every 3 ms (16 instances: 1.84 % of a core -> 0.05 %) and a preset's tables are built on up to 4 threads (**3 times sooner**); a knob dragged no longer repaints the preset browser or the keyboard; smaller worklet message, one display build per change.
+- No sound, no preset, no layout changed: your presets file, stars and user bank are kept.
+
+**Checked**
+- Every C++ change: 570 renders of `cpu_bench` and the 323 cases of `dsp_render` identical to those of 1.0.6 (0 samples differ), the C++ engine still within 1.79e-7 of the web engine; the web engine: 711 of 711 renders identical (all 237 presets, chords of 3, 6 and 8 notes); the parallel table build: 237 presets, 3 780 sets, the same bytes as one thread; NEON: the 323 cases rendered with and without it on GitHub's Apple-silicon Macs, the same bytes.
+- The full validation (`node tests/full.js --parallel`), the macOS workflow (host test 53 checks on Apple silicon and Intel). Results are in the release notes.
+- Not done from the review, and why: the web scalogram and glow (measured: 0.1-0.2 ms per redraw), preset loads through the Worker (the sound would start later), shared table cache, pruned inverse FFT, AVX2 (`Revue_CPU_1.0.7.md`).
+
 ## Okto MultiWave Synth 1.0.6 — 2026-10-21 (the Crépuscule look, a one-page manual, a demo that presents the synth, no more buzz, the Mac plug-in)
 
 **In short**

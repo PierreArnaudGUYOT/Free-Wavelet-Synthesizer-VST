@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// manual_shot.js - the only generated file of the manual: web/manual/panel.jpg, the picture of the panel (oscillator A1 shown) at the top of "The panel". The manual itself
-// (web/manual/manual.html) is written by hand. Run it after a change of the panel's look or layout (headless Edge, muted; nothing is played):
+// manual_shot.js - web/manual/panel.jpg, the picture of the panel (oscillator A1 shown) on the contents page of the manual ("The panel"). The pages themselves (web/manual/*.html) are written
+// by hand and their figures are made by tools/manual_figs.js. Run this after a change of the panel's look or layout (headless Edge, muted; nothing is played):
 //   node tools/manual_shot.js
 'use strict';
 const fs = require('fs');

@@ -288,10 +288,22 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         rebuildDisplay(false);
         if (chordOn != oldChord) requestResize();   // CHORD MODE: the panel grows or shrinks
         if (structural || view != oldView || chordOn != oldChord || lfoCard || orient != oldOrient || orientMode != oldOrientMode) invalidateAll();   // (beta 0.3.4: a change of TUNING changes the colours of the whole panel)
-        else for (int t : {W_SCOPE, W_SCALOGRAM, W_WINDOW, W_ADSR, W_LEDS, W_WHEELS, W_PRESETS}) invalidateType(t);
+        else for (int t : {W_SCOPE, W_SCALOGRAM, W_WINDOW, W_ADSR, W_LEDS, W_WHEELS}) invalidateType(t);
       }
-      invalidateType(W_PRESETS);
-      if (host->browserOpen()) { bFollow(); invalidateLogical(bCard()); }
+    }
+    // version 1.0.7: the preset box and the preset browser are repainted when what they show changed (the sound, its modified dot, the browser open or not,
+    // the row and the bank it is in), not at every parameter edit: a knob dragged with the browser open used to repaint its 25 rows up to 30 times a second
+    {
+      const std::string shown = shownName();
+      const bool dirty = host->presetDirty(), open = host->browserOpen();
+      if (shown != lastShownName || dirty != lastShownDirty || open != lastShownOpen) { lastShownName = shown; lastShownDirty = dirty; lastShownOpen = open; invalidateType(W_PRESETS); }
+      if (open) {
+        const std::string key = host->userPresetName() + "|" + host->formerPresetName() + "|" + std::to_string(host->presetIndex());
+        const int tab = bTab, cat = bCat, scroll = bScroll;
+        bFollow();   // (it returns at once when the sound is the one the browser already follows)
+        if (!browserWasOpen || key != lastBrowserKey || tab != bTab || cat != bCat || scroll != bScroll) { lastBrowserKey = key; invalidateLogical(bCard()); }
+      }
+      browserWasOpen = open;
     }
     // the presets file may be changed by another instance: read it again about once a second
     if (++libTick >= 30) { libTick = 0; Library::get().refresh(); }
@@ -1439,6 +1451,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   int ctxRow = -1, ctxTab = 0;                             // the sound a sound-menu command acts on (-1: the one playing)
   int lastKey = 0; std::chrono::steady_clock::time_point lastKeyAt{};
   uint32_t libVer = 0; int libTick = 0;
+  std::string lastShownName, lastBrowserKey; bool lastShownDirty = false, lastShownOpen = false, browserWasOpen = false;   // what the preset box / the browser showed at the last timer tick
+  uint32_t bCacheVer = ~0u;                                // the library version the browser's lists (fCats, menuBank) were taken at
   std::wstring bStatus;                                    // last browser message
 
   // the browser's factory lists, as the library keeps them (TOP Sounds, then the categories, in the player's order)
@@ -2023,8 +2037,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   void drawBrowser(Canvas& g) {
     Library& lib = Library::get();
-    buildCategories();
-    menuBank = lib.bank();
+    if (lib.version() != bCacheVer) { buildCategories(); menuBank = lib.bank(); bCacheVer = lib.version(); }   // (version 1.0.7: when the library changed, not at every paint)
     const R c = bCard();
     if (bgBrowser.key != 1) {   // the same colours as the panel, at another angle
       static const Stop st[4] = {{0, 0x2b0f2e}, {0.30f, 0x5a1f4a}, {0.62f, 0x8a3a3a}, {1, 0xc25a2a}};

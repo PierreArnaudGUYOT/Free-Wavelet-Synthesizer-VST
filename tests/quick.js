@@ -31,7 +31,7 @@ const mtime = (f) => (fs.existsSync(f) ? fs.statSync(f).mtimeMs : 0);
 const newest = (files) => Math.max(...files.map(mtime));
 function staticChecks() {
   const t = Date.now(), bad = [];
-  const js = [R('web', 'js'), R('tools'), R('tests')].flatMap(d => listFiles(d, /\.js$/));
+  const js = [R('web', 'js'), R('web', 'manual'), R('tools'), R('tests')].flatMap(d => listFiles(d, /\.js$/));
   for (const f of js) {
     try { new vm.Script(fs.readFileSync(f, 'utf8').replace(/^#!.*/, ''), { filename: f }); } catch (e) { bad.push(`${path.relative(ROOT, f)}: ${e.message}`); }
   }
@@ -42,22 +42,35 @@ function staticChecks() {
   const dll = R('build', 'OktoMultiWaveSynth.vst3', 'Contents', 'x86_64-win', 'OktoMultiWaveSynth.vst3');
   if (mtime(dll) < newest([...listFiles(R('vst', 'src'), /\.(cpp|h|rc)$/), R('tools', 'spec.js')])) stale.push('VST3 build is older than its sources: run  vst\\build.bat');
   report('up to date', stale.length === 0, stale.length ? stale.join('; ') : 'generated spec and VST3 build are newer than their sources', t2);
-  // version 1.0.6: the manual is ONE hand-written page; it must name every card of the panel (a renamed card is a manual to update) and have its picture
+  // the manual: a contents page and seven pages written by hand (web/manual/*.html), one menu (manual.js, one list), the figures of tools/manual_figs.js (img/), panel.jpg.
+  // Together the pages must name every card of the panel (a renamed card is a manual to update); the menu lists exactly the pages of the folder; every picture and every
+  // link to a page or an anchor is there; no picture of img/ is left unused.
   const t3 = Date.now(), miss = [];
-  const manualFile = R('web', 'manual', 'manual.html');
-  if (!fs.existsSync(manualFile)) miss.push('web/manual/manual.html is missing');
-  else {
-    const text = fs.readFileSync(manualFile, 'utf8').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&gt;/g, '>').toUpperCase();
-    for (const s of require(R('web', 'js', 'spec.js')).SECTIONS) for (const part of (s.title || '').split(' \u00B7 ').map(x => x.trim()).filter(Boolean)) if (!text.includes(part.toUpperCase()) && !text.includes(part.replace(/\/.*/, '').toUpperCase())) miss.push('the manual does not name "' + part + '" (card ' + s.id + ')');
-    for (const im of fs.readFileSync(manualFile, 'utf8').matchAll(/src="([^"]+)"/g)) if (!fs.existsSync(R('web', 'manual', im[1]))) miss.push('picture ' + im[1] + ' is missing');
+  const manDir = R('web', 'manual'), pageFiles = fs.readdirSync(manDir).filter((n) => /\.html$/.test(n)).sort();
+  if (!pageFiles.includes('manual.html')) miss.push('web/manual/manual.html is missing');
+  const html = Object.fromEntries(pageFiles.map((n) => [n, fs.readFileSync(path.join(manDir, n), 'utf8')]));
+  const allText = Object.values(html).join(' ').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&gt;/g, '>').toUpperCase();
+  for (const sec of require(R('web', 'js', 'spec.js')).SECTIONS) for (const part of (sec.title || '').split(' \u00B7 ').map(x => x.trim()).filter(Boolean)) if (!allText.includes(part.toUpperCase()) && !allText.includes(part.replace(/\/.*/, '').toUpperCase())) miss.push('the manual does not name "' + part + '" (card ' + sec.id + ')');
+  const menu = fs.existsSync(path.join(manDir, 'manual.js')) ? [...fs.readFileSync(path.join(manDir, 'manual.js'), 'utf8').matchAll(/\['([a-z0-9-]+\.html)'/g)].map((m) => m[1]).sort() : [];
+  if (menu.join() !== pageFiles.join()) miss.push('the menu of manual.js lists [' + menu.join(', ') + '] but the pages are [' + pageFiles.join(', ') + ']');
+  const used = new Set();
+  for (const [n, h] of Object.entries(html)) {
+    for (const im of h.matchAll(/\bsrc="([^"]+)"/g)) { if (/^(https?:|data:)/.test(im[1]) || /\.js$/.test(im[1])) continue; used.add(im[1]); if (!fs.existsSync(path.join(manDir, im[1]))) miss.push(n + ': picture ' + im[1] + ' is missing'); }
+    for (const lk of h.matchAll(/\bhref="([^"#]*)(#[^"]*)?"/g)) {
+      if (/^(https?:|mailto:)/.test(lk[1])) continue;
+      if (lk[1] && !fs.existsSync(path.join(manDir, lk[1]))) miss.push(n + ': link to ' + lk[1] + ' is missing');
+      else if (lk[2] && !new RegExp('id="' + lk[2].slice(1) + '"').test(lk[1] ? (html[lk[1]] || '') : h)) miss.push(n + ': anchor ' + (lk[1] || '') + lk[2] + ' is missing');
+    }
   }
+  const imgDir = path.join(manDir, 'img');
+  if (fs.existsSync(imgDir)) for (const n of fs.readdirSync(imgDir)) if (!used.has('img/' + n)) miss.push('img/' + n + ' is not used by any page (run tools/manual_figs.js, delete the stale file)');
   // the bundle built on this machine holds exactly the manual of web/manual (a build that merged the folder kept the old manuals of 1.0.5 inside it)
   const bundleManual = R('build', 'OktoMultiWaveSynth.vst3', 'Contents', 'Resources', 'manual');
   if (fs.existsSync(bundleManual)) {
-    const names = (d) => fs.readdirSync(d).sort().join(', ');
-    if (names(bundleManual) !== names(R('web', 'manual'))) miss.push('the built bundle holds [' + names(bundleManual) + '] but web/manual has [' + names(R('web', 'manual')) + ']: run  vst\\build.bat');
+    const names = (d) => listFiles(d, /./).map((p) => path.relative(d, p).replace(/\\/g, '/')).sort().join(', ');
+    if (names(bundleManual) !== names(manDir)) miss.push('the built bundle holds a different manual than web/manual: run  vst\\build.bat');
   }
-  report('manual', miss.length === 0, miss.length ? [...new Set(miss)].slice(0, 5).join('; ') : 'one page, it names every card of the panel, its picture is there', t3);
+  report('manual', miss.length === 0, miss.length ? [...new Set(miss)].slice(0, 5).join('; ') : `${pageFiles.length} pages name every card of the panel; the menu, the links, the anchors and the ${used.size} pictures are in order`, t3);
 }
 
 // ---------------------------------------------------------------- 1b. the layout rule: nothing overlaps (the owner's rule, 2026-10-21, for every future implementation)

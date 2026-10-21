@@ -263,14 +263,14 @@ class Instance {
   void setParameter(int i, float v) {
     if (i < 0 || i >= kNumParams) return;
     v = std::min(1.0f, std::max(0.0f, v == v ? v : 0.0f));
-    norm[i].store(v); toProc[i].store(true); toCtrl[i].store(true);
+    norm[i].store(v); toProc[i].store(true); anyToProc.store(true); toCtrl[i].store(true);
   }
   float getParameter(int i) { return i >= 0 && i < kNumParams ? norm[i].load() : 0.0f; }
 
   // edits from the editor (UI thread): to the processor and, unless a host program change is running, to the host
   void edited(int id, double v) {
     if (id < 0 || id >= kNumParams) return;
-    norm[id].store((float)v); toProc[id].store(true);
+    norm[id].store((float)v); toProc[id].store(true); anyToProc.store(true);
     if (!quietEdits) host(&fx, vst2::audioMasterAutomate, id, 0, nullptr, (float)v);
   }
   void gesture(int id, bool begin) {
@@ -329,7 +329,9 @@ class Instance {
 
   void render(float** out, int32_t n) {
     changes.count = 0;
-    for (int i = 0; i < kNumParams; i++) if (toProc[i].exchange(false)) changes.add(i, norm[i].load());
+    // (version 1.0.7: the 175 flags are looked at only when one was set; the flag of a parameter is set before anyToProc, so none is missed)
+    if (anyToProc.exchange(false))
+      for (int i = 0; i < kNumParams; i++) if (toProc[i].exchange(false)) changes.add(i, norm[i].load());
     ProcessData d;
     d.processMode = processMode; d.symbolicSampleSize = kSample32; d.numSamples = n;
     AudioBusBuffers bus;
@@ -530,7 +532,7 @@ class Instance {
   ParamChanges outChanges;   // Okto MultiWave Synth: the processor's own changes (a selector key chose the chord type)
   EventList events;
   std::atomic<float> norm[kNumParams];
-  std::atomic<bool> toProc[kNumParams], toCtrl[kNumParams];
+  std::atomic<bool> toProc[kNumParams], toCtrl[kNumParams], anyToProc{false};
   int bendId = -1, modId = -1, holdId = -1;
   double sampleRate = 44100;
   int32_t maxBlock = 1024;

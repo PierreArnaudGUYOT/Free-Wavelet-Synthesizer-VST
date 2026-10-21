@@ -104,6 +104,22 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
     await sleep(200);
     check(parseFloat(await B.evaluate(`document.getElementById('device').style.height`)) === parseFloat(h0), 'CHORD MODE off: the panel shrinks back');
     const errs = B.errors();
+    // version 1.0.7 (CPU review 7.3): a parameter moved redraws the displays of the sound, not the canvases that do not show it (the keyboard repaints on its heartbeat, twice a second)
+    {
+      await B.evaluate(`(() => { window.__draws = { keyboard: 0, scope: 0 };
+        for (const k of ['keyboard', 'scope']) { const f = SynthUI.prototype['draw_' + k]; SynthUI.prototype['draw_' + k] = function () { window.__draws[k]++; return f.apply(this, arguments); }; } })()`);
+      await sleep(800);
+      const d0 = JSON.parse(await B.evaluate('JSON.stringify(window.__draws)'));
+      for (let i = 0; i < 16; i++) { await B.evaluate(`WS_TEST.setParam('vf_cut', ${400 + i * 300})`); await sleep(30); }
+      await sleep(150);
+      const d1 = JSON.parse(await B.evaluate('JSON.stringify(window.__draws)'));
+      check(d1.scope - d0.scope >= 8, 'a knob moved (the FILTER cutoff) redraws the SCOPE at the next frames', JSON.stringify([d0, d1]));
+      check(d1.keyboard - d0.keyboard <= 4, 'a knob moved (the FILTER cutoff) does not redraw the keyboard (its heartbeat only)', JSON.stringify([d0, d1]));
+      await B.evaluate(`WS_TEST.setParam('chord_mode', 1)`); await sleep(120);
+      const d2 = JSON.parse(await B.evaluate('JSON.stringify(window.__draws)'));
+      check(d2.keyboard > d1.keyboard, 'CHORD MODE (it tints the selector octave) redraws the keyboard at once', JSON.stringify([d1, d2]));
+      await B.evaluate(`WS_TEST.setParam('chord_mode', 0)`); await sleep(150);
+    }
     check(errs.length === 0, 'no console error', errs.slice(0, 5).join(' | '));
   } finally { await B.close(); }
   console.log(fails ? `${fails} failure(s)` : 'smoke test passed');

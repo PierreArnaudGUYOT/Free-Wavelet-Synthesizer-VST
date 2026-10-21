@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Page 1 of 3 on subtractive synthesis with wavelets (oscillators A1 and A2). The pictures are made by tools/manual_figs.js. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OktoWave manual — Subtractive 1: the oscillator</title>
+<meta name="description" content="The subtractive wavelet oscillator: a classic wave cut into atoms, the wavelet, sparsity, phase and wavelet morph.">
+<link rel="stylesheet" href="manual.css">
+<script src="manual.js" defer></script>
+</head>
+<body class="sub">
+<main>
+
+<p class="kicker">Subtractive synthesis with wavelets · page 1 of 3 · oscillators A1 and A2</p>
+<h1>The oscillator: a wave cut into atoms</h1>
+<p class="lead">A classic subtractive synthesizer starts from a rich wave and takes away what it does not want. OktoWave does the same, but first it cuts the wave into wavelet atoms.</p>
+
+<h2>Start from a classic wave</h2>
+<p>The <span class="ctl">WAVE</span> buttons of the <span class="ctl">WAVELET · SUBTRACTIVE</span> card choose the starting wave: <span class="ctl">SAW</span>, <span class="ctl">SQUARE</span>, <span class="ctl">PULSE</span>, <span class="ctl">TRI</span>, <span class="ctl">SINE</span> or <span class="ctl">NOISE</span>. One cycle of it, 2048 numbers, is what the oscillator holds; the <span class="ctl">SOURCE CYCLE</span> display draws it.</p>
+<figure><img src="img/sub-sources.svg" alt="One cycle of the saw, square, pulse, triangle, sine and noise waves"></figure>
+<ul>
+  <li><span class="ctl">WIDTH</span> sets the width of the PULSE and the peak position of the TRI (it is greyed out for the other waves).</li>
+  <li><span class="ctl">PHASE</span> starts the cycle later. Alone it changes nothing you hear. But the cut into atoms is not the same from another starting point, so the atoms that the filter, <span class="ctl">SPARSITY</span> and the window act on change: PHASE is a timbre knob, and a target for the LFOs.</li>
+  <li>NOISE is the same noise cycle on every note, so a key always sounds the same.</li>
+</ul>
+
+<h2>Cut it with a wavelet</h2>
+<p><span class="ctl">WAVELET</span> chooses the atom, among seven; the <span class="ctl">ATOM SHAPE</span> display draws one. Cutting and putting back loses nothing, so with every atom kept and no filter, any wavelet gives the same wave. The choice only shows once atoms are removed or bands are turned down (see the next page).</p>
+<figure><img src="img/sub-atoms.svg" alt="One atom of each of the seven wavelets, from Haar to Daubechies 20"></figure>
+
+<h2>Keep the strongest atoms</h2>
+<p><span class="ctl">SPARSITY</span> drops the weakest atoms and keeps the strongest. At 0 % all are kept; at 100 % only one. The <span class="ctl">SOURCE CYCLE</span> display says how many are left (for example <i>104 / 2047 ATOMS KEPT</i>). The knob works over its whole range whatever the wave and the wavelet. On NOISE, SPARSITY turns a hiss into a texture of separate grains (<i>A · Noise Wash Pad</i> uses 24 %).</p>
+<figure><img src="img/sub-sparsity.svg" alt="A saw rebuilt from all, half, a few and very few of its atoms"></figure>
+
+<h2>Two wavelets and a morph</h2>
+<p><span class="ctl">WAVELET 2</span> is a second wavelet, and <span class="ctl">MORPH</span> slides from the sound cut with WAVELET (0 %) to the sound cut with WAVELET 2 (100 %). The morph can move on its own: <span class="ctl">ENV&gt;WAV</span> makes the MOD ENVELOPE push it at every note, and the LFOs can sweep it.</p>
+
+<div class="try"><p><b>Try it.</b> Load <i>A · Wave Brass</i>: Daubechies 20, a MORPH of 35 % and an ENV&gt;WAV of 65 %, so that each note travels towards the second wavelet (Haar). Then change WAVELET and listen to the same filter colouring the wave differently. The level knob of the card (<span class="ctl">A1</span>) is the same as in OSC MIX.</p></div>
+
+<footer><p><a href="manual.html">Contents</a> · OktoWave, by Pierre Arnaud GUYOT (OktoPierre), free software under the GNU GPL v3 or later.</p></footer>
+</main>
+</body>
+</html>

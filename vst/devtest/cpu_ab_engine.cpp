@@ -3,7 +3,14 @@
 // One build of the engine for cpu_ab (see cpu_ab.h): compile with the include path of the dsp.h to measure, -Dws=<its own namespace> and -DAB_MAKE=<its factory name>.
 #include "dsp.h"
 #include "cpu_ab.h"
+#if defined(_WIN32)
 #include <windows.h>
+static uint64_t threadCycles() { ULONG64 c = 0; QueryThreadCycleTime(GetCurrentThread(), &c); return c; }
+#else
+#include <time.h>
+// (other systems: the thread's CPU time in nanoseconds; cpu_ab reads it as a rate of 1e9 per second)
+static uint64_t threadCycles() { timespec t; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t); return (uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec; }
+#endif
 using namespace ws;
 
 namespace {
@@ -17,14 +24,13 @@ struct Runner : AbRunner {
     Engine eng(48000); eng.setTempo(0);
     for (int i = 0; i < kNumParams; i++) eng.setParam(i, params[i]);
     eng.setTables(tableRef(tables));
-    ULONG64 c0 = 0, c1 = 0; QueryThreadCycleTime(GetCurrentThread(), &c0);
+    const uint64_t c0 = threadCycles();
     for (int o = 0; o < n; o += blk) {
       if (o == 0) for (int k = 0; k < cn; k++) eng.noteOn(nt[k], vel);
       if (o == offAt) for (int k = 0; k < cn; k++) eng.noteOff(nt[k]);
       eng.process(L + o, R + o, blk);
     }
-    QueryThreadCycleTime(GetCurrentThread(), &c1);
-    return c1 - c0;
+    return threadCycles() - c0;
   }
 };
 }

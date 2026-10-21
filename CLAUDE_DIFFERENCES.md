@@ -34,8 +34,8 @@ Rules that follow from the family tie (do not break them):
 
 **One specification, three outputs.** `tools/spec.js` defines the parameters (key, range, curve, default), the panel (sections and widgets with
 their coordinates), the presets, the categories and the demo tour. `tools/gen_spec.js` turns it into `web/js/spec.js` (the web app and the tests) and
-`vst/src/generated/spec.h` (the plug-in). The manual (version 1.0.6) is ONE hand-written page, `web/manual/manual.html`, with one picture of the panel (`node tools/manual_shot.js`);
-`tests/quick.js` checks that it names every card of the panel, so a renamed card cannot be forgotten.
+`vst/src/generated/spec.h` (the plug-in). The manual is eight hand-written pages in `web/manual/` (the figures are made from the engine by `node tools/manual_figs.js`, the panel picture by `node tools/manual_shot.js`);
+`tests/quick.js` checks that they name every card of the panel, so a renamed card cannot be forgotten.
 
 **One engine, two implementations.** `web/js/core.js` (JavaScript, runs in an AudioWorklet) and `vst/src/dsp.h` (C++) are the same algorithm.
 `tools/dsp_compare.js` + `vst/devtest/dsp_render.cpp` render 323 cases in both and compare them (worst difference 2.1e-7): keep them in step and run

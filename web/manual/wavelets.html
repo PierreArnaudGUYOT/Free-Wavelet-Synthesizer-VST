@@ -1,0 +1,46 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Page 1 of the OktoWave manual: the idea (wavelets and an oscillator made of them). The pictures are made by tools/manual_figs.js; the menu by manual.js. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OktoWave manual — Wavelets: the idea</title>
+<meta name="description" content="What a wavelet is, how a sound is cut into wavelet atoms, and why an oscillator can be made of them.">
+<link rel="stylesheet" href="manual.css">
+<script src="manual.js" defer></script>
+</head>
+<body class="wav">
+<main>
+
+<p class="kicker">The idea · wavelets</p>
+<h1>A sound cut into sizes and places</h1>
+<p class="lead">OktoWave rests on one idea: a sound can be cut into tiny waves called <b>wavelets</b>, and an oscillator can be <em>made</em> of them.</p>
+
+<h2>A sine tells how fast, never where</h2>
+<p>The classic way to analyse a sound is to cut it into sine waves. A sine runs for ever, the same everywhere: it tells <em>which</em> frequencies a sound holds, not <em>where</em> in the wave they happen. A <b>wavelet</b> is a tiny wave that starts, rings and dies away. Stretch it and it gets bigger and slower; slide it and it moves. Each stretched and slid copy is an <b>atom</b>.</p>
+<figure class="mid"><img src="img/wl-sine-vs-atom.svg" alt="A sine wave that fills the whole cycle, and three wavelet atoms of different sizes at different places"></figure>
+
+<h2>Cutting a signal: Haar on eight numbers</h2>
+<p>The simplest cut is <b>Haar</b>. Replace every pair of numbers by their <em>average</em> and by half their <em>difference</em>; do it again on the averages, and again. Eight numbers end as one average and seven details at three sizes (4, 2 and 1). Nothing is lost: that is the <b>discrete wavelet transform</b>. Haar's atom is a step; the others (Daubechies, Symlet, Coiflet) are smoother.</p>
+<figure class="mid"><img src="img/wl-haar.svg" alt="Eight numbers cut three times into averages and half-differences"></figure>
+
+<h2>One cycle, eleven bands</h2>
+<p>An OktoWave oscillator keeps one cycle of its tone as 2048 numbers and cuts them into <b>11 octave bands</b>. Band 1 is one large atom, the slow body of the wave; each next band has twice as many atoms, half the size, up to band 11 with 1024 fine atoms (band <i>b</i> holds roughly the harmonics 2<sup><i>b</i>−2</sup> to 2<sup><i>b</i>−1</sup> of the note). Every atom has a size (its band) and a place (its position in the cycle). Added together they give the cycle back exactly. The SCALOGRAM of the panel draws them as rows (sizes) and columns (places).</p>
+<figure class="tall snug"><img src="img/wl-layers.svg" alt="A saw cycle drawn as the sum of its 11 octave bands"></figure>
+
+<h2>An oscillator made of atoms</h2>
+<p>Once a cycle is a pile of atoms, you can do what no ordinary oscillator allows:</p>
+<ul>
+  <li><b>Turn a band up or down</b>: a filter on <em>sizes</em> (the <span class="ctl">SCALE FILTER</span>), or eleven drawbars.</li>
+  <li><b>Keep only the strongest atoms</b> (<span class="ctl">SPARSITY</span>): a simpler wave, a stranger tone.</li>
+  <li><b>Treat one part of the cycle differently</b>: atoms have a place, so the <span class="ctl">POSITION</span> window filters one part of the wave only.</li>
+  <li><b>Choose the atom</b>: Haar is blocky, Daubechies 20 smooth; <span class="ctl">MORPH</span> slides from one wavelet to another.</li>
+  <li><b>Move any of it</b>: envelopes and LFOs can sweep the cutoff, the window, the sparsity or the wavelet itself.</li>
+</ul>
+<p>The cycle is then played like a wavetable through a conventional filter, envelopes and effects. <b>A1</b> and <b>A2</b> start from a classic wave and take bands away (<a href="subtractive-1.html">subtractive</a>); <b>B1</b> builds the sound band by band (<a href="additive-1.html">additive</a>).</p>
+
+<footer><p><a href="manual.html">Contents</a> · OktoWave, by Pierre Arnaud GUYOT (OktoPierre), free software under the GNU GPL v3 or later.</p></footer>
+</main>
+</body>
+</html>

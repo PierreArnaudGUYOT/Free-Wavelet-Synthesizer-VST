@@ -5,21 +5,87 @@
 // DSP core (C++ port of web/js/core.js, same algorithm 1:1).
 #pragma once
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 #include "generated/spec.h"
-// CPU optimisations (CLAUDE.md "CPU optimisations", Revue_CPU.md): SSE2 does the same double-precision operations as the scalar code, lane by lane, so the output is
-// bit-identical; without SSE2 (other platforms) the scalar form is used. No FMA, no fast-math, no reassociation anywhere.
+// CPU optimisations (CLAUDE.md "CPU optimisations", Revue_CPU.md): SSE2 (x86) and, since version 1.0.7, NEON (Apple silicon) do the same double-precision operations as the scalar code,
+// lane by lane, so the output is bit-identical; without either (other platforms, or -DWS_NO_NEON, which the macOS workflow uses to prove it) the scalar form is used.
+// No FMA, no fast-math, no reassociation anywhere.
+#if defined(__clang__)
+#pragma STDC FP_CONTRACT OFF
+#endif
 #if defined(__SSE2__)
 #include <emmintrin.h>
+#define WS_V2 1
+#elif defined(__aarch64__) && defined(__ARM_NEON) && !defined(WS_NO_NEON)
+#include <arm_neon.h>
+#define WS_V2 1
+#endif
+// The kernels that use the layer. On Apple silicon each can be left out (-DWS_NO_NEON_BAND, -DWS_NO_NEON_FILTER, -DWS_NO_NEON_REVERB) to measure what it is worth there.
+#if defined(WS_V2)
+#if defined(__SSE2__) || !defined(WS_NO_NEON_BAND)
+#define WS_V2_BAND 1
+#endif
+#if defined(__SSE2__) || !defined(WS_NO_NEON_FILTER)
+#define WS_V2_FILTER 1
+#endif
+#if defined(__SSE2__) || !defined(WS_NO_NEON_REVERB)
+#define WS_V2_REVERB 1
+#endif
 #endif
 
 namespace ws {
+
+#if defined(WS_V2)
+// Two doubles in one register, the operations the kernels use: each one is one instruction on both platforms, with the same result (no fused multiply-add: v2_mul and v2_add stay two
+// operations; the compiler is told not to contract them). v2_min / v2_max keep a NaN as it is (SSE2 returns its second operand, NEON the NaN: the same value for the clamp the kernels make).
+#if defined(__SSE2__)
+using v2d = __m128d;
+inline v2d v2_set1(double x) { return _mm_set1_pd(x); }
+inline v2d v2_set(double hi, double lo) { return _mm_set_pd(hi, lo); }                       // lane 0 = lo, lane 1 = hi
+inline v2d v2_load(const double* p) { return _mm_load_pd(p); }                              // 16-byte aligned
+inline v2d v2_loadu(const double* p) { return _mm_loadu_pd(p); }
+inline void v2_store(double* p, v2d v) { _mm_store_pd(p, v); }                              // 16-byte aligned
+inline void v2_storeu(double* p, v2d v) { _mm_storeu_pd(p, v); }
+inline v2d v2_add(v2d a, v2d b) { return _mm_add_pd(a, b); }
+inline v2d v2_sub(v2d a, v2d b) { return _mm_sub_pd(a, b); }
+inline v2d v2_mul(v2d a, v2d b) { return _mm_mul_pd(a, b); }
+inline v2d v2_div(v2d a, v2d b) { return _mm_div_pd(a, b); }
+inline v2d v2_min(v2d a, v2d b) { return _mm_min_pd(a, b); }
+inline v2d v2_max(v2d a, v2d b) { return _mm_max_pd(a, b); }
+inline v2d v2_cvt(const float* p) { return _mm_cvtps_pd(_mm_castsi128_ps(_mm_loadl_epi64((const __m128i*)p))); }   // the two floats at p, as doubles
+inline void v2_f32(v2d v, float& lo, float& hi) { const __m128 r = _mm_cvtpd_ps(v); lo = _mm_cvtss_f32(r); hi = _mm_cvtss_f32(_mm_shuffle_ps(r, r, 1)); }   // each lane rounded to a float
+inline double v2_lo(v2d v) { return _mm_cvtsd_f64(v); }
+inline double v2_hi(v2d v) { return _mm_cvtsd_f64(_mm_unpackhi_pd(v, v)); }
+#else
+using v2d = float64x2_t;
+inline v2d v2_set1(double x) { return vdupq_n_f64(x); }
+inline v2d v2_set(double hi, double lo) { return vsetq_lane_f64(hi, vdupq_n_f64(lo), 1); }
+inline v2d v2_load(const double* p) { return vld1q_f64(p); }
+inline v2d v2_loadu(const double* p) { return vld1q_f64(p); }
+inline void v2_store(double* p, v2d v) { vst1q_f64(p, v); }
+inline void v2_storeu(double* p, v2d v) { vst1q_f64(p, v); }
+inline v2d v2_add(v2d a, v2d b) { return vaddq_f64(a, b); }
+inline v2d v2_sub(v2d a, v2d b) { return vsubq_f64(a, b); }
+inline v2d v2_mul(v2d a, v2d b) { return vmulq_f64(a, b); }
+inline v2d v2_div(v2d a, v2d b) { return vdivq_f64(a, b); }
+inline v2d v2_min(v2d a, v2d b) { return vminq_f64(a, b); }
+inline v2d v2_max(v2d a, v2d b) { return vmaxq_f64(a, b); }
+inline v2d v2_cvt(const float* p) { return vcvt_f64_f32(vld1_f32(p)); }
+inline void v2_f32(v2d v, float& lo, float& hi) { const float32x2_t r = vcvt_f32_f64(v); lo = vget_lane_f32(r, 0); hi = vget_lane_f32(r, 1); }
+inline double v2_lo(v2d v) { return vgetq_lane_f64(v, 0); }
+inline double v2_hi(v2d v) { return vgetq_lane_f64(v, 1); }
+#endif
+#endif
 
 constexpr int N = 2048;           // samples per cycle
 constexpr int NB = 11;            // detail bands (band 1 = coarsest)
@@ -141,17 +207,18 @@ inline bool parseValue(const ParamDef& p, std::string s, double& out) {
 
 // ------------------------------------------------------------------ wavelets
 struct Filter { double h[kMaxWaveletLen], g[kMaxWaveletLen]; int L; };
-inline const Filter& filter(int w) {
-  static Filter f[kNumWavelets];
-  static bool init = false;
-  if (!init) {
+struct FilterBank {   // built by the first call, once, whichever thread it is (a function-local static)
+  Filter f[kNumWavelets];
+  FilterBank() {
     for (int k = 0; k < kNumWavelets; k++) {
       int L = kWaveletLen[k]; f[k].L = L;
       for (int n = 0; n < L; n++) { f[k].h[n] = kWaveletH[k][n]; f[k].g[n] = ((n & 1) ? -1.0 : 1.0) * kWaveletH[k][L - 1 - n]; }
     }
-    init = true;
   }
-  return f[std::min(kNumWavelets - 1, std::max(0, w))];
+};
+inline const Filter& filter(int w) {
+  static const FilterBank bank;
+  return bank.f[std::min(kNumWavelets - 1, std::max(0, w))];
 }
 
 // periodic orthogonal DWT; c[0] = approximation, band b at c[2^(b-1) .. 2^b - 1]
@@ -294,11 +361,22 @@ struct SlotTables {
   // SPARSITY and WIDTH: all SPARSE_K / WIDTH_K sets
   int vk = -1;
   std::vector<std::vector<float>> phMips, phRms, w2PhMips, w2PhRms;
+  // version 1.0.7: a build writes into the vectors this object already holds (the 1 MB tables of a set are not freed and allocated again at every build);
+  // begin() clears the flags, end() frees the vectors the build did not use (so an object never keeps more than its last build needs)
+  void begin() { on = false; mode = 0; hasW2 = false; vk = -1; }
+  void end() {
+    auto drop = [](std::vector<float>& v) { std::vector<float>().swap(v); };
+    auto dropAll = [](std::vector<std::vector<float>>& v) { std::vector<std::vector<float>>().swap(v); };
+    if (!on) { drop(mips); drop(rms); }
+    if (!hasW2) { drop(w2Mips); drop(w2Rms); }
+    if (vk < 0) { dropAll(phMips); dropAll(phRms); }
+    if (vk < 0 || !hasW2) { dropAll(w2PhMips); dropAll(w2PhRms); }
+  }
 };
 struct Tables {
   // displays (buildTables without mips): the raw layers of the oscillator shown on the panel; also where buildSet works
   int mode = 0, kept = 0, nonzero = 0;
-  std::vector<double> layers;   // NL * N (raw, for displays)
+  std::vector<double> layers;   // NL * N (raw, for displays; allocated by buildSet, version 1.0.7: the sound sets of the plug-in never need them)
   std::vector<double> coeffs;   // N
   double bandScale[NB];
   std::vector<float> mips;      // NMIP * TW (empty when built without mips)
@@ -306,7 +384,7 @@ struct Tables {
   // the sound (buildTables with mips): the oscillators that play
   int needs = 0;
   SlotTables slot[NS];
-  Tables() : layers((size_t)NL * N), coeffs(N) {}
+  void ensureWork() { if (layers.size() != (size_t)NL * N) layers.assign((size_t)NL * N, 0.0); if (coeffs.size() != (size_t)N) coeffs.assign(N, 0.0); }
   const double* layer(int l) const { return layers.data() + (size_t)l * N; }
 };
 
@@ -354,8 +432,11 @@ inline int variantSig(const double* params) {
 
 // Builds the tables of oscillator s into t (raw layers, coefficients, and with mips the mip tables). ovWavelet / ovPhase (>= 0)
 // replace the oscillator's own wavelet / source phase (the WAVELET MORPH set, the phase sets).
-inline void buildSet(const double* params, int s, bool withMips, Tables& t, double ovWavelet = -1, double ovPhase = -1, double ovSparsity = -1, double ovWidth = -1) {
+// outMips / outRms (version 1.0.7): where the mip tables are written (default: t.mips, t.rms), so that a build can fill the vectors of its destination directly.
+inline void buildSet(const double* params, int s, bool withMips, Tables& t, double ovWavelet = -1, double ovPhase = -1, double ovSparsity = -1, double ovWidth = -1,
+                     std::vector<float>* outMips = nullptr, std::vector<float>* outRms = nullptr) {
   const SlotDef& k = kSlots[s];
+  t.ensureWork();
   t.mode = k.mode;
   const Filter& f = filter((int)jsRound(ovWavelet >= 0 ? ovWavelet : params[k.wavelet]));
   double* c = t.coeffs.data();
@@ -390,8 +471,10 @@ inline void buildSet(const double* params, int s, bool withMips, Tables& t, doub
   }
   if (!withMips) return;
 
-  t.mips.assign((size_t)NMIP * TW, 0.0f);
-  t.rms.assign((size_t)NMIP * NL, 0.0f);
+  std::vector<float>& mipsOut = outMips ? *outMips : t.mips;
+  std::vector<float>& rmsOut = outRms ? *outRms : t.rms;
+  mipsOut.assign((size_t)NMIP * TW, 0.0f);
+  rmsOut.assign((size_t)NMIP * NL, 0.0f);
   std::vector<double> re(N), im(N), yr(N), yi(N);
   const FFT& F = fft();
   for (int L = 0; L < NL; L++) {
@@ -406,55 +489,84 @@ inline void buildSet(const double* params, int s, bool withMips, Tables& t, doub
       for (int h = 1; h <= H; h++) { yr[h] = re[h]; yi[h] = im[h]; }
       for (int h = 1; h <= std::min(H, N / 2 - 1); h++) { yr[N - h] = re[N - h]; yi[N - h] = im[N - h]; }
       F.run(yr.data(), yi.data(), true);
-      float* dst = t.mips.data() + (size_t)m * TW;
+      float* dst = mipsOut.data() + (size_t)m * TW;
       double e = 0;
       for (int i = 0; i < N; i++) { double v = yr[i] / N; dst[i * NL + L] = (float)v; e += v * v; }
       dst[N * NL + L] = dst[L];
-      t.rms[m * NL + L] = (float)std::sqrt(e / N);
+      rmsOut[m * NL + L] = (float)std::sqrt(e / N);
     }
   }
 }
 
-// The other sets of a variant of subtractive oscillator s with wavelet wav (core.js variantSets). PHASE: phase a_phase + k / PHASE_K for
+// One set to build: the arguments of buildSet and where its mip tables go.
+struct BuildJob { std::vector<float>* mips; std::vector<float>* rms; int s; double wavelet, phase, sparsity, width; };
+
+// The other sets of a variant of subtractive oscillator s with wavelet wav (core.js variantSets), as jobs. PHASE: phase a_phase + k / PHASE_K for
 // k = 1 .. PHASE_K - 1 (set 0 is the oscillator's own). SPARSITY and WIDTH: the SPARSE_K sparsities k / (SPARSE_K - 1) and the WIDTH_K
 // widths WIDTH_MIN + k (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1), k = 0 .. K - 1 (all of them; the oscillator's own set is not one of them).
-inline void variantSets(const double* params, int s, double wav, int vk, std::vector<std::vector<float>>& mips, std::vector<std::vector<float>>& rms) {
+inline void variantJobs(const double* params, int s, double wav, int vk, std::vector<std::vector<float>>& mips, std::vector<std::vector<float>>& rms, std::vector<BuildJob>& jobs) {
   const int first = vk == VK_PHASE ? 1 : 0, cnt = VK_N[vk] - first;
-  mips.resize(cnt); rms.resize(cnt);
-  Tables sc;
+  mips.resize(cnt); rms.resize(cnt);   // (before the jobs hold pointers into them)
   for (int k = first; k < VK_N[vk]; k++) {
-    if (vk == VK_PHASE) { double v = params[kSlots[s].phase] + (double)k / PHASE_K; v -= std::floor(v); buildSet(params, s, true, sc, wav, v); }
-    else if (vk == VK_SPARSITY) buildSet(params, s, true, sc, wav, -1, (double)k / (SPARSE_K - 1));
-    else buildSet(params, s, true, sc, wav, -1, -1, WIDTH_MIN + k * (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1));
-    mips[k - first].swap(sc.mips); rms[k - first].swap(sc.rms);
+    BuildJob j{&mips[k - first], &rms[k - first], s, wav, -1, -1, -1};
+    if (vk == VK_PHASE) { double v = params[kSlots[s].phase] + (double)k / PHASE_K; v -= std::floor(v); j.phase = v; }
+    else if (vk == VK_SPARSITY) j.sparsity = (double)k / (SPARSE_K - 1);
+    else j.width = WIDTH_MIN + k * (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1);
+    jobs.push_back(j);
   }
 }
 
+// Called by the helper threads of a parallel build (version 1.0.7) before they start: the plug-in lowers their priority so that they do not take the cores of the DAW's audio threads.
+inline void (*gBuildThreadInit)() = nullptr;
+
 // withMips=false: the oscillator shown on the panel (displays). withMips=true: the oscillators the sound needs.
-inline void buildTables(const double* params, bool withMips, Tables& t) {
+// threads > 1 (version 1.0.7, CPU review 3.4): the sets of the preset (the oscillators' own, their WAVELET 2 twins, the sets of the LFO variants: up to 49) are independent, each built by
+// buildSet from the parameters alone into its own vectors, so they are built by up to `threads` threads: the same bits as one after the other, in a third of the time on a heavy preset.
+inline void buildTables(const double* params, bool withMips, Tables& t, int threads = 1) {
   t.needs = 0;
-  for (int s = 0; s < NS; s++) t.slot[s] = SlotTables();
+  for (int s = 0; s < NS; s++) t.slot[s].begin();
   if (!withMips) { buildSet(params, (int)jsRound(params[P_OSC_VIEW]), false, t); return; }
   const int need = tableNeeds(params);
   t.needs = need;
-  Tables sc;
+  std::vector<BuildJob> jobs;
   for (int s = 0; s < NS; s++) {
     if (!(need & (1 << s))) continue;
     SlotTables& st = t.slot[s];
-    st.on = true;
-    buildSet(params, s, true, sc);
-    st.mode = sc.mode; st.mips.swap(sc.mips); st.rms.swap(sc.rms);
+    st.on = true; st.mode = kSlots[s].mode;
+    jobs.push_back(BuildJob{&st.mips, &st.rms, s, -1, -1, -1, -1});
     if (slotMorph(params, s)) {   // WAVELET MORPH
-      buildSet(params, s, true, sc, params[P_WAV2]);
-      st.hasW2 = true; st.w2Mips.swap(sc.mips); st.w2Rms.swap(sc.rms);
+      st.hasW2 = true;
+      jobs.push_back(BuildJob{&st.w2Mips, &st.w2Rms, s, params[P_WAV2], -1, -1, -1});
     }
     const int vk = slotVariant(params, s);
     if (vk >= 0) {   // SOURCE PHASE / SPARSITY / SOURCE WIDTH moved by an LFO: every set also at the other values (also for WAVELET 2)
       st.vk = vk;
-      variantSets(params, s, params[kSlots[s].wavelet], vk, st.phMips, st.phRms);
-      if (st.hasW2) variantSets(params, s, params[P_WAV2], vk, st.w2PhMips, st.w2PhRms);
+      variantJobs(params, s, params[kSlots[s].wavelet], vk, st.phMips, st.phRms, jobs);
+      if (st.hasW2) variantJobs(params, s, params[P_WAV2], vk, st.w2PhMips, st.w2PhRms, jobs);
     }
   }
+  auto run = [&](const BuildJob& j, Tables& sc) { buildSet(params, j.s, true, sc, j.wavelet, j.phase, j.sparsity, j.width, j.mips, j.rms); };
+  const int nt = std::min<int>(threads, (int)jobs.size());
+  if (nt <= 1 || jobs.size() < 4) {
+    Tables sc;
+    for (const BuildJob& j : jobs) run(j, sc);
+  } else {
+    std::atomic<size_t> next{0};
+    std::exception_ptr err; std::mutex errMutex;
+    auto work = [&](bool helper) {
+      try {
+        if (helper && gBuildThreadInit) gBuildThreadInit();
+        Tables sc;
+        for (;;) { const size_t i = next.fetch_add(1); if (i >= jobs.size()) break; run(jobs[i], sc); }
+      } catch (...) { std::lock_guard<std::mutex> lk(errMutex); if (!err) err = std::current_exception(); next.store(jobs.size()); }
+    };
+    std::vector<std::thread> helpers;
+    try { for (int i = 1; i < nt; i++) helpers.emplace_back(work, true); } catch (...) { /* no more threads: the ones started and this one do the work */ }
+    work(false);
+    for (std::thread& th : helpers) th.join();
+    if (err) std::rethrow_exception(err);
+  }
+  for (int s = 0; s < NS; s++) t.slot[s].end();
 }
 
 // ------------------------------------------------------------------ gains & window
@@ -635,13 +747,13 @@ inline double ladder(double* st, int o, double u, double G, double k, int type) 
 // pairs (2q, 2q + 1) listed in pq[0 .. npq - 1] (every pair that holds an active layer; the other layer of a pair is computed too and never used); otherwise the layers of the
 // active list act[0 .. na - 1]. lg and t must be 16-byte aligned (NL entries each). rampGains: lg[b] += d[b] for the same pairs of layers.
 inline void bandTerms(const float* base, const float* nx, double fr, const double* lg, double* t, const int* pq, int npq, const int* act, int na) {
-#if defined(__SSE2__)
+#if defined(WS_V2_BAND)
   (void)act; (void)na;
-  const __m128d f = _mm_set1_pd(fr);
+  const v2d f = v2_set1(fr);
   for (int e = 0; e < npq; e++) {
     const int b = 2 * pq[e];
-    const __m128d a = _mm_cvtps_pd(_mm_castsi128_ps(_mm_loadl_epi64((const __m128i*)(base + b)))), c = _mm_cvtps_pd(_mm_castsi128_ps(_mm_loadl_epi64((const __m128i*)(nx + b))));
-    _mm_store_pd(t + b, _mm_mul_pd(_mm_load_pd(lg + b), _mm_add_pd(a, _mm_mul_pd(f, _mm_sub_pd(c, a)))));
+    const v2d a = v2_cvt(base + b), c = v2_cvt(nx + b);
+    v2_store(t + b, v2_mul(v2_load(lg + b), v2_add(a, v2_mul(f, v2_sub(c, a)))));
   }
 #else
   (void)pq; (void)npq;
@@ -649,8 +761,8 @@ inline void bandTerms(const float* base, const float* nx, double fr, const doubl
 #endif
 }
 inline void rampGains(double* lg, const double* d, const int* pq, int npq) {
-#if defined(__SSE2__)
-  for (int e = 0; e < npq; e++) { const int b = 2 * pq[e]; _mm_store_pd(lg + b, _mm_add_pd(_mm_load_pd(lg + b), _mm_load_pd(d + b))); }
+#if defined(WS_V2_BAND)
+  for (int e = 0; e < npq; e++) { const int b = 2 * pq[e]; v2_store(lg + b, v2_add(v2_load(lg + b), v2_load(d + b))); }
 #else
   (void)pq; (void)npq;
   for (int b = 0; b < NL; b++) lg[b] += d[b];
@@ -1142,7 +1254,6 @@ class Engine {
   ExpMemo mKd, mVol, mLvl; double mCompKd = std::nan(""), mComp = 0;   // the output stage's and the level smoothing's factors
   int uMemoU = -1; double uMemoDet = std::nan(""), uMemoWidth = std::nan("");   // the unison copies' detune and pan, for the settings they were computed with
   struct FgMemo { int type = -1; double cut = 0, slope = 0, res = 0, fg[NB] = {}; } fgMemo[NS];
-  int act[NL];
   // per block, computed once for all voices (prepBlock): the oscillators' levels (smoothed over 20 ms) and settings
   struct Prep {
     double tune = 0; int ftype = 0; double fcut = 0, fslope = 0, fres = 0, fkey = 0, fenv = 0, fvel = 0, pcen = 0, pwid = 0, pdep = 0;
@@ -1441,13 +1552,15 @@ class Engine {
     ownLevel[s] = lev; ownStage[s] = st;
   }
 
-  // Render one voice's oscillator s for n samples with table set (mode, mips, rms), accumulating into bufL/bufR.
-  // Does not modify the voice: the end phases are left in endPh[s] so that several renders of the same oscillator (table
-  // crossfade, WAVELET MORPH, phase sets) start from the same state. The output follows the amp envelope (envA), the own
-  // envelope when it is on, the crossfade (ramping from fade0 by fadeInc per sample; invert: 1 - fade) and the oscillator's
-  // level share gain0 (+ gainInc per sample).
-  void renderVoice(const Voice& vc, int n, int s, int mode, const float* mips, const float* rms, double fade0, double fadeInc,
-                   bool invert, double gain0, double gainInc) {
+  // One table set to render for an oscillator, and its share of the oscillator's level (gain0, then + gainInc per sample).
+  struct Pass { int mode; const float* mips; const float* rms; double gain0, gainInc; };
+  static constexpr int kMaxPasses = 16;   // (at most 8 happen: the two sets either side of the place q at the start and at the end of the block, for the oscillator and for its WAVELET 2 twin)
+
+  // The loop of 1.0.6 for one set (a preset whose oscillators have one table set each: no WAVELET 2 twin, no LFO variant): the fused loop below costs a few per cent more
+  // there. Same operations in the same order, so the same bits.
+  void renderSingle(const Voice& vc, int n, int s, const Pass& pz, double fade0, double fadeInc, bool invert) {
+    const int mode = pz.mode; const float* mips = pz.mips; const float* rms = pz.rms; const double gain0 = pz.gain0, gainInc = pz.gainInc;
+    int act[NL];
     const Slot& sl = vc.sl[s];
     const size_t off = (size_t)sl.mip * TW;
     const double* g = sl.g; const double* dg = sl.dg;
@@ -1523,6 +1636,138 @@ class Engine {
     }
   }
 
+  // What one set needs: its active layers (from its rms at the voice's mip level and the band gains), the band gains and their steps padded to NL entries (pairs for SSE2; a band that
+  // is not in the active list keeps its gain, step 0, and its term is never added; when every active step is exactly 0 the per-sample ramp lg += 0 is skipped: the same values).
+  struct Run {
+    const float* mips; int mode, na, npq; bool ramp, contig, useDry, unity; double gain, gainInc; const double* tvA;
+    alignas(16) double lg[NL], dgl[NL], tv[NL];
+    int act[NL], pq[NL / 2];
+  };
+
+  // The sample loop of renderPasses for K sets (K = 0: np sets, counted at run time).
+  template <int K>
+  void renderLoop(Run* rn, int npRun, int n, size_t off, const double* own, double fade0, double fadeInc, bool invert, bool needWin, double pc, double pw, double pd, double* ph) {
+    const int np = K ? K : npRun;
+    // the unison copies' steps, pans and phases in locals: the band terms are written through a pointer, which the compiler could take for the engine's own arrays
+    const int Un = U;
+    double incL[4], phL[4], pnL[4], pnR[4];
+    for (int u = 0; u < Un; u++) { incL[u] = inc[u]; phL[u] = ph[u]; pnL[u] = panL[u]; pnR[u] = panR[u]; }
+    double fade = fade0;
+    for (int i = 0; i < n; i++) {
+      const double fg1 = fade >= 1 ? 1 : fade;
+      const double envF = eP[i] * (invert ? 1 - fg1 : fg1);
+      fade += fadeInc;
+      // the phases, the table row and the position window of every unison copy: the same for every set
+      double fru[4], wu[4]; int i0u[4];
+      for (int u = 0; u < Un; u++) {
+        double x = phL[u] + incL[u];
+        if (x >= 1) x -= std::floor(x);   // keeps the table row inside [0, N) even for steps longer than a cycle
+        phL[u] = x;
+        const double pos = x * N; const int i0 = (int)pos;
+        i0u[u] = i0; fru[u] = pos - i0;
+        wu[u] = needWin ? windowValue(x, pc, pw, pd) : 0;
+      }
+      float aL = wL[i], aR = wR[i];
+      for (int k = 0; k < np; k++) {
+        Run& r = rn[k];
+        if (r.ramp) rampGains(r.lg, r.dgl, r.pq, r.npq);
+        double env = envF;
+        if (!r.unity) env *= r.gain;
+        if (own) env *= own[i];
+        r.gain += r.gainInc;
+        double oL = 0, oR = 0;
+        for (int u = 0; u < Un; u++) {
+          const float* base = r.mips + off + (size_t)i0u[u] * NL; const float* nx = base + NL;
+          const double fr = fru[u];
+          bandTerms(base, nx, fr, r.lg, r.tv, r.pq, r.npq, r.act, r.na);   // tv[b] = lg[b] * (v0 + fr * (nx[b] - v0)) for the active layers, summed below in the order of the active list
+          double y;
+          if (r.mode == 0) {
+            double sum = 0;
+            if (r.contig) { for (int j = 0; j < r.na; j++) sum += r.tvA[j]; }
+            else for (int j = 0; j < r.na; j++) sum += r.tv[r.act[j]];
+            if (r.useDry) {
+              double v0 = base[DRY], dry = v0 + fr * (nx[DRY] - v0);
+              y = dry + wu[u] * (sum - dry);
+            } else y = sum;
+          } else {
+            double first = 0, sum = 0;
+            if (r.contig) {
+              int j = 0;
+              if (r.act[0] == 0) { first = r.tv[0]; j = 1; }
+              for (; j < r.na; j++) sum += r.tvA[j];
+            } else
+              for (int j = 0; j < r.na; j++) {
+                int b = r.act[j]; double v = r.tv[b];
+                if (b == 0) first = v; else sum += v;
+              }
+            y = pd > 0 ? first + wu[u] * sum : first + sum;
+          }
+          oL += y * pnL[u]; oR += y * pnR[u];
+        }
+        aL += (float)(oL * env); aR += (float)(oR * env);
+      }
+      wL[i] = aL; wR[i] = aR;
+    }
+    for (int u = 0; u < Un; u++) ph[u] = phL[u];
+  }
+
+  // Render one voice's oscillator s for n samples with the table sets ps[0 .. np - 1] (the oscillator's own, its WAVELET 2 twin, the neighbouring sets of an LFO variant, in
+  // the order they are listed), accumulating into wL / wR. Does not modify the voice: the end phases are left in endPh[s] so that several renders of the same oscillator (the table
+  // crossfade) start from the same state. The output follows the amp envelope (eP), the own envelope when it is on, the crossfade (ramping from fade0 by fadeInc per sample;
+  // invert: 1 - fade) and each set's share of the level.
+  // Version 1.0.7 (CPU review 2.1): the sets are rendered together, sample by sample, instead of one pass over the block per set. What they have in common (the phases, the table
+  // row, the position window, the envelope) is computed once instead of once per set, the mix is read and written once, and the sets' independent chains overlap. Each set does
+  // exactly the operations it did as a pass of its own, in the same order, and its output is added to the mix in the order of the list, as the successive passes added it:
+  // the sound is bit for bit the same (checked by cpu_bench --check and dsp_render against the engine of 1.0.6).
+  void renderPasses(const Voice& vc, int n, int s, const Pass* ps, int np, double fade0, double fadeInc, bool invert) {
+    if (np <= 0) return;
+    if (np > kMaxPasses) np = kMaxPasses;
+    if (np == 1) { renderSingle(vc, n, s, ps[0], fade0, fadeInc, invert); return; }
+    const Slot& sl = vc.sl[s];
+    const size_t off = (size_t)sl.mip * TW;
+    const double* g = sl.g; const double* dg = sl.dg;
+    // A fundamental at or above Nyquist can only alias: the wavetable part of such a voice stays silent.
+    const bool audible = sl.f0 < 0.5 * sr;
+    double* ph = endPh[s];
+    for (int u = 0; u < U; u++) { inc[u] = sl.f0 * detMul[u] / sr; ph[u] = sl.phase[u]; }
+    const double pc = sl.pc, pw = sl.pw, pd = sl.pd;
+    const double* own = ownOn[s] ? ownBuf[s] : nullptr;
+    if (own && ownZero[s]) {   // the output is the product of the envelope and the own envelope, which is 0 all block: every sample adds (float)(x * 0) = +-0, which changes no sum; the phases move as ever
+      for (int i = 0; i < n; i++)
+        for (int u = 0; u < U; u++) { double x = ph[u] + inc[u]; if (x >= 1) x -= std::floor(x); ph[u] = x; }
+      return;
+    }
+    Run rn[kMaxPasses];
+    bool needWin = false;
+    for (int k = 0; k < np; k++) {
+      Run& r = rn[k]; const Pass& pz = ps[k];
+      r.mips = pz.mips; r.mode = pz.mode;
+      int na = 0;
+      if (audible)
+        for (int b = 0; b < NB; b++)
+          if (pz.rms[sl.mip * NL + b] > 1e-7f && (std::fabs(g[b]) > 1e-6 || std::fabs(g[b] + dg[b] * n) > 1e-6)) r.act[na++] = b;
+      r.na = na;
+      r.useDry = audible && pz.mode == 0 && pd > 0;
+      for (int b = 0; b < NL; b++) { r.lg[b] = b < NB ? g[b] : 0; r.dgl[b] = 0; r.tv[b] = 0; }
+      r.ramp = false;
+      unsigned pairs = 0;   // the pairs of layers (2q, 2q + 1) that hold an active layer
+      for (int j = 0; j < na; j++) { const int b = r.act[j]; r.dgl[b] = dg[b]; if (dg[b] != 0) r.ramp = true; pairs |= 1u << (b >> 1); }
+      r.npq = 0;
+      for (int q = 0; q < NL / 2; q++) if (pairs >> q & 1) r.pq[r.npq++] = q;
+      r.contig = na > 0 && r.act[na - 1] - r.act[0] + 1 == na;   // the active layers are consecutive: the sum runs straight along tv from the first one
+      r.tvA = r.tv + (na > 0 ? r.act[0] : 0);
+      r.unity = pz.gain0 == 1 && pz.gainInc == 0;
+      r.gain = pz.gain0; r.gainInc = pz.gainInc;
+      if (pz.mode == 0 ? r.useDry : pd > 0) needWin = true;
+    }
+    switch (np) {   // the loop is compiled for 2 to 4 sets (the common cases) and for any number
+      case 2: renderLoop<2>(rn, np, n, off, own, fade0, fadeInc, invert, needWin, pc, pw, pd, ph); break;
+      case 3: renderLoop<3>(rn, np, n, off, own, fade0, fadeInc, invert, needWin, pc, pw, pd, ph); break;
+      case 4: renderLoop<4>(rn, np, n, off, own, fade0, fadeInc, invert, needWin, pc, pw, pd, ph); break;
+      default: renderLoop<0>(rn, np, n, off, own, fade0, fadeInc, invert, needWin, pc, pw, pd, ph); break;
+    }
+  }
+
   // The filter's coefficients for this voice and block (feLev: the level of its envelope at the end of the block)
   void fltPrep(Voice& vc, int n, double feLev) {
     (void)n;
@@ -1549,13 +1794,13 @@ class Engine {
       kf[f] = vc.fk; comp[f] = type == 1 ? 1 + 0.6 * vc.fk : 1;   // OTA: the low end the resonance takes away comes back in part
       G0[f] = vc.fG0; dG[f] = (vc.fG1 - vc.fG0) / n;
     }
-#if defined(__SSE2__)
-    const __m128d c27 = _mm_set1_pd(27), c9 = _mm_set1_pd(9), c3 = _mm_set1_pd(3), cm3 = _mm_set1_pd(-3), vgin = _mm_set1_pd(gin), vmk = _mm_set1_pd(mk);
+#if defined(WS_V2_FILTER)
+    const v2d c27 = v2_set1(27), c9 = v2_set1(9), c3 = v2_set1(3), cm3 = v2_set1(-3), vgin = v2_set1(gin), vmk = v2_set1(mk);
     // tnh() on two lanes; min / max keep a NaN as it is, like the comparisons of the scalar form
-    auto tnh2 = [&](__m128d x) {
-      x = _mm_max_pd(cm3, _mm_min_pd(c3, x));
-      const __m128d x2 = _mm_mul_pd(x, x);
-      return _mm_div_pd(_mm_mul_pd(x, _mm_add_pd(c27, x2)), _mm_add_pd(c27, _mm_mul_pd(c9, x2)));
+    auto tnh2 = [&](v2d x) {
+      x = v2_max(cm3, v2_min(c3, x));
+      const v2d x2 = v2_mul(x, x);
+      return v2_div(v2_mul(x, v2_add(c27, x2)), v2_add(c27, v2_mul(c9, x2)));
     };
     for (int i = 0; i < n; i++) {
       float aL = bufL[i], aR = bufR[i];
@@ -1563,29 +1808,29 @@ class Engine {
         const int v = list[f]; double* st = voices[v].fs;
         const double G = G0[f] + dG[f] * (i + 1), k = kf[f];
         const double g1 = 1 - G, G2 = G * G, G3 = G2 * G, G4 = G2 * G2;
-        __m128d u = _mm_set_pd((double)vtR[v][i], (double)vtL[v][i]);
-        if (drive > 0) u = _mm_mul_pd(tnh2(_mm_mul_pd(vgin, u)), vmk);
-        u = _mm_mul_pd(u, _mm_set1_pd(comp[f]));
-        const __m128d s1 = _mm_loadu_pd(st), s2 = _mm_loadu_pd(st + 2), s3 = _mm_loadu_pd(st + 4), s4 = _mm_loadu_pd(st + 6);
-        const __m128d vG = _mm_set1_pd(G);
+        v2d u = v2_set((double)vtR[v][i], (double)vtL[v][i]);
+        if (drive > 0) u = v2_mul(tnh2(v2_mul(vgin, u)), vmk);
+        u = v2_mul(u, v2_set1(comp[f]));
+        const v2d s1 = v2_loadu(st), s2 = v2_loadu(st + 2), s3 = v2_loadu(st + 4), s4 = v2_loadu(st + 6);
+        const v2d vG = v2_set1(G);
         // S = g1 * (G3 s1 + G2 s2 + G s3 + s4), y4l = (G4 u + S) / (1 + k G4), x = u - k y4l: the feedback solved without delay for the linear ladder
-        const __m128d S = _mm_mul_pd(_mm_set1_pd(g1), _mm_add_pd(_mm_add_pd(_mm_add_pd(_mm_mul_pd(_mm_set1_pd(G3), s1), _mm_mul_pd(_mm_set1_pd(G2), s2)), _mm_mul_pd(vG, s3)), s4));
-        const __m128d y4l = _mm_div_pd(_mm_add_pd(_mm_mul_pd(_mm_set1_pd(G4), u), S), _mm_set1_pd(1 + k * G4));
-        __m128d x = _mm_sub_pd(u, _mm_mul_pd(_mm_set1_pd(k), y4l)), y1, y2, y3, y4;
+        const v2d S = v2_mul(v2_set1(g1), v2_add(v2_add(v2_add(v2_mul(v2_set1(G3), s1), v2_mul(v2_set1(G2), s2)), v2_mul(vG, s3)), s4));
+        const v2d y4l = v2_div(v2_add(v2_mul(v2_set1(G4), u), S), v2_set1(1 + k * G4));
+        v2d x = v2_sub(u, v2_mul(v2_set1(k), y4l)), y1, y2, y3, y4;
         if (type == 0) {   // LADDER: every stage saturates
-          const __m128d a = tnh2(x), v1 = _mm_mul_pd(_mm_sub_pd(a, s1), vG); y1 = _mm_add_pd(v1, s1); _mm_storeu_pd(st, _mm_add_pd(y1, v1));
-          const __m128d b = tnh2(y1), v2 = _mm_mul_pd(_mm_sub_pd(b, s2), vG); y2 = _mm_add_pd(v2, s2); _mm_storeu_pd(st + 2, _mm_add_pd(y2, v2));
-          const __m128d c = tnh2(y2), v3 = _mm_mul_pd(_mm_sub_pd(c, s3), vG); y3 = _mm_add_pd(v3, s3); _mm_storeu_pd(st + 4, _mm_add_pd(y3, v3));
-          const __m128d d = tnh2(y3), v4 = _mm_mul_pd(_mm_sub_pd(d, s4), vG); y4 = _mm_add_pd(v4, s4); _mm_storeu_pd(st + 6, _mm_add_pd(y4, v4));
+          const v2d a = tnh2(x), v1 = v2_mul(v2_sub(a, s1), vG); y1 = v2_add(v1, s1); v2_storeu(st, v2_add(y1, v1));
+          const v2d b = tnh2(y1), v2 = v2_mul(v2_sub(b, s2), vG); y2 = v2_add(v2, s2); v2_storeu(st + 2, v2_add(y2, v2));
+          const v2d c = tnh2(y2), v3 = v2_mul(v2_sub(c, s3), vG); y3 = v2_add(v3, s3); v2_storeu(st + 4, v2_add(y3, v3));
+          const v2d d = tnh2(y3), v4 = v2_mul(v2_sub(d, s4), vG); y4 = v2_add(v4, s4); v2_storeu(st + 6, v2_add(y4, v4));
         } else {           // OTA: only the input of the loop saturates
           x = tnh2(x);
-          const __m128d v1 = _mm_mul_pd(_mm_sub_pd(x, s1), vG); y1 = _mm_add_pd(v1, s1); _mm_storeu_pd(st, _mm_add_pd(y1, v1));
-          const __m128d v2 = _mm_mul_pd(_mm_sub_pd(y1, s2), vG); y2 = _mm_add_pd(v2, s2); _mm_storeu_pd(st + 2, _mm_add_pd(y2, v2));
-          const __m128d v3 = _mm_mul_pd(_mm_sub_pd(y2, s3), vG); y3 = _mm_add_pd(v3, s3); _mm_storeu_pd(st + 4, _mm_add_pd(y3, v3));
-          const __m128d v4 = _mm_mul_pd(_mm_sub_pd(y3, s4), vG); y4 = _mm_add_pd(v4, s4); _mm_storeu_pd(st + 6, _mm_add_pd(y4, v4));
+          const v2d v1 = v2_mul(v2_sub(x, s1), vG); y1 = v2_add(v1, s1); v2_storeu(st, v2_add(y1, v1));
+          const v2d v2 = v2_mul(v2_sub(y1, s2), vG); y2 = v2_add(v2, s2); v2_storeu(st + 2, v2_add(y2, v2));
+          const v2d v3 = v2_mul(v2_sub(y2, s3), vG); y3 = v2_add(v3, s3); v2_storeu(st + 4, v2_add(y3, v3));
+          const v2d v4 = v2_mul(v2_sub(y3, s4), vG); y4 = v2_add(v4, s4); v2_storeu(st + 6, v2_add(y4, v4));
         }
-        const __m128 r = _mm_cvtpd_ps(_mm_mul_pd(y4, _mm_set1_pd(envAv[v][i])));   // (float)(ladder(...) * env), left in lane 0, right in lane 1
-        aL += _mm_cvtss_f32(r); aR += _mm_cvtss_f32(_mm_shuffle_ps(r, r, 1));
+        float oL, oR; v2_f32(v2_mul(y4, v2_set1(envAv[v][i])), oL, oR);   // (float)(ladder(...) * env), left in lane 0, right in lane 1
+        aL += oL; aR += oR;
       }
       bufL[i] = aL; bufR[i] = aR;
     }
@@ -1627,15 +1872,15 @@ class Engine {
     endSubPhase = sph;
   }
 
-  // SOURCE PHASE moved by LFO 2 (beta 0.4): a subtractive set with its phase sets (ph, index 0 = the set itself) plays the sets on
-  // each side of the voice's place q (share 1 - |q - k| round the cycle), q moving from ap0 to ap1 across the block; the shares
-  // of a block start and end each add up to 1. Without phase sets exactly renderVoice. A share of 0 at both ends renders nothing.
-  void renderTable(const Voice& vc, int n, int s, const SetRef& main, const SetRef* ph, int vk, double fade0, double fadeInc, bool invert,
-                   double gain0, double gainInc) {
+  // The sets to render for one table (main, with ph its variants: SOURCE PHASE, SPARSITY or SOURCE WIDTH moved by an LFO), appended to the list ps (np entries) in the order the passes
+  // of 1.0.6 were made; returns the new count. SOURCE PHASE moved by LFO 2 (beta 0.4): a subtractive set with its phase sets (ph, index 0 = the set itself) plays the sets on
+  // each side of the voice's place q (share 1 - |q - k| round the cycle), q moving from ap0 to ap1 across the block; the shares of a block start and end each add up to 1.
+  // Without variants exactly the set itself. A share of 0 at both ends renders nothing.
+  int addPasses(Pass* ps, int np, const Voice& vc, int n, int s, const SetRef& main, const SetRef* ph, int vk, double gain0, double gainInc) {
     if (!ph) {
-      if (gain0 == 0 && gainInc == 0) return;
-      renderVoice(vc, n, s, main.mode, main.mips, main.rms, fade0, fadeInc, invert, gain0, gainInc);
-      return;
+      if (gain0 == 0 && gainInc == 0) return np;
+      ps[np++] = Pass{main.mode, main.mips, main.rms, gain0, gainInc};
+      return np;
     }
     const double gain1 = gain0 + gainInc * n;
     const int KN = VK_N[vk]; const Slot& sl = vc.sl[s]; const double q0 = sl.vq0[vk], q1 = sl.vq1[vk];
@@ -1647,21 +1892,24 @@ class Engine {
       const double s0 = k == a0 ? 1 - f0 : k == b0 ? f0 : 0, s1 = k == a1 ? 1 - f1 : k == b1 ? f1 : 0;
       if (s0 == 0 && s1 == 0) continue;
       const double k0 = gain0 * s0, k1 = gain1 * s1;
-      renderVoice(vc, n, s, ph[k].mode, ph[k].mips, ph[k].rms, fade0, fadeInc, invert, k0, (k1 - k0) / n);
+      if (np < kMaxPasses) ps[np++] = Pass{ph[k].mode, ph[k].mips, ph[k].rms, k0, (k1 - k0) / n};
     }
+    return np;
   }
 
-  // WAVELET MORPH: without WAVELET 2 tables exactly renderTable (bit-identical sound when the morph is off); with them, the
-  // oscillator (share 1 - morph) and the same oscillator built with WAVELET 2 (share morph), the voice's morph moving from wm0
-  // to wm1. The oscillator's level moves from m0 to m1 across the block.
+  // WAVELET MORPH: without WAVELET 2 tables exactly the oscillator's own table (bit-identical sound when the morph is off); with them, the oscillator (share 1 - morph) and the
+  // same oscillator built with WAVELET 2 (share morph), the voice's morph moving from wm0 to wm1. The oscillator's level moves from m0 to m1 across the block.
   void renderSlot(const Voice& vc, int n, int s, const SlotRef& t, double fade0, double fadeInc, bool invert, double lv0, double lv1) {
     const bool hv = t.vk >= 0;
-    if (!t.hasW2) { renderTable(vc, n, s, t.main, hv ? t.var : nullptr, t.vk, fade0, fadeInc, invert, lv0, (lv1 - lv0) / n); return; }
-    const double a0 = lv0 * (1 - vc.wm0), a1 = lv1 * (1 - vc.wm1), b0 = lv0 * vc.wm0, b1 = lv1 * vc.wm1;
-    renderTable(vc, n, s, t.main, hv ? t.var : nullptr, t.vk, fade0, fadeInc, invert, a0, (a1 - a0) / n);
-    renderTable(vc, n, s, t.w2, hv && t.hasW2Var ? t.w2var : nullptr, t.vk, fade0, fadeInc, invert, b0, (b1 - b0) / n);
+    Pass ps[kMaxPasses]; int np = 0;
+    if (!t.hasW2) np = addPasses(ps, np, vc, n, s, t.main, hv ? t.var : nullptr, t.vk, lv0, (lv1 - lv0) / n);
+    else {
+      const double a0 = lv0 * (1 - vc.wm0), a1 = lv1 * (1 - vc.wm1), b0 = lv0 * vc.wm0, b1 = lv1 * vc.wm1;
+      np = addPasses(ps, np, vc, n, s, t.main, hv ? t.var : nullptr, t.vk, a0, (a1 - a0) / n);
+      np = addPasses(ps, np, vc, n, s, t.w2, hv && t.hasW2Var ? t.w2var : nullptr, t.vk, b0, (b1 - b0) / n);
+    }
+    renderPasses(vc, n, s, ps, np, fade0, fadeInc, invert);
   }
-
 
   // The oscillator shown on the panel, and the level meters
   void publish(float pkL, float pkR, uint32_t vmask) {
@@ -1849,6 +2097,34 @@ class Engine {
       if (++dlyW >= dlyLen) dlyW = 0;
       if (rmix > 0) {
         double inp = (l + r) * 0.015, wl = 0, wr = 0;
+#if defined(WS_V2_REVERB)
+        // version 1.0.7 (CPU review 2.4): comb k (left) and comb k + 8 (right) are independent chains of the same operations: they run as the two lanes of one register; the sums
+        // wl and wr stay scalar and in the order of the loop below. The all-passes k (left chain) and k + 4 (right chain) likewise.
+        {
+          const v2d vod = v2_set1(1 - damp), vdp = v2_set1(damp), vfb = v2_set1(feedback), vin = v2_set1(inp), half = v2_set1(0.5);
+          for (int k = 0; k < 8; k++) {
+            Comb& cl = combs[k]; Comb& cr = combs[k + 8];
+            const v2d y = v2_set((double)cr.buf[cr.i], (double)cl.buf[cl.i]);
+            const v2d fv = v2_add(v2_mul(y, vod), v2_mul(v2_set(cr.f, cl.f), vdp));   // c.f = y (1 - damp) + c.f damp
+            cl.f = v2_lo(fv); cr.f = v2_hi(fv);
+            float bl, br; v2_f32(v2_add(vin, v2_mul(fv, vfb)), bl, br);               // (float)(inp + c.f feedback)
+            cl.buf[cl.i] = bl; cr.buf[cr.i] = br;
+            if (++cl.i >= (int)cl.buf.size()) cl.i = 0;
+            if (++cr.i >= (int)cr.buf.size()) cr.i = 0;
+            wl += v2_lo(y); wr += v2_hi(y);
+          }
+          for (int k = 0; k < 4; k++) {
+            AP& al = aps[k]; AP& ar = aps[k + 4];
+            const v2d bo = v2_set((double)ar.buf[ar.i], (double)al.buf[al.i]), x = v2_set(wr, wl);
+            float bl, br; v2_f32(v2_add(x, v2_mul(bo, half)), bl, br);                // (float)(x + bo 0.5)
+            al.buf[al.i] = bl; ar.buf[ar.i] = br;
+            if (++al.i >= (int)al.buf.size()) al.i = 0;
+            if (++ar.i >= (int)ar.buf.size()) ar.i = 0;
+            const v2d w = v2_sub(bo, x);                                              // w = bo - x
+            wl = v2_lo(w); wr = v2_hi(w);
+          }
+        }
+#else
         for (int k = 0; k < 16; k++) {
           Comb& c = combs[k];
           double y = c.buf[c.i];
@@ -1864,6 +2140,7 @@ class Engine {
           if (++a.i >= (int)a.buf.size()) a.i = 0;
           if (k < 4) wl = bo - x; else wr = bo - x;
         }
+#endif
         l += rmix * wl * 1.5; r += rmix * wr * 1.5;
       }
       // DC blocker (10 Hz), master volume, soft limiter

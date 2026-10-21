@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
 // full.js - the whole validation, for an official release (a pre-release only needs tests/quick.js, the owner's rule): builds the plug-in, then runs one after the other the quick check
-// with the C++/JS cross-check, the TOP Sounds against beta 0.7, the engine tests, the web suites (smoke, the demo tour, the full web run on every preset), the plug-in's
+// with the C++/JS cross-check, the TOP Sounds against beta 0.7, the engine tests, the web suites (smoke, the manual's pages, the demo tour, the full web run on every preset), the plug-in's
 // developer checks (the presets file, the VST2 entry point, the plug-in window in a host) and the loud-chord crackle measure on every preset. One line per step, the failing step's last
 // lines, a summary at the end, the full log in tests/out/full.log. Takes about 40 minutes on a quiet machine (the web run is the longest).
 //   node tests/full.js                run everything
@@ -53,7 +53,7 @@ step('build plug-in', () => { const r = run('cmd', ['/c', 'vst\\build.bat']); re
 step('quick + C++/JS cross-check', () => { const r = node('tests/quick.js', '--dsp', '--force'); return { ok: ok(r, /^PASS/m), detail: tail(r.out, 7) }; });
 step('TOP Sounds vs beta 0.7', () => { const r = node('tests/regress_v07.js'); return { ok: ok(r), detail: tail(r.out, 1) }; });
 for (const t of ['idle_skip', 'filter', 'supermod', 'display_live', 'preset_change']) step('engine: ' + t, () => { const r = node('tests/' + t + '.js'); return { ok: ok(r), detail: tail(r.out, 1) }; });
-for (const t of ['smoke', 'test_demo', 'test_web']) step('web: ' + t, () => { const r = node('tests/web/' + t + '.js'); return { ok: ok(r), detail: tail(r.out, 2) }; });
+for (const t of ['smoke', 'test_manual', 'test_demo', 'test_web']) step('web: ' + t, () => { const r = node('tests/web/' + t + '.js'); return { ok: ok(r), detail: tail(r.out, 2) }; });
 // the plug-in's developer checks (each is compiled here)
 const cc = (src, exe, extra) => run(CXX, ['-std=c++17', '-O2', '-static', '-DNOMINMAX', '-I', 'vst/external', '-I', 'vst/src', ...src, '-o', exe, ...extra]);
 step('plug-in: presets file (library_test)', () => {
@@ -61,6 +61,16 @@ step('plug-in: presets file (library_test)', () => {
   let r = cc(['vst/devtest/library_test.cpp'], exe, ['-municode', '-DUNICODE', '-D_UNICODE', '-lshell32', '-lole32']);
   if (r.code !== 0) return { ok: false, detail: 'compile: ' + tail(r.out, 2) };
   r = run(exe, [path.join(SCRATCH, 'library_out')]); return { ok: ok(r, /ALL PASS/), detail: tail(r.out, 1) };
+});
+// version 1.0.7: the tables built by several threads (the plug-in's builder) are the bytes the one-thread build gives, every vector of the sets of the sampled presets
+step('plug-in: parallel table build (tables_equal)', () => {
+  const exe = path.join(SCRATCH, 'tables_equal.exe'), dir = path.join(SCRATCH, 'cases');
+  let r = node('tools/cpu_cases.js', dir, 'sample', '4');
+  if (r.code !== 0) return { ok: false, detail: 'cases: ' + tail(r.out, 2) };
+  r = cc(['vst/devtest/tables_equal.cpp'], exe, []);
+  if (r.code !== 0) return { ok: false, detail: 'compile: ' + tail(r.out, 2) };
+  r = run(exe, [path.join(dir, 'cases_sample.txt'), '--threads', '4', '--reps', '2'], { timeout: 600000 });
+  return { ok: ok(r, /: 0 different/), detail: tail(r.out, 1) };
 });
 step('plug-in: VST2 entry point', () => {
   const exe = path.join(SCRATCH, 'vst2_smoke.exe');
