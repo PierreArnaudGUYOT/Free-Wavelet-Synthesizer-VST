@@ -774,6 +774,11 @@ let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { i
   slots[0] = FIRST_OLD;
   KEEP_OLD.forEach((n, j) => { let at = Math.max(OPENING, Math.round((j + 0.5) * HEARD / KEEP_OLD.length)); while (slots[at]) at++; slots[at] = n; });   // spread, never in the opening three
   let f = 0; for (let i = 0; i < HEARD; i++) if (!slots[i]) slots[i] = fresh[f++];
+  // a sound swapped for another AT ITS PLACE (the order of the others does not move): AA · Morph of Brass froze the owner's browser (the heaviest sound of the demo, 0.31 of real time with 16 voices, a 2.8 s release),
+  // A · Wave Brass takes its place (0.06)
+  const SWAP_IN_DEMO = { 'AA · Morph of Brass': 'A · Wave Brass' };
+  for (let i = 0; i < HEARD; i++) if (SWAP_IN_DEMO[slots[i]]) slots[i] = SWAP_IN_DEMO[slots[i]];
+  if (new Set(slots).size !== HEARD) throw new Error('TOUR: a sound plays twice');
   TOUR.splice(2, TOUR.length - 2, ...slots, fresh[f], fresh[f + 1]);
 }
 for (const n of TOUR) if (!DEMO_PRESETS.some(p => p.name === n) && !PRESETS.some(p => p.name === n)) throw new Error('TOUR: preset not found: ' + n);
