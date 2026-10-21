@@ -1,12 +1,12 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
 // machost.mm - a small DAW-like VST3 host for macOS (Mac port of beta 0.3), run by the GitHub workflow on Apple's machines:
-// loads WaveletSynthesizer.vst3 as Live does (bundleEntry, factory, processor + controller connected), plays notes, checks
+// loads OktoMultiWaveSynth.vst3 as Live does (bundleEntry, factory, processor + controller connected), plays notes, checks
 // the sound, the states and a few presets, then opens the editor in a window, takes screenshots (PNG) and drives it with
 // mouse events: the preset browser, the engine tab, a knob, HIDE and back, and the presets library with its save and
 // delete windows (answered by a timer, as a player would). Every result is a PASS / FAIL line; the exit code is the
 // number of failures.
-//   machost <WaveletSynthesizer.vst3> <output folder>
+//   machost <OktoMultiWaveSynth.vst3> <output folder>
 // Environment: WS_PRESETS_FILE is set to a file in the output folder, so the player's presets are never touched.
 #define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
 #import <Cocoa/Cocoa.h>
@@ -289,16 +289,16 @@ static void answerMenu(CFRunLoopTimerRef, void*) {
 
 int main(int argc, char** argv) {
   @autoreleasepool {
-    if (argc < 3) { std::fprintf(stderr, "usage: machost <WaveletSynthesizer.vst3> <outdir>\n"); return 2; }
+    if (argc < 3) { std::fprintf(stderr, "usage: machost <OktoMultiWaveSynth.vst3> <outdir>\n"); return 2; }
     const std::string bundlePath = argv[1], out = argv[2];
-    const std::string presets = out + "/OKTOWAVE presets (test).txt", exported = out + "/exported presets.txt";
+    const std::string presets = out + "/OKTOMULTIWAVE presets (test).txt", exported = out + "/exported presets.txt";
     std::remove(presets.c_str());
     setenv("WS_PRESETS_FILE", presets.c_str(), 1);
     setenv("WS_PRESETS_EXPORT", exported.c_str(), 1);
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
     [NSApp finishLaunching];
-    std::printf("Wavelet Synthesizer - macOS host test (%s, %s)\n", bundlePath.c_str(),
+    std::printf("Okto MultiWave Synth - macOS host test (%s, %s)\n", bundlePath.c_str(),
 #if defined(__aarch64__)
                 "arm64"
 #else
@@ -310,8 +310,8 @@ int main(int argc, char** argv) {
     std::printf("[Bundle]\n");
     NSString* bp = [NSString stringWithUTF8String:bundlePath.c_str()];
     NSDictionary* info = [NSDictionary dictionaryWithContentsOfFile:[bp stringByAppendingPathComponent:@"Contents/Info.plist"]];
-    check(info && [info[@"CFBundlePackageType"] isEqualToString:@"BNDL"] && [info[@"CFBundleExecutable"] isEqualToString:@"WaveletSynthesizer"],
-          "Info.plist: a BNDL bundle, executable WaveletSynthesizer", info ? std::string([[info description] UTF8String]).substr(0, 0) : "missing");
+    check(info && [info[@"CFBundlePackageType"] isEqualToString:@"BNDL"] && [info[@"CFBundleExecutable"] isEqualToString:@"OktoMultiWaveSynth"],
+          "Info.plist: a BNDL bundle, executable OktoMultiWaveSynth", info ? std::string([[info description] UTF8String]).substr(0, 0) : "missing");
     check([[NSFileManager defaultManager] fileExistsAtPath:[bp stringByAppendingPathComponent:@"Contents/Resources/manual/manual-a.html"]],
           "the manuals are in Contents/Resources/manual");
     CFURLRef url = CFURLCreateWithFileSystemPath(nullptr, (__bridge CFStringRef)bp, kCFURLPOSIXPathStyle, true);
@@ -381,7 +381,7 @@ int main(int argc, char** argv) {
     if (!view) return 1;
     check(view->isPlatformTypeSupported(kPlatformTypeNSView) == kResultTrue, "NSView supported");
     ViewRect vr; view->getSize(&vr);
-    check(vr.getHeight() == 720 && (vr.getWidth() == 1100 || vr.getWidth() == 1460), "size: the panel (+ the preset browser)", fmt("%d x %d", vr.getWidth(), vr.getHeight()));
+    check(vr.getHeight() == 840 && (vr.getWidth() == 1100 || vr.getWidth() == 1460), "size: the panel (+ the preset browser)", fmt("%d x %d", vr.getWidth(), vr.getHeight()));
     Frame* frame = new Frame();
     frame->win = [[NSWindow alloc] initWithContentRect:NSMakeRect(80, 80, vr.getWidth(), vr.getHeight())
                                              styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
@@ -394,7 +394,7 @@ int main(int argc, char** argv) {
     if (!pv) return 1;
     pump(0.6);
     check(shot(pv, out + "/mac_editor_open.png"), "screenshot mac_editor_open.png");
-    const int cols = colours(pv, NSMakeRect(0, 0, 1100, 720));
+    const int cols = colours(pv, NSMakeRect(0, 0, 1100, 840));
     check(cols > 40, "the panel is drawn (many colours)", fmt("%d colours", cols));
     const int bcols = colours(pv, NSMakeRect(1104, 8, 348, 700));
     check(vr.getWidth() == 1100 || bcols > 10, "the preset browser is drawn", fmt("%d colours", bcols));
@@ -509,14 +509,14 @@ int main(int argc, char** argv) {
       click(pv, z.x + z.w / 2, z.y + z.h / 2);
       pump(0.3);
       ViewRect zr; view->getSize(&zr);
-      check(gMenusSeen >= 1 && zr.getWidth() == 1898 && zr.getHeight() == 936 && (int)frame->box.frame.size.width == 1898,
+      check(gMenusSeen >= 1 && zr.getWidth() == 1898 && zr.getHeight() == 1092 && (int)frame->box.frame.size.width == 1898,
             "the window size menu: 130 % (the window follows)", fmt("%d menus, %d x %d", gMenusSeen, zr.getWidth(), zr.getHeight()));
       shot(pv, out + "/mac_zoom130.png");
       gMenuChoice = "Window size 100%";
       click(pv, (z.x + z.w / 2) * 1.3f, (z.y + z.h / 2) * 1.3f);   // the view's points are now 1.3 logical units
       pump(0.3);
       view->getSize(&zr);
-      check(zr.getWidth() == 1460 && zr.getHeight() == 720, "back to 100 %", fmt("%d x %d", zr.getWidth(), zr.getHeight()));
+      check(zr.getWidth() == 1460 && zr.getHeight() == 840, "back to 100 %", fmt("%d x %d", zr.getWidth(), zr.getHeight()));
       // Control-click on the preset name: the classic menu, its "Hide the preset browser"
       const Spot pr = find(ws::W_PRESETS);
       gMenuChoice = "Hide the preset browser";
@@ -589,7 +589,7 @@ int main(int argc, char** argv) {
       lib = readFile(presets);
       std::string backup;
       for (NSString* fn in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:[NSString stringWithUTF8String:out.c_str()] error:nil])
-        if ([fn hasPrefix:@"OKTOWAVE presets (backup "]) backup = readFile(out + "/" + fn.UTF8String);
+        if ([fn hasPrefix:@"OKTOMULTIWAVE presets (backup "]) backup = readFile(out + "/" + fn.UTF8String);
       check(gAnswered >= 1 && lib.find("Preset: CI Imported Sound") != std::string::npos && lib.find("Preset: CI Bank Sound") == std::string::npos,
             "IMPORT: the question, then the library is the imported file", fmt("%d windows", gAnswered));
       check(!backup.empty() && backup == before, "IMPORT: the previous presets file kept as a backup copy next to it", fmt("%zu bytes", backup.size()));

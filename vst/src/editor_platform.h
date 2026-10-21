@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
 // Mac port (beta 0.3): what the editor (editor.cpp, the same on every system) needs from the system, and what the system
 // window gives back. editor_win.cpp implements it with Win32 and GDI+, editor_mac.mm with Cocoa, Core Graphics and Core Text.
 // Drawing coordinates are logical (the panel's 1100 x 720 layout); the window applies its scale.
@@ -46,10 +46,15 @@ struct Canvas {
   virtual void fillPolygon(const Pt* p, int n, const Brush& b) = 0;
   // one line of text in r: align 0 left, 1 centre, 2 right; vcenter or top; never wrapped
   virtual void text(const std::wstring& s, R r, float px, bool bold, Col c, int align, bool vcenter) = 0;
+  // beta 0.3.3: the text turned a quarter turn anticlockwise (it reads from the bottom to the top), centred in r (the vertical title of a card)
+  virtual void textVertical(const std::wstring& s, R r, float px, bool bold, Col c) = 0;
   // left-aligned, cut with "…" when longer than r
   virtual void textEllipsis(const std::wstring& s, R r, float px, bool bold, Col c, bool vcenter) = 0;
   virtual float textWidth(const std::wstring& s, float px, bool bold) = 0;   // as the text is laid out (with its margins)
   virtual void pixels(const uint32_t* argb, int w, int h, R dst) = 0;   // an image (0xAARRGGBB rows), nearest-neighbour
+  // beta 0.3.4: what is drawn between pushClipRR and the matching popClip is cut to the rounded rectangle (the oriental pattern of the PLAY card); they nest
+  virtual void pushClipRR(R, float) {}
+  virtual void popClip() {}
 };
 
 // a pop-up menu: items with a command (0: none), a check mark, greyed, separators and submenus
@@ -61,7 +66,7 @@ struct MenuItem {
   static MenuItem popup(const std::wstring& t, std::vector<MenuItem> s, bool chk = false) { MenuItem m; m.text = t; m.sub = std::move(s); m.checked = chk; m.isPopup = true; return m; }
 };
 
-// the save window: a name (proposed, editable) and, for the user bank, a section
+// the save window: a name (proposed, editable, 48 characters at most) and, for the user bank, a section
 struct SaveDlg { std::wstring name; int section = 0; bool withSection = true; };
 
 // the editor, as the system window sees it (coordinates in logical units)
@@ -105,6 +110,8 @@ struct EditorWindow {
 const char* editorPlatformType();   // kPlatformTypeHWND / kPlatformTypeNSView
 double windowScaleOf(void* parent);   // Windows: the window's DPI / 96; macOS: 1 (the system scales points)
 double systemScale();
+// beta 0.3.2: the usable size in pixels (the taskbar left out) of the screen the host's window is on (parent null: the main screen); false when it is not known
+bool workAreaOf(void* parent, int& w, int& h);
 EditorWindow* createEditorWindow(EditorEvents* e, void* parent, int w, int h);
 
 }  // namespace ws

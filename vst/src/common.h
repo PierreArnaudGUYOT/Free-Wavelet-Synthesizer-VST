@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
 // Release history: beta 0.1 (2026-10-14) — first release (see RELEASE_HISTORY.md).
 // VST3 declarations shared by the processor, controller and editor.
 #pragma once
@@ -17,8 +17,8 @@ namespace Steinberg { namespace Vst { class IComponent; class IEditController; }
 namespace ws {
 
 #define WS_VENDOR "OktoPierre"
-#define WS_NAME "Wavelet Synthesizer"
-#define WS_VERSION "0.7.1"   // beta 0.7.1; also in vst/src/version.rc and tools/spec.js APP
+#define WS_NAME "Okto MultiWave Synth"
+#define WS_VERSION "1.0.3"   // Okto MultiWave Synth 1.0.3; also in vst/src/version.rc and tools/spec.js APP
 
 // beta 0.6 (security review): the sample rates a host may set; others are ignored (the engine keeps its rate)
 inline constexpr double kMinRate = 8000, kMaxRate = 1536000;
@@ -29,17 +29,24 @@ inline constexpr double kMinRate = 8000, kMaxRate = 1536000;
 struct SharedState {
   std::atomic<float> gains[NB];
   std::atomic<float> center{0}, width{1}, depth{0}, peakL{0}, peakR{0};
-  std::atomic<int> note{-1}, mode{0};
+  std::atomic<int> note{-1}, mode{0}, view{0};   // view: the oscillator shown (the gains are its)
+  std::atomic<bool> slotLive{false};              // the oscillator shown plays in the last voice (else the panel shows its static gains)
+  std::atomic<float> sg[NS][NB], swin[NS][3];     // beta 0.3.1: the live gains and window of every oscillator that plays in the last voice (the scope and the scalogram)
+  std::atomic<uint32_t> smask{0};                 // ... and which ones (bit s)
   std::atomic<uint32_t> voices{0};
   std::atomic<uint32_t> keys[4];
   std::atomic<uint32_t> blocks{0};
+  // Okto MultiWave Synth: the chord sounding (its root, -1 = none; its notes started so far as bits), the last root, the chord type
+  // the engine plays with, and a count of the times a selector key changed it (the editor then tells the controller)
+  std::atomic<int> chordRoot{-1}, chordLast{60}, chordType{-1};
+  std::atomic<uint32_t> chordBits[4], chordTypeEdits{0};
 
-  struct Ev { int16_t note; int16_t vel; };  // vel 1..127 = on, 0 = off, -1 = all notes off
+  struct Ev { int16_t note; int16_t vel; int16_t kind; };  // vel 1..127 = on, 0 = off, -1 = all notes off; kind 0 = a key (the chord layer), 1 = the strum plate
   static constexpr uint32_t QN = 256;
   Ev ring[QN];
   std::atomic<uint32_t> head{0}, tail{0};
 
-  SharedState() { for (auto& g : gains) g.store(0); for (auto& k : keys) k.store(0); }
+  SharedState() { for (auto& g : gains) g.store(0); for (auto& k : keys) k.store(0); for (auto& k : chordBits) k.store(0); }
   bool push(Ev e) {  // UI thread
     uint32_t h = head.load(std::memory_order_relaxed);
     if (h - tail.load(std::memory_order_acquire) >= QN) return false;

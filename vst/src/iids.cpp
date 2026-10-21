@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
 // Release history: beta 0.1 (2026-10-14) — first release (see RELEASE_HISTORY.md).
 // Defines the interface IDs (FUID statics) of every VST3 interface used by the plugin.
 #define INIT_CLASS_IID

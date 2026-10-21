@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
-// beta 0.3: the PRESET LIBRARY of the plug-in, in one readable text file "OKTOWAVE presets.txt" kept next to the
-// WaveletSynthesizer.vst3 folder (so that installing a new version, which replaces that folder, keeps it):
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
+// beta 0.3: the PRESET LIBRARY of the plug-in, in one readable text file "OKTOMULTIWAVE presets.txt" kept next to the
+// OktoMultiWaveSynth.vst3 folder (so that installing a new version, which replaces that folder, keeps it):
 // - every factory preset, as the player may have ADJUSTED it (SAVE PRESET overwrites a factory preset, optionally under a
 //   new name; "Adjusted: yes" in the file; only those override the built-in presets when the file is read back), or
 //   DELETED it ("Deleted: yes": hidden from the browser, the menu and the arrows, to be dropped from the next version);
@@ -11,7 +11,10 @@
 //   (built-in names, one per line). beta 0.5 ("LIST ORDER v2"): the lists also say which presets they hold — the player
 //   moves a preset to another category and adds or removes TOP Sounds; a preset the file does not know (a newer version's)
 //   goes to its default places. Older files' lists are not read (beta 0.5 rebuilt the factory lists). beta 0.7 ("LIST ORDER
-//   v3"): OktoPierre's 22 TOP Sounds and Source Phase last: the v2 lists of beta 0.5 are not read either (rebuilt again).
+//   v3"): OktoPierre's 22 TOP Sounds and Source Phase last: the v2 lists of beta 0.5 are not read either (rebuilt again).  beta 0.3.1 ("LIST ORDER v4"): the new TOP Sounds: the v3 lists are not read either.
+// beta 0.3.1: STARS. The player rates the sounds in the preset browser (1-10, shown as five stars with half stars; 0 = none): "Stars: 7" is a line of a
+// factory preset's or a user-bank sound's block (a factory preset the player did not rate keeps the stars of its built-in vote, kPresetStars, when it has
+// one; "Stars: 0" is a rating he cleared). They are in the file, so EXPORT carries them and IMPORT reads them.
 // The file is shared by every instance and Live Set, read again whenever it changes on disk, written atomically, and is
 // meant to be read back to make the next version's factory presets. Format (one block per preset; the parameters that
 // differ from the defaults, ENGINE and A/B MIX always, as in tools/spec.js):
@@ -26,12 +29,13 @@
 //   Preset: My Chord
 //   From: A · Warm Pad (modified)
 //     ...
-// A beta 0.3 user-bank file ("Wavelet Synthesizer user bank.txt", sections and presets only) is read when the library
+// A beta 0.3 user-bank file ("Okto MultiWave Synth user bank.txt", sections and presets only) is read when the library
 // file does not exist yet.
 #pragma once
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -44,11 +48,12 @@
 namespace ws {
 
 inline constexpr const char* kBankSections[] = {"Bass", "Lead", "Keys", "Organ", "Pad", "Strings", "Brass & Wind", "Pluck",
-                                                "Bells & Mallets", "Chords", "FX", "Drums & Perc"};
+                                                "Bells & Mallets", "Chords", "FX", "Drums & Perc", "KeyAttac"};   // version 1.0.3: KeyAttac, filled with the retouched favourites (kKeyAttac)
 inline constexpr int kNumBankSections = (int)(sizeof kBankSections / sizeof *kBankSections);
 
 struct BankPreset {
   int section = 0;
+  int stars = 0;   // beta 0.3.1: the player's rating of this sound, 1..10 (0 = none)
   std::string name, from;
   double v[kNumParams];   // plain values (hidden parameters at their default)
 };
@@ -78,12 +83,12 @@ inline std::string bankNum(double v) {   // up to 6 decimals, no trailing zeros
   if (!s.empty() && s.back() == '.') s.pop_back();
   return s == "-0" ? "0" : s;
 }
-// the parameter lines of a sound: those that differ from the defaults, ENGINE and A/B MIX always
+// the parameter lines of a sound: those that differ from the defaults, OSC (the oscillator shown) always
 inline void paramLines(const double* v, std::string& s) {
   for (int i = 0; i < kNumParams; i++) {
     const ParamDef& d = kParams[i];
-    if (d.hidden) continue;
-    if (i != P_ENGINE && i != P_AB_MIX && std::fabs(v[i] - d.def) <= 1e-9 * std::max(1.0, std::fabs(d.def))) continue;
+    if (d.hidden || d.perf) continue;   // Okto MultiWave Synth: the chord keyboard's settings are not a sound
+    if (i != P_OSC_VIEW && std::fabs(v[i] - d.def) <= 1e-9 * std::max(1.0, std::fabs(d.def))) continue;
     s += std::string("  ") + d.key + ": " + bankNum(v[i]) + "   (" + d.name + ": " + formatValue(d, v[i]) + ")\r\n";
   }
 }
@@ -95,7 +100,7 @@ inline bool parseParamLine(const std::string& line, double* v) {
   if (c == std::string::npos || std::sscanf(line.c_str() + c + 1, " %lf", &x) != 1 || !std::isfinite(x)) return false;
   const std::string key = line.substr(2, c - 2);
   for (int i = 0; i < kNumParams; i++)
-    if (key == kParams[i].key && !kParams[i].hidden) { v[i] = std::min(kParams[i].max, std::max(kParams[i].min, x)); return true; }
+    if (key == kParams[i].key && !kParams[i].hidden && !kParams[i].perf) { v[i] = std::min(kParams[i].max, std::max(kParams[i].min, x)); return true; }
   return false;
 }
 
@@ -106,7 +111,7 @@ class Library {
 
   std::wstring path() { return pathOf(); }
   // reads the file again when it changed on disk (another instance or another editor wrote it)
-  void refresh() { std::lock_guard<std::mutex> l(m); refreshLocked(); }
+  void refresh() { std::lock_guard<std::mutex> l(m); refreshLocked(true); }
   uint32_t version() { return ver.load(); }   // changes with the content (the editor redraws)
 
   std::string name(int k) { std::lock_guard<std::mutex> l(m); refreshLocked(); return k >= 0 && k < kNumPresets ? s.names[k] : ""; }
@@ -115,6 +120,28 @@ class Library {
     for (int i = 0; i < kNumParams; i++) v[i] = k >= 0 && k < kNumPresets ? s.vals[k][i] : kParams[i].def;
   }
   bool adjusted(int k) { std::lock_guard<std::mutex> l(m); refreshLocked(); return k >= 0 && k < kNumPresets && s.adj[k]; }
+  // beta 0.3.1: the stars of a factory preset: the player's rating, else the built-in vote (the owner's listening test) when it has one
+  int stars(int k) { std::lock_guard<std::mutex> l(m); refreshLocked(); return k >= 0 && k < kNumPresets ? starsOf(s, k) : 0; }
+  int starredCount() { std::lock_guard<std::mutex> l(m); refreshLocked(); int n = 0; for (int k = 0; k < kNumPresets; k++) n += starsOf(s, k) > 0; for (const BankPreset& p : s.user) n += p.stars > 0; return n; }
+  std::wstring setStars(int k, int n) {   // 0 clears the rating
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
+    if (k < 0 || k >= kNumPresets) return L"no such preset";
+    n = std::max(0, std::min(10, n));
+    State t = s;
+    t.stars[k] = n == kPresetStars[k] ? -1 : (signed char)n;
+    if (t.stars[k] == s.stars[k]) return L"";
+    return commit(t);
+  }
+  std::wstring setUserStars(int section, const std::string& name, int n) {
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
+    State t = s;
+    auto it = std::find_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) { return q.section == section && q.name == name; });
+    if (it == t.user.end()) return L"not in the bank";
+    n = std::max(0, std::min(10, n));
+    if (it->stars == n) return L"";
+    it->stars = n;
+    return commit(t);
+  }
   bool deleted(int k) { std::lock_guard<std::mutex> l(m); refreshLocked(); return k >= 0 && k < kNumPresets && s.del[k]; }
   int deletedCount() { std::lock_guard<std::mutex> l(m); refreshLocked(); int n = 0; for (char d : s.del) n += d; return n; }
   int adjustedCount() { std::lock_guard<std::mutex> l(m); refreshLocked(); int n = 0; for (char a : s.adj) n += a; return n; }
@@ -129,16 +156,16 @@ class Library {
 
   // Edits: each one writes the whole file; on an error nothing changes and the Windows error text is returned.
   std::wstring adjust(int k, const std::string& newName, const double* v) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     if (k < 0 || k >= kNumPresets) return L"no such preset";
     State t = s;
     t.names[k] = newName;
-    for (int i = 0; i < kNumParams; i++) t.vals[k][i] = kParams[i].hidden ? kParams[i].def : v[i];
+    for (int i = 0; i < kNumParams; i++) t.vals[k][i] = kParams[i].hidden || kParams[i].perf ? kParams[i].def : v[i];
     t.adj[k] = 1;
     return commit(t);
   }
   std::wstring restore(int k) {   // the built-in preset again
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     if (k < 0 || k >= kNumPresets) return L"no such preset";
     State t = s;
     t.names[k] = kPresets[k].name;
@@ -147,7 +174,7 @@ class Library {
     return commit(t);
   }
   std::wstring setDeleted(int k, bool del) {   // a factory preset hidden from the lists, or shown again
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     if (k < 0 || k >= kNumPresets) return L"no such preset";
     State t = s;
     t.del[k] = del ? 1 : 0;
@@ -155,19 +182,19 @@ class Library {
   }
   // adds p to the user bank, or replaces the sound (section, replaceName) / (p.section, p.name)
   std::wstring putUser(const BankPreset& p, const std::string& replaceName = "") {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     State t = s;
     const std::string key = replaceName.empty() ? p.name : replaceName;
     t.user.erase(std::remove_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) {
       return q.section == p.section && q.name == p.name && q.name != key; }), t.user.end());   // a renamed sound replaces a namesake
     auto it = std::find_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) { return q.section == p.section && q.name == key; });
-    if (it != t.user.end()) *it = p;
+    if (it != t.user.end()) { const int keep = p.stars > 0 ? p.stars : it->stars; *it = p; it->stars = keep; }   // saving a sound again keeps its stars
     else if (t.user.size() >= kMaxBankSounds) return L"the user bank is full (2000 sounds): delete some first";
     else t.user.push_back(p);
     return commit(t);
   }
   std::wstring removeUser(int section, const std::string& n) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     State t = s;
     t.user.erase(std::remove_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) { return q.section == section && q.name == n; }), t.user.end());
     return commit(t);
@@ -181,7 +208,7 @@ class Library {
   }
   // MOVE UP (dir -1) / DOWN (+1): preset k swaps with the next one of list i that is not deleted
   std::wstring moveInList(int i, int k, int dir) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     if (i < 0 || i >= (int)s.lists.size()) return L"no such list";
     State t = s;
     std::vector<int>& v = t.lists[i];
@@ -202,7 +229,7 @@ class Library {
   // beta 0.5: preset k into the category list `to` (1..): at the end of it, or at its own place when it goes back to its
   // built-in category; "" when done or already there
   std::wstring moveToCategory(int k, int to) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     if (k < 0 || k >= kNumPresets || to < 1 || to >= (int)s.lists.size()) return L"no such preset or category";
     if (catOf(s, k) == to) return L"";
     State t = s;
@@ -216,7 +243,7 @@ class Library {
   }
   // beta 0.5: preset k added to TOP Sounds (at the end) or taken out of it
   std::wstring setTop(int k, bool on) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     if (k < 0 || k >= kNumPresets) return L"no such preset";
     State t = s;
     std::vector<int>& v = t.lists[0];
@@ -228,7 +255,7 @@ class Library {
   // beta 0.5: a sound of the user bank into another section (at its end); the editor checks first that no sound of that
   // section has its name
   std::wstring moveUserTo(int section, const std::string& n, int to) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     if (to < 0 || to >= kNumBankSections) return L"no such section";
     State t = s;
     auto it = std::find_if(t.user.begin(), t.user.end(), [&](const BankPreset& q) { return q.section == section && q.name == n; });
@@ -242,7 +269,7 @@ class Library {
   }
   // MOVE UP / DOWN in the user bank: the sound swaps with the next one of its section
   std::wstring moveUser(int section, const std::string& n, int dir) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     State t = s;
     int at = -1;
     for (int j = 0; j < (int)t.user.size(); j++) if (t.user[j].section == section && t.user[j].name == n) at = j;
@@ -252,25 +279,26 @@ class Library {
     return L"";
   }
   std::wstring exportTo(const std::wstring& to) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     return writeTextFile(to, text(s));
   }
-  // IMPORT (beta 0.4): the presets of another file (an EXPORT, someone's "OKTOWAVE presets.txt", a beta 0.3 user bank)
+  // IMPORT (beta 0.4): the presets of another file (an EXPORT, someone's "OKTOMULTIWAVE presets.txt", a beta 0.3 user bank)
   // replace the library — adjusted and deleted presets, list order, user bank. The file is read and checked first; the
-  // current file is then kept as "OKTOWAVE presets (backup <date> <time>).txt" next to it (`backup`, "" when there was
+  // current file is then kept as "OKTOMULTIWAVE presets (backup <date> <time>).txt" next to it (`backup`, "" when there was
   // none). Returns "" or the error (the library is then unchanged).
   std::wstring importFrom(const std::wstring& from, std::wstring& backup) {
-    std::lock_guard<std::mutex> l(m); refreshLocked();
+    std::lock_guard<std::mutex> l(m); refreshLocked(true);
     backup.clear();
     bool found = false;
     const std::string all = readTextFile(from, found);
     if (!found) return L"the file cannot be read";
     if (all.size() >= (16u << 20)) return L"the file is too large for a presets file (16 MB or more)";
     if (all.find("\nPreset: ") == std::string::npos && all.compare(0, 8, "Preset: ") != 0)
-      return L"it holds no preset of the Wavelet Synthesizer (no \"Preset:\" line)";
+      return L"it holds no preset of the Okto MultiWave Synth (no \"Preset:\" line)";
     State t;
     builtIn(t);
     parse(all, t);
+    if (t.fileVer < 7) seedKeyAttac(t);
     if (t.tooMany) return L"its user bank holds more than 2000 sounds";
     if (existed) {
       bool had = false;
@@ -283,7 +311,7 @@ class Library {
         for (int k = 1; k < 1000; k++) {   // never over an earlier backup (two imports in the same minute: "... 1644 2")
           if (k == 1) std::snprintf(b, sizeof b, " (backup %04d-%02d-%02d %02d%02d)", tm.wYear, tm.wMonth, tm.wDay, tm.wHour, tm.wMinute);
           else std::snprintf(b, sizeof b, " (backup %04d-%02d-%02d %02d%02d %d)", tm.wYear, tm.wMonth, tm.wDay, tm.wHour, tm.wMinute, k);
-          backup = dir + kPathSep + L"OKTOWAVE presets" + std::wstring(b, b + std::strlen(b)) + L".txt";
+          backup = dir + kPathSep + L"OKTOMULTIWAVE presets" + std::wstring(b, b + std::strlen(b)) + L".txt";
           if (!fileExists(backup)) break;
         }
         const std::wstring e = writeTextFile(backup, cur);
@@ -298,25 +326,43 @@ class Library {
     std::vector<std::string> names;
     std::vector<std::array<double, kNumParams>> vals;
     std::vector<char> adj, del;
+    std::vector<signed char> stars;        // beta 0.3.1: the player's rating of each factory preset, -1 = none given (the built-in vote, if any, shows)
     std::vector<std::vector<int>> lists;   // the preset browser's factory lists (listLabels order)
     std::vector<BankPreset> user;
     bool tooMany = false;   // parse met more than kMaxBankSounds bank sounds (the rest is left out)
+    int fileVer = 0;        // version 1.0.3: the "LIST ORDER vN" of the file read (0: none); the KeyAttac folder is put in the user bank while it is below 7
   };
   std::mutex m;
   State s;
   bool loaded = false, existed = false;
+  bool tooBig = false;   // the file is longer than 16 MB: it was read cut, so nothing is ever written over it
+  std::chrono::steady_clock::time_point checked{};   // when the file was last looked at (readers look at most every 500 ms)
   uint64_t stamp = 0, size = 0;   // the file's last write time and size when read or written
   std::atomic<uint32_t> ver{1};
 
-  Library() { builtIn(s); }
+  Library() { builtIn(s); seedKeyAttac(s); }
   static void builtIn(State& t) {
-    t.names.assign(kNumPresets, ""); t.vals.assign(kNumPresets, {}); t.adj.assign(kNumPresets, 0); t.del.assign(kNumPresets, 0); t.user.clear();
+    t.names.assign(kNumPresets, ""); t.vals.assign(kNumPresets, {}); t.adj.assign(kNumPresets, 0); t.del.assign(kNumPresets, 0); t.stars.assign(kNumPresets, -1); t.user.clear();
     for (int k = 0; k < kNumPresets; k++) {
       t.names[k] = kPresets[k].name;
       for (int i = 0; i < kNumParams; i++) t.vals[k][i] = kPresets[k].v[i];
     }
     t.lists = defaultLists();
   }
+  // version 1.0.3: the KeyAttac folder of the user bank: the favourites retouched to be percussive (kKeyAttac); put there while the presets file is older than "LIST ORDER v7" (or there is none),
+  // the ones that are already there are left as they are, and after the first write the player's deletions stay
+  static void seedKeyAttac(State& t) {
+    const int sec = bankSectionOf("KeyAttac");
+    if (sec < 0) return;
+    for (int k = 0; k < kNumKeyAttac; k++) {
+      const bool have = std::any_of(t.user.begin(), t.user.end(), [&](const BankPreset& q) { return q.section == sec && q.name == kKeyAttac[k].name; });
+      if (have || t.user.size() >= kMaxBankSounds) continue;
+      BankPreset p; p.section = sec; p.name = kKeyAttac[k].name; p.from = kKeyAttac[k].from; p.stars = kKeyAttac[k].stars;
+      for (int i = 0; i < kNumParams; i++) p.v[i] = kKeyAttac[k].v[i];
+      t.user.push_back(p);
+    }
+  }
+  static int starsOf(const State& t, int k) { return t.stars[k] >= 0 ? t.stars[k] : kPresetStars[k]; }
   // TOP Sounds, then the factory categories (kCategories; Source Phase second in beta 0.5 / 0.6, last since beta 0.7)
   static const std::vector<std::string>& listLabels() {
     static const std::vector<std::string> labels = [] {
@@ -331,7 +377,7 @@ class Library {
   static std::vector<std::vector<int>> defaultLists() {
     const std::vector<std::string>& labels = listLabels();
     std::vector<std::vector<int>> v(labels.size());
-    for (int k = 0; k < kNumTop && k < kNumPresets; k++) v[0].push_back(k);
+    for (int i = 0; i < kNumTopList; i++) if (kTopList[i] >= 0 && kTopList[i] < kNumPresets) v[0].push_back(kTopList[i]);   // beta 1.0: the TOP Sounds of beta 0.7 and the presets rated above 7, the best first
     for (size_t i = 1; i < labels.size(); i++) {
       for (int k = 0; k < kNumPresets; k++) if (labels[i] == kPresets[k].cat) v[i].push_back(k);
       std::stable_sort(v[i].begin(), v[i].end(), [](int a, int b) { return kPresetRank[a] < kPresetRank[b]; });
@@ -343,16 +389,22 @@ class Library {
     for (size_t i = 1; i < t.lists.size(); i++) if (std::count(t.lists[i].begin(), t.lists[i].end(), k)) return (int)i;
     return -1;
   }
+  // the folder of the plug-in does not change while it runs: asked once (it takes the system a few calls)
+  static const std::wstring& folder() { static const std::wstring f = libraryFolder(); return f; }
   static std::wstring pathOf() {
     const std::wstring e = envPath(L"WS_PRESETS_FILE");
-    return e.empty() ? libraryFolder() + kPathSep + L"OKTOWAVE presets.txt" : e;
+    return e.empty() ? folder() + kPathSep + L"OKTOMULTIWAVE presets.txt" : e;
   }
   static std::wstring oldBankPath() {
     const std::wstring e = envPath(L"WS_PRESETS_FILE");
     if (!e.empty()) return e + L".oldbank";   // tests: never the player's files
-    return libraryFolder() + kPathSep + L"Wavelet Synthesizer user bank.txt";
+    return folder() + kPathSep + L"Okto MultiWave Synth user bank.txt";
   }
-  void refreshLocked() {
+  // hard: look at the file now (every edit does); otherwise at most every 500 ms
+  void refreshLocked(bool hard = false) {
+    const auto now = std::chrono::steady_clock::now();
+    if (!hard && loaded && now - checked < std::chrono::milliseconds(500)) return;
+    checked = now;
     uint64_t st = 0, sz = 0;
     const bool exists = fileStamp(pathOf(), st, sz);
     if (!exists) sz = 0;
@@ -361,15 +413,18 @@ class Library {
     if (exists) stamp = st;
     State t;
     builtIn(t);
-    bool found = false;
-    std::string all = readTextFile(pathOf(), found);
-    if (!found) all = readTextFile(oldBankPath(), found);   // the beta 0.3 user bank, before the library file existed
-    if (found) parse(all, t);
+    bool found = false, cut = false;
+    std::string all = readTextFile(pathOf(), found, &cut);
+    if (!found) all = readTextFile(oldBankPath(), found, &cut);   // the beta 0.3 user bank, before the library file existed
+    tooBig = cut;
+    if (found && !cut) parse(all, t);
+    if (!(found && cut) && t.fileVer < 7) seedKeyAttac(t);
     s = std::move(t);
     ver++;
   }
   // after a successful write the new content is the state, and the file stamp is taken (no reload)
   std::wstring commit(State& t) {
+    if (tooBig) return L"the presets file is longer than 16 MB: it is left as it is";
     const std::wstring e = writeTextFile(pathOf(), text(t));
     if (!e.empty()) return e;
     s = std::move(t);
@@ -382,12 +437,13 @@ class Library {
   static void parse(const std::string& all, State& t) {
     int part = 0;   // 0 = before any marker (a beta 0.3 user-bank file), 1 = factory presets, 2 = user bank, 3 = list order
     int orderList = -1;
-    bool v2 = false;   // lists of this version's format ("LIST ORDER v3", beta 0.7; they say which presets they hold); older ones are not read
+    bool keepStars = false;   // version 1.0.2: the stars of a file of 1.0 or later ("LIST ORDER v5" or v6) are kept
+    bool v2 = false;   // lists of this version's format ("LIST ORDER v5", beta 0.3.4; they say which presets they hold); older ones are not read
     std::vector<std::vector<int>> orders(listLabels().size());
     std::vector<char> present(listLabels().size(), 0), known(kNumPresets, 0);
     int sec = -1;
     BankPreset* cur = nullptr;
-    struct Fb { std::string name, orig; bool adj = false, del = false; double v[kNumParams]; } fb;
+    struct Fb { std::string name, orig; bool adj = false, del = false; int stars = -1; double v[kNumParams]; } fb;
     bool inFb = false;
     auto endFb = [&] {
       if (!inFb) return;
@@ -396,6 +452,7 @@ class Library {
         if (fb.orig == kPresets[k].name) {
           known[k] = 1;
           t.del[k] = fb.del ? 1 : 0;
+          t.stars[k] = fb.stars < 0 || fb.stars == kPresetStars[k] ? -1 : (signed char)fb.stars;
           if (!fb.adj) break;   // only the adjusted ones replace the built-in presets
           t.names[k] = fb.name.empty() ? fb.orig : fb.name;
           for (int i = 0; i < kNumParams; i++) t.vals[k][i] = fb.v[i];
@@ -403,7 +460,7 @@ class Library {
           // beta 0.5: an adjustment that became the factory preset itself (same name, same values) is no longer one
           bool same = t.names[k] == kPresets[k].name;
           for (int i = 0; i < kNumParams && same; i++)
-            same = kParams[i].hidden || std::fabs(fb.v[i] - kPresets[k].v[i]) <= 2e-6 * std::max(1.0, std::fabs(kPresets[k].v[i]));
+            same = kParams[i].hidden || kParams[i].perf || std::fabs(fb.v[i] - kPresets[k].v[i]) <= 2e-6 * std::max(1.0, std::fabs(kPresets[k].v[i]));
           if (same) { t.adj[k] = 0; for (int i = 0; i < kNumParams; i++) t.vals[k][i] = kPresets[k].v[i]; }
           break;
         }
@@ -419,7 +476,7 @@ class Library {
         cur = nullptr; sec = -1;
         part = line.find("FACTORY") != std::string::npos ? 1 : line.find("USER BANK") != std::string::npos ? 2 :
                line.find("LIST ORDER") != std::string::npos ? 3 : 0;
-        if (part == 3) v2 = line.find("LIST ORDER v3") != std::string::npos;   // beta 0.7: v2 lists rebuilt (new TOP Sounds)
+        if (part == 3) { t.fileVer = line.find("LIST ORDER v7") != std::string::npos ? 7 : line.find("LIST ORDER v6") != std::string::npos ? 6 : line.find("LIST ORDER v5") != std::string::npos ? 5 : 4; v2 = t.fileVer >= 6; keepStars = t.fileVer >= 5; }   // version 1.0.2 (v6: the sorted sections and Other, after the owner's third listening: the v5 lists of 1.0 / 1.0.1 are rebuilt)
         orderList = -1;
         continue;
       }
@@ -443,11 +500,12 @@ class Library {
       if (part == 1) {
         if (line.compare(0, 8, "Preset: ") == 0) {
           endFb();
-          inFb = true; fb.name = clipName(line.substr(8)); fb.orig.clear(); fb.adj = false; fb.del = false;
+          inFb = true; fb.name = clipName(line.substr(8)); fb.orig.clear(); fb.adj = false; fb.del = false; fb.stars = -1;
           for (int i = 0; i < kNumParams; i++) fb.v[i] = kParams[i].def;
         } else if (inFb && line.compare(0, 9, "Factory: ") == 0) fb.orig = line.substr(9);
         else if (inFb && line.compare(0, 10, "Adjusted: ") == 0) fb.adj = line.compare(10, 3, "yes") == 0;
         else if (inFb && line.compare(0, 9, "Deleted: ") == 0) fb.del = line.compare(9, 3, "yes") == 0;
+        else if (inFb && line.compare(0, 7, "Stars: ") == 0) fb.stars = std::max(0, std::min(10, std::atoi(line.c_str() + 7)));
         else if (inFb) parseParamLine(line, fb.v);
         continue;
       }
@@ -463,10 +521,12 @@ class Library {
         for (int i = 0; i < kNumParams; i++) np.v[i] = kParams[i].def;
         t.user.push_back(np);
         cur = &t.user.back();
-      } else if (line.compare(0, 6, "From: ") == 0 && cur) cur->from = clipName(line.substr(6));
+      } else if (line.compare(0, 7, "Stars: ") == 0 && cur) cur->stars = std::max(0, std::min(10, std::atoi(line.c_str() + 7)));
+      else if (line.compare(0, 6, "From: ") == 0 && cur) cur->from = clipName(line.substr(6));
       else if (cur) parseParamLine(line, cur->v);
     }
     endFb();
+    if (!keepStars) std::fill(t.stars.begin(), t.stars.end(), (signed char)-1);   // version 1.0: the stars of a file of an older version are not carried over: every sound starts with none (the user bank keeps its own)
     if (!v2) return;   // a beta 0.3 / 0.4 / 0.5 file: the default lists of this version
     // beta 0.5: each list holds what the file names, in its order (a preset in one category only: the first named);
     // a preset the file does not know, or a list it does not have, takes the default places; a known preset that no
@@ -490,15 +550,18 @@ class Library {
     char b[256];
     auto L = [&s](const std::string& x) { s += x; s += "\r\n"; };
     const LocalTime tm = localNow();
-    int adj = 0, del = 0; for (char a : t.adj) adj += a; for (char d : t.del) del += d;
-    L("OKTOWAVE Wavelet Synthesizer - presets");
+    int adj = 0, del = 0, starred = 0; for (char a : t.adj) adj += a; for (char d : t.del) del += d;
+    for (int k = 0; k < kNumPresets; k++) starred += starsOf(t, k) > 0;
+    for (const BankPreset& p : t.user) starred += p.stars > 0;
+    L("OKTOMULTIWAVE SYNTH - presets");
     L(std::string("Saved by the VST plug-in (") + kAppVersion + "): every factory preset (those you adjusted with SAVE PRESET say \"Adjusted: yes\",");
     L("with their name now; those you deleted say \"Deleted: yes\") and your user bank. Each preset: its name, then the");
     L("parameters that differ from the defaults.");
     L("Format: key: value   (name: shown value)");
-    std::snprintf(b, sizeof b, "Saved: %04d-%02d-%02d %02d:%02d   Factory presets: %d (adjusted: %d, deleted: %d)   User bank: %d",
-                  tm.wYear, tm.wMonth, tm.wDay, tm.wHour, tm.wMinute, kNumPresets, adj, del, (int)t.user.size());
+    std::snprintf(b, sizeof b, "Saved: %04d-%02d-%02d %02d:%02d   Factory presets: %d (adjusted: %d, deleted: %d)   User bank: %d   Rated (stars): %d",
+                  tm.wYear, tm.wMonth, tm.wDay, tm.wHour, tm.wMinute, kNumPresets, adj, del, (int)t.user.size(), starred);
     L(b);
+    L("Stars: \"Stars: N\" (1-10, shown as five stars with half stars in the preset browser) after a preset's name is your rating of it.");
     L("");
     L("######## FACTORY PRESETS ########");
     const char* lastCat = nullptr;
@@ -510,10 +573,11 @@ class Library {
       L(std::string("Factory: ") + kPresets[k].name);
       L(t.adj[k] ? "Adjusted: yes" : "Adjusted: no");
       if (t.del[k]) L("Deleted: yes");
+      if (starsOf(t, k) > 0 || t.stars[k] == 0) L("Stars: " + std::to_string(starsOf(t, k)));   // a rating, or the built-in vote the player cleared
       paramLines(t.vals[k].data(), s);
     }
     L("");
-    L("######## LIST ORDER v3 (the preset browser: what each list holds, in its order; built-in names) ########");
+    L("######## LIST ORDER v7 (the preset browser: what each list holds, in its order; built-in names) ########");
     for (size_t i = 0; i < t.lists.size(); i++) {
       L("");
       L("== " + listLabels()[i] + " ==");
@@ -537,6 +601,7 @@ class Library {
         L("");
         L("Preset: " + p.name);
         if (!p.from.empty()) L("From: " + p.from);
+        if (p.stars > 0) L("Stars: " + std::to_string(p.stars));
         paramLines(p.v, s);
       }
       if (!any) L("(empty)");

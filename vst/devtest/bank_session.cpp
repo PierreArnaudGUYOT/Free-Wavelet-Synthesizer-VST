@@ -9,7 +9,7 @@
 //   x86_64-w64-mingw32-clang++ -std=c++17 -O2 -static -municode -DUNICODE -D_UNICODE -DNOMINMAX -I vst/external -I vst/src
 //     vst/devtest/bank_session.cpp vst/src/iids.cpp vst/external/pluginterfaces/base/funknown.cpp -o bank_session.exe
 //     -lgdiplus -lgdi32 -luser32 -lole32 -luuid
-//   bank_session.exe <path\to\WaveletSynthesizer.vst3 dll> <outdir>
+//   bank_session.exe <path\to\OktoMultiWaveSynth.vst3 dll> <outdir>
 #include <windows.h>
 #include <algorithm>
 namespace Gdiplus { using std::min; using std::max; }
@@ -260,7 +260,7 @@ struct Session {
     IPlugViewContentScaleSupport* sc = nullptr;
     if (h.view->queryInterface(IPlugViewContentScaleSupport::iid, (void**)&sc) == kResultOk && sc) { sc->setContentScaleFactor(1.0f); sc->release(); }
     if (h.view->attached(h.top, kPlatformTypeHWND) != kResultOk) return false;
-    h.ed = FindWindowExW(h.top, nullptr, L"WaveletSynthesizerEditorWnd", nullptr);
+    h.ed = FindWindowExW(h.top, nullptr, L"OktoMultiWaveSynthEditorWnd", nullptr);
     h.run(0.3);
     return h.ed != nullptr;
   }
@@ -339,7 +339,7 @@ static std::string factoryBlock(const std::string& txt, const std::string& orig)
 int wmain(int argc, wchar_t** argv) {
   if (argc < 3) { std::printf("usage: bank_session.exe <plugin dll> <outdir>\n"); return 2; }
   setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::wstring dll = argv[1], out = argv[2], dir = out + L"\\lib", lib = dir + L"\\OKTOWAVE presets.txt",
+  const std::wstring dll = argv[1], out = argv[2], dir = out + L"\\lib", lib = dir + L"\\OKTOMULTIWAVE presets.txt",
                      exported = out + L"\\exported presets.txt";
   CreateDirectoryW(out.c_str(), nullptr); CreateDirectoryW(dir.c_str(), nullptr);
   DeleteFileW(lib.c_str()); DeleteFileW(exported.c_str());
@@ -347,7 +347,7 @@ int wmain(int argc, wchar_t** argv) {
   SetEnvironmentVariableW(L"WS_PRESETS_EXPORT", exported.c_str());
   {   // a user bank of the first beta 0.3 build: it is taken over while the presets file does not exist
     FILE* f = _wfopen((lib + L".oldbank").c_str(), L"wb");
-    const char* old = "Wavelet Synthesizer - user bank\r\n\r\n== Pad ==\r\n\r\nPreset: Old Pad\r\nFrom: A \xC2\xB7 Warm Pad\r\n"
+    const char* old = "Okto MultiWave Synth - user bank\r\n\r\n== Pad ==\r\n\r\nPreset: Old Pad\r\nFrom: A \xC2\xB7 Warm Pad\r\n"
                       "  engine: 0   (Engine: A)\r\n  ab_mix: 0   (A/B Mix: A)\r\n  f_cutoff: 3   (Cutoff: band 3.0)\r\n";
     std::fwrite(old, 1, std::strlen(old), f); std::fclose(f);
   }
@@ -413,7 +413,7 @@ int wmain(int argc, wchar_t** argv) {
     std::printf("3. a name already used by another preset is refused\n");
     Responder r2;
     r2.start({{L"Save preset", [&](HWND d) { SetDlgItemTextW(d, 101, L"A · Warm Pad"); press(d, IDOK); }},
-              {L"Wavelet Synthesizer", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+              {L"Okto MultiWave Synth", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
     clickPosted(h, SAVE_X, SAVE_Y);
     r2.wait(h);
     check(r2.seen.size() == 2 && has(u8(r2.seen[1]), "already called"), "refused with a message", r2.seen.size() > 1 ? u8(r2.seen[1]) : "");
@@ -444,7 +444,7 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("6. DELETE (browser, user tab)\n");
     Responder r5;
-    r5.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    r5.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(2), BTN_Y);
     r5.wait(h);
     check(!has(readFile(lib), "My Bass Y") && !r5.seen.empty() && has(u8(r5.seen[0]), "Delete"), "deleted after a question");
@@ -456,7 +456,7 @@ int wmain(int argc, wchar_t** argv) {
     h.run(0.2);
     check(h.stateName() == sawX && std::fabs(h.plain(P_F_CUTOFF) - cut) < 1e-9, "the adjusted preset loads with its new sound", h.stateName());
     Responder r6;
-    r6.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    r6.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(1), BTN_Y);
     r6.wait(h);
     h.run(0.2);
@@ -487,7 +487,7 @@ int wmain(int argc, wchar_t** argv) {
     const std::string victim = h.stateName();
     const int kVictim = presetIndex(victim.c_str());
     Responder r9;
-    r9.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    r9.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(2), BTN_Y);
     r9.wait(h);
     h.run(0.2);
@@ -575,7 +575,7 @@ int wmain(int argc, wchar_t** argv) {
     h.run(0.1);
     SetEnvironmentVariableW(L"WS_PRESETS_FILE", (out + L"\\no such folder\\p.txt").c_str());
     Responder r8;
-    r8.start({{L"Save preset", [&](HWND d) { press(d, IDOK); }}, {L"Wavelet Synthesizer", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+    r8.start({{L"Save preset", [&](HWND d) { press(d, IDOK); }}, {L"Okto MultiWave Synth", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
     clickPosted(h, SAVE_X, SAVE_Y);
     r8.wait(h);
     check(r8.seen.size() == 2 && has(u8(r8.seen[1]), "Could not save the preset") && has(u8(r8.seen[1]), "no such folder"), "clear message with the path",
@@ -633,12 +633,12 @@ int wmain(int argc, wchar_t** argv) {
     const std::string before = readFile(lib);
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", imp.c_str());
     Responder r11;
-    r11.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    r11.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(4), BTN_Y);   // IMPORT (WS_PRESETS_IMPORT: no file window)
     r11.wait(h);
     const std::string after = readFile(lib);
     std::string bk;
-    { WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((dir + L"\\OKTOWAVE presets (backup *).txt").c_str(), &fd);
+    { WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((dir + L"\\OKTOMULTIWAVE presets (backup *).txt").c_str(), &fd);
       if (fh != INVALID_HANDLE_VALUE) { bk = readFile(dir + L"\\" + fd.cFileName); FindClose(fh); } }
     check(!r11.seen.empty() && has(u8(r11.seen[0]), "Replace your presets"), "a question first", r11.seen.empty() ? "" : u8(r11.seen[0]).substr(0, 60));
     check(has(after, "Preset: Imported Pad") && !has(after, "Preset: Old Pad") && !has(after, "Preset: Pad Two") && has(after, "Preset: " + sawZ),
@@ -649,18 +649,18 @@ int wmain(int argc, wchar_t** argv) {
     check(h.stateName() == "USER \xC2\xB7 Imported Pad", "the imported bank sound loads", h.stateName());
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", bad.c_str());
     Responder r12;
-    r12.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}, {L"Wavelet Synthesizer", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+    r12.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}, {L"Okto MultiWave Synth", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
     clickPosted(h, btnX(4), BTN_Y);
     r12.wait(h);
     check(r12.seen.size() == 2 && has(u8(r12.seen[1]), "Could not import") && readFile(lib) == after, "a file without presets is refused, the library unchanged",
           r12.seen.size() > 1 ? u8(r12.seen[1]).substr(0, 100) : "");
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", imp.c_str());   // imported again (the same minute): a second backup, the first kept
     Responder r13;
-    r13.start({{L"Wavelet Synthesizer", [&](HWND d) { press(d, IDYES); }}});
+    r13.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(4), BTN_Y);
     r13.wait(h);
     int nb = 0; bool firstKept = false;
-    { WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((dir + L"\\OKTOWAVE presets (backup *).txt").c_str(), &fd);
+    { WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((dir + L"\\OKTOMULTIWAVE presets (backup *).txt").c_str(), &fd);
       if (fh != INVALID_HANDLE_VALUE) { do { nb++; if (readFile(dir + L"\\" + fd.cFileName) == before) firstKept = true; } while (FindNextFileW(fh, &fd)); FindClose(fh); } }
     check(nb == 2 && firstKept, "a second import: a second backup copy, the first one (the presets before any import) kept", std::to_string(nb) + " backups");
     {   // beta 0.7: the lists of an older file ("LIST ORDER v2": beta 0.5 / 0.6) are not read (default lists, OktoPierre's 22 TOP

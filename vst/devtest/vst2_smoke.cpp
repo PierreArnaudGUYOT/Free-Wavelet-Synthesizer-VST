@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Developer check of the VST2 entry point: loads build\WaveletSynthesizer.vst3\Contents\x86_64-win\WaveletSynthesizer.dll
+// Developer check of the VST2 entry point: loads build\OktoMultiWaveSynth.vst3\Contents\x86_64-win\OktoMultiWaveSynth.dll
 // like a VST2 host does (LoadLibrary + VSTPluginMain) and exercises audio, MIDI, parameters, programs, chunks and the editor.
-//   x86_64-w64-mingw32-clang++ -std=c++17 -O2 -static -I vst/external -I vst/src vst/devtest/vst2_smoke.cpp -o vst2_smoke.exe -luser32
-//   vst2_smoke.exe [path\to\WaveletSynthesizer.dll]
+//   x86_64-w64-mingw32-clang++ -std=c++17 -O2 -static -I vst/external -I vst/src vst/devtest/vst2_smoke.cpp -o vst2_smoke.exe -luser32 -lgdi32
+//   vst2_smoke.exe [path\to\OktoMultiWaveSynth.dll]
 #include <windows.h>
 #include <cmath>
 #include <cstdio>
@@ -37,6 +37,8 @@ struct Events { int32_t numEvents; intptr_t reserved; void* events[8]; };
 struct Rect { int16_t top, left, bottom, right; };
 
 int fails = 0, passes = 0;
+// the program names of the VST2 host: the middle dot of a name is written as a hyphen
+static std::string asciiName(const char* n) { std::string s; for (const char* p = n; *p; p++) { if ((unsigned char)p[0] == 0xC2 && (unsigned char)p[1] == 0xB7) { s += '-'; p++; } else s += *p; } return s; }
 void check(bool ok, const char* what, const char* detail = "") {
   std::printf("  [%s] %s%s%s\n", ok ? "PASS" : "FAIL", what, *detail ? "  -- " : "", detail);
   (ok ? passes : fails)++;
@@ -57,14 +59,16 @@ void midi(AEffect* fx, unsigned char a, unsigned char b, unsigned char c) {
   Events ev{}; ev.numEvents = 1; ev.events[0] = &e;
   D(fx, 25, 0, 0, &ev);
 }
-struct Render { float peak = 0; int bad = 0; };
+struct Render { float peak = 0; int bad = 0; double rms = 0; };
 Render render(AEffect* fx, int blocks, int n = 512) {
   std::vector<float> l(n), r(n); float* out[2] = {l.data(), r.data()};
   Render res;
+  double ss = 0;
   for (int b = 0; b < blocks; b++) {
     fx->processReplacing(fx, nullptr, out, n);
-    for (int i = 0; i < n; i++) { if (!std::isfinite(l[i]) || !std::isfinite(r[i])) res.bad++; else res.peak = std::max(res.peak, std::max(std::fabs(l[i]), std::fabs(r[i]))); }
+    for (int i = 0; i < n; i++) { if (!std::isfinite(l[i]) || !std::isfinite(r[i])) res.bad++; else { res.peak = std::max(res.peak, std::max(std::fabs(l[i]), std::fabs(r[i]))); ss += (double)l[i] * l[i] + (double)r[i] * r[i]; } }
   }
+  res.rms = std::sqrt(ss / (2.0 * n * std::max(1, blocks)));
   return res;
 }
 void pump(int ms) {
@@ -74,7 +78,7 @@ void pump(int ms) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  const char* dll = argc > 1 ? argv[1] : "build\\WaveletSynthesizer.vst3\\Contents\\x86_64-win\\WaveletSynthesizer.dll";
+  const char* dll = argc > 1 ? argv[1] : "build\\OktoMultiWaveSynth.vst3\\Contents\\x86_64-win\\OktoMultiWaveSynth.dll";
   std::printf("VST2 smoke test: %s\n", dll);
   HMODULE mod = LoadLibraryA(dll);
   check(mod != nullptr, "the DLL loads");
@@ -92,14 +96,14 @@ int main(int argc, char** argv) {
   check(fx->numParams == kNumParams && fx->numPrograms == kNumPresets && fx->numInputs == 0 && fx->numOutputs == 2, "69 parameters, 32 programs, 0 in / 2 out");
   check((fx->flags & 1) && (fx->flags & 16) && (fx->flags & 32) && (fx->flags & 256), "flags: editor, replacing, chunks, synth");
   D(fx, 0);
-  std::memset(buf, 0, sizeof buf); D(fx, 45, 0, 0, buf); check(!std::strcmp(buf, "Wavelet Synthesizer"), "effect name", buf);
+  std::memset(buf, 0, sizeof buf); D(fx, 45, 0, 0, buf); check(!std::strcmp(buf, "Okto MultiWave Synth"), "effect name", buf);
   std::memset(buf, 0, sizeof buf); D(fx, 47, 0, 0, buf); check(!std::strcmp(buf, "OktoPierre"), "vendor", buf);
   check(D(fx, 35) == 2, "category: synth");
   check(D(fx, 51, 0, 0, (void*)"receiveVstMidiEvent") == 1, "canDo receiveVstMidiEvent");
   std::memset(buf, 0, sizeof buf); D(fx, 8, P_F_CUTOFF, 0, buf); check(buf[0] != 0 && std::strlen(buf) < 24, "parameter name (cutoff)", buf);
   std::memset(buf, 0, sizeof buf); D(fx, 7, P_F_CUTOFF, 0, buf); check(buf[0] != 0 && std::strlen(buf) < 24, "parameter display (cutoff)", buf);
-  std::memset(buf, 0, sizeof buf); D(fx, 5, 0, 0, buf); check(!std::strcmp(buf, "A - Warm Pad"), "starts on program 'A - Warm Pad'", buf);
-  std::memset(buf, 0, sizeof buf); D(fx, 29, 0, 0, buf); check(!std::strcmp(buf, "B - Mirror Sub Bass"), "program 0 name (beta 0.5: the first TOP Sound)", buf);
+  std::memset(buf, 0, sizeof buf); D(fx, 5, 0, 0, buf); check(!std::strcmp(buf, asciiName(kPresets[kDefaultPreset].name).c_str()), "starts on the default program (the first TOP Sound)", buf);
+  std::memset(buf, 0, sizeof buf); D(fx, 29, 0, 0, buf); check(!std::strcmp(buf, asciiName(kPresets[0].name).c_str()), "program 0 name (the first TOP Sound)", buf);
   check(D(fx, 29, kNumPresets, 0, buf) == 0, "program name out of range is refused");
 
   D(fx, 10, 0, 0, nullptr, 48000.0f); D(fx, 11, 0, 512); D(fx, 12, 0, 1);
@@ -121,19 +125,45 @@ int main(int argc, char** argv) {
   Render r3 = render(fx, 10); std::snprintf(d, sizeof d, "peak %.5f", r3.peak);
   check(r3.peak < 1e-3, "CC123 (all notes off) stops the notes", d);
 
+  // Okto MultiWave Synth: the chord keyboard through the VST2 entry point (MIDI in, the processor's chord type out to the host)
+  {
+    {   // a steady, sustained sound for the chord test (the default program is the first TOP Sound, which changes with the owner's ratings: a siren sweep in version 1.0.2)
+      int k = 0; for (int i = 0; i < kNumPresets; i++) if (!std::strcmp(kPresets[i].name, "A " "\xC2\xB7" " Warm Pad")) k = i;
+      D(fx, 2, 0, k); render(fx, 4);
+    }
+    midi(fx, 0x90, 67, 100); Render single = render(fx, 60); midi(fx, 0x80, 67, 0); render(fx, 400);
+    fx->setParameter(fx, P_CHORD_MODE, 1.0f); render(fx, 1);
+    const int autoBefore = automateCalls;
+    midi(fx, 0x90, 50, 100); Render sel = render(fx, 20); midi(fx, 0x80, 50, 0); render(fx, 2);
+    const float want = (float)toNorm(kParams[P_CHORD_TYPE], 2);
+    std::snprintf(d, sizeof d, "peak %.6f, Chord Type %.3f (want %.3f), %d automation call(s)", sel.peak, fx->getParameter(fx, P_CHORD_TYPE), want, automateCalls - autoBefore);
+    check(sel.peak < 1e-6 && std::fabs(fx->getParameter(fx, P_CHORD_TYPE) - want) < 1e-4 && automateCalls > autoBefore,
+          "chord keyboard: the selector key D3 is silent, sets Chord Type to 7 and tells the host", d);
+    midi(fx, 0x90, 67, 100); Render chord = render(fx, 60);
+    std::snprintf(d, sizeof d, "rms %.4f vs %.4f for the single note, peak %.3f", chord.rms, single.rms, chord.peak);
+    check(chord.bad == 0 && chord.peak <= 1.0f && chord.rms > 1.5 * single.rms, "chord keyboard: G4 plays the whole G7 chord (louder than the note alone)", d);
+    midi(fx, 0x80, 67, 0); render(fx, 400); Render off = render(fx, 10);
+    std::snprintf(d, sizeof d, "peak %.5f", off.peak);
+    check(off.peak < 1e-3, "chord keyboard: releasing the root releases the chord", d);
+    fx->setParameter(fx, P_CHORD_MODE, 0.0f); fx->setParameter(fx, P_CHORD_TYPE, 0.0f); render(fx, 1);
+  }
+
   // programs
-  bool progOk = true; int quietBefore = automateCalls;
+  bool progOk = true; int quietBefore = automateCalls; char progD[256] = "";
   for (int k : {0, 5, 11, 31}) {
     D(fx, 2, 0, k);
     if (D(fx, 3) != k) progOk = false;
     for (int i = 0; i < kNumParams; i++)
       if (!kParams[i].hidden && std::fabs(fx->getParameter(fx, i) - (float)toNorm(kParams[i], kPresets[k].v[i])) > 1e-5) progOk = false;
+    // the wave tables of the new program come from the builder thread: a host's real-time blocks give it the time, this test does
+    // not (without this pause a note started at once could meet the old tables, with the new oscillator levels, and stay silent)
+    Sleep(150); render(fx, 2);
     midi(fx, 0x90, 57, 100); midi(fx, 0x90, 64, 100);
     Render rp = render(fx, 40);
-    if (rp.bad || rp.peak < 1e-3) progOk = false;
+    if (rp.bad || rp.peak < 1e-3) { progOk = false; std::snprintf(progD + std::strlen(progD), sizeof progD - std::strlen(progD), " [program %d: peak %.5f, %d bad]", k, rp.peak, rp.bad); }
     midi(fx, 0xB0, 123, 0); render(fx, 300);
   }
-  check(progOk, "programs 0, 5, 11, 31: selected, values = factory preset, they sound");
+  check(progOk, "programs 0, 5, 11, 31: selected, values = factory preset, they sound", progD);
   check(automateCalls == quietBefore, "a program change sends no automation to the host");
 
   // parameters and chunks
@@ -175,7 +205,30 @@ int main(int argc, char** argv) {
   check(GetWindow(parent, GW_CHILD) != nullptr, "the editor window is a child of the host window");
   D(fx, 15); pump(100);
   check(GetWindow(parent, GW_CHILD) == nullptr, "editor closes");
-  check(D(fx, 14, 0, 0, parent) == 1, "editor reopens"); pump(200); D(fx, 15);
+  check(D(fx, 14, 0, 0, parent) == 1, "editor reopens"); pump(200);
+  // Okto MultiWave Synth: vst2_smoke.exe <dll> <shot.bmp> also saves the editor with CHORD on and G major 7 held (a visual check)
+  if (argc > 2) {
+    fx->setParameter(fx, P_CHORD_MODE, 1.0f); fx->setParameter(fx, P_CHORD_TYPE, (float)toNorm(kParams[P_CHORD_TYPE], 4)); D(fx, 19);
+    midi(fx, 0x90, 67, 100);
+    ShowWindow(parent, SW_SHOWNOACTIVATE); SetWindowPos(parent, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    for (int k = 0; k < 10; k++) { render(fx, 4); D(fx, 19); pump(80); }
+    HWND ed = GetWindow(parent, GW_CHILD); RECT r{}; GetClientRect(ed, &r);
+    const int W = r.right, H = r.bottom;
+    HDC wdc = GetDC(ed), mdc = CreateCompatibleDC(wdc); HBITMAP bm = CreateCompatibleBitmap(wdc, W, H); HGDIOBJ old = SelectObject(mdc, bm);
+    BitBlt(mdc, 0, 0, W, H, wdc, 0, 0, SRCCOPY);   // the visible window, as drawn
+    BITMAPINFOHEADER bi{}; bi.biSize = sizeof bi; bi.biWidth = W; bi.biHeight = -H; bi.biPlanes = 1; bi.biBitCount = 32; bi.biCompression = BI_RGB;
+    std::vector<uint8_t> px((size_t)W * H * 4);
+    GetDIBits(mdc, bm, 0, H, px.data(), (BITMAPINFO*)&bi, DIB_RGB_COLORS);
+    SelectObject(mdc, old); DeleteObject(bm); DeleteDC(mdc); ReleaseDC(ed, wdc);
+    BITMAPFILEHEADER fh{}; fh.bfType = 0x4D42; fh.bfOffBits = sizeof fh + sizeof bi; fh.bfSize = fh.bfOffBits + (DWORD)px.size();
+    FILE* out = std::fopen(argv[2], "wb");
+    if (out) { std::fwrite(&fh, sizeof fh, 1, out); std::fwrite(&bi, sizeof bi, 1, out); std::fwrite(px.data(), 1, px.size(), out); std::fclose(out); }
+    std::printf("        editor screenshot %d x %d -> %s\n", W, H, argv[2]);
+    ShowWindow(parent, SW_HIDE);
+    midi(fx, 0x80, 67, 0); render(fx, 4);
+    fx->setParameter(fx, P_CHORD_MODE, 0.0f); fx->setParameter(fx, P_CHORD_TYPE, 0.0f); render(fx, 1);
+  }
+  D(fx, 15);
 
   // offline (render / freeze): a structural change is applied at once
   D(fx, 12, 0, 0); processLevel = 4; D(fx, 12, 0, 1);

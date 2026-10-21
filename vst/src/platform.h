@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
 // Mac port (beta 0.3): the operating-system calls of the plug-in outside its editor window (the plug-in file and folders,
 // the presets file, environment variables, text conversion), for Windows and macOS. Paths are std::wstring on both
 // systems (UTF-16 on Windows, UTF-32 on macOS); the Windows code is the one of beta 0.3, moved here.
@@ -96,7 +96,7 @@ inline std::wstring contentsFolder() {
   pathUp(p); pathUp(p);
   return p;
 }
-// The folder of the presets library: the one holding the WaveletSynthesizer.vst3 bundle, else the binary's folder.
+// The folder of the presets library: the one holding the OktoMultiWaveSynth.vst3 bundle, else the binary's folder.
 inline std::wstring libraryFolder() {
   std::wstring p = moduleFile();
   pathUp(p);
@@ -136,8 +136,9 @@ inline std::wstring writeTextFile(const std::wstring& path, const std::string& t
   if (h == INVALID_HANDLE_VALUE) return err(GetLastError());
   DWORD put = 0;
   const BOOL ok = WriteFile(h, text.data(), (DWORD)text.size(), &put, nullptr) && put == text.size();
-  const DWORD we = GetLastError();
+  const DWORD we = ok ? (FlushFileBuffers(h) ? 0 : GetLastError()) : GetLastError();   // on the disk before it replaces the old file
   CloseHandle(h);
+  if (ok && we) { DeleteFileW(tmp.c_str()); return err(we); }
   if (!ok) { DeleteFileW(tmp.c_str()); return err(we); }
   if (!MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
     const DWORD me = GetLastError();
@@ -164,8 +165,11 @@ inline std::wstring writeTextFile(const std::wstring& path, const std::string& t
   return L"";
 #endif
 }
-inline std::string readTextFile(const std::wstring& path, bool& found) {
+// Reads a text file of at most 16 MB; a longer one is cut there and `truncated` (if given) says so, so that nobody writes the
+// cut text back over the file.
+inline std::string readTextFile(const std::wstring& path, bool& found, bool* truncated = nullptr) {
   found = false;
+  if (truncated) *truncated = false;
 #ifdef _WIN32
   FILE* f = _wfopen(path.c_str(), L"rb");
 #else
@@ -177,6 +181,7 @@ inline std::string readTextFile(const std::wstring& path, bool& found) {
   char b[4096];
   size_t n;
   while ((n = std::fread(b, 1, sizeof b, f)) > 0 && all.size() < (16u << 20)) all.append(b, n);   // a library is small
+  if (truncated && all.size() >= (16u << 20) && std::fread(b, 1, 1, f) > 0) *truncated = true;
   std::fclose(f);
   return all;
 }

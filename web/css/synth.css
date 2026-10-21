@@ -1,7 +1,7 @@
 /* Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
    SPDX-License-Identifier: GPL-3.0-or-later */
-/* Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre). Release beta 0.1.
-   Web UI. The device is a fixed 1100×720 panel scaled to fit. */
+/* Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.7). Release beta 0.3.
+   Web UI. The device is a fixed 1100×894 panel (+ 120 with CHORD MODE) scaled to fit. */
 :root {
   --page: #0b0d10;
   --panel: #171a20;
@@ -12,10 +12,11 @@
   --text: #d5dce6;
   --dim: #8792a1;
   --faint: #566070;
-  --accent-a: #2fd4c6;
-  --accent-b: #ffae42;
+  --accent-a: #ffcf3d;   /* beta 0.3: the subtractive oscillators A1 A2 are yellow ... */
+  --accent-b: #4aa8ff;   /* ... the additive oscillator B1 blue */
+  --brand: #2fd4c6;      /* the colour of the page's own chrome (links, welcome window), not an oscillator's */
   --accent: var(--accent-a);
-  --accent-soft: rgba(47, 212, 198, 0.16);
+  --accent-soft: rgba(255, 207, 61, 0.16);
   --danger: #ff5d5d;
   --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 }
@@ -26,15 +27,16 @@ button { font-family: inherit; }
 
 #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
 #device {
-  position: absolute; left: 0; top: 0; width: 1100px; height: 720px; transform-origin: 0 0;
+  position: absolute; left: 0; top: 0; width: 1100px; height: 894px; transform-origin: 0 0;   /* ui.js sets 980 with CHORD MODE (the chord card) */
   background: linear-gradient(180deg, #1c2027 0%, var(--panel) 9%, #14171c 100%);
   border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
   user-select: none; -webkit-user-select: none; touch-action: none;
 }
-#device.mode-b { --accent: var(--accent-b); --accent-soft: rgba(255, 174, 66, 0.16); }
+#device { --accent-tint: rgba(255, 207, 61, 0.07); --accent-line: rgba(255, 207, 61, 0.22); }
+#device.mode-b { --accent: var(--accent-b); --accent-soft: rgba(74, 168, 255, 0.16); --accent-tint: rgba(74, 168, 255, 0.07); --accent-line: rgba(74, 168, 255, 0.26); }
 
 /* beta 0.3: the preset browser at the right of the panel (as in the VST plug-in), selection only */
-#browser { position: absolute; left: 0; top: 0; width: 348px; height: 704px; transform-origin: 0 0; display: flex; flex-direction: column;
+#browser { position: absolute; left: 0; top: 0; width: 348px; height: 878px; transform-origin: 0 0; display: flex; flex-direction: column;
   padding: 6px 12px 10px; background: linear-gradient(180deg, var(--card) 0%, #1a1e25 100%); border: 1px solid var(--card-edge);
   border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04); user-select: none; -webkit-user-select: none; }
 #browser.mode-b { --accent: var(--accent-b); }
@@ -74,6 +76,8 @@ button { font-family: inherit; }
 #browser .bsnd .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 #browser .bsnd .mk { margin-left: 6px; color: #ffcf4a; font-size: 10px; }
 #browser .bsnd .mk.vote { opacity: 0.8; font-size: 9.5px; font-weight: 700; }
+/* version 1.0.3: OktoPierre's stars of the third listening, 1 to 10 as five stars with half stars (a gradient cut at --r), read only */
+#browser .bsnd .rate { margin-left: 4px; font-size: 9.5px; letter-spacing: 0; white-space: nowrap; background: linear-gradient(90deg, #ffcf4a var(--r), #3a424d var(--r)); -webkit-background-clip: text; background-clip: text; color: transparent; pointer-events: none; }
 #browser .bnone { padding: 8px; font-size: 10.5px; color: var(--faint); white-space: normal; }
 #browser .bstatus { margin-top: 6px; font-size: 9px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -82,6 +86,9 @@ button { font-family: inherit; }
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
 .section .title { position: absolute; left: 12px; top: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--dim); white-space: nowrap; }
 .section .title b { color: var(--accent); font-weight: 700; }
+/* beta 0.3.3: a card whose title is a vertical strip at the left (EFFECTS, PLAY) */
+.section.vt .title { left: 0; top: 0; width: 22px; height: 100%; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  writing-mode: vertical-rl; transform: rotate(180deg); font-size: 9.5px; letter-spacing: 0.12em; border-right: 1px solid var(--card-edge); }
 .section.hidden { display: none; }
 .w { position: absolute; }
 
@@ -101,10 +108,49 @@ button { font-family: inherit; }
   border-radius: 5px; cursor: pointer; padding: 0; }
 .seg button:hover { color: var(--text); background: rgba(255,255,255,0.04); }
 .seg button.on { color: #0d1014; background: var(--accent); box-shadow: 0 0 12px var(--accent-soft); }
+/* beta 0.3: the folder tabs of the oscillators and the L-shaped plate behind the cards of the oscillator shown */
+.osctabs { z-index: 3; }
+svg.oscframe { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; fill: var(--accent-tint); stroke: var(--accent-line); stroke-width: 1; stroke-linejoin: round; }
+.otab { position: absolute; top: 0; width: 176px; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 14px; box-sizing: border-box;
+  border: 2px solid #3a4452; border-bottom: 0; border-radius: 10px 10px 0 0; background: #1a1f27; color: var(--dim); cursor: pointer; }
+.otab:hover { color: var(--text); background: #20262f; }
+.otab.on { height: 40px; color: #0c1117; }
+.otab.ea.on { background: var(--accent-a); border-color: var(--accent-a); }
+.otab.eb.on { background: var(--accent-b); border-color: var(--accent-b); }
+.otab .tx { display: flex; flex-direction: column; gap: 1px; text-align: left; }
+.otab .t1 { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; line-height: 1.1; }
+.otab .t2 { font-size: 8.5px; font-weight: 600; letter-spacing: 0.12em; opacity: 0.75; line-height: 1.1; }
+.otab .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #3a4452; }
+.otab.ea.heard .dot { background: var(--accent-a); }
+.otab.eb.heard .dot { background: var(--accent-b); }
+.otab.on .dot { background: #0c1117; opacity: 0.35; }
+.otab.on.heard .dot { opacity: 1; }
+/* beta 0.3.4: the LFO 2 | LFO 3 tabs along the top of the LFO 2/3 card: a tab bar with the folder tabs of the oscillators in small (58 x 22), the tab of the LFO shown filled with
+   the accent colour; the card has no title (section.tabbed) */
+.section.tabbed .title { display: none; }
+.lfotabs { z-index: 3; }
+.lfotabs .tabbar { position: absolute; left: 0; top: 0; right: 0; height: 25px; background: rgba(0, 0, 0, 0.25); border-bottom: 1px solid var(--card-edge); border-radius: 10px 10px 0 0; }
+.ltab { position: absolute; top: 3px; width: 58px; height: 22px; display: flex; align-items: center; gap: 4px; padding: 0 5px; box-sizing: border-box; z-index: 3;
+  border: 2px solid #3a4452; border-bottom: 0; border-radius: 10px 10px 0 0; background: #1a1f27; color: var(--dim); cursor: pointer; }
+.ltab:hover { color: var(--text); background: #20262f; }
+.ltab .tx { display: flex; flex-direction: column; text-align: left; }
+.ltab .t1 { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; line-height: 1.1; white-space: nowrap; }
+.ltab .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #3a4452; }
+.ltab.heard .dot { background: var(--accent); }
+.ltab.on { z-index: 4; color: #0c1117; background: var(--accent); border-color: var(--accent); }
+.ltab.on .dot { background: #0c1117; opacity: 0.3; }
+.ltab.on.heard .dot { opacity: 1; }
+/* beta 0.3.4: a wave selector drawn underlined (LFO 1): no frame, the wave shown is written in the accent colour with a line under it */
+.seg.uline { background: transparent; border: 0; border-bottom: 1px solid var(--card-edge); border-radius: 0; padding: 0; gap: 0; }
+.seg.uline button { border-radius: 0; background: transparent; border-bottom: 2px solid transparent; margin-bottom: -1px; box-shadow: none; }
+.seg.uline button:hover { background: transparent; }
+.seg.uline button.on { background: transparent; box-shadow: none; color: var(--accent); border-bottom-color: var(--accent); }
 .seg.engine { padding: 3px; border-radius: 9px; }
 .seg.engine button { font-size: 11px; letter-spacing: 0.1em; }
-.seg.engine button:nth-child(1).on { background: var(--accent-a); }
-.seg.engine button:nth-child(2).on { background: var(--accent-b); }
+.seg.engine button:nth-child(1).on, .seg.engine button:nth-child(2).on { background: var(--accent-a); }   /* A1 A2 */
+.seg.engine button:nth-child(3).on, .seg.engine button:nth-child(4).on { background: var(--accent-b); }   /* B1 B2 */
+.seg.engine button:nth-child(2), .seg.engine button:nth-child(4) { margin-right: 4px; }   /* the two engines apart */
+.seg.engine button:nth-child(1), .seg.engine button:nth-child(3) { color: var(--text); }
 
 /* beta 0.3: drop-down menu widget (LFO 2 TARGET) */
 .menu button { width: 100%; height: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 6px;
@@ -112,6 +158,8 @@ button { font-family: inherit; }
   letter-spacing: 0.06em; cursor: pointer; }
 .menu button:hover { border-color: #3a4250; }
 .menu button span { color: var(--dim); font-size: 9px; }
+.menu button i { font-style: normal; flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section.tabbed .menu button { padding: 0 5px; gap: 2px; }   /* beta 0.3.4: the TARGET menu of the LFO 2/3 card is 80 px wide */
 .menu .mcap { position: absolute; left: 0; right: 0; top: -17px; text-align: center; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
   color: var(--dim); pointer-events: none; }
 .menu .mpop { position: absolute; left: 0; bottom: calc(100% + 4px); min-width: 140px; background: #1d2129; border: 1px solid #343b47;
@@ -119,6 +167,19 @@ button { font-family: inherit; }
 .menu .mpop .it { padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .menu .mpop .it:hover { background: rgba(255,255,255,0.06); }
 .menu .mpop .it.cur { color: var(--accent); }
+/* beta 0.3.4: the ORIENTAL colour code, on while the TUNING switch is ARAB or TURK (ui.js: class "orient", the palette of ORIENT in tools/spec.js as the variables --or-*): the
+   accent is terracotta (the oscillators A) or turquoise (B), the cards stay grey, the PLAY card has a pattern and a terracotta / turquoise dress */
+#device.orient { --accent-a: var(--or-a); --accent-b: var(--or-b); --accent: var(--or-a); --accent-soft: var(--or-a-soft); --accent-tint: var(--or-a-tint); --accent-line: var(--or-a-line); }
+#device.orient.mode-b { --accent: var(--or-b); --accent-soft: var(--or-b-soft); --accent-tint: var(--or-b-tint); --accent-line: var(--or-b-line); }
+#browser.orient { --accent-a: var(--or-a); --accent-b: var(--or-b); --accent: var(--or-a); --accent-soft: var(--or-a-soft); }
+#browser.orient.mode-b { --accent: var(--or-b); --accent-soft: var(--or-b-soft); }
+.orientbg { display: none; position: absolute; left: 1px; top: 1px; border-radius: 9px; pointer-events: none; }
+#device.orient .orientbg { display: block; }
+#device.orient .section[data-sid="play"] { background: linear-gradient(180deg, var(--or-pl0), var(--or-pl1)); border-color: var(--or-c2); box-shadow: inset 0 0 0 1px var(--or-c2-line), 0 0 18px var(--or-glow); }
+#device.orient .section[data-sid="play"] .title { background: linear-gradient(90deg, var(--or-c4), var(--or-c4-86)); border-right-color: var(--or-c2); color: var(--or-c2); }
+#device.orient .section[data-sid="play"] .title b { color: var(--or-c2); }
+#device.orient .section[data-sid="play"] .wlabel, #device.orient .section[data-sid="play"] .menu .mcap { color: var(--or-dim); }
+#device.orient .section[data-sid="play"] .wlabel span, #device.orient .section[data-sid="play"] .menu .mcap span { background: rgba(7, 10, 22, 0.78); border-radius: 4px; padding: 1px 7px; }
 .step { display: flex; align-items: stretch; background: var(--inset); border: 1px solid #262c35; border-radius: 7px; overflow: hidden; }
 .step button { width: 30px; border: 0; background: transparent; color: var(--dim); cursor: pointer; font-size: 12px; }
 .step button:hover { color: var(--accent); background: rgba(255,255,255,0.04); }
@@ -161,7 +222,8 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
 .pmenu .it { padding: 6px 14px; font-size: 12.5px; cursor: pointer; display: flex; justify-content: space-between; }
 .pmenu .it:hover { background: rgba(255,255,255,0.06); }
 .pmenu .it.cur { color: var(--accent); }
-.pmenu .eng { display: inline-block; width: 24px; font-weight: 800; }
+.pmenu .eng { display: inline-block; min-width: 24px; font-weight: 800; }
+.pmenu .eng .d, #browser .bsnd .eng .d { color: var(--dim); font-weight: 600; }
 .pmenu .eng .a { color: var(--accent-a); }
 .pmenu .eng .b { color: var(--accent-b); }
 .pmenu .it .del { color: var(--faint); visibility: hidden; }
@@ -170,7 +232,7 @@ canvas.disp { position: absolute; left: 0; top: 0; border-radius: 6px; }
 .hbtn { border: 1px solid #2c333e; background: var(--inset); color: var(--dim); border-radius: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
   cursor: pointer; line-height: 1.15; }
 .hbtn:hover { color: var(--text); border-color: #3a4250; }
-.hbtn b { display: block; font-size: 12px; color: var(--accent-a); }
+.hbtn b { display: block; font-size: 12px; color: var(--brand); }
 /* beta 0.6: MANUAL in the colour of the engine shown (its manual opens); DOWNLOAD VST is a link styled as a button */
 .hbtn.manual b { color: var(--accent); }
 a.hbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; }
@@ -178,19 +240,11 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
 .hbtn.dl b { color: #f2b04a; letter-spacing: 0.1em; }
 .zoom { display: none; }
 /* demo */
-.demo-btn { position: absolute; left: 222px; top: 12px; width: 50px; height: 24px; white-space: nowrap; padding: 0; color: var(--accent); border-color: var(--accent);
+.demo-btn { position: absolute; left: 248px; top: 12px; width: 64px; height: 24px; white-space: nowrap; padding: 0; color: var(--accent); border-color: var(--accent);
   font-size: 10px; letter-spacing: 0.1em; z-index: 5; }
 .demo-btn:hover { color: #0d1014; background: var(--accent); }
 .demo-btn.running { color: #0d1014; background: var(--accent); box-shadow: 0 0 14px var(--accent-soft); }
-.demo-arrow { position: absolute; left: 274px; top: 12px; width: 14px; height: 24px; padding: 0; color: var(--accent); border-color: var(--accent);
-  font-size: 9px; z-index: 5; }
-.demo-arrow:hover { color: #0d1014; background: var(--accent); }
-.demo-menu .tag { font-style: normal; font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); margin-left: 6px; }
-.demo-menu { position: absolute; left: 222px; top: 40px; width: 360px; right: auto; z-index: 60; }
-.demo-menu .it b { font-weight: 600; color: #eef2f7; }
-.demo-menu .dur { color: var(--faint); font-variant-numeric: tabular-nums; margin-left: 12px; }
-.demo-menu .sep { height: 1px; background: #343b47; margin: 6px 0; }
-.demo-win { position: absolute; left: 700px; top: 330px; width: 386px; display: none; z-index: 40; background: rgba(13, 16, 20, 0.95);
+.demo-win { position: absolute; left: 700px; top: 362px; width: 386px; display: none; z-index: 40; background: rgba(13, 16, 20, 0.95);
   border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 24px var(--accent-soft); }
 .dw-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 6px 12px; cursor: move;
   border-bottom: 1px solid #262c35; }
@@ -211,6 +265,13 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
 .seg.hot, .step.hot { box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--accent-soft); }
 .drawbar.hot .track { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-soft); }
 .credit { font-size: 9.5px; line-height: 15px; color: var(--faint); text-align: left; letter-spacing: 0.04em; white-space: nowrap; }
+.credit b { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--text); }
+/* Okto MultiWave Synth: on / off buttons (CHORD ON, BASS), the chord pads and the strum plate */
+.toggle button { width: 100%; height: 100%; padding: 0; border: 1px solid #262c35; border-radius: 5px; background: var(--inset); color: var(--dim);
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; }
+.toggle button:hover { color: var(--text); border-color: #3a4250; background: #262c35; }
+.toggle button.on { background: var(--accent); border-color: var(--accent); color: #0d1014; box-shadow: 0 0 12px var(--accent-soft); }
+.chordpads canvas, .strumplate canvas, .chordname canvas { border-radius: 7px; }
 /* a caption written like a section title (beta 0.6: SCALOGRAM inside the SCOPE card) */
 .wlabel { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; line-height: 14px; color: var(--dim); white-space: nowrap; }
 
@@ -222,13 +283,13 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
 .st-keys { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; }
 #st-midi { flex: none; max-width: 460px; overflow: hidden; text-overflow: ellipsis; display: block; }
 .st-sel { flex: none; border: 1px solid #2c333e; background: #161a20; color: var(--text); border-radius: 6px; padding: 4px 6px; font-size: 12px; cursor: pointer; }
-.st-sel:hover { border-color: var(--accent-a); }
+.st-sel:hover { border-color: var(--brand); }
 #st-audio { flex: none; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: #444b57; display: inline-block; }
 .st-item.on .dot { background: #3ddc84; box-shadow: 0 0 8px #3ddc84; }
 .st-spacer { flex: 1; }
 .st-btn { flex: none; white-space: nowrap; border: 1px solid #2c333e; background: #161a20; color: var(--text); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
-.st-btn:hover { border-color: var(--accent-a); }
+.st-btn:hover { border-color: var(--brand); }
 
 /* overlays */
 /* beta 0.6: the welcome window (browsers need a click before any sound): run the demo, play, or download the VST.
@@ -239,20 +300,20 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
 .welcome { width: 640px; max-width: 100%; margin: auto; padding: 26px 28px 20px; background: #161a20; border: 1px solid #2c333e; border-radius: 16px;
   box-shadow: 0 30px 90px rgba(0,0,0,0.65); color: #eef2f7; }
 .welcome h1 { margin: 0; font-size: 22px; letter-spacing: 0.02em; }
-.welcome h1 span { color: var(--accent-a); }
+.welcome h1 span { color: var(--brand); }
 .welcome .sub { margin: 6px 0 20px; color: var(--dim); font-size: 13px; }
-.welcome .sub.msg { color: var(--accent-b); }
+.welcome .sub.msg { color: #ffae42; }
 .welcome .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .welcome .choice { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 14px; border: 1px solid #2c333e;
   border-radius: 12px; background: #1b2028; color: #eef2f7; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
-.welcome .choice:hover { border-color: var(--accent-a); background: #1e252e; }
-.welcome .choice.main { border-color: var(--accent-a); box-shadow: 0 0 30px rgba(47,212,198,0.18); }
-.welcome .choice svg { width: 30px; height: 30px; flex: none; color: var(--accent-a); }
+.welcome .choice:hover { border-color: var(--brand); background: #1e252e; }
+.welcome .choice.main { border-color: var(--brand); box-shadow: 0 0 30px rgba(47,212,198,0.18); }
+.welcome .choice svg { width: 30px; height: 30px; flex: none; color: var(--brand); }
 .welcome .choice.dl svg { color: #f2b04a; }
 .welcome .choice b { font-size: 15px; }
 .welcome .choice small { color: var(--dim); font-size: 12px; line-height: 1.4; }
 .welcome .foot { margin: 16px 0 0; color: var(--dim); font-size: 11.5px; }
-.welcome .foot a { color: var(--accent-a); }
+.welcome .foot a { color: var(--brand); }
 .welcome .choice:focus-visible, .welcome a:focus-visible { outline: 2px solid #eef2f7; outline-offset: 3px; }
 @media (max-width: 560px) {
   .welcome { padding: 20px 16px 16px; }
@@ -265,7 +326,7 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
 .manual-frame { width: min(1100px, 94vw); height: 90vh; background: #fff; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;
   box-shadow: 0 30px 80px rgba(0,0,0,0.7); }
 .manual-bar { height: 44px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 10px 0 18px; background: #14171c; color: #eef2f7; font-size: 13px; font-weight: 600; }
-.manual-bar a { color: var(--accent-a); font-weight: 500; text-decoration: none; }
+.manual-bar a { color: var(--brand); font-weight: 500; text-decoration: none; }
 .manual-bar button { border: 0; background: transparent; color: #c0c8d4; font-size: 18px; cursor: pointer; width: 34px; height: 34px; border-radius: 6px; }
 .manual-bar button:hover { background: rgba(255,255,255,0.08); }
 #manual-iframe { flex: 1; border: 0; width: 100%; background: #fff; }

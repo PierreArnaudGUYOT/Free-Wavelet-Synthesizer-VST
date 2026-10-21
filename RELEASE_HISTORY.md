@@ -1,25 +1,325 @@
-# Wavelet Synthesizer — Release history
+# Okto MultiWave Synth — Release history
 
-Created by **Pierre Arnaud GUYOT** ("OktoPierre").
+Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
+the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
-## beta 0.7.1 — 2026-10-19 (no more crackle on dense chords)
+## Okto MultiWave Synth 1.0.3 — 2026-10-20 (the best 20 % lead, stars on the web, the KeyAttac folder)
+
+A release after three more requests of OktoPierre, using his third listening (the export of 2026-10-20, 20:51).
 
 **In short**
-- **Chords of more than three notes no longer crackle.** The output limiter works sample by sample: when the sum of the
-  voices went over its threshold it clipped every period of the wave, which is heard as crackle — above all on sustained,
-  bright sounds (organs, reeds) played with 5 or 6 notes. Now, when more than three voices sound, the voices are scaled
-  down by sqrt(3 / voices) (−3 dB for 6 notes), smoothly (20 ms down, 50 ms back up); a voice fading out counts for its
-  level, so a note played over the release of a chord is not lowered and the release does not swell.
-- **Single notes and chords of up to three notes are unchanged, sample for sample**, for all 150 presets (the TOP Sounds
-  included); no preset value was changed.
-- **Fixed: B · Music Box could go silent.** Its 0.28 s delay is a whole number of samples plus a rounding error at 48 kHz;
-  the delay line was then read one sample past its end, which made the sound NaN (silence, or worse in a DAW) from
-  0.28 s on. The delay and chorus lines now wrap that case.
+- **The best 20 % of the rated presets lead the preset list, all sections together**: the seven he gave 10 stars to (with 36 rated, 20 % is seven; the cut falls after the 10-star group) are now the first seven of **TOP Sounds**, the most starred first, whatever their section (five of them were not in TOP Sounds). TOP Sounds has 59 sounds; the synth opens on the first, *A · Siren Sweep*. Inside each section the starred sounds were already first.
+- **The web app shows his stars, from 1 to 10, read only**: five stars with half stars at the right of each sound in the preset browser, with the same order as the plug-in (the web's TOP Sounds list is now the plug-in's list). Nothing can be rated or changed on the web: the rating stays a feature of the plug-in, where every sound still starts with no stars.
+- **KeyAttac, a new folder of the USER BANK of the plug-in**: the 36 factory presets that have stars, copied and retouched to be very percussive (every attack at its minimum: amp, own envelopes, additive scales, mod and filter envelopes; a decay of 0.2 s at most to a sustain of 0.08 at most; the release kept at 0.8 s or longer), set again for big chords (`tools/supermod/loud.js --keyattac`, `tools/keyattac_adjust.js`: three went down by 2 dB). They keep his stars and say which factory preset they come from. They are put in the user bank while the presets file is older than `LIST ORDER v7` (or there is none); after the first write the player's deletions stay.
+- The presets file says `LIST ORDER v7`; the stars, the user bank and the adjusted / deleted presets of a 1.0 / 1.0.1 / 1.0.2 file are kept, the lists of a v5 file are rebuilt.
+- The 1.0.2 full web run had one stale expectation in its test (the last section was still expected to be Drums & Perc; it is Other): the test is fixed, the product was right.
 
-**Checked** (6-note chord C2 G2 C3 E3 G3 C4, velocity 0.9, 3 s; the limiter's share of the sound = the difference with
-the same chord 12 dB lower, scaled back): presets above 3 % (audible): 7 → 0; above 1 %: 27 → 3; the worst 7.97 % → 1.99 %
-(B · Church Organ; B · Full Drawbar Organ 1.82 %, B · Jazz Organ 1.56 % — still the loudest organs); the TOP Sounds at most
-0.43 %. The plug-in matches the web engine, also on 6-note chords with their releases.
+**Checked**
+- The plug-in and engine lane of `node tests/full.js` (13 steps): the quick suite, the C++ engine against the JavaScript reference (323 cases, worst difference 2.1e-7), the 18 TOP Sounds of beta 0.7, the engine tests, the presets file (`library_test`, with a new part for the KeyAttac folder: it is in the user bank, its attacks are at the minimum, a favourite the player deletes stays deleted), the VST2 entry point, the plug-in window in a host, the crackle of three chords.
+- **KeyAttac, measured** (a held C4, every favourite against its original): the peak comes within 30 ms for all 36, at 0 ms in the median (the originals: 760 ms in the median, they swell), the level 0.6 s into a held note is a quarter of the first 100 ms (the originals: more than twice), and the release rings (the tail 0.3 s after the key is up is 2.6 % of the peak in the median); the loud-chord volume check: none of the 36 reaches the output stage (three went down by 2 dB).
+- The web app: the smoke test and the demo tour (67 checks) pass; the full web run (`test_web`) was running when this was published.
+
+## Okto MultiWave Synth 1.0.2 — 2026-10-20 (the third listening: the best sounds first, SuperModulation sorted out, a new opening for the demo)
+
+A release after OktoPierre's third evaluation of the presets (his export of 2026-10-20, 20:51, made with the plug-in 1.0: 36 presets with stars, one of them adjusted).
+
+**In short**
+- **The sounds he starred come first in their section** (TOP Sounds too), the most starred first, then the order of before (`tools/ratings_v3.js`, generated by `tools/review_export.js --write` from his file, against the values of 1.0). The stars of the browser stay at zero for everyone: they are the player's; here they only decide the order. The synth now opens on the first sound of TOP Sounds, *A · Siren Sweep* (10 stars; the tie with the other 10-star sound is decided by his earlier stars).
+- **SuperModulation keeps only the presets that have stars** (15 of 105). The 90 others are in a new section, **Other** (last in the list): nothing is lost, they are only not selected.
+- **The preset he adjusted takes his values**: *AA · Orbit Pad* (amp envelope: attack, sustain, release, velocity; mod release), at the volume calibrated for big chords.
+- **The demo: its first two presets are two of his latest favourites**: *AA · Flint Ripple Haze* (a pad, 10 stars) then *AB · Kalimba Lung Machine* (10 stars); the rest of the tour is unchanged.
+- **The presets file**: it says `LIST ORDER v6`; the lists of a 1.0 / 1.0.1 file (v5) are rebuilt (sorted, Other) but its stars, user bank and adjusted / deleted presets are kept.
+
+**Checked**
+- The plug-in and engine lane of `node tests/full.js` (13 steps): the quick suite, the C++ engine against the JavaScript reference (323 cases, worst difference 2.1e-7), the 18 TOP Sounds of beta 0.7, the engine tests, the presets file (`library_test`: the lists of a 1.0 file are rebuilt, its stars are kept, a file older than 1.0 loses its stars), the VST2 entry point, the plug-in window in a host, the crackle of three chords.
+- The volumes: the eight loud chords at velocity 1 on all 237 presets (`tools/supermod/loud.js --spec --all --target 0.7`): none reaches the output stage (the preset that took the owner's values included).
+- The web app: the smoke test and the demo tour (67 checks) pass; the full web run (`test_web`) was running when this was published.
+
+## Okto MultiWave Synth 1.0.1 — 2026-10-20 (no more crackle on a big chord struck hard, the left-hand key lights up)
+
+A fix release of the final version (plug-in and web app), after two remarks of OktoPierre: "there is heavy crackling in the VST and the web version" and "in CHORD MODE the left-hand note is not lit on the keyboard when I play".
+
+**In short**
+- **The volume of every preset is set again on big chords struck hard** (all 237, the TOP Sounds too). The loud-chord test of beta 0.3.2 (five chords at velocity 1) gets three more: eight notes over three octaves, ten notes (both hands) and nine notes in the middle of the keyboard, all at velocity 1, and the target is now **0.7, the knee of the soft limiter**, instead of 0.9 (the guard): a preset whose loudest chord goes above it has its master volume lowered by whole dB. 183 of the 237 went down (1 to 12 dB, 3 dB for the median: `tools/master_adjust.js`, by number, and by name for the TOP Sounds); before, the loudest peaks before the output stage reached 2.74, now **none of the 237 presets goes above 0.69 on any of the eight chords**, so neither the peak guard nor the soft limiter works on them. Only volumes changed: the sounds are the same.
+- **CHORD MODE: the key of the left hand is lit while it is held.** The keys of the selector octave choose the chord type and make no sound, so the keyboard, which lights what sounds, never lit them. The engine now keeps them (`selHeld`, in `core.js` and `dsp.h`) and the panel (web and plug-in) lights them while they are held, as the root that plays the chord.
+- The demo of the web app is unchanged (the presets of the Wavelet Synthesizer's tour at their own level).
+
+**Checked**
+- The plug-in and engine lane of `node tests/full.js` (13 steps): the quick suite, the C++ engine against the JavaScript reference (**323 cases, worst difference 2.1e-7**), the 18 TOP Sounds of beta 0.7 (compared at their lowered masters: worst 7.8e-8 of the peak), the engine tests (with the new one for the lit selector keys), the presets file, the VST2 entry point, the plug-in window in a host, the crackle of three chords.
+- **The big chords, all 237 presets** (`tools/supermod/loud.js --spec --all --target 0.7`): before, 183 of them reached the output stage (peaks up to 2.74); now **none does** (the peak before the output stage is at most 0.69). `tools/crackle.js` on the 8-note and the 10-note chords at velocity 1: **0 of 237 above 0.2 %** (HF residual).
+- The web app: the smoke test and the demo tour (67 checks) pass; the full web run on every preset (`test_web`) was still running when this was published.
+
+## Okto MultiWave Synth 1.0 — 2026-10-20 (the final version: the 237 presets he kept, the interface he chose, the manual)
+
+The **official release**. It keeps what OktoPierre kept after his listening, opens on his best sound, sorts every list from the best to the least rated, takes out what he does not need any more, and has the interface he chose among the mock-ups.
+
+**In short**
+- **237 presets, the ones he rated 3 or more out of 10** (his export of 2026-10-20, 17:03; the 1182 of beta 0.3.3 were 945 more: unrated, 0 to 2 stars). They are 21 of the 22 TOP Sounds of beta 0.7 (one was unrated) and 216 numbered ones; the 19 presets he had adjusted (SAVE PRESET) carry his values. **No new preset**: the 250 made after his listening (filter and favourites-inspired ones, `tools/presets_filter.js`, `presets_fav.js`) are not in the instrument, they have no rating.
+- **Every list is sorted from the best to the least rated.** TOP Sounds (54 in the plug-in: the 21 of beta 0.7 and the 33 rated above 7; the web app shows the 21) and each section. **The synth opens on the first TOP Sound**, *A · Wave Brass*.
+- **Sections of the preset browser**: **PAD comes second** (right after TOP Sounds), and **Keys and Pluck are one section, KEYBOARD** (13 sounds): TOP Sounds, Pad, SuperModulation, Bass, Lead, Keyboard, Organ, Strings, Brass & Wind, Bells & Mallets, FX, Drums & Perc. The presets' own category names in the data files and the user bank sections (My presets) are unchanged; `SECTION_OF` in `tools/spec.js` maps them.
+- **Preset names by type, no numbers**: `A` (one subtractive oscillator), `AA` (two), `AB` (one subtractive + the additive one), `AAB` (two + the additive one), `B` (the additive one alone), then a title, with the A in yellow and the B in blue in the browsers, as in the Wavelet Synthesizer ("1129 A1A2B1 · Dive Texture" is now "AAB · Dive Texture"). `id` in the web spec keeps the old numbered name for the tools.
+- **The stars start at zero**: the rating system stays (five stars with half stars in the plug-in's browser, click to rate, the presets file, EXPORT / IMPORT) but no sound has a built-in vote any more, and the stars of the presets file of an older version are not carried over (the lists are still sorted by his ratings at the time).
+- **The header** at the top left reads **OKTOWAVE / FRACTAL WAVELET SYNTHESIZER**.
+- **Removed**: EVALUATE SOUNDS (the button, the window, the plug-in's vote code: 520 lines; `vote_data.h` is no longer generated), the seven extra demo songs and the song menu next to DEMO (the demo is Beethoven's *Appassionata* alone; the arrow beside DEMO is gone) and the loading of a MIDI file in the web app.
+- **The interface of the mock-ups he chose** (P6 + Q1 + R6): LFO 1's wave selector (SINE TRI SAW SQR S&H) underlined at the right of its title; LFO 2 and LFO 3 as two tabs of one card (a lit dot says an LFO is on), with a stepped **SHAPE knob** (the name of the wave in the accent colour under it, a click steps to the next shape), TARGET narrower (80 px), SYNC at the end of the tab bar (plug-in); the VOICE knobs on the same line as the knobs of the cards at the left; the big **WIDTH / SPARSITY knobs smaller and better centred** (disc 42 px) and the SOURCE CYCLE picture larger; with **TUNING ARAB or TURK**, the PLAY card changes colour code (terracotta for the subtractive oscillators, turquoise for the additive one, grey cards) and shows an oriental tiling pattern. The panel is 1100 x 944.
+- **The manual** opens on a new chapter, "What this synthesizer is, and what wavelets are": what a wavelet is, the seven wavelets, how the synthesizer works (one cycle split into 11 bands, resynthesised), the modulation and how to play and choose sounds, with three figures; the presets chapter lists the 237 sounds with their stars (`tools/manual/mw.js`).
+- **The engine**: the CPU optimisation of the `cpu-opt` branch (bit-identical output, **35 to 39 % less CPU**, the heaviest preset from 27 to 11 %; `Revue_CPU.md`) and the crackle fix of beta 0.3.2 (peak guard, chord compensation), and the per-preset master calibration redone for the final list (`tools/master_adjust.js`).
+- **Web demo = the demo of the Wavelet Synthesizer's web app** (web only, the same day; OktoPierre: "most of the sounds are saturating" and "the same song, the same presets, the same sound level as the old web version"): the piece is the same (Beethoven's *Appassionata*, III: the same notes, the first and only song), and the tour is now exactly the one of the Wavelet Synthesizer beta 0.7.1 (30 presets in the same order, from *B · Clarinet*). 14 of them are not in the factory list (it keeps the 237 he rated), so the tour carries its own copies (`DEMO_PRESETS`, `tools/demo_presets.js`, written by `tools/demo_presets_extract.js` from that web app and converted as the TOP Sounds are), in no list of the browsers. The level is the old one: `tools/demo_level.js` and the comparison of the two engines on every window of the tour give the same RMS level (median 0.00 dB, never louder; the peak guard makes it a little lower where the old engine hit the limiter). The plug-in has no demo and is unchanged.
+
+**Checked** (the whole campaign, `node tests/full.js --parallel`, two lanes)
+- The quick suite: generated files, the 237 presets sound (finite, under 0 dBFS), the VST3 host (99 checks), the web app loads and plays.
+- The C++ engine against the JavaScript reference: **323 cases, worst difference 2.1e-7**.
+- The 18 TOP Sounds of beta 0.7 that are in the list sound as they did (worst difference 8.8e-8 of the peak).
+- The engine tests (idle skip, filter, SuperModulation, live display), the presets file (`library_test`: the stars of an older file are not carried over), the VST2 entry point (41 checks), the plug-in window in a host (tabs, CHORD MODE, the LFO tabs, the oriental colours, the fit to the screen, the browser).
+- The crackle of a loud chord (three chords at velocity 1, all 237 presets): **none above 1 %** (HF residual).
+- The web app: the smoke test, the demo tour (67 checks) and the full web run on every preset (`test_web`, 104 checks) pass.
+
+**Known limits**
+- macOS: no build is made or tested here (the code is portable; `editor_mac.mm` follows the Windows editor but is not compiled).
+- The user bank sections (My presets) keep their old names (Keys, Pluck, ...): they are the player's own.
+- Small differences from the mock-ups, kept on purpose: the cards' inside is not shifted by the 8 px of the mock-up, the dark bar of the vertical titles and the outer halo of the PLAY card are not drawn, the TARGET text is in the accent colour.
+
+## Okto MultiWave Synth beta 0.3.3 — 2026-10-20 (the compact panel V1, the new presets 2 dB lower)
+
+A **test version**: the panel layout the owner chose among five mock-ups, and a simple volume trim of the new presets while he has not chosen the good ones.
+
+**In short**
+- **A lower panel** (the owner's choice "V1" among five mock-ups on a 1920 x 1080 screen with the taskbar). The panel is **966 px tall** (1050 before; the bottom of the keyboard was out of sight on a 1080-pixel screen): the oscillator block, the three
+  rows of cards and the keyboard are a little shorter (the knobs keep their size), the **titles of EFFECTS and PLAY are vertical, in a strip at the left of the card** (those two cards are 98 px tall), and, while CHORD MODE is on, the **CHORD KEYBOARD card is in the preset
+  browser, under the list of presets** (the list is that much shorter and the panel keeps its height). With the browser hidden the card is under the keyboard as before (the panel is 120 px taller). The web app has the same panel, with the chord card under the keyboard.
+- **The new presets are 2 dB lower** (every preset numbered 501 and up; `NEW_TRIM_DB` in `tools/spec.js`, on top of the loud-chord calibration of beta 0.3.2) while the good ones have not been chosen yet; the 22 TOP Sounds and the older presets are unchanged. Set the constant to 0 to take it off.
+- Engine and presets file unchanged from beta 0.3.2 (the crackle guard and the chord compensation stay).
+
+**Checked (light, for a pre-release)**: `tests/quick.js` (generated files, every preset plays, the VST3 host, the web app), the plug-in's window in a host (`vote_session`: EVALUATE SOUNDS, the stars, CHORD MODE with the card in the browser, the fit to the screen), the presets file (`library_test`) and the VST2 entry point.
+Not run: the C++ / JavaScript cross-check (the engine did not change), the full web run, the loud-chord measure (kept for the official release).
+
+**Known limits**
+- The vertical titles are small (9.5 px); the B1 (additive) tab was not drawn in the mock-up, it uses the same geometry.
+- The manual's screenshots show the previous panel.
+
+## Okto MultiWave Synth beta 0.3.2 — 2026-10-20 (no more crackle on a loud chord, the window fits the screen)
+
+A **test version** after two remarks of OktoPierre on beta 0.3.1: "many presets crackle, turning the master volume down cures it (a C major chord at C5 at the maximum velocity)" and "the panel is too tall, I do not see the bottom of the keyboard".
+
+**In short**
+- **No more crackle on a loud chord.** OktoPierre's test: a C major chord at the maximum MIDI velocity crackled in many presets, and lowering VOLUME cured it. The cause is the output stage: the soft limiter (knee at 0.7)
+  flattens the peaks of a chord that sums to twice its knee or more into a buzz. Three changes (a chord of up to three notes that stays under 0.9 is bit-identical with beta 0.3.1):
+  (1) the voice sum is scaled by sqrt(3 / n) when n > 3 voices sound (n weighted by their energy, so release tails count little; the same compensation as the Wavelet Synthesizer's beta 0.7.1; the chord keyboard keeps its own level, `chordTrim`);
+  (2) a **peak guard** rides the output gain in front of the soft limiter so that the signal never reaches the limiter above 0.9 (exactly 1 below it: bit-identical; attack 0.3 ms, hold 15 ms, release 150 ms);
+  (3) the master volume of **321 of the 900 newest presets** was lowered by 1 to 6 dB (mean 2.2 dB) where the loudest chords (triads at C4, C5 and C6, a five- and a six-note chord, all at velocity 1) peaked above 1.0 before the output stage (`tools/supermod/loud.js`;
+  the 22 TOP Sounds and the 308 older presets keep their values). Measured by `tools/crackle.js` on all 1182 presets (the waveform change the output stage causes on the chord, against the same chord 18 dB lower, per 20 ms): presets above 1 %: triad at C6 58 -> 1, five notes 226 -> 7, six notes 351 -> 15;
+  above 2 %: 27 -> 0, 82 -> 0, 163 -> 1 (the remaining ones are old presets, not touched).
+- **The window fits the screen.** The panel is 1050 px tall (1170 with the chord card): on a 1080-pixel screen the bottom of the keyboard was out of sight. The new default zoom is **FIT** (the box at the top left shows "FIT 90 %"): the window is scaled
+  down so that the whole panel is on the screen of the host window, the taskbar left out and 100 px kept for the window's bar (never above 100 %, never below 50 %; it follows CHORD MODE, which makes the panel taller). A size chosen in the menu (50 to 150 %) stays; the same menu has "Fit the window to the screen". A project saved by an older beta holds 100 % = FIT.
+- The version is the plug-in's: no web app is published; its engine is the same (core.js), so the web app has the same output stage.
+
+**Checked**: the C++ engine against the JavaScript reference on **1268 cases** (every preset, the variants of every feature and 14 loud chords at velocity 1 with 3, 5 and 8 notes, 16 voices and unison, and a master at +6 dB so that the guard works; worst 3.95e-7 of full scale); the 22 TOP Sounds against beta 0.7 (worst 2.1e-7);
+the filters, the SuperModulation destinations, the idle rule, the live display, the presets file (`library_test`), the VST2 entry point (41 checks) and the plug-in's window in a host (`vote_session`: EVALUATE SOUNDS, the stars, CHORD MODE, and the fit: a 1366 x 728 screen shows the whole panel, 806 x 620 with the chord card; a large screen keeps 100 %).
+
+**Known limits**
+- Presets numbered 501 and up are quieter than in beta 0.3.1 (321 of 900, 1 to 6 dB); the 22 TOP Sounds and the 308 older presets are unchanged, so a loud chord on those is limited by the guard (a gain reduction, no crackle) instead of being turned up and down by the preset.
+- A chord of more than three notes is a little quieter than before (3 dB for six equal notes).
+- On a very small screen the fit goes down to 50 % (the text is then small): choose a larger size in the menu if the host allows a bigger window.
+- Not heard on every preset: the measure is the high-frequency part of the distortion on 1182 presets and five chords; the owner's ear on his own chords decides.
+
+## Okto MultiWave Synth beta 0.3.1 — 2026-10-20 (the owner's ratings applied: sorted and remade presets, stars in the browser, Skip, 300 new SuperModulation presets, no more saturation, a live scope)
+
+A **test version** that applies the first ratings of OktoPierre (his files `sound 501 to sound 540.txt`, `541 to 580` and `581 to 620`: 80 of the 120 presets rated) and what he asked for after.
+
+**In short**
+- **The list follows his ratings.** The 48 presets he rated **below 5 stars are left out** (their numbers are not used again); the 37 (32 of the 80 he rated, and the five favourites of beta 0.3) rated 5 or more stay and show their stars; those rated **above 7**, and the six favourites he named later (`669 680 692 694 697` of beta 0.3 and `377` of beta 0.2, 7 stars each) are in **TOP Sounds**, after the 22 of beta 0.7 (best first).
+- **The presets he had not rated were remade** (515 of them, same numbers and categories) to look more like the ones he liked. What the ratings say (80 presets, the stars against the measures of each sound): he rates highest the **wide, roomy, slowly moving sounds** — stereo width (r = 0.39), reverb (0.37), chorus (0.36), unison (0.34), a delay (0.27), a gentle release (0.27) and a louder sound (0.31) — smooth warm waves (soft triangle, warm saw, a rounded square) and the LFO on the scale cutoff, the resonance, the slope or the sparsity; he rates lowest the dry mono basses, the nasal or phased waves, the filter envelopes, the LFO on the filter cutoff and the vibrato. A small model (ridge regression on eleven such measures; leave-one-out correlation 0.43) predicts the stars of every candidate the composer made; `tools/supermod/rebuild.js` takes, in each category, the best predicted and, among them, the most different from each other. The composer itself now draws **lush** sounds (unison, width, chorus, reverb, echo, a gentle release) and the smooth layers more often, the filter and the vibrato less often.
+- **300 new SuperModulation presets** (`1101`–`1400`), made to **innovate with the wavelets**: LFO 2 and LFO 3 each move a wavelet control, with at least two recipes that act on the wavelet itself (the atoms kept, the source phase and width, the morph between two wavelets, the window, the additive scales), at slow speeds. Start at `1101` in EVALUATE SOUNDS to hear them.
+- **Stars in the preset browser**: five stars (half stars: 1 to 10) at the right of every sound; a click on the rating a sound already has clears it. They are saved in the presets file (`Stars: 7` in the block of the sound; the 38 ratings of his files and favourites are its built-in votes) and **EXPORT carries them**, whenever you like; IMPORT reads them. User-bank sounds can be rated too.
+- **Skip to vote** in EVALUATE SOUNDS: ends the music at once and asks for the stars. The music is also shorter: **3.5 s of Beethoven (−30 %) and a C minor chord of 2 s (−50 %)**, 5.9 s in all instead of 9.4 s.
+- **No more saturation on a long chord.** Every new preset was rendered the way EVALUATE SOUNDS plays it (16 voices, Beethoven and the chord) and compared with the same passage 12 dB lower: 195 of the 900 of them were changed by the soft limiter by more than 0.4 %; their master volume was lowered by whole dB (`tools/supermod/gain.js`).
+- **The scope and the scalogram move again.** Beta 0.3 had made them static (a computed cycle at C4). They now show the **live** gains and windows of every oscillator that plays in the last voice (the cutoff the LFOs and the envelopes move, the note) with a "C4 · LIVE" mark; static again only when no note plays. A regression of beta 0.3, fixed in the plug-in and the web app (`tests/display_live.js`).
+- **The lists of the browser are rebuilt** (the presets file says `LIST ORDER v4`; the lists of beta 0.3, `v3`, are not read any more, as beta 0.7 did for `v2`): the new TOP Sounds are there whatever file the player had. The user bank, the adjusted and deleted presets and the stars are kept.
+- The listening files say 3.5 s and a 2 s chord.
+
+**Checked**: `tests/quick.js --dsp` (the engine plays all 1182 presets finite and under 0 dBFS; the C++ engine matches the JS reference in 1252 cases, worst 4.1e-7 of 2e-6), the 22 TOP Sounds against the Wavelet Synthesizer beta 0.7 (worst 1.4e-7), the plug-in's window in a VST3 host (`vote_session`: EVALUATE SOUNDS with Skip, the stars of the browser — a click, a second click that clears, the right half of the fifth star = 10 —, the live scope in the screenshots), the presets file (`library_test`: built-in votes, the player's ratings, EXPORT / IMPORT, the user bank), the VST2 entry point (41 checks), the live display (`tests/display_live.js`), the filters, the SuperModulation destinations, the idle rule, and the web app (`smoke`, `test_evaluate`, `test_web`).
+
+**Known limits**
+- The remade presets are chosen by a model of 80 ratings: it is a way to put the sounds that look like his favourites first, not an oracle; the bass category was rated low, perhaps partly because EVALUATE SOUNDS plays a chord and a piano passage on them, which is not how a bass is heard.
+- The built-in votes (the stars of his ratings) are shown as the ratings of every installation: change them in the browser, they are yours then.
+- The old presets (`001`–`500`) were not touched (their volume neither): the saturation check is for the presets of beta 0.3 and later.
+
+## Okto MultiWave Synth beta 0.3 — 2026-10-19 (B2 removed, three folder tabs, LFO 3, FILTER, 600 new presets, evaluation in sets of 40)
+
+A **test version**, asked for by OktoPierre after beta 0.2: the second additive oscillator (B2) is removed, the panel is reorganised around three folder tabs, a third LFO and a
+real filter are added, 600 new presets use them, and EVALUATE SOUNDS rates sounds in sets with a long chord at the end of the passage. The sound engine, the chord keyboard
+and the oriental keyboard are those of beta 0.2; the 22 TOP Sounds and the presets that stay are **unchanged**.
+
+**In short**
+- **B2 is gone.** Three oscillators are left: **A1, A2** (subtractive) and **B1** (additive). B2's 41 parameters left the specification, so the parameters after them are numbered 41 lower,
+  and the new ones are appended (**175 parameters**). The plug-in's state has a new version: a session saved by beta 0.1 or 0.2 is not read (it would have put its values on the wrong
+  controls), the instance keeps its default sound; the web app's saved state and the user presets file are read by name and keep working (B2's values are ignored).
+- **The presets that played B2 left the list**: 192 of the 500 (67 of the 200 of beta 0.1, 125 of the 300 of beta 0.2). **Their numbers are not used again**, so the ratings already given
+  to the others stay valid: 308 presets of the earlier betas are left to rate (133 of beta 0.1, `001`–`200`, and 175 of beta 0.2, `202`–`500`), plus the 22 TOP Sounds. The presets that stay
+  were not touched (only their unused B2 values are dropped: an oscillator at level 0 does not change the sound). Four sounds of the demo's tour played B2 and were replaced
+  (Crystal Choir → Cloud Choir, Harp → Harp Pluck, Marimba → Celeste Bell, Full Drawbar Organ → Chapel Organ).
+- **A new panel.** One strip of three **folder tabs** under the header — **OSC1 A1 · SUBTRACTIVE**, **OSC2 A2 · SUBTRACTIVE** (yellow) and **OSC3 B1 · ADDITIVE** (blue) — chooses the oscillator whose
+  cards are shown on a soft tinted plate; a lit dot says it is heard. The ENGINE tabs are gone. **OSC MIX** and the **SCOPE** are common to every oscillator and sit at the top right, outside the
+  plate; the scope and the scalogram draw the **whole sound** (one cycle of every oscillator that plays, and the sub oscillator, at C4). The card titles lost their "OSC A2 ·" prefix, the LFO 2 / LFO 3
+  card has a small **2 | 3** switch, a **PLAY** card holds CHORD MODE, BASS, TUNING, MAQAM and TONIC, the preset box is narrower and the DEMO arrow bigger. The panel is 1050 px tall (860 in beta 0.2).
+- **LFO 3**: a second LFO of the LFO 2 kind (the same 17 targets, in a second sub-tab of the same card). LFO 1 did not change. LFO 2 and LFO 3 each move one control in every oscillator that has it
+  and add up when they aim at the same one; the table "variants" (SPARSITY, PHASE, WIDTH) look at both.
+- **FILTER**: a four-pole (24 dB per octave) resonant low-pass in every voice, after the oscillators are mixed and before the amp envelope; two characters, **LADDER** (every stage saturates) and **OTA**
+  (only the input of the feedback loop saturates; part of the low end kept); CUTOFF (20 Hz – 20 kHz), RESO (just above self-oscillation at 100 %), DRIVE, KEY TRK, ENV AMT (± 8 octaves) and an ADSR of its own;
+  LFO 2 and LFO 3 get two new targets, **Filter Cutoff** and **Filter Resonance**. It is **open by default** and an open filter is not computed (`fltOn`): **every older sound is bit-identical**
+  (the 22 TOP Sounds still match beta 0.7 within 1.5e-7). Brand names are not used for the two characters (the classic circuits they recall are trademarks).
+- **600 new presets**, `501`–`1100`, 50 in each of the 12 categories (Drums & Perc included, with a new composer of drums). The composer of beta 0.2 (`tools/supermod/`) was ported to three oscillators:
+  every preset has **LFO 2 and / or LFO 3 on wavelet controls** (the SuperModulation ones both, with LFO 1 on two or three more; the weights favour the controls only the subtractive oscillators have: SPARSITY, SOURCE
+  PHASE, SOURCE WIDTH — and the window, the scale cutoff and resonance, the morph …), at most one LFO per control, and about **two in three use the FILTER** with an envelope fitted to the kind of sound
+  (a bass snaps open, a pad opens slowly, a pluck snaps shut, an organ hardly moves it) and, in some, an LFO on its cutoff or resonance. The same measures as in beta 0.2 apply (limiter share, bursts of high
+  frequency, drop-outs, motion with and without the LFOs, contrast between oscillators, the onset difference of decaying sounds), and the selection is farthest-first, also against the 330 presets that existed
+  without them; loudness = the TOP Sounds' median minus 1 dB. **Nobody has heard them yet.**
+- **EVALUATE SOUNDS**: the passage is now the 5 s of Beethoven **and a long C minor chord** (C3 G3 C4 Eb4 G4, 4 s) so that a sustained sound can be judged; the sounds come in **sets of 40**, each with
+  **its own file** (`sound 501 to sound 540.txt`: the web app downloads it when the set is finished, the plug-in writes it next to the ratings file after every rating); **Start at…** asks for the number of the first
+  sound (web: a prompt; plug-in: a small window); the list is the 600 of beta 0.3 first, then the 175 of beta 0.2, then the 133 of beta 0.1 (**908** sounds). Preset numbers have 3 or 4 digits.
+- Manuals, screenshots and numbered callouts follow the new panel; a FILTER chapter and LFO 3 are described.
+
+**Checked**: the C++ engine against the JavaScript reference on **1000** cases (all 930 presets and 70 variants of every feature: LFO 3, the filter in both characters, the live chord scenarios, the tunings; worst 3.6e-7 of full scale); the 22 TOP Sounds against the published beta 0.7 engine (worst 1.43e-7); `tests/filter.js`, `tests/supermod.js`, the idle rule and the engine self-test; the plug-in in its own window (`vote_session`: the three tabs, "Start at…", the set file, a recorded change, CHORD MODE: 39 checks), the presets file (`library_test`, 930 presets) and the VST2 entry point (41 checks); the web suites {{WEB}}.
+
+**Known limits**
+- The 600 new presets were **measured, not listened to**; the owner's ratings are what tells which are good. The measures cannot hear a preset that is thin or odd in a way they do not see.
+- The plug-in's state of beta 0.1 / 0.2 is not read (the parameters moved); the web app's own saved state and the user presets file are read by name.
+- The filter's two characters are models of the classic circuits, not copies; LADDER at high RESO and DRIVE is loud: the master and the limiter keep it under 0 dBFS, but turn VOLUME down first.
+- The composer cannot run the old recipes any more (`tools/make_presets.js`, `recipes_*.js` write B2); they are the record of the 200 presets of beta 0.1.
+- macOS: no build is made or tested (the shared code stays portable; `editor_mac.mm` was only adapted by reading).
+
+---
+
+## Okto MultiWave Synth beta 0.2 — 2026-10-19 (SuperModulation, 300 new presets, oriental keyboard, a chord that follows the left hand)
+
+A **test version**, asked for one night by OktoPierre: the LFOs reach the wavelet itself, the chord keyboard gets a bass and follows the left
+hand, a three-position switch adds an oriental keyboard with quarter tones, and 300 new presets are waiting for his ears. The 22 TOP Sounds and the
+200 presets of beta 0.1 are **unchanged** (they are still bit-identical with beta 0.7 / beta 0.1).
+
+**In short**
+- **SuperModulation.** LFO 1 has three new amounts, **SPARSITY** (the subtractive oscillators' sparsity swings by ± the amount: the tables are built at
+  nine sparsities and each voice crossfades between the two nearest), **RESO** (± dB on the resonance of every scale filter, kept in 0–24 dB) and
+  **ENV>WAV** (the mod envelope's reach on the wavelet morph swings with the LFO). **LFO 2** now reaches every control of the wavelet oscillators and
+  of the scale filter: seven more targets after the ten of beta 0.3/0.4 — **SPARSITY, SOURCE WIDTH** (nine widths), **TILT, ODD BARS, EVEN BARS, SCALE
+  SUSTAIN** (the additive oscillators) and the **WAVELET MORPH** position. The beta 0.4 phase sets became a general "variant" mechanism (12 phases, 9
+  sparsities, 9 widths; one kind per oscillator, SPARSITY before PHASE before WIDTH). Every new amount is 0 by default and the old code paths are
+  untouched then (the 22 TOP Sounds still match beta 0.7 within 1.5e-7; the cross-check is bit-compatible). The LFO 1 / LFO 2 / VOICE cards were
+  re-laid out (LFO 1 440 px wide with seven amounts).
+- **300 new presets**, `201`–`500`, made by a composer (`tools/supermod/`) from 24 subtractive and 13 additive oscillator *layers* and 22 LFO
+  recipes, then measured one by one (about 2,000 candidates for 300 presets): the two oscillators of one kind are **very different** (family,
+  role, wavelet class, wave, brightness, tuning, filter, own envelope: a "contrast" score and the difference of their solo spectra and envelopes),
+  the sound keeps a pitch, there is no burst of high frequencies, no drop-out, and the chord with its bass stays under the limiter's knee (the
+  cause of the crackle some presets had when chords were played); the new **SuperModulation** category (120 sounds, first in the lists) keeps only
+  sounds whose four most moving spectral bands move by more than 3 dB (standard deviation) more than they do with the LFOs at 0, and the other
+  categories (Bass 22, Lead 22, Keys 20, Organ 8, Pad 26, Strings 12, Brass & Wind 14, Pluck 20, Bells & Mallets 20, FX 16) at least a little;
+  a decaying sound (pluck, bell) is judged by how much its notes differ with the LFO phase. Their loudness is the TOP Sounds' median minus 1 dB.
+  They were chosen farthest-first, also against the 222 older presets, so the set is as varied as the engine allows. Of the 222 older presets only
+  about 30 moved their timbre at all. **Nobody has heard the 300 yet** — that is what EVALUATE SOUNDS is for (the list is now 201–500 first, then
+  the 200 of beta 0.1; the ratings file is keyed by the number, so ratings of 001–200 stay valid). "Wobble Bass" is the first of the Bass list.
+- **Chord keyboard.** **BASS** is a button under CHORD MODE and is **on by default**: the root two octaves below (never under C1), 3 dB louder
+  (`BASS_GAIN` 1.4). A chord keeps the level of a triad whatever its size (`chordTrim`). **The chord follows the left hand**: pressing another
+  chord on the selector octave (or a pad, VOICING or BASS) while a root is held changes the held chord at once; only the notes of the chord now
+  played sound (the dropped notes fade out in 60 ms at most, the shared notes are not played again); the last chord chosen stays chosen
+  (the left hand's memory).
+- **Oriental keyboard.** The three-position switch **TUNING** (Western / Arabic / Turkish) under CHORD MODE, **MAQAM** (Rast, Bayati / Uşşak,
+  Hijaz / Hicaz, Saba, Nahawand / Buselik) and **TONIC** under the scalogram: Arabic = 24-tone equal temperament (quarter tones of 50 cents),
+  Turkish = the 53 commas of the Arel-Ezgi-Uzdilek system; the keys the tuning moves carry an amber arrow; every note follows (keys, chord notes,
+  sub oscillator, MIDI), except the demo and EVALUATE SOUNDS. Three new playing parameters (never in a preset).
+- The **preset browser follows the preset box** (web and plug-in): choosing a sound with the arrows, the menu, a program change or the demo shows
+  its category and its row at the right.
+- EVALUATE SOUNDS says "Start at 201" (the first preset's own number) and rates 500 presets in factory order.
+- A **sine source** is now computed with the same additions and multiplications in both engines (`sinTurn`, a Taylor series: 7e-16 from `Math.sin`). `Math.sin` and `std::sin` differ
+  in the last bit, and SPARSITY chooses between atoms of equal size (a sine analysed with Daubechies 20 has many): the web app and the plug-in kept other atoms, and six of the new presets
+  sounded different in the two. The old presets that use a sine source differ from beta 0.1 by that 7e-16 only.
+
+**Checked**: the 22 TOP Sounds against the published beta 0.7 engine; the C++ engine against the JavaScript reference on **577** cases (all 522 presets and 55 variants: the new LFO
+destinations, the live chord scenarios, the tunings with a glide and a chord keyboard: worst 1.8e-7); `tests/supermod.js`; the idle rule; the engine
+self-test; the VST3 test host (188 checks of its non-editor sections; its controller-state section is the Wavelet Synthesizer's and still fails on its first check); the VST2 entry point (41 checks); the plug-in's EVALUATE SOUNDS window, CHORD MODE and the preset browser following the preset box, driven like a player; the presets file of beta 0.1 read with the new presets in their default places; the web app in headless Edge (the whole run plays all 522 presets).
+
+**Known limits**
+- The 300 new presets were **measured, not listened to** (nobody can listen to a thousand candidates overnight): a preset can be thin or odd in a way the measures do not see; that is what the ratings are for.
+- A loud chord played with many fingers still distorts on a few older presets, which are not changed (131 Oboe, 121 String Machine II, 067 Pipe Organ Duo, 073 Fair Organ, 130 Clarinet, 064 Jazz Organ, 071 Theatre Organ II, 187 Spaceship: lower VOLUME or the number of notes). The chord keyboard turns its chords down so that it does not.
+- The oriental tunings are the usual keyboard approximations (a half-flat degree = -50 cents; the Turkish values are the commas of the Arel-Ezgi-Uzdilek system): in the Arabic tuning Rast retunes the third and the seventh and Bayati and Saba the second degree, while Hijaz and Nahawand use the piano's semitones (nothing is retuned); the Turkish tuning gives all five their commas.
+
+---
+
+## Okto MultiWave Synth beta 0.1 — 2026-10-18 (four oscillators, 200 new presets, EVALUATE SOUNDS)
+
+A **test version**: the sound engine, the panel and the presets are new, and the 200 new presets still have to be heard.
+
+**In short**
+- **Four oscillators instead of two engines**: A1 A2 (subtractive wavelet) and B1 B2 (additive wavelet). Each has its own tone,
+  scale filter, position window, tuning (octave, semitones, cents), **own envelope** (it multiplies the AMP ENVELOPE) and
+  **pitch envelope** (a fall or rise in semitones over a time); one tab per oscillator at the top of the panel shows its cards
+  (the panel is as clear as before: the other three oscillators' cards are not shown).
+- **OSC MIX** (four level knobs) replaces the A/B MIX knob. A new patch plays A1 at 100 %, the others at 0. A level is smoothed
+  over 20 ms; an oscillator at 0 costs nothing, and the wave tables of an oscillator are built only while its level is above 0.
+- **LFO 2** moves its target in every oscillator at once; WAVELET MORPH and the SOURCE PHASE LFO act on each oscillator.
+- **222 presets**: the **22 TOP Sounds** (unchanged: they match the Wavelet Synthesizer beta 0.7 within 1.5e-7 of the peak)
+  and **200 new presets** `001`–`200` — Bass 18, Lead 22, Keys 22, Organ 12, Pad 30, Strings 18, Brass & Wind 14, Pluck 20,
+  Bells & Mallets 18, FX 14, Drums & Perc 12 — made with the oscillator pairs A1A2 (73), B1B2 (67) and A1B1 (60). Every one uses
+  at least two oscillators; one oscillator is often the attack (a click of noise, a pluck, a breath). Their loudness is matched
+  to the TOP Sounds, and none is a near copy of another (checked by their spectra and envelopes).
+- **EVALUATE SOUNDS** (web app and plug-in): plays 5 s of Beethoven's *Appassionata* (III) with each new preset, asks 1–10
+  stars, offers to modify what you rated above 5 (the changes are recorded as the parameters that differ from the preset) and
+  saves a `.txt` after every answer; it continues where it stopped, and **Save as…** keeps a copy of the ratings so far under a name of
+  your own (stop half way whenever you like).
+- **CHORD MODE** button next to the keyboard: it grows the panel by 120 px and shows the chord-harp card; off, the panel is
+  the plain synthesizer (the chord settings stay plug-in parameters, saved with the project, never in a preset).
+- Demo: a tour of 29 presets on *Appassionata* (the TOP Sounds mixed with new presets that show the oscillators at work), the
+  other pieces play the same tour.
+- New identity next to the Wavelet Synthesizer and WaveChord: name, class IDs, VST2 ID `OkMW`, presets file
+  `OKTOMULTIWAVE presets.txt`, web storage keys. Windows and web only: no macOS build was made.
+
+**CPU remarks of the load study applied** (`Revue.md`, `CPU Load test`; the C++ and JavaScript engines still agree: 251 cases
+within 1.8e-7, the limit of the cross-check is now 2e-6). Measured with the JavaScript engines on the 22 TOP Sounds, twelve held notes
+each, 3 s of audio: 2.65 s for the beta 0.7 engine, 2.15 s for this one (−19 %), although it can run four oscillators:
+- *P1, P7*: the terms that do not depend on the voice (oscillator levels, unison, the additive bands' bars, decays and tilt,
+  LFO 2) are computed once per block; an oscillator at level 0, or a morph or phase share at 0, is not rendered.
+- *P2*: `exp` instead of `pow(10, ·)` in the filter gains, the drive and the master level (differences of the last bit).
+- *E1*: the chorus' two LFOs are rotating vectors (two sines and two cosines per block instead of six sines per sample).
+- *R1*: the wavelet transform wraps with a mask instead of `%` (bit-identical).
+- *P10*: an instance with no voice, no table fade and a silent output (under −180 dBFS for longer than the delay's echo plus
+  4096 samples) does not compute its blocks; checked against the full computation on dry, delay, reverb and chorus sounds.
+- *E3*: the delay, its filter, the master smoothing and the reverb damping have the same time constants at 44.1, 48 and 96 kHz
+  (48 kHz is unchanged to the bit).
+- *T3*: the web app builds the wave tables in a Worker (with a sequence number, so a late result never replaces a newer one);
+  it falls back to the main thread without Worker.
+- Robustness: a NaN or huge velocity and a NaN parameter are harmless; the builder thread and the first activation catch an
+  out-of-memory error; a table set built for an older state cannot replace the one built at activation; the build uses
+  `-ffp-contract=off`; the presets file is never written over when it was read cut (16 MB), it is flushed to the disk before it
+  replaces the old one, and the library asks the system for its folder once and looks at the file at most every 500 ms; the
+  preset browser is drawn only when its part of the window is; the web app says so when the audio processor fails
+  (`onprocessorerror`), draws its animated displays when their data changed (and twice a second at rest), and creates no
+  buffer views per audio quantum.
+- *Not done* (they change the sound or need a listening validation, and the TOP Sounds must stay as they were): P3 `CTRL = 64`
+  (the gains would follow more slowly), P4 table of the filter gains and P5 `float` voice loop (1e-4 and 1e-7 away from the
+  reference), T1 real inverse FFT, T2, T4, T5 shared tables between instances, T6, E2 reverb layout in C++, the `fmax` limit
+  at high sample rates, and the Revue's remarks on CI, accessibility and import limits.
+
+**Checked**: the 22 TOP Sounds against the published beta 0.7 engine; the C++ engine against the JavaScript reference on 251
+cases (all 222 presets and variants of every feature, chord scenarios included); the idle rule; the VST3 test host (98 checks of
+its quick sections); the plug-in's EVALUATE SOUNDS window and CHORD MODE driven by `vst/devtest/vote_session.cpp` in an
+off-screen window (audio, parameters sent to the host, ratings file, screenshots); the web app in headless Edge (the four
+oscillator views, CHORD MODE, the demo, every preset plays and releases).
+
+---
+
+# The chord keyboard (WaveChord Synth beta 0.1 — 2026-10-18), now part of Okto MultiWave Synth
+
+- A chord keyboard in the style of electronic chord harps: one octave of the keyboard (KEYS OCT, C3–B3 by default, tinted
+  purple) chooses the chord type and makes no sound; every key above it plays the whole chord with one finger; keys pressed
+  while the root is held play as themselves, keys below the selector octave play a bass line.
+- Twelve chord pads in the layout of the selector octave (Maj, Min, 7, m7, Maj7, Sus2, Sus4, Dim, Aug, 5, Add9, Note) and 22
+  chord types in all; a chord display, STACKED / FOLDED voicing, BASS, STRUM (0–100 ms between the notes) and a strum plate.
+- The chord's notes are ordinary notes: sustain, portamento, voice allocation and every sound parameter work as usual; a chord
+  never uses more voices than VOICES. Reference-counted notes: a note shared by the chord and a held key keeps sounding until
+  both release it. The six chord settings are automatable plug-in parameters, never in a preset; a selector key updates the
+  Chord Type parameter.
+
+---
+
+# Wavelet Synthesizer — Release history (the synthesizer Okto MultiWave Synth is built on)
 
 ## beta 0.7 — 2026-10-18 (OktoPierre's TOP Sounds, a roomier panel, a new demo)
 

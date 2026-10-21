@@ -2,9 +2,9 @@
 # Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ---------------------------------------------------------------------------
-#  Wavelet Synthesizer - builds the macOS plug-in bundle: VST3, one universal binary (Apple silicon + Intel).
+#  Okto MultiWave Synth - builds the macOS plug-in bundle: VST3, one universal binary (Apple silicon + Intel).
 #  Needs the Xcode command line tools (clang); Node.js, when present, regenerates the spec first.
-#  Output: ../build/mac/WaveletSynthesizer.vst3   (copy it into ~/Library/Audio/Plug-Ins/VST3)
+#  Output: ../build/mac/OktoMultiWaveSynth.vst3   (copy it into ~/Library/Audio/Plug-Ins/VST3)
 #  The bundle is signed "ad hoc" (no Apple developer account): see INSTALL-mac.txt for the first start.
 #  ARCHS="arm64" vst/build_mac.sh builds one architecture only (faster, for tests).
 # ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 OUT="$ROOT/build/mac"
 OBJ="$OUT/obj"
-BUNDLE="$OUT/WaveletSynthesizer.vst3"
+BUNDLE="$OUT/OktoMultiWaveSynth.vst3"
 ARCHFLAGS=()
 for a in ${ARCHS:-arm64 x86_64}; do ARCHFLAGS+=(-arch "$a"); done
 MINOS=-mmacosx-version-min=10.13
@@ -36,10 +36,10 @@ clang++ "${FLAGS[@]}" -Wno-deprecated-declarations -c "$HERE/external/pluginterf
 echo "[3/5] linking"
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
-clang++ "${ARCHFLAGS[@]}" "$MINOS" -bundle -o "$BUNDLE/Contents/MacOS/WaveletSynthesizer" "$OBJ"/*.o \
+clang++ "${ARCHFLAGS[@]}" "$MINOS" -bundle -o "$BUNDLE/Contents/MacOS/OktoMultiWaveSynth" "$OBJ"/*.o \
   -framework Cocoa -framework CoreText -framework CoreGraphics -framework CoreFoundation -dead_strip \
   -Wl,-exported_symbol,_GetPluginFactory -Wl,-exported_symbol,_bundleEntry -Wl,-exported_symbol,_bundleExit
-strip -x "$BUNDLE/Contents/MacOS/WaveletSynthesizer"
+strip -x "$BUNDLE/Contents/MacOS/OktoMultiWaveSynth"
 
 echo "[4/5] Info.plist, manuals and licences"
 cat > "$BUNDLE/Contents/Info.plist" <<EOF
@@ -48,10 +48,10 @@ cat > "$BUNDLE/Contents/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>CFBundleDevelopmentRegion</key><string>English</string>
-  <key>CFBundleExecutable</key><string>WaveletSynthesizer</string>
-  <key>CFBundleIdentifier</key><string>com.oktopierre.waveletsynthesizer.vst3</string>
+  <key>CFBundleExecutable</key><string>OktoMultiWaveSynth</string>
+  <key>CFBundleIdentifier</key><string>com.oktopierre.oktomultiwavesynth.vst3</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>CFBundleName</key><string>Wavelet Synthesizer</string>
+  <key>CFBundleName</key><string>Okto MultiWave Synth</string>
   <key>CFBundlePackageType</key><string>BNDL</string>
   <key>CFBundleSignature</key><string>????</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
@@ -70,8 +70,8 @@ cp "$HERE/external/pluginterfaces/LICENSE.txt" "$BUNDLE/Contents/Resources/THIRD
 echo "[5/5] ad-hoc signature"
 codesign --force --sign - --timestamp=none "$BUNDLE"
 codesign --verify --strict "$BUNDLE"
-lipo -info "$BUNDLE/Contents/MacOS/WaveletSynthesizer"
+lipo -info "$BUNDLE/Contents/MacOS/OktoMultiWaveSynth"
 echo
 echo "Done: $BUNDLE"
-echo "Install: copy WaveletSynthesizer.vst3 into ~/Library/Audio/Plug-Ins/VST3 (your own plug-in folder: the presets file is"
+echo "Install: copy OktoMultiWaveSynth.vst3 into ~/Library/Audio/Plug-Ins/VST3 (your own plug-in folder: the presets file is"
 echo "         written next to it), then rescan the plug-ins in your DAW."

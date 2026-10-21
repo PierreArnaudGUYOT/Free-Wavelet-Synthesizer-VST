@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
 // Mac port (beta 0.3): the editor's macOS side — an NSView drawn with Core Graphics and Core Text, its pop-up menus and
 // dialogs (Cocoa). The panel itself is editor.cpp, shared with Windows (editor_win.cpp). Compiled with ARC.
 // The view's Objective-C class is created at run time under a name unique to this copy of the plug-in binary, so that two
@@ -81,6 +81,7 @@ class MacCanvas : public Canvas {
     drawLine(ln, r, px, align, vcenter);
     CFRelease(ln);
   }
+  void textVertical(const std::wstring& s, R r, float px, bool bold, Col c) override { text(s, r, px, bold, c, 1, true); }   // beta 0.3.3: not turned here (macOS is not built in this version)
   void textEllipsis(const std::wstring& s, R r, float px, bool bold, Col c, bool vcenter) override {
     if (s.empty()) return;
     CTLineRef ln = makeLine(s, px, bold, c);
@@ -115,6 +116,9 @@ class MacCanvas : public Canvas {
     CGContextRestoreGState(ctx);
     CGImageRelease(img); CGDataProviderRelease(dp); CFRelease(data);
   }
+  // beta 0.3.4: the clip of the oriental pattern (not built or tested in this version: macOS is not built)
+  void pushClipRR(R r, float rad) override { CGContextSaveGState(ctx); CGPathRef p = rr(r, rad); CGContextAddPath(ctx, p); CGContextClip(ctx); CGPathRelease(p); }
+  void popClip() override { CGContextRestoreGState(ctx); }
 
  private:
   CGContextRef ctx;
@@ -299,7 +303,7 @@ class MacWindow : public EditorWindow {
   }
   void message(const std::wstring& text, bool warning) override {
     NSAlert* a = [[NSAlert alloc] init];
-    a.messageText = @"Wavelet Synthesizer";
+    a.messageText = @"Okto MultiWave Synth";
     a.informativeText = ns(text);
     a.alertStyle = warning ? NSAlertStyleWarning : NSAlertStyleInformational;
     [a addButtonWithTitle:@"OK"];
@@ -307,7 +311,7 @@ class MacWindow : public EditorWindow {
   }
   bool ask(const std::wstring& text) override {
     NSAlert* a = [[NSAlert alloc] init];
-    a.messageText = @"Wavelet Synthesizer";
+    a.messageText = @"Okto MultiWave Synth";
     a.informativeText = ns(text);
     [a addButtonWithTitle:@"Yes"];
     [a addButtonWithTitle:@"No"];
@@ -439,7 +443,7 @@ static Class viewClass() {
   static Class cls = nil;
   if (cls) return cls;
   char name[96];
-  std::snprintf(name, sizeof name, "OktoWaveletEditorView_%llx", (unsigned long long)(uintptr_t)&viewClass);
+  std::snprintf(name, sizeof name, "OktoMultiWaveSynthEditorView_%llx", (unsigned long long)(uintptr_t)&viewClass);
   Class c = objc_getClass(name);
   if (!c) {
     c = objc_allocateClassPair([NSView class], name, 0);
@@ -471,7 +475,7 @@ static id menuTarget() {
   static id target = nil;
   if (target) return target;
   char name[96];
-  std::snprintf(name, sizeof name, "OktoWaveletMenuTarget_%llx", (unsigned long long)(uintptr_t)&menuTarget);
+  std::snprintf(name, sizeof name, "OktoMultiWaveSynthMenuTarget_%llx", (unsigned long long)(uintptr_t)&menuTarget);
   Class c = objc_getClass(name);
   if (!c) {
     c = objc_allocateClassPair([NSObject class], name, 0);
@@ -487,6 +491,7 @@ static id menuTarget() {
 const char* editorPlatformType() { return Steinberg::kPlatformTypeNSView; }
 double windowScaleOf(void*) { return 1; }
 double systemScale() { return 1; }
+bool workAreaOf(void*, int&, int&) { return false; }   // beta 0.3.2: the window keeps its size (macOS is not built in this version)
 EditorWindow* createEditorWindow(EditorEvents* e, void* parent, int w, int h) { return new MacWindow(e, (__bridge NSView*)parent, w, h); }
 
 }  // namespace ws

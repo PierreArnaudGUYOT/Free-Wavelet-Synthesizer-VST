@@ -1,33 +1,38 @@
 # Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 # SPDX-License-Identifier: GPL-3.0-or-later
-# How to cite Wavelet Synthesizer (GitHub shows it as "Cite this repository"). The DOI is the Zenodo record of the code.
+# How to cite Okto MultiWave Synth (GitHub shows it as "Cite this repository"). It is built on the Wavelet Synthesizer (its DOI is in references).
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "Wavelet Synthesizer"
+title: "Okto MultiWave Synth"
 type: software
 authors:
   - family-names: "Guyot"
     given-names: "Pierre Arnaud"
     alias: "OktoPierre"
 license: GPL-3.0-or-later
-doi: 10.5281/zenodo.23431760
-identifiers:
-  - type: doi
-    value: 10.5281/zenodo.23431760
-    description: "Zenodo record of the code: https://zenodo.org/records/23431760"
-  - type: doi
-    value: 10.5281/zenodo.23431759
-    description: "All versions (Zenodo concept DOI)"
-repository-code: "https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST"
-url: "https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/"
-version: "beta 0.3"
-date-released: "2026-10-17"
+repository-code: "https://github.com/PierreArnaudGUYOT/Okto-MultiWave-Synth"
+url: "https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/"
+version: "1.0.3"
+date-released: "2026-10-20"
+references:
+  - type: software
+    title: "Wavelet Synthesizer"
+    authors:
+      - family-names: "Guyot"
+        given-names: "Pierre Arnaud"
+        alias: "OktoPierre"
+    doi: 10.5281/zenodo.23431760
+    repository-code: "https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST"
 abstract: >-
-  A polyphonic synthesizer that shapes sound with the discrete wavelet transform instead of Fourier filters: one cycle
-  of each tone is decomposed into 11 octave-spaced wavelet bands and resynthesised band by band. Engine A (wavelet
-  subtractive) filters and thins out the atoms of a source wave; engine B (wavelet additive) writes the atoms directly.
+  Okto MultiWave Synth is a polyphonic synthesizer with four wavelet oscillators (two subtractive, two additive) that shapes
+  sound with the discrete wavelet transform instead of Fourier filters: one cycle of each tone is decomposed into 11
+  octave-spaced wavelet bands and resynthesised band by band. Every oscillator has its own scale filter, position window,
+  tuning, envelope and pitch envelope; a chord keyboard in the style of electronic chord harps plays whole chords with one finger.
+  It is built on the Wavelet Synthesizer and ships over a thousand presets.
   Web application and VST3 / VST2 instrument for Windows x64.
 keywords:
+  - multi-oscillator synthesis
+  - chord keyboard
   - sound synthesis
   - discrete wavelet transform
   - synthesizer

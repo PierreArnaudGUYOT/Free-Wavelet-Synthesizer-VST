@@ -12,3 +12,5 @@
 *.zip
 # copy of the sources prepared for publishing
 /SourceCode/
+# contact sheets and scratch output of the preset tools
+/tools/out/

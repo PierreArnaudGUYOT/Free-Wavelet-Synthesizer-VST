@@ -1,12 +1,10 @@
 # Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The macOS plug-in (Mac port of beta 0.3): built and tested on GitHub's Apple-silicon Macs, for Apple silicon and Intel.
+# The macOS plug-in (Mac port of the Wavelet Synthesizer beta 0.3; not part of Okto MultiWave Synth beta 0.1, run by hand): built and tested on GitHub's Apple-silicon Macs, for Apple silicon and Intel.
 # Results (Actions tab, "Artifacts"): the release zip and the test output (logs, editor screenshots).
 name: macOS plug-in
 on:
-  push:
-    branches: [main, mac-port, source-phase]
-  workflow_dispatch:
+  workflow_dispatch:   # no macOS build is made for beta 0.1 (Windows and web only): run it by hand to try the port
 permissions:
   contents: read
 jobs:
@@ -41,22 +39,22 @@ jobs:
         run: |
           bash tests/machost/build.sh
           mkdir -p out/host-arm64
-          build/mac/machost build/mac/WaveletSynthesizer.vst3 out/host-arm64 | tee out/host-arm64/machost.log
+          build/mac/machost build/mac/OktoMultiWaveSynth.vst3 out/host-arm64 | tee out/host-arm64/machost.log
       - name: Host test (Intel, Rosetta)
         run: |
           mkdir -p out/host-x86_64
-          arch -x86_64 build/mac/machost build/mac/WaveletSynthesizer.vst3 out/host-x86_64 | tee out/host-x86_64/machost.log
+          arch -x86_64 build/mac/machost build/mac/OktoMultiWaveSynth.vst3 out/host-x86_64 | tee out/host-x86_64/machost.log
       - name: Release zip
         run: |
           VERSION=$(sed -n 's/^#define WS_VERSION "\([^"]*\)".*/\1/p' vst/src/common.h | cut -d. -f1-2)
           mkdir -p dist/stage
-          ditto build/mac/WaveletSynthesizer.vst3 dist/stage/WaveletSynthesizer.vst3
+          ditto build/mac/OktoMultiWaveSynth.vst3 dist/stage/OktoMultiWaveSynth.vst3
           cp vst/INSTALL-mac.txt dist/stage/INSTALL-mac.txt
-          ditto -c -k --sequesterRsrc dist/stage "dist/WaveletSynthesizer-beta${VERSION}-mac.zip"
-          unzip -l "dist/WaveletSynthesizer-beta${VERSION}-mac.zip" | tail -3
+          ditto -c -k --sequesterRsrc dist/stage "dist/OktoMultiWaveSynth-beta${VERSION}-mac.zip"
+          unzip -l "dist/OktoMultiWaveSynth-beta${VERSION}-mac.zip" | tail -3
       - uses: actions/upload-artifact@v4
         with:
-          name: WaveletSynthesizer-mac
+          name: OktoMultiWaveSynth-mac
           path: dist/*.zip
       - uses: actions/upload-artifact@v4
         if: always()

@@ -1,18 +1,30 @@
-# Wavelet Synthesizer - test tooling
+# Okto MultiWave Synth - test tooling
 
-These are independent test tools for the two products: the VST3 instrument (`vst/` -> `build/WaveletSynthesizer.vst3`)
+These are independent test tools for the two products: the VST3 instrument (`vst/` -> `build/OktoMultiWaveSynth.vst3`)
 and the web app (`web/index.html`). They don't use any product code: the VST host is written against the
 VST3 `pluginterfaces` headers only, and the web driver talks to Edge directly over the Chrome DevTools Protocol.
 
 ```
 tests/
+  quick.js       the 20-second check to run after every change (syntax, generated files, engine, VST3 host sections, web app)
+  regress_v07.js the 22 TOP Sounds against the published Wavelet Synthesizer beta 0.7 engine (tests/ref/v07/), within 2.1e-7 (one note, then two notes over its release: up to three voices)
+  idle_skip.js   the engine's idle rule, the smoothing at other sample rates, hostile velocities
   vst3host/      VST3 test host (C++, llvm-mingw, static exe)
     host.cpp, host_util.h, host_objects.h, build.bat
     check_params.js          params.csv  <->  tools/spec.js
     selftest/                reference plug-in used only to validate the host
   web/           headless-Edge tests for the web app
-    cdp.js, png.js, test_web.js, selftest_cdp.js, dummy/index.html
+    cdp.js, png.js, smoke.js, test_web.js, test_demo.js, selftest_cdp.js, dummy/index.html
 ```
+
+**Status for Okto MultiWave Synth beta 0.2.** Maintained and passing: `quick.js`, `supermod.js` (the SuperModulation destinations, BASS and the chord that follows the left hand, the oriental tunings), `regress_v07.js`, `idle_skip.js`, `web/smoke.js`
+(the four oscillator views and CHORD MODE), `web/test_web.js` (about 10 minutes: it plays all 522 presets) and `web/test_demo.js`,
+`tools/dsp_selftest.js` (12 sections), the C++ cross-check (`tools/dsp_compare.js` + `vst/devtest/dsp_render.cpp`, 577 cases) and the
+developer checks `vst/devtest/vote_session.cpp` (the plug-in's window: folder tabs, CHORD MODE, the LFO 2/3 tabs and the oriental colours, fit to the screen, preset browser and its stars), `library_test.cpp` (the
+presets file) and `vst2_smoke.cpp`. The VST3 host below is the Wavelet Synthesizer's: with `--skip-editor` its sections params, audio, state, offline, presets, sub,
+porta, stress, instances and sync pass (190 checks); its controller-state section (beta 0.1 WSC1 projects, presets left out in beta 0.5, `A · Reese Sub`…)
+is the Wavelet Synthesizer's and fails on its first check. **Not ported** (they drive the Wavelet Synthesizer's browser, screenshots and presets, or the macOS build, which
+this version does not make): `vst/devtest/bank_session.cpp`, `tests/machost`, the editor and reload sections of the VST3 host.
 
 Requirements: Windows x64, `%USERPROFILE%\tools\llvm-mingw` (or set `CXX`), Node.js >= 22 (it has a
 global `WebSocket`), and Microsoft Edge (or set `EDGE_PATH`). No npm packages and no admin rights are needed.
@@ -34,7 +46,7 @@ in that one translation unit.
 ### Run
 
 ```bat
-tests\vst3host\vst3host.exe build\WaveletSynthesizer.vst3 tests\vst3host\out
+tests\vst3host\vst3host.exe build\OktoMultiWaveSynth.vst3 tests\vst3host\out
 ```
 
 Usage: `vst3host.exe <bundle.vst3 | dll> <outdir> [options]`
@@ -214,19 +226,12 @@ Option `--no-file-access` launches Edge without `--allow-file-access-from-files`
 node tests\web\test_demo.js            :: like a normal browser (no file-access flag); --file-access to add it
 ```
 
-This test is data-driven: it reads the song list from `WS_TEST.demoSongs()`. It checks:
-- the menu: items, outside-click close, song 0 started from the menu while audio is not started;
-- the Toccata (song 0) against the agreed scene schedule, over the whole piece;
-- the first other song played to the end: 7-11 scenes, monotonic progression, parameters move, ends after the
-  piece;
-- every other song for 14 s, then stopped, with an exact restore;
-- loading MIDI files: a generated one (track name, channel-10 drums) and one from `tools/demo`;
-- the error alert for a non-MIDI file;
-- 13 hostile MIDI files through `#file-midi` (also in `--smoke`): the 31-byte meta-VLQ bomb, huge SysEx and
-  track/header lengths, division 0 and SMPTE, 65535 tracks, invalid data bytes, 20,000 tempo changes, a note
-  ~78 h in the future, garbage, an empty track and an empty file. The page must stay responsive with bounded
-  memory, show the 'could not play' alert for unplayable files, raise no uncaught exception, and restore
-  exactly afterwards.
+The final version has one demo song (Beethoven, Appassionata III, `WS_TEST.demoSong()`), no song menu and no MIDI file
+input (the arrow next to DEMO, the song list and "Load a MIDI file…" were removed). It checks:
+- the header: `.demo-btn` is there, and there is no `.demo-arrow`, no `.demo-menu`, no `#file-midi` and no EVALUATE SOUNDS button;
+- the demo started from the button while audio is not started, against the agreed preset tour (`WS_TEST.demoTour()`), over the
+  whole piece (`--smoke`: up to the 7th preset), and its end ~2.5 s after the last note;
+- the exact restore of the parameters and the UI after the end, the header STOP, the window STOP and Esc.
 
 Times are measured inside the page with `WS_TEST.demoState().time`.
 - Start by clicking the header button while audio is not started yet; the demo must produce sound.
@@ -240,9 +245,9 @@ Times are measured inside the page with `WS_TEST.demoState().time`.
 - start -> stop -> start, and `demoStart()` while running (it toggles).
 - Ctrl+click on a knob resets it to the spec default; a plain click does not.
 
-Option `--smoke` gives a short run of about 1 minute. It checks the menu, song 0 started from the menu with audio not
-started and stopped with the header STOP (restore of the untouched startup preset), then another song on a
-modified preset stopped with Esc (exact restore).
+Option `--smoke` gives a short run of about 1.5 minutes. It checks the button (no arrow, no menu), the demo started
+from the button with audio not started and stopped with the header STOP (restore of the untouched startup preset),
+then a start on a modified preset stopped with Esc (exact restore), and the audio lifecycle.
 
 Outputs: `tests/web/out_demo/report.txt` and screenshots (`demo_t008.png` ... `demo_playalong_C7.png`).
 
@@ -257,8 +262,8 @@ process with the run's temporary `ws-edge-*` profile is left. `openTab()` opens 
 browser; the demo suite uses it to test the one-tab-plays-at-a-time audio lifecycle.
 
 The demo suite (`test_demo.js`) also checks:
-- the split button: `.demo-btn` plays the default demo, `.demo-arrow` opens the menu;
-- the default demo is a preset tour (TOUR_APPASSIONATA in web/js/demo.js), starting at 'B · Clarinet';
+- the button: `.demo-btn` plays the demo (no arrow, no menu);
+- the demo is a preset tour (`TOUR` of tools/spec.js, the first two entries are not heard), starting at the third;
 - the values forced or capped during the tour;
 - the preset label during demos;
 - the audio lifecycle with two tabs: starting tab B pauses tab A and shows the overlay, 'Click to play here'

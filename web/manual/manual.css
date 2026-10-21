@@ -1,6 +1,6 @@
 /* Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
    SPDX-License-Identifier: GPL-3.0-or-later */
-/* Wavelet Synthesizer — user manuals (shared stylesheet).
+/* Okto MultiWave Synth — user manuals (shared stylesheet).
    Light theme, system fonts only, no external resources.
    Engine accent is set by the body class: .eng-a (teal) or .eng-b (amber). */
 
@@ -267,3 +267,16 @@ table.presets th:nth-child(4) { width: 33%; }
 /* preset table: category rows and favourites (beta 0.2) */
 table.presets tr.cat td { background: #f1f3f6; color: #4b5563; font-size: 12px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; padding: 7px 12px; }
 table.presets .fav { color: #c98a00; }
+
+/* preset tables of the final list: the author's stars (five stars, half stars) */
+table.presets.rated td:first-child, table.presets.toplist td:first-child { white-space: normal; }
+table.presets.rated th:nth-child(1) { width: 26%; }
+table.presets.rated th:nth-child(2) { width: 11%; }
+table.presets.rated th:nth-child(3) { width: 10%; }
+table.presets.rated th:nth-child(4) { width: 53%; }
+table.presets.toplist th:nth-child(1) { width: 36%; }
+table.presets.toplist th:nth-child(2) { width: 24%; }
+table.presets.toplist th:nth-child(3) { width: 20%; }
+table.presets.toplist th:nth-child(4) { width: 20%; }
+.stars { color: #c98a00; white-space: nowrap; letter-spacing: .04em; }
+table.wavelets { min-width: 560px; }

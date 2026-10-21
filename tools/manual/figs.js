@@ -181,7 +181,7 @@ for (const E of ['a', 'b']) {
   {
     const cuts = [1.5, 2.5, 3.5, 4.5, 12], pw = 160, ph = 92, gap = 12, Wd = cuts.length * pw + (cuts.length - 1) * gap, Hd = ph + 46;
     let b = '';
-    const p = params({ engine: 0, a_wave: 0, wavelet: 0 }), tb = C.buildTables(p, false);
+    const p = params({ osc_view: 0, a_wave: 0, wavelet: 0 }), tb = C.buildTables(p, false);
     cuts.forEach((c, i) => {
       const g = C.filterGains(0, c, 96, 0, new Float64Array(11));
       const y = C.displayCycle(tb, g, 0, 1, 0, new Float64Array(N));
@@ -198,7 +198,7 @@ for (const E of ['a', 'b']) {
     const ss = [0, 0.3, 0.5, 0.7, 0.9], pw = 160, ph = 92, gap = 12, Wd = ss.length * pw + (ss.length - 1) * gap, Hd = ph + 46;
     let b = '';
     ss.forEach((s, i) => {
-      const p = params({ engine: 0, a_wave: 0, wavelet: 3, a_sparsity: s }), tb = C.buildTables(p, false);
+      const p = params({ osc_view: 0, a_wave: 0, wavelet: 3, a_sparsity: s }), tb = C.buildTables(p, false);
       const raw = C.sourceCycle(0, 0.5), x0 = i * (pw + gap), sc = 0.92 / Math.max(1, peak(tb.layers[C.DRY]));
       b += panelFrame(x0, 0, pw, ph);
       b += poly(cyclePts(raw, x0 + 6, 6, pw - 12, ph - 12, sc), GREY, 1.2);
@@ -210,7 +210,7 @@ for (const E of ['a', 'b']) {
   }
   {
     const Wd = 860, Hd = 214, L = 20, R = Wd - 20, Tp = 14, B = 172;
-    const p = params({ engine: 0, a_wave: 1, wavelet: 4 }), tb = C.buildTables(p, false), g = C.filterGains(0, 2.5, 24, 0, new Float64Array(11));
+    const p = params({ osc_view: 0, a_wave: 1, wavelet: 4 }), tb = C.buildTables(p, false), g = C.filterGains(0, 2.5, 24, 0, new Float64Array(11));
     const filt = C.displayCycle(tb, g, 0, 1, 0, new Float64Array(N));
     const win = C.displayCycle(tb, g, 0.5, 0.4, 1, new Float64Array(N));
     let b = rect(L + 0.3 * (R - L), Tp, 0.4 * (R - L), B - Tp, T.tint, { op: 0.8 });
@@ -233,7 +233,7 @@ for (const E of ['a', 'b']) {
     let b = '';
     const saw = C.sourceCycle(0, 0.5);
     ns.forEach((n, i) => {
-      const o = { engine: 1, wavelet: 0, b_pattern: 0, b_tilt: -6 }; for (let k = 1; k <= 11; k++) o['b_bar' + k] = k <= n ? 1 : 0;
+      const o = { osc_view: 2, b1_wavelet: 0, b_pattern: 0, b_tilt: -6 }; for (let k = 1; k <= 11; k++) o['b_bar' + k] = k <= n ? 1 : 0;
       const { y } = cycleFor(o);
       const x0 = i * (pw + gap), sc = 0.92 / peak(y);
       b += panelFrame(x0, 0, pw, ph);
@@ -267,8 +267,8 @@ for (const E of ['a', 'b']) {
       b += text(mx, ly + 1, 'bands 1–6', { size: 10.5, fill: GREY }) + rect(mx + 58, ly - 7, 8, 8, T.acc) + text(mx + 69, ly + 1, '+', { size: 11, fill: GREY }) + rect(mx + 82, ly - 7, 8, 8, SLATE) + text(mx + 93, ly + 1, '−', { size: 11, fill: GREY });
       const wx = ox + 172, ww = cw - 184, wy = oy + 10, wh = chh - 20;
       b += panelFrame(wx, wy, ww, wh);
-      const yh = cycleFor({ engine: 1, wavelet: 0, b_pattern: pi, b_tilt: -6 }).y;
-      const yd = cycleFor({ engine: 1, wavelet: 3, b_pattern: pi, b_tilt: -6 }).y;
+      const yh = cycleFor({ osc_view: 2, b1_wavelet: 0, b_pattern: pi, b_tilt: -6 }).y;
+      const yd = cycleFor({ osc_view: 2, b1_wavelet: 3, b_pattern: pi, b_tilt: -6 }).y;
       b += poly(cyclePts(yd, wx + 5, wy + 4, ww - 10, wh - 8, 0.9 / peak(yd)), SLATE, 1.3, { op: 0.7 });
       b += poly(cyclePts(yh, wx + 5, wy + 4, ww - 10, wh - 8, 0.9 / peak(yh)), T.ink, 2);
     });
@@ -315,7 +315,9 @@ for (const E of ['a', 'b']) {
 }
 
 // ---------------------------------------------------------------- inline: tiling
-for (const E of ['a', 'b']) {
+// [name, theme, shaded by the atoms of a sawtooth (Daubechies 4) | the grid of atoms with the first atom of every band highlighted (the IMPULSE pattern)]
+// intro-tiling-*: Figure 1 of the introduction (both manuals); tiling-b: the additive oscillator's chapter.
+for (const [tname, E, saw] of [['intro-tiling-a', 'a', true], ['intro-tiling-b', 'b', true], ['tiling-b', 'b', false]]) {
   const T = TH[E];
   const Wd = 860, L = 262, R = Wd - 104, Tp = 52, rowH = 22, B = Tp + 11 * rowH;
   let b = '';
@@ -325,9 +327,9 @@ for (const E of ['a', 'b']) {
   for (let h = 1; h <= 11; h++) { const yy = B - h * rowH; b += rect(fx + 28, yy + 1, fw - 28, rowH - 2, h % 2 ? '#e9edf2' : '#dde3ea', { rx: 2 }); b += text(fx + 22, yy + rowH - 6, 'h' + h, { size: 11, fill: GREY, anchor: 'end' }); }
   b += text(fx + 28, B + 17, 'start', { size: 11.5 }) + text(fx + fw, B + 17, 'end of cycle', { size: 11.5, anchor: 'end' });
   b += text(fx + 28, B + 36, 'h = harmonic number', { size: 12, fill: MUT });
-  b += text(L, 16, E === 'a' ? 'WAVELET VIEW · one Saw cycle, Daubechies 4' : 'WAVELET VIEW · the grid of atoms', { size: 12.5, weight: 700, fill: TXT, ls: '0.06em' });
+  b += text(L, 16, saw ? 'WAVELET VIEW · one Saw cycle, Daubechies 4' : 'WAVELET VIEW · the grid of atoms', { size: 12.5, weight: 700, fill: TXT, ls: '0.06em' });
   b += text(L, 34, 'each band ≈ one octave; finer bands: more, shorter atoms', { size: 12, fill: MUT });
-  const coef = E === 'a' ? C.dwt(C.sourceCycle(0, 0.5), C.FILTERS[2]) : null;
+  const coef = saw ? C.dwt(C.sourceCycle(0, 0.5), C.FILTERS[2]) : null;
   const lerp = (a, c, t) => Math.round(a + (c - a) * t);
   const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   const ramp = t => {
@@ -343,7 +345,7 @@ for (const E of ['a', 'b']) {
     const cols = Math.min(n, 128), gap = n <= 64 ? 1 : 0;
     for (let k = 0; k < cols; k++) {
       let t;
-      if (E === 'a') { let m = 0; const k0 = Math.floor(k * n / cols), k1 = Math.floor((k + 1) * n / cols); for (let q = k0; q < k1; q++) m = Math.max(m, Math.abs(coef[n + q])); const v = m * Math.pow(2, (bnd - 1) / 2) / Math.sqrt(N); t = v > 0 ? Math.max(0, Math.min(1, (20 * Math.log10(v) + 60) / 60)) : 0; }
+      if (saw) { let m = 0; const k0 = Math.floor(k * n / cols), k1 = Math.floor((k + 1) * n / cols); for (let q = k0; q < k1; q++) m = Math.max(m, Math.abs(coef[n + q])); const v = m * Math.pow(2, (bnd - 1) / 2) / Math.sqrt(N); t = v > 0 ? Math.max(0, Math.min(1, (20 * Math.log10(v) + 60) / 60)) : 0; }
       else t = (k === 0) ? 0.8 : 0.2;
       b += rect(L + k * pw / cols, yy + 1, pw / cols - gap, rowH - 2, ramp(t));
     }
@@ -353,16 +355,64 @@ for (const E of ['a', 'b']) {
   b += text(L, B + 17, '0°', { size: 11.5 }) + text(L + pw / 2, B + 17, '180°', { size: 11.5, anchor: 'middle' }) + text(R, B + 17, '360°', { size: 11.5, anchor: 'end' });
   b += `<path d="M${Wd - 10},${B - 4} V${Tp + 8}" stroke="${T.ink}" stroke-width="1.6" fill="none"/><path d="M${Wd - 10},${Tp} l-5,9 h10 z" fill="${T.ink}"/>`;
   b += `<text transform="translate(${Wd - 19},${f1((Tp + B) / 2)}) rotate(-90)" font-size="11.5" fill="${T.ink}" text-anchor="middle" font-weight="600">finer atoms · higher harmonics</text>`;
-  if (E === 'a') b += text(L, B + 37, 'Darker = bigger atom. The ramp is smooth, so its fine atoms are tiny;', { size: 12, fill: MUT }) + text(L, B + 53, 'only the jump at 0°/360° needs them.', { size: 12, fill: MUT });
+  if (saw) b += text(L, B + 37, 'Darker = bigger atom. The ramp is smooth, so its fine atoms are tiny;', { size: 12, fill: MUT }) + text(L, B + 53, 'only the jump at 0°/360° needs them.', { size: 12, fill: MUT });
   else b += text(L, B + 37, 'Highlighted: the first atom of every band — the only atoms', { size: 12, fill: MUT }) + text(L, B + 53, 'that the IMPULSE pattern switches on.', { size: 12, fill: MUT });
   const Hd = B + 60;
-  SNIPS[`tiling-${E}`] = svgDoc(Wd, Hd, b, E === 'a' ? 'Fourier view versus wavelet view: 11 bands with 1 to 1024 atoms, shaded by the atoms of a sawtooth' : 'Fourier view versus wavelet view: 11 bands with 1 to 1024 atoms', true);
+  SNIPS[tname] = svgDoc(Wd, Hd, b, saw ? 'Fourier view versus wavelet view: 11 bands with 1 to 1024 atoms, shaded by the atoms of a sawtooth' : 'Fourier view versus wavelet view: 11 bands with 1 to 1024 atoms', true);
 }
 
-// ---------------------------------------------------------------- inline: signal flow
-function flow(E) {
-  const T = TH[E], Wd = 860;
-  let b = `<defs><marker id="ar${E}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${SLATE}"/></marker></defs>`;
+// ---------------------------------------------------------------- inline: the introduction's figures (both manuals, in the theme of the manual)
+// Figure 2: one cycle (a sawtooth, Daubechies 4), the 11 bands each put back as a waveform (the inverse transform of that band's atoms alone), and their sum.
+for (const E of ['a', 'b']) {
+  const T = TH[E];
+  const Wd = 860, rowH = 24, Tp = 50, B = Tp + 11 * rowH, L = 262, R = 556;
+  const f = C.FILTERS[2];   // Daubechies 4
+  const x = C.sourceCycle(0, 0.5, 0), c = C.dwt(x, f);
+  const layer = bnd => { const o = new Float64Array(N); for (let i = 1 << (bnd - 1); i < (1 << bnd); i++) o[i] = c[i]; return C.idwt(o, f); };
+  const sum = new Float64Array(N), layers = [];
+  for (let bnd = 1; bnd <= 11; bnd++) { const l = layer(bnd); layers.push(l); for (let i = 0; i < N; i++) sum[i] += l[i]; }
+  const id = `ard${E}`;
+  let b = `<defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${SLATE}"/></marker></defs>`;
+  const arrow = (x1, y1, x2, y2) => `<path d="M${f1(x1)},${f1(y1)} L${f1(x2 - 1)},${f1(y2)}" stroke="${SLATE}" stroke-width="1.5" fill="none" marker-end="url(#${id})"/>`;
+  // left: the source cycle
+  const pw = 150, ph = 112, py = (Tp + B) / 2 - ph / 2 + 6;
+  b += text(0, 16, 'ONE CYCLE', { size: 12.5, weight: 700, fill: TXT, ls: '0.06em' });
+  b += text(0, 34, 'a sawtooth, 2048 samples', { size: 12, fill: MUT });
+  b += panelFrame(0, py, pw, ph);
+  b += poly(cyclePts(x, 6, py + 6, pw - 12, ph - 12, 0.92), T.ink, 2);
+  b += arrow(pw + 10, (Tp + B) / 2, L - 34, (Tp + B) / 2);
+  b += text((pw + L - 24) / 2 + 3, (Tp + B) / 2 - 8, 'wavelet', { anchor: 'middle', size: 11.5, fill: T.deep, weight: 700 });
+  b += text((pw + L - 24) / 2 + 3, (Tp + B) / 2 + 20, 'transform', { anchor: 'middle', size: 11.5, fill: T.deep, weight: 700 });
+  // middle: the bands
+  b += text(L, 16, 'THE 11 BANDS, EACH PUT BACK AS A WAVEFORM', { size: 12.5, weight: 700, fill: TXT, ls: '0.06em' });
+  b += text(L, 34, 'each row drawn at its own scale', { size: 12, fill: MUT });
+  for (let bnd = 1; bnd <= 11; bnd++) {
+    const n = 1 << (bnd - 1), yy = B - bnd * rowH, l = layers[bnd - 1];
+    b += rect(L, yy + 1, R - L, rowH - 2, FAINT, { rx: 3 });
+    b += line(L, yy + rowH / 2, R, yy + rowH / 2, '#dde3ea', 1);
+    b += poly(cyclePts(l, L + 2, yy + 3, R - L - 4, rowH - 6, 0.96 / peak(l)), T.ink, 1.4);
+    b += text(L - 8, yy + rowH - 8, 'B' + bnd, { size: 11.5, fill: MUT, anchor: 'end', weight: 600 });
+    b += text(R + 8, yy + rowH - 8, n === 1 ? '1 atom' : n + ' atoms', { size: 11.5, fill: MUT });
+  }
+  b += text(L, B + 17, '0°', { size: 11.5 }) + text((L + R) / 2, B + 17, '180°', { size: 11.5, anchor: 'middle' }) + text(R, B + 17, '360°', { size: 11.5, anchor: 'end' });
+  // right: the sum
+  const rx = Wd - pw;
+  b += arrow(R + 78, (Tp + B) / 2, rx - 8, (Tp + B) / 2);
+  b += text((R + 78 + rx - 8) / 2, (Tp + B) / 2 - 8, 'inverse', { anchor: 'middle', size: 11.5, fill: T.deep, weight: 700 });
+  b += text((R + 78 + rx - 8) / 2, (Tp + B) / 2 + 20, 'transform', { anchor: 'middle', size: 11.5, fill: T.deep, weight: 700 });
+  b += text(rx, 16, 'THEIR SUM', { size: 12.5, weight: 700, fill: TXT, ls: '0.06em' });
+  b += text(rx, 34, 'the same cycle, exactly', { size: 12, fill: MUT });
+  b += panelFrame(rx, py, pw, ph);
+  b += poly(cyclePts(x, rx + 6, py + 6, pw - 12, ph - 12, 0.92), GREY, 1.2);
+  b += poly(cyclePts(sum, rx + 6, py + 6, pw - 12, ph - 12, 0.92), T.ink, 2);
+  b += text(L, B + 38, 'Coarse bands carry the slow shape; each finer band adds smaller atoms,', { size: 12, fill: MUT }) + text(L, B + 54, 'and the sawtooth needs them only around its jump.', { size: 12, fill: MUT });
+  SNIPS[`decomp-${E}`] = svgDoc(Wd, B + 62, b, 'One sawtooth cycle split by a Daubechies 4 wavelet transform into 11 bands of 1 to 1024 atoms, and rebuilt by their sum', true);
+}
+
+// Figure 3: the signal path (the same in both manuals; the colour is the manual's)
+for (const E of ['a', 'b']) {
+  const T = TH[E], Wd = 860, id = `arp${E}`;
+  let b = `<defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${SLATE}"/></marker></defs>`;
   const box = (x, y, w, h, title, sub, kind) => {
     const fill = kind === 'acc' ? T.tint : kind === 'fx' ? '#f1f3f6' : '#ffffff', st = kind === 'acc' ? T.ink : '#c3cad3';
     let s = rect(x, y, w, h, fill, { rx: 8, stroke: st, sw: kind === 'acc' ? 1.5 : 1.2 });
@@ -370,62 +420,48 @@ function flow(E) {
     if (sub) sub.split('\n').forEach((ln, i) => { s += text(x + w / 2, y + 37 + i * 14.5, ln, { anchor: 'middle', size: 11.2, fill: MUT }); });
     return s;
   };
-  const arrow = (x1, y1, x2, y2) => `<path d="M${f1(x1)},${f1(y1)} L${f1(x2 - 1)},${f1(y2)}" stroke="${SLATE}" stroke-width="1.5" fill="none" marker-end="url(#ar${E})"/>`;
-  const elbow = (x1, y1, x2, y2) => `<path d="M${f1(x1)},${f1(y1)} V${f1(y1 + 11)} H${f1(x2)} V${f1(y2 - 1)}" stroke="${SLATE}" stroke-width="1.5" fill="none" marker-end="url(#ar${E})"/>`;
-  const lab = (x, y, s) => text(Wd, y, s, { size: 11, weight: 700, fill: GREY, ls: '0.08em', anchor: 'end' });
-  const y1 = 24, h1 = 64, y2 = 140, h2 = 84, y3 = 260, h3 = 64, y4 = 372, h4 = 42;
-  // row 1: table building
-  if (E === 'a') {
-    b += lab(0, 13, 'BUILT WHEN YOU CHANGE WAVE · WIDTH · WAVELET · SPARSITY');
-    const w1 = 190, g1 = 33;
-    b += box(0, y1, w1, h1, 'SOURCE CYCLE', 'WAVE · WIDTH\n2048 samples');
-    b += arrow(w1, y1 + h1 / 2, w1 + g1, y1 + h1 / 2);
-    b += box(w1 + g1, y1, w1, h1, 'WAVELET TRANSFORM', 'WAVELET\n2047 atoms in 11 bands', 'acc');
-    b += arrow(2 * w1 + g1, y1 + h1 / 2, 2 * (w1 + g1), y1 + h1 / 2);
-    b += box(2 * (w1 + g1), y1, w1, h1, 'SPARSITY', 'keep the K largest atoms', 'acc');
-    b += arrow(3 * w1 + 2 * g1, y1 + h1 / 2, 3 * (w1 + g1), y1 + h1 / 2);
-    b += box(3 * (w1 + g1), y1, Wd - 3 * (w1 + g1), h1, '11 BAND LAYERS + DRY', 'band-limited tables');
-    b += elbow(3 * (w1 + g1) + 70, y1 + h1, 85, y2);
-  } else {
-    b += lab(0, 13, 'BUILT WHEN YOU CHANGE PATTERN · SEED · WAVELET');
-    const w1 = 250, g1 = 40;
-    b += box(0, y1, w1, h1, 'ATOM PATTERN', 'PATTERN · SEED\nsets every atom of the 11 bands', 'acc');
-    b += arrow(w1, y1 + h1 / 2, w1 + g1, y1 + h1 / 2);
-    b += box(w1 + g1, y1, w1, h1, 'INVERSE WAVELET TRANSFORM', 'WAVELET · one waveform per band', 'acc');
-    b += arrow(2 * w1 + g1, y1 + h1 / 2, 2 * (w1 + g1), y1 + h1 / 2);
-    b += box(2 * (w1 + g1), y1, Wd - 2 * (w1 + g1), h1, '11 BAND LAYERS', 'each normalised to peak 1\nband-limited tables');
-    b += elbow(2 * (w1 + g1) + 80, y1 + h1, 85, y2);
-  }
-  // row 2: per voice, wavelet part
-  b += lab(0, y2 - 12, 'FOR EVERY VOICE, AT AUDIO RATE');
-  const w2 = E === 'a' ? [170, 250, 230, 180] : [170, 290, 200, 170], xs = [0];
-  for (let i = 1; i < w2.length; i++) xs.push(xs[i - 1] + w2[i - 1] + 10);
-  const r2 = E === 'a'
-    ? [['PLAY AT NOTE PITCH', 'OCTAVE · FINE · GLIDE\nBEND · LFO 1 PITCH'],
-       ['SCALE FILTER', 'one gain per band: TYPE · CUTOFF\nSLOPE · RESO · KEY TRK · VEL AMT\nENV AMT (MOD ENV) · LFO 1 CUTOFF', 'acc'],
-       ['POSITION WINDOW', 'dry ↔ filtered within the cycle\nPOSITION · WIDTH · DEPTH\nLFO 1 POSITION', 'acc'],
-       ['UNISON', 'up to 4 copies per note\nUNISON · DETUNE · STEREO']]
-    : [['PLAY AT NOTE PITCH', 'OCTAVE · FINE · GLIDE\nBEND · LFO 1 PITCH'],
-       ['BAND GAINS', 'DRAWBARS × TILT × SCALE ENVELOPE\n× SCALE FILTER, then ÷ sum of levels\nENV AMT (MOD ENV) · LFO 1 CUTOFF', 'acc'],
-       ['POSITION (FOCUS)', 'band 1 + window ×\nbands 2–11', 'acc'],
-       ['UNISON', 'up to 4 copies per note\nUNISON · DETUNE · STEREO']];
-  r2.forEach(([t, s, k], i) => { b += box(xs[i], y2, w2[i], h2, t, s, k); if (i) b += arrow(xs[i - 1] + w2[i - 1], y2 + h2 / 2, xs[i], y2 + h2 / 2); });
-  const last2 = xs[3] + w2[3] / 2;
-  // row 3: per voice, sub oscillator and amplitude
-  const ws = 330, wa = 230, xa = ws + 40;
-  b += elbow(last2, y2 + h2, ws / 2, y3);
-  b += box(0, y3, ws, h3, '+ SUB OSC', 'one per note, centred, not filtered\nLEVEL · OCT · SHAPE');
-  b += arrow(ws, y3 + h3 / 2, xa, y3 + h3 / 2);
-  b += box(xa, y3, wa, h3, 'AMP ENVELOPE', 'ADSR × VELOCITY');
-  // row 4: all voices
-  b += lab(0, y4 - 12, 'ALL VOICES TOGETHER');
-  // the EFFECTS section's order (beta 0.6 shows the chorus there): saturation, chorus, ping-pong delay, reverb
-  const w4 = [122, 104, 82, 140, 78, 148, 52], x4 = [0]; for (let i = 1; i < w4.length; i++) x4.push(x4[i - 1] + w4[i - 1] + 22);
-  const t4 = ['SUM OF VOICES', 'SATURATION', 'CHORUS', 'PING-PONG DELAY', 'REVERB', 'VOLUME · LIMITER', 'OUT'];
-  b += elbow(xa + wa / 2, y3 + h3, x4[0] + w4[0] / 2, y4);
-  t4.forEach((t1, i) => { b += box(x4[i], y4, w4[i], h4, t1, '', 'fx'); if (i) b += arrow(x4[i - 1] + w4[i - 1], y4 + h4 / 2, x4[i], y4 + h4 / 2); });
-  return svgDoc(Wd, y4 + h4 + 4, b, E === 'a' ? 'Signal flow of engine A' : 'Signal flow of engine B', true);
+  const arrow = (x1, y1, x2, y2) => `<path d="M${f1(x1)},${f1(y1)} L${f1(x2 - 1)},${f1(y2)}" stroke="${SLATE}" stroke-width="1.5" fill="none" marker-end="url(#${id})"/>`;
+  const down = (x, y1, y2) => `<path d="M${f1(x)},${f1(y1)} V${f1(y2 - 1)}" stroke="${SLATE}" stroke-width="1.5" fill="none" marker-end="url(#${id})"/>`;
+  const plain = (x1, y1, x2, y2) => line(x1, y1, x2, y2, SLATE, 1.5);
+  const tag = (x, y, s, anchor) => text(x, y, s, { size: 11, weight: 700, fill: GREY, ls: '0.08em', anchor: anchor || 'start' });
+  const CW = 676, y1 = 36, h1 = 92;
+  // the voice: a dashed frame
+  b += tag(0, 13, 'FOR EVERY NOTE PLAYED: ONE VOICE (UP TO 16)');
+  b += `<rect x="0" y="22" width="${CW}" height="216" rx="10" fill="none" stroke="#c3cad3" stroke-width="1.2" stroke-dasharray="5 4"/>`;
+  const osc = [
+    [12, 'A1 · SUBTRACTIVE', 'WAVE → wavelet transform\nSPARSITY · SOURCE PHASE\nWAVELET · WAVELET MORPH\nSCALE FILTER · POSITION'],
+    [194, 'A2 · SUBTRACTIVE', 'WAVE → wavelet transform\nSPARSITY · SOURCE PHASE\nWAVELET · WAVELET MORPH\nSCALE FILTER · POSITION'],
+    [376, 'B1 · ADDITIVE', 'PATTERN → inverse transform\nDRAWBARS · TILT · WAVELET\nband envelopes\nSCALE FILTER · POSITION'],
+  ];
+  osc.forEach(([x, t, s]) => { b += box(x, y1, 176, h1, t, s, 'acc'); });
+  b += box(558, y1, 106, h1, 'SUB OSC', 'sine · tri · square\n−1 or −2 octaves\nno scale filter');
+  // the bus into OSC MIX
+  const cx = [100, 282, 464, 611], by = y1 + h1, busY = by + 14;
+  cx.forEach(x => { b += plain(x, by, x, busY); });
+  b += plain(cx[0], busY, cx[3], busY);
+  b += down(cx[0], busY, 158);
+  // row 2: the mix, the voice filter, the amp
+  const y2 = 158, h2 = 56;
+  b += box(12, y2, 176, h2, 'OSC MIX', 'levels of A1 · A2 · B1\nand the SUB OSC');
+  b += arrow(188, y2 + h2 / 2, 216, y2 + h2 / 2);
+  b += box(216, y2, 230, h2, 'FILTER (LADDER | OTA)', 'four-pole low-pass on frequencies\nFILTER ENVELOPE · open by default');
+  b += arrow(446, y2 + h2 / 2, 474, y2 + h2 / 2);
+  b += box(474, y2, 190, h2, 'AMP ENVELOPE', 'ADSR × velocity');
+  b += text(12, 229, 'UNISON: up to four detuned, spread copies of every oscillator, inside the voice', { size: 11, fill: MUT });
+  // the modulation box
+  const mx = 692, mw = Wd - mx;
+  b += rect(mx, 22, mw, 216, FAINT, { rx: 10, stroke: '#c3cad3', sw: 1.2 });
+  b += text(mx + mw / 2, 44, 'MODULATION', { anchor: 'middle', size: 12.5, weight: 700, fill: TXT, ls: '0.02em' });
+  ['AMP · MOD · FILTER', 'envelopes', '', 'own and pitch envelope', 'of each oscillator', '', 'LFO 1 · LFO 2 · LFO 3', '', 'velocity · mod wheel', 'pitch bend · keyboard'].forEach((ln, i) => { if (ln) b += text(mx + mw / 2, 66 + i * 15.5, ln, { anchor: 'middle', size: 11.2, fill: i === 0 || i === 6 ? TXT : MUT, weight: i === 0 || i === 6 ? 600 : 400 }); });
+  b += `<path d="M${mx},130 L${CW + 1},130" stroke="${SLATE}" stroke-width="1.5" stroke-dasharray="4 3" fill="none" marker-end="url(#${id})"/>`;
+  b += tag(Wd, 258, 'ALL VOICES TOGETHER', 'end');
+  // row 3: the voices added, the effects, the output
+  const y3 = 280, h3 = 40;
+  const w3 = [124, 100, 78, 136, 76, 150, 48], t3 = ['SUM OF VOICES', 'SATURATION', 'CHORUS', 'PING-PONG DELAY', 'REVERB', 'VOLUME · LIMITER', 'OUT'];
+  const x3 = [0]; for (let i = 1; i < w3.length; i++) x3.push(x3[i - 1] + w3[i - 1] + 20);
+  b += `<path d="M569,${y2 + h2} V262 H${f1(x3[0] + w3[0] / 2)} V${y3 - 1}" stroke="${SLATE}" stroke-width="1.5" fill="none" marker-end="url(#${id})"/>`;
+  t3.forEach((t, i) => { b += box(x3[i], y3, w3[i], h3, t, '', 'fx'); if (i) b += arrow(x3[i - 1] + w3[i - 1], y3 + h3 / 2, x3[i], y3 + h3 / 2); });
+  SNIPS[`path-${E}`] = svgDoc(Wd, y3 + h3 + 4, b, 'Signal path: three wavelet oscillators and a sub oscillator, the voice filter and amp envelope, then the effects, volume and limiter', true);
 }
-for (const E of ['a', 'b']) SNIPS[`flow-${E}`] = flow(E);
 
 module.exports = { SNIPS };

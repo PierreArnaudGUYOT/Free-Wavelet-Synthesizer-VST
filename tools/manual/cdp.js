@@ -40,7 +40,7 @@ async function capture(jobs) {
     send = (method, params = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
     await send('Page.enable'); await send('Runtime.enable');
     for (const j of jobs) {
-      const W = j.w || 1124, H = j.h || 782;
+      const W = j.w || 1124, H = j.h || 902;
       await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: j.dsf || 1.5, mobile: false });
       await send('Page.navigate', { url: 'about:blank' }); await sleep(150);   // force a real reload (hash-only URLs)
       await send('Page.navigate', { url: j.url });

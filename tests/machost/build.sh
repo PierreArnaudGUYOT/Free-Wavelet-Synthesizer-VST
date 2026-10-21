@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Builds the macOS test host (universal, so that it also runs the Intel half of the plug-in under Rosetta).
 #   tests/machost/build.sh  ->  build/mac/machost
-#   build/mac/machost build/mac/WaveletSynthesizer.vst3 <outdir>          (Apple silicon)
-#   arch -x86_64 build/mac/machost build/mac/WaveletSynthesizer.vst3 <outdir>   (Intel half)
+#   build/mac/machost build/mac/OktoMultiWaveSynth.vst3 <outdir>          (Apple silicon)
+#   arch -x86_64 build/mac/machost build/mac/OktoMultiWaveSynth.vst3 <outdir>   (Intel half)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"

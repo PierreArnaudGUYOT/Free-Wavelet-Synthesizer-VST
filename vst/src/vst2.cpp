@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
 // VST2 entry point (VSTPluginMain), so that the same DLL also loads from a host's VST2 plug-in folder.
 // It hosts the VST3 processor and controller of plugin.cpp in-process: same sound engine, editor, presets and state.
 // The VST 2.4 declarations below are written from the publicly documented binary layout; no file of
@@ -223,7 +223,7 @@ class Instance {
     fx.numPrograms = kNumPresets; fx.numParams = kNumParams; fx.numInputs = 0; fx.numOutputs = 2;
     fx.flags = vst2::effFlagsHasEditor | vst2::effFlagsCanReplacing | vst2::effFlagsProgramChunks | vst2::effFlagsIsSynth;
     fx.ioRatio = 1.0f; fx.object = this;
-    fx.uniqueID = ('O' << 24) | ('k' << 16) | ('W' << 8) | 'v';
+    fx.uniqueID = ('O' << 24) | ('k' << 16) | ('M' << 8) | 'W';   // Okto MultiWave Synth (the Wavelet Synthesizer is 'OkWv')
     fx.version = 100;   // 0.1.0
 
     comp = newProcessor(); ctrl = newController();
@@ -336,12 +336,22 @@ class Instance {
     bus.numChannels = 2; bus.channelBuffers32 = out;
     d.numOutputs = out ? 1 : 0; d.outputs = out ? &bus : nullptr;
     d.inputParameterChanges = &changes; d.inputEvents = &events;
+    outChanges.count = 0; d.outputParameterChanges = &outChanges;
     // beta 0.6: the host's tempo, as a VST3 host gives it (the tempo sync of the delay and the LFOs)
     ProcessContext pc{};
     const auto* ti = (const vst2::TimeInfo*)host(&fx, vst2::audioMasterGetTime, 0, vst2::kTempoValid, nullptr, 0);
     if (ti && (ti->flags & vst2::kTempoValid) && ti->tempo > 0) { pc.state = ProcessContext::kTempoValid; pc.tempo = ti->tempo; d.processContext = &pc; }
     proc->process(d);
     events.count = 0;
+    // Okto MultiWave Synth: a parameter the processor changed itself (the chord type from a selector key): the host's value, the
+    // controller (on the UI thread, syncController) and the host's automation follow
+    for (int32_t i = 0; i < outChanges.count; i++) {
+      const int id = (int)outChanges.queues[i].id;
+      if (id < 0 || id >= kNumParams) continue;
+      const float v = (float)outChanges.queues[i].value;
+      norm[id].store(v); toCtrl[id].store(true);
+      if (!quietEdits) host(&fx, vst2::audioMasterAutomate, id, 0, nullptr, v);
+    }
   }
 
   void processReplacing(float** outputs, int32_t n) {
@@ -517,6 +527,7 @@ class Instance {
   Handler handler;
   Frame frame;
   ParamChanges changes;
+  ParamChanges outChanges;   // Okto MultiWave Synth: the processor's own changes (a selector key chose the chord type)
   EventList events;
   std::atomic<float> norm[kNumParams];
   std::atomic<bool> toProc[kNumParams], toCtrl[kNumParams];

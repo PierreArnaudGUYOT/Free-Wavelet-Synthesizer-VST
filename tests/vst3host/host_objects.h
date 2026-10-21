@@ -331,7 +331,7 @@ public:
 	tresult PLUGIN_API getName (String128 name) override
 	{
 		noteCallbackThread ("IHostApplication::getName");
-		toS16 ("vst3host (Wavelet Synthesizer test host)", name, 128);
+		toS16 ("vst3host (Okto MultiWave Synth test host)", name, 128);
 		return kResultTrue;
 	}
 

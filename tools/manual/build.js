@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Builds the user manuals web/manual/manual-a.html and manual-b.html, and the SVG figures in
+// Builds the user manuals web/manual/manual-a.html (subtractive oscillators A1 A2) and manual-b.html (additive B1), and the SVG figures in
 // web/manual/img/, from the single source of truth (tools/spec.js -> web/js/spec.js) and the DSP
 // reference (web/js/core.js). Ranges, defaults, host names, preset tables, sparsity counts and
 // all plots are computed, never typed by hand.
@@ -14,8 +14,7 @@ const OUT = path.join(L.ROOT, 'web', 'manual');
 
 const which = process.argv.slice(2).filter(x => /^[ab]$/i.test(x)).map(x => x.toLowerCase());
 for (const m of (which.length ? which : ['a', 'b'])) {
-  const M = require('./eng' + m.toUpperCase() + '.js');
-  const html = L.page(M);
+  const html = L.page(require('./mw.js').manual(m));
   fs.writeFileSync(path.join(OUT, 'manual-' + m + '.html'), html);
   console.log('manual-' + m + '.html', (html.length / 1024).toFixed(0) + ' kB');
 }

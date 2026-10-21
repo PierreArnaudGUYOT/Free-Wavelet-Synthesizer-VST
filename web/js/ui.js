@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre). Release beta 0.1.
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.7). Release beta 0.2.
 // Panel UI built from WS_SPEC (same layout as the VST editor).
 'use strict';
 
@@ -9,9 +9,14 @@ const noteName = n => NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1);
 const KB_LO = 36, KB_HI = 96;
 const isBlack = n => [1, 3, 6, 8, 10].includes(n % 12);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const hexRGB = (hex) => { const n = parseInt(hex.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };   // '#ff7b4a' -> [255, 123, 74]
+// A preset name: an optional number (the new presets, "012 ", "1000 "), the letters of its engine(s) or oscillators ("A", "AB", "A1B1"), " · ", its title
+const splitName = (name) => { const m = /^(\d{3,4} )?((?:[AB][12]?)+) · (.*)$/.exec(name); return m ? { num: m[1] || '', eng: m[2], title: m[3] } : null; };
+// the letters in their colours: A teal, B orange (the digits stay dim)
+const engHTML = (eng) => eng.replace(/[AB]/g, c => `<span class="${c.toLowerCase()}">${c}</span>`).replace(/[12]/g, d => `<span class="d">${d}</span>`);
 const SVGNS = 'http://www.w3.org/2000/svg';
 // beta 0.6: where the free plug-in is published (the header's DOWNLOAD VST; index.html's welcome window links there too)
-const VST_RELEASES = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases';
+const VST_RELEASES = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest';   // the official release page (version 1.0.3: the Free-Wavelet-Synthesizer-VST repository)
 
 function el(tag, cls, parent, style) {
   const e = document.createElement(tag);
@@ -34,6 +39,14 @@ function arcPath(cx, cy, r, a0, a1) {
   return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${large} ${sweep} ${x1.toFixed(2)},${y1.toFixed(2)}`;
 }
 
+// Okto MultiWave Synth: a rounded rectangle path (the pads, the displays of the chord card)
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+}
 function pill(ctx, text, x, y, align, color) {
   ctx.font = '600 9.5px Segoe UI, system-ui, sans-serif';
   const w = ctx.measureText(text).width + 8, x0 = align === 'right' ? x - w + 4 : x - 4;
@@ -51,7 +64,9 @@ class SynthUI {
     this.canvases = [];
     this.sections = [];
     this.scale = 1;
-    this.mode = 0;
+    this.mode = 0; this.view = 0;   // the oscillator shown (A1 A2 B1) and its engine
+    this.orient = false;            // beta 0.3.4: the oriental colour code (TUNING ARAB or TURK)
+    this.chordOn = false;           // CHORD MODE: the chord card is shown and the panel is taller
     this.live = null;
     this.tip = el('div', 'tip', document.body, { display: 'none' });
     this.atomCache = new Map();
@@ -61,7 +76,7 @@ class SynthUI {
     // "#nobrowser" in the address leaves it out (the manual's screenshots of the panel alone).
     this.browserOn = !/nobrowser/.test(location.hash);
     this.bOpen = this.browserOn;
-    try { if (localStorage.getItem('ws.browser') === 'closed') this.bOpen = false; } catch (_) { /* storage unavailable */ }
+    try { if (localStorage.getItem('mw.browser') === 'closed') this.bOpen = false; } catch (_) { /* storage unavailable */ }
     this.build();
     if (this.browserOn) this.makeBrowser();
     window.addEventListener('resize', () => this.fit());
@@ -72,16 +87,20 @@ class SynthUI {
 
   // ------------------------------------------------------------------ building
   build() {
+    this.orientVars(this.dev);
     for (const s of this.SPEC.SECTIONS) {
       const card = s.title !== '';
-      const se = el('div', 'section' + (card ? ' card' : ''), this.dev, { left: s.x + 'px', top: s.y + 'px', width: s.w + 'px', height: s.h + 'px' });
+      const se = el('div', 'section' + (card ? ' card' : '') + (s.vtitle ? ' vt' : '') + (s.tabbed ? ' tabbed' : ''), this.dev, { left: s.x + 'px', top: s.y + 'px', width: s.w + 'px', height: s.h + 'px' });
       if (card) {
         const t = el('div', 'title', se);
         const parts = s.title.split(' · ');
-        t.innerHTML = parts.length > 1 ? `<b>${parts[0]}</b> · ${parts.slice(1).join(' · ')}` : s.title;
+        t.innerHTML = parts.length > 1 ? `<b>${parts[0]}</b> · ${parts.slice(1).join(' · ')}` : s.accentTitle ? `<b>${s.title}</b>` : s.title;   // beta 0.3.3: vtitle = a vertical strip at the left
       }
+      se.dataset.sid = s.id;   // beta 0.3: addressable by the layout mock-ups (tools of the owner's review)
+      if (s.id === 'play') this.orientPattern(se, s);   // beta 0.3.4: the PLAY card's oriental pattern (shown while TUNING is ARAB or TURK)
       this.sections.push({ spec: s, el: se });
       for (const w of s.widgets) this.makeWidget(w, se, s);
+      this.sections[this.sections.length - 1].canvases = this.canvases.filter(c => c.sec === s);
     }
   }
 
@@ -111,10 +130,15 @@ class SynthUI {
     // widgets they replace (`vis`) are therefore always shown: RATE in hertz, the delay TIME in seconds.
     if (w.only === 'vst') return;
     const box = el('div', 'w ' + w.type, parent, { left: w.x + 'px', top: w.y + 'px', width: w.w + 'px', height: w.h + 'px' });
-    const ab = { x: sec.x + w.x, y: sec.y + w.y };
+    const ab = { x: sec.x + w.x, y: sec.y + w.y, sec };
+    // beta 0.2: a widget that shows only while a performance setting is on (BASS and the MAQAM / TONIC of the oriental tuning). The plug-in's
+    // SYNC twins are not concerned: they keep the "always shown" rule above
+    if (w.vis && this.params[this.P[w.vis]].perf) (this.visWidgets || (this.visWidgets = [])).push({ box, i: this.P[w.vis], on: !!w.visOn });
     switch (w.type) {
       case 'knobL': case 'knobM': case 'knobS': case 'knobT': return this.knob(w, box);
       case 'seg': return this.seg(w, box);
+      case 'osctabs': return this.oscTabs(w, box, parent);   // beta 0.3: the folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 and the frame of the oscillator cards
+      case 'lfotabs': return this.lfoTabs(w, box);   // beta 0.3.4: the LFO 2 | LFO 3 tabs along the top of the LFO 2/3 card
       case 'step': return this.step(w, box);
       case 'menu': return this.menu(w, box);
       case 'drawbar': return this.drawbar(w, box);
@@ -131,10 +155,11 @@ class SynthUI {
         const a = el('a', 'hbtn dl', box, { width: '100%', height: '100%' });
         a.href = VST_RELEASES; a.target = '_blank'; a.rel = 'noopener';
         a.innerHTML = 'DOWNLOAD<b>VST</b>';
-        a.title = 'Download the free VST plug-in (Windows VST3 / VST2, macOS VST3) from GitHub';
+        a.title = 'Download the free VST plug-in (Windows VST3 / VST2) from GitHub';
         return;
       }
-      case 'label': box.classList.add('wlabel'); box.textContent = w.text; return;
+      case 'label': box.classList.add('wlabel'); el('span', '', box).textContent = w.text; return;   // (a span: the oriental PLAY card puts the caption on a plate)
+      case 'toggle': return this.toggle(w, box);   // Okto MultiWave Synth: the web app shows toggles too (CHORD ON, BASS)
       case 'zoom': return;
       case 'credit': {
         // beta 0.7: "By OktoPierre · version · licence" at the bottom left, small and discreet as before beta 0.6
@@ -152,7 +177,7 @@ class SynthUI {
   knob(w, box) {
     const i = this.P[w.param], p = this.params[i];
     const big = w.type === 'knobL', small = w.type === 'knobS', tiny = w.type === 'knobT';
-    const d = big ? 56 : small ? 30 : tiny ? 26 : 38, cx = w.w / 2, cy = big ? 32 : small ? 18 : tiny ? 15 : 20, r = d / 2;
+    const d = big ? 42 : small ? 30 : tiny ? 26 : 38, cx = w.w / 2, cy = big ? 22 : small ? 18 : tiny ? 15 : 20, r = d / 2;   // beta 0.3.4: the big knobs are 42 px discs (were 56)
     box.classList.add('knob');
     box.title = p.name;
     const s = svg('svg', { width: w.w, height: w.h }, box);
@@ -166,10 +191,10 @@ class SynthUI {
     const val = svg('path', { d: '', stroke: 'var(--accent)', 'stroke-width': thin ? 2.5 : 3, fill: 'none', 'stroke-linecap': 'round' }, s);
     svg('circle', { cx, cy, r: r - 1, fill: `url(#${id})`, stroke: '#0b0d10', 'stroke-width': 1.5 }, s);
     svg('circle', { cx, cy, r: r - 4, fill: 'none', stroke: 'rgba(255,255,255,0.05)', 'stroke-width': 1 }, s);
-    const ptr = svg('line', { x1: cx, y1: cy - r * 0.25, x2: cx, y2: cy - r + 4, stroke: '#eef2f7', 'stroke-width': big ? 3 : tiny ? 2 : 2.2, 'stroke-linecap': 'round' }, s);
+    const ptr = svg('line', { x1: cx, y1: cy - r * 0.25, x2: cx, y2: cy - r + 4, stroke: '#eef2f7', 'stroke-width': big ? 2.6 : tiny ? 2 : 2.2, 'stroke-linecap': 'round' }, s);
     let label = null;
     if (!small) {
-      label = el('div', 'label', box, { top: (big ? 70 : tiny ? 33 : 43) + 'px', fontSize: big ? '10.5px' : tiny ? '8.5px' : '' });
+      label = el('div', 'label', box, { top: (big ? 48 : tiny ? 33 : 43) + 'px', fontSize: tiny ? '8.5px' : '' });
       label.textContent = p.short;
     }
     const bip = p.min < 0 && p.max > 0;
@@ -184,8 +209,10 @@ class SynthUI {
         if (label) {
           const showVal = widget.hover || widget.drag;
           // style 'value' (beta 0.6): the value is the label (a note value says more than "TIME")
-          label.textContent = showVal || w.style === 'value' ? this.C.format(p, v) : p.short;
-          label.classList.toggle('value', !!showVal);
+          // style 'choice' (beta 0.3.4, the LFO SHAPE): a knob with a few positions, its choice (SINE TRI SAW SQR S&H) written under it in the accent colour
+          const named = w.style === 'choice';
+          label.textContent = named ? p.choiceShort[Math.round(v - p.min)] : showVal || w.style === 'value' ? this.C.format(p, v) : p.short;
+          label.classList.toggle('value', named || !!showVal);
         }
         if (small && (widget.hover || widget.drag)) this.showTip(box, `${p.name}: <b>${this.C.format(p, v)}</b>`);
       },
@@ -256,6 +283,7 @@ class SynthUI {
     const i = this.P[w.param], p = this.params[i];
     box.classList.add('seg');
     if (w.style === 'engine') box.classList.add('engine');
+    if (w.style === 'uline') box.classList.add('uline');   // beta 0.3.4: the LFO 1 wave selector, underlined
     const btns = p.choiceShort.map((label, k) => {
       const b = el('button', '', box);
       b.textContent = label;
@@ -266,6 +294,75 @@ class SynthUI {
     const widget = { w, p, i, el: box, update: () => { const v = Math.round(this.host.get(i)); btns.forEach((b, k) => b.classList.toggle('on', k === v)); } };
     this.reg(w.param, widget);
     widget.update();
+  }
+
+  showOsc(v) { const i = this.P.osc_view; this.host.begin(i); this.host.set(i, v); this.host.end(i); }
+
+  // beta 0.3: the three folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 above the cards of the oscillator shown, and the frame round those cards in the colour of its
+  // engine. The frame is an L: OSC MIX and the SCOPE are common to every oscillator and sit outside it, at the top right. A lit dot says the oscillator is
+  // heard (its level is above 0).
+  oscTabs(w, box, sec) {
+    const i = this.P[w.param], SL = this.SPEC.SLOTS, S = this.SPEC.SECTIONS, g = id => S.find(q => q.id === id);
+    box.classList.add('osctabs');
+    const me = g('oscframe'), tone = g('tone_' + SL[0].id), mix = g('mix'), flt = g('filter_' + SL[0].id);
+    // the notch: half way between the tone card and OSC MIX, half way between the bottom of OSC MIX / SCOPE and the second row (section coordinates)
+    const W = me.w, H = me.h, r = 12, x0 = 0.5, x1 = W - 0.5, y0 = 38.5, y1 = H - 0.5;
+    const xn = (tone.x + tone.w + mix.x) / 2 - me.x, yn = (mix.y + mix.h + flt.y) / 2 - me.y;
+    const NSVG = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NSVG, 'svg');
+    svg.setAttribute('class', 'oscframe'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    const path = document.createElementNS(NSVG, 'path');
+    path.setAttribute('d', `M${x0},${y0} H${xn - r} Q${xn},${y0} ${xn},${y0 + r} V${yn - r} Q${xn},${yn} ${xn + r},${yn} H${x1 - r} Q${x1},${yn} ${x1},${yn + r} ` +
+      `V${y1 - r} Q${x1},${y1} ${x1 - r},${y1} H${x0 + r} Q${x0},${y1} ${x0},${y1 - r} Z`);
+    svg.appendChild(path);
+    sec.insertBefore(svg, sec.firstChild);
+    const tabs = SL.map((sl, s) => {
+      const b = el('button', 'otab ' + (sl.mode === 0 ? 'ea' : 'eb'), box);
+      b.style.left = (s * 182) + 'px';
+      el('span', 'dot', b);
+      el('span', 'tx', b).innerHTML = '<span class="t1">OSC' + (s + 1) + ' ' + sl.name + '</span><span class="t2">' + (sl.mode === 0 ? 'SUBTRACTIVE' : 'ADDITIVE') + '</span>';
+      b.title = 'Show the oscillator ' + sl.name + ' (a lit dot: it is heard, its level in OSC MIX is above 0)';
+      b.onclick = () => this.showOsc(s);
+      return { b, s, sl };
+    });
+    const update = () => {
+      const v = Math.round(this.host.get(i));
+      for (const t of tabs) {
+        t.b.classList.toggle('on', t.s === v);
+        t.b.classList.toggle('heard', this.host.get(t.sl.k.lvl) > 0);
+      }
+    };
+    const widget = { w, p: this.params[i], i, el: box, update };
+    this.reg(w.param, widget);
+    for (const sl of SL) {   // the dots follow the levels
+      if (!this.byParam.has(sl.k.lvl)) this.byParam.set(sl.k.lvl, []);
+      this.byParam.get(sl.k.lvl).push({ update });
+    }
+    update();
+  }
+
+  // beta 0.3.4: the LFO 2 | LFO 3 tabs along the top of the LFO 2/3 card (the parameter lfo_view; the card of the LFO shown is the one visible): the tab of the LFO shown is
+  // filled with the accent colour, a lit dot says the LFO is heard (its amount is not 0). The bar also holds the plug-in's SYNC button (not in the web app: no tempo here).
+  lfoTabs(w, box) {
+    const i = this.P[w.param], amts = [this.P.lfo2_amt, this.P.lfo3_amt];
+    box.classList.add('lfotabs');
+    el('div', 'tabbar', box);
+    const tabs = [0, 1].map(k => {
+      const b = el('button', 'ltab', box, { left: (6 + k * 60) + 'px' });
+      el('span', 'dot', b);
+      el('span', 'tx', b).innerHTML = '<span class="t1">LFO ' + (k + 2) + '</span>';
+      b.title = 'Show LFO ' + (k + 2) + ' (a lit dot: its amount is not 0)';
+      b.onclick = () => { this.host.begin(i); this.host.set(i, k); this.host.end(i); };
+      return b;
+    });
+    const update = () => {
+      const v = Math.round(this.host.get(i));
+      tabs.forEach((b, k) => { b.classList.toggle('on', k === v); b.classList.toggle('heard', Math.abs(this.host.get(amts[k])) > 0.001); });
+    };
+    const widget = { w, p: this.params[i], i, el: box, update };
+    this.reg(w.param, widget);
+    for (const a of amts) { if (!this.byParam.has(a)) this.byParam.set(a, []); this.byParam.get(a).push({ update }); }   // the dots follow the amounts
+    update();
   }
 
   step(w, box) {
@@ -292,7 +389,7 @@ class SynthUI {
     const i = this.P[w.param], p = this.params[i];
     box.classList.add('menu');
     box.title = p.name;
-    if (w.text) el('div', 'mcap', box).textContent = w.text;   // beta 0.6: its caption above it
+    if (w.text) el('span', '', el('div', 'mcap', box)).textContent = w.text;   // beta 0.6: its caption above it (a span: the oriental PLAY card puts it on a plate)
     const btn = el('button', '', box);
     const set = (k) => { this.host.begin(i); this.host.set(i, k); this.host.end(i); };
     const close = () => { if (this.mpop) { this.mpop.remove(); this.mpop = null; } };
@@ -316,7 +413,8 @@ class SynthUI {
       e.preventDefault();
       set(clamp(Math.round(this.host.get(i)) + (e.deltaY < 0 ? -1 : 1), p.min, p.max));
     }, { passive: false });
-    const widget = { w, p, i, el: box, update: () => { btn.innerHTML = `${p.choiceShort[Math.round(this.host.get(i))]}<span>▾</span>`; } };
+    // (beta 0.3.4: the TARGET menu is only 80 px wide: a name that does not fit is cut with an ellipsis)
+    const widget = { w, p, i, el: box, update: () => { btn.innerHTML = `<i>${p.choiceShort[Math.round(this.host.get(i))]}</i><span>▾</span>`; } };
     this.reg(w.param, widget);
     widget.update();
   }
@@ -349,7 +447,7 @@ class SynthUI {
     const mark = el('div', 'mark', box);
     mark.innerHTML = '<svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 16h5l3-9 4 18 4-13 3 7h7" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
     const t = el('div', 'txt', box);
-    t.innerHTML = '<b>OKTOWAVE</b><span>WAVELET SYNTHESIZER</span>';   // beta 0.3
+    t.innerHTML = '<b>OKTOWAVE</b><span>FRACTAL WAVELET SYNTHESIZER</span>';   // version 1.0 (the product's name in the header)
   }
 
   presets(box) {
@@ -366,7 +464,13 @@ class SynthUI {
   }
   setPresetName(nm, dirty) {
     if (this.presetNameEl) this.presetNameEl.innerHTML = `<span>${nm.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>${dirty ? '<span class="dirty" title="Modified">•</span>' : ''}<span class="chev">▼</span>`;
-    if (this.browser) this.renderBrowser();   // the sound playing is highlighted there
+    if (this.browser) {
+      // beta 0.2: a new sound (the preset box, its arrows, a MIDI program change, the demo) shows its bank in the browser, so that the
+      // sound selected is always seen there; a knob moved on the same sound leaves the bank the player is looking at
+      const cur = this.host.presetList().find(x => x.current), id = cur ? cur.id : null;
+      if (id !== this.bShown) { this.bShown = id; this.bReveal(); }
+      this.renderBrowser();   // the sound playing is highlighted there
+    }
   }
   togglePresetMenu(box) {
     if (this.pmenu) { this.closePresetMenu(); return; }
@@ -400,11 +504,12 @@ class SynthUI {
       }
       const it = el('div', 'it' + (item.current ? ' cur' : ''), body);
       const n = el('span', '', it);
-      const mm = /^(AB|A|B) · (.*)$/.exec(item.name);   // engine letters in their colours (AB = both engines mixed)
+      const mm = splitName(item.name);   // the number (new presets), the engine letters in their colours (AB = both engines mixed)
       if (mm) {
+        if (mm.num) n.appendChild(document.createTextNode(mm.num));
         const e = el('b', 'eng', n);
-        for (const ch of mm[1]) el('span', ch.toLowerCase(), e).textContent = ch;
-        n.appendChild(document.createTextNode(mm[2]));
+        e.innerHTML = engHTML(mm.eng);
+        n.appendChild(document.createTextNode(' · ' + mm.title));
       } else n.textContent = item.name;
       if (item.deletable) {
         const d = el('span', 'del', it); d.textContent = '✕'; d.title = 'Delete user preset';
@@ -423,10 +528,12 @@ class SynthUI {
     const screen = ['scope', 'scalogram', 'atom', 'source', 'window', 'adsr'].includes(w.type);
     if (screen) box.classList.add('screen');
     const cv = el('canvas', 'disp', box);
-    const c = { w, box, cv, ctx: cv.getContext('2d'), ab, dirty: true };
+    const c = { w, box, cv, ctx: cv.getContext('2d'), ab, sec: ab.sec, dirty: true };
     this.canvases.push(c);
     if (w.type === 'keyboard') this.keyboardInput(c);
     if (w.type === 'wheels') this.wheelInput(c);
+    if (w.type === 'chordpads') this.padsInput(c);     // Okto MultiWave Synth
+    if (w.type === 'strumplate') this.plateInput(c);
   }
 
   sizeCanvases() {
@@ -443,11 +550,13 @@ class SynthUI {
 
   fit() {
     const stage = this.dev.parentElement;
+    const DH = this.SPEC.DEVICE.h + (this.chordOn ? this.SPEC.CHORD_H : 0);   // CHORD MODE adds the chord card
     const W = 1100 + (this.browser && this.bOpen ? 360 : 0);   // the panel, and the preset browser at its right
     const aw = stage.clientWidth - 24, ah = stage.clientHeight - 24;
-    const s = clamp(Math.min(aw / W, ah / 720), 0.45, 2.5);
+    const s = clamp(Math.min(aw / W, ah / DH), 0.45, 2.5);
     this.scale = s;
-    const left = Math.max(0, (stage.clientWidth - W * s) / 2), top = Math.max(0, (stage.clientHeight - 720 * s) / 2);
+    const left = Math.max(0, (stage.clientWidth - W * s) / 2), top = Math.max(0, (stage.clientHeight - DH * s) / 2);
+    this.dev.style.height = DH + 'px';
     this.dev.style.transform = `scale(${s})`;
     this.dev.style.left = left + 'px';
     this.dev.style.top = top + 'px';
@@ -468,7 +577,7 @@ class SynthUI {
   // Selection only: saving stays in the status bar (Save preset / Export / Import).
   bLists() {
     const S = this.SPEC, P = S.PRESETS;
-    const lists = [{ label: 'TOP Sounds', presets: [...Array(Math.min(S.TOP, P.length)).keys()] }];
+    const lists = [{ label: 'TOP Sounds', presets: S.TOP_LIST.slice() }];   // (version 1.0.3: the list of the plug-in, the best first)
     for (const c of S.CATEGORIES) {
       const l = [];
       for (let k = 0; k < P.length; k++) if (P[k].cat === c) l.push(k);
@@ -503,6 +612,7 @@ class SynthUI {
       '(a click on the preset name brings it back)">HIDE ▸</button></div><div class="btabs"><button data-t="0"></button><button data-t="1"></button></div>' +
       '<div class="bcols"><div class="bcats"></div><div class="bright"><div class="bhd"></div><div class="blist"></div></div></div><div class="bstatus"></div>';
     this.browser = b;
+    this.orientVars(b);   // beta 0.3.4: the oriental colour code reaches the browser too
     this.bTab = 0; this.bCat = 0;
     b.querySelector('.bhide').onclick = () => this.setBrowser(false);
     b.querySelectorAll('.btabs button').forEach(t => { t.onclick = () => { this.bTab = +t.dataset.t; this.bCat = 0; if (this.bTab === 0) this.bReveal(); this.renderBrowser(); }; });
@@ -511,7 +621,7 @@ class SynthUI {
   }
   setBrowser(open) {
     this.bOpen = open;
-    try { localStorage.setItem('ws.browser', open ? 'open' : 'closed'); } catch (_) { /* storage unavailable */ }
+    try { localStorage.setItem('mw.browser', open ? 'open' : 'closed'); } catch (_) { /* storage unavailable */ }
     if (open) { this.bReveal(); this.renderBrowser(); }
     this.fit();
   }
@@ -544,7 +654,7 @@ class SynthUI {
       r.onclick = () => { this.bCat = i; this.renderBrowser(); };
     });
     const items = this.bTab === 0
-      ? (lists[this.bCat] || lists[0]).presets.map(k => ({ id: 'f:' + k, name: P[k].name, fav: k < this.SPEC.TOP, stars: P[k].stars || 0 }))
+      ? (lists[this.bCat] || lists[0]).presets.map(k => ({ id: 'f:' + k, name: P[k].name, fav: this.bCat !== 0 && this.SPEC.TOP_LIST.includes(k), stars: P[k].stars || 0 }))   // (the TOP Sounds mark is not repeated in the TOP Sounds list itself)
       : user.map(x => ({ id: x.id, name: x.name, fav: false, stars: 0 }));
     b.querySelector('.bhd').textContent = `${(this.bTab === 0 ? (lists[this.bCat] || lists[0]).label : 'My presets').toUpperCase()}  ·  ${items.length}`;
     const list = b.querySelector('.blist');
@@ -553,11 +663,11 @@ class SynthUI {
     let curRow = null;
     for (const it of items) {
       const r = el('div', 'bsnd' + (cur && cur.id === it.id ? ' cur' : ''), list);
-      const m = /^(A|B|AB) · (.*)$/.exec(it.name);
-      const eng = m ? `<span class="eng">${m[1].split('').map(c => `<span class="${c.toLowerCase()}">${c}</span>`).join('')} · </span>` : '';
-      const mark = it.fav ? '<span class="mk" title="In TOP Sounds, OktoPierre’s selection">★</span>'
-        : it.stars ? `<span class="mk vote" title="OktoPierre’s vote in his listening test">${it.stars} ★</span>` : '';
-      r.innerHTML = `${eng}<span class="nm">${esc(m ? m[2] : it.name)}</span>${mark}`;
+      const m = splitName(it.name);
+      const eng = m ? `${esc(m.num)}<span class="eng">${engHTML(m.eng)} · </span>` : '';
+      const mark = (it.fav ? '<span class="mk" title="In TOP Sounds, OktoPierre’s selection">★</span>' : '')
+        + (it.stars ? `<span class="rate" title="OktoPierre’s rating: ${it.stars} / 10 (shown, not editable)" style="--r:${it.stars * 10}%">★★★★★</span>` : '');   // (version 1.0.3: his stars, 1 to 10 as five stars with half stars, read only)
+      r.innerHTML = `${eng}<span class="nm">${esc(m ? m.title : it.name)}</span>${mark}`;
       r.title = it.name;
       r.onclick = () => this.host.loadPreset(it.id);
       if (cur && cur.id === it.id) curRow = r;
@@ -581,34 +691,59 @@ class SynthUI {
   refresh(i) {
     const ws = this.byParam.get(i);
     if (ws) for (const w of ws) w.update();
-    if (i === this.P.engine) this.setMode(Math.round(this.host.get(i)));
+    if (i === this.P.osc_view) this.setView(Math.round(this.host.get(i)));
+    if (i === this.P.lfo_view) for (const sc of this.sections) sc.el.classList.toggle('hidden', this.secHidden(sc.spec));   // beta 0.3: LFO 2 | LFO 3
+    if (i === this.P.mt_mode) this.updateOrient();   // beta 0.3.4: the oriental colour code
+    if (i === this.P.chord_mode) { this.chordOn = this.host.get(i) >= 0.5; this.setView(this.view); this.fit(); }
+    this.applyWidgetVis(i);
     this.updateEnables();
     for (const c of this.canvases) c.dirty = true;
   }
   refreshAll() {
     for (const [, ws] of this.byParam) for (const w of ws) w.update();
-    this.setMode(Math.round(this.host.get(this.P.engine)));
+    this.chordOn = this.host.get(this.P.chord_mode) >= 0.5;
+    this.updateOrient();
+    this.setView(Math.round(this.host.get(this.P.osc_view)));
+    this.applyWidgetVis();
+    this.fit();
     this.updateEnables();
     for (const c of this.canvases) c.dirty = true;
   }
-  setMode(m) {
-    this.mode = m;
+  // the widgets that depend on a performance setting (only the ones of parameter i when given)
+  applyWidgetVis(i) {
+    for (const x of this.visWidgets || []) if (i === undefined || x.i === i) x.box.style.display = (this.host.get(x.i) >= 0.5) === x.on ? '' : 'none';
+  }
+  // the oscillator shown (0..2 = A1 A2 B1): the cards of the other oscillators and a hidden chord card are not shown
+  setView(v) {
+    const m = this.SPEC.SLOTS[v].mode;
+    this.view = v; this.mode = m;
     this.dev.classList.toggle('mode-a', m === 0);
     this.dev.classList.toggle('mode-b', m === 1);
     if (this.browser) this.browser.classList.toggle('mode-b', m === 1);
-    if (this.manualBtn) this.manualBtn.title = m === 1 ? 'Engine B user manual — wavelet additive (engine B is shown)' : 'Engine A user manual — wavelet subtractive (engine A is shown)';
-    for (const s of this.sections) {
-      const hide = (s.spec.mode === 'A' && m !== 0) || (s.spec.mode === 'B' && m !== 1);
-      s.el.classList.toggle('hidden', hide);
-    }
+    if (this.manualBtn) this.manualBtn.title = m === 1 ? 'User manual B — the additive oscillator B1 (an additive oscillator is shown)' : 'User manual A — the subtractive oscillators A1 · A2 (a subtractive oscillator is shown)';
+    for (const s of this.sections) s.el.classList.toggle('hidden', this.secHidden(s.spec));
+  }
+  secHidden(spec) {
+    if (spec.view >= 0 && spec.view !== this.view) return true;
+    return !!spec.vis && (this.host.get(this.P[spec.vis]) >= 0.5) !== !!spec.visOn;
   }
   updateEnables() {
-    const P = this.P, wave = Math.round(this.host.get(P.a_wave)), pat = Math.round(this.host.get(P.b_pattern));
-    const set = (key, on) => { const ws = this.byParam.get(P[key]); if (ws) ws.forEach(w => w.el && w.el.classList.toggle('disabled', !on)); };
-    set('a_width', wave === 2 || wave === 3);
-    set('b_seed', pat === 5);
+    const P = this.P;
+    const set = (i, on) => { const ws = this.byParam.get(i); if (ws) ws.forEach(w => w.el && w.el.classList.toggle('disabled', !on)); };
+    for (const sl of this.SPEC.SLOTS) {   // the source width only means something for PULSE and TRIANGLE, the seed for RANDOM
+      if (sl.mode === 0) { const wave = Math.round(this.host.get(sl.k.wave)); set(sl.k.width, wave === 2 || wave === 3); }
+      else set(sl.k.seed, Math.round(this.host.get(sl.k.pattern)) === 5);
+    }
   }
-  setLive(d) { this.live = d; }
+  // The live data arrives about 30 times a second. liveVer changes only when something the canvases show has changed: the animated
+  // canvases are drawn again then (and at least twice a second, in case a state they show changed without it), not on every frame.
+  setLive(d) {
+    this.live = d;
+    const sig = d.note + '|' + d.voices + '|' + d.slotLive + '|' + d.view + '|' + d.peakL.toFixed(4) + '|' + d.peakR.toFixed(4) + '|' + d.center + '|' + d.width + '|' + d.depth + '|' +
+      d.keys.join(',') + '|' + (d.chord ? d.chord.root + ',' + d.chord.last + ',' + d.chord.notes.join(',') : '') + '|' + (d.slotLive ? d.gains.join(',') : '') +
+      '|' + (d.mask ? d.mask + ',' + d.sg.join(',') + ',' + d.swin.join(',') : '');   // beta 0.3.1: the scope and the scalogram follow the live gains of every oscillator
+    if (sig !== this.liveSig) { this.liveSig = sig; this.liveVer = (this.liveVer || 0) + 1; }
+  }
 
   // ------------------------------------------------------------------ demo support
   // Highlights the controls of the parameters being animated by the demo.
@@ -617,42 +752,16 @@ class SynthUI {
     this.hotEls = [];
     for (const id of ids) for (const w of this.byParam.get(id) || []) if (w.el) { w.el.classList.add('hot'); this.hotEls.push(w.el); }
   }
-  // DEMO split button: ▶ DEMO plays the default demo (first song), ▾ opens the list of songs.
-  // d = { running, stop, songs, play(i), loadFile }
+  // The DEMO button: ▶ DEMO plays the demo (Beethoven's Appassionata, a tour of the presets), ■ STOP while it runs.
+  // d = { running, stop, play }
   makeDemoButton(d) {
     const b = el('button', 'hbtn demo-btn', this.dev);
     b.innerHTML = '&#9654; DEMO';
-    b.title = 'Play the default demo: Beethoven, Appassionata (III), with a tour of all the presets (a new preset about every 4 s, on a change of chord)';
-    const arrow = el('button', 'hbtn demo-arrow', this.dev);
-    arrow.innerHTML = '&#9662;';
-    arrow.title = 'Choose another demo song or load your own MIDI file';
-    const close = () => { if (this.dmenu) { this.dmenu.remove(); this.dmenu = null; } };
+    b.title = 'Play the demo: Beethoven, Appassionata (III), with a tour of all the presets (a new preset about every 4 s, on a change of chord)';
     b.onclick = (e) => {
       e.stopPropagation();
-      close();
-      if (d.running()) d.stop(); else d.play(0);
+      if (d.running()) d.stop(); else d.play();
     };
-    arrow.onclick = (e) => {
-      e.stopPropagation();
-      if (this.dmenu) { close(); return; }
-      const m = el('div', 'pmenu demo-menu', this.dev);
-      el('div', 'grp', m).textContent = 'DEMO SONGS · FREE MIDI (MUTOPIA PROJECT)';
-      const mmss = s => { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
-      d.songs().forEach((s, i) => {
-        const it = el('div', 'it', m);
-        it.innerHTML = `<span>${s.composer} — <b>${(s.short || s.title).replace(/</g, '&lt;')}</b>${s.tour ? ' <i class="tag">DEFAULT</i>' : ''}</span><span class="dur">${mmss(s.duration)}</span>`;
-        it.title = s.title + (s.license && s.license !== 'Public Domain' ? ` (MIDI licence: ${s.license})` : ' (public domain)') +
-          (s.tour ? ' — default demo (▶ DEMO): a tour of the factory presets, a new one every 4 s' : '');
-        it.onclick = () => { close(); d.play(i); };
-      });
-      el('div', 'sep', m);
-      const ld = el('div', 'it', m);
-      ld.innerHTML = '<span>Load a MIDI file…</span><span class="dur">.mid</span>';
-      ld.title = 'Play your own MIDI file with the same parameter animations (drums on channel 10 are ignored)';
-      ld.onclick = () => { close(); d.loadFile(); };
-      this.dmenu = m;
-    };
-    document.addEventListener('pointerdown', (e) => { if (this.dmenu && !this.dmenu.contains(e.target) && e.target !== arrow) close(); });
     this.demoBtn = b;
   }
   setDemoRunning(on) {
@@ -660,15 +769,21 @@ class SynthUI {
     this.demoBtn.classList.toggle('running', on);
     this.demoBtn.innerHTML = on ? '&#9632; STOP' : '&#9654; DEMO';
   }
-  setTables(tb) { this.tables = tb; for (const c of this.canvases) c.dirty = true; }
+  // beta 0.3: the tables of the oscillator shown (atom, source, window displays) and the raw layers of every oscillator that plays (the scope and the scalogram)
+  setTables(tb) { this.tables = tb; this.scope = this.C.buildScopeSets(this.host.values(), tb); for (const c of this.canvases) c.dirty = true; }
 
   // ------------------------------------------------------------------ drawing
   frame() {
+    const now = performance.now();
     for (const c of this.canvases) {
+      if (c.sec && this.secHidden(c.sec)) { c.dirty = true; continue; }
       const t = c.w.type;
-      const animated = t === 'scope' || t === 'scalogram' || t === 'meter' || t === 'leds' || t === 'keyboard' || t === 'window';
-      if (!c.dirty && !animated) continue;
-      c.dirty = false;
+      const animated = t === 'scope' || t === 'scalogram' || t === 'meter' || t === 'leds' || t === 'keyboard' || t === 'window' ||
+        t === 'chordname' || t === 'strumplate';   // Okto MultiWave Synth: they show the chord sounding
+      // an animated canvas: when the live data changed, while the meter falls back, and every half second anyway
+      const moving = animated && (c.liveVer !== this.liveVer || (t === 'meter' && (this.mL > 1e-4 || this.mR > 1e-4)) || !(now - (c.drawn || 0) < 500));
+      if (!c.dirty && !moving) continue;
+      c.dirty = false; c.liveVer = this.liveVer; c.drawn = now;
       const ctx = c.ctx;
       ctx.setTransform(c.pr, 0, 0, c.pr, 0, 0);
       ctx.clearRect(0, 0, c.w.w, c.w.h);
@@ -677,56 +792,88 @@ class SynthUI {
     }
   }
 
-  accent() { return this.mode === 0 ? '#2fd4c6' : '#ffae42'; }
-  accentRGB() { return this.mode === 0 ? [47, 212, 198] : [255, 174, 66]; }
+  // beta 0.3: A1 A2 yellow, B1 blue. Beta 0.3.4: while the TUNING switch is ARAB or TURK, the oriental colour code (ORIENT in tools/spec.js): terracotta / turquoise
+  accent() { return this.orient ? (this.mode === 0 ? this.SPEC.ORIENT.a : this.SPEC.ORIENT.b) : this.mode === 0 ? '#ffcf3d' : '#4aa8ff'; }
+  accentRGB() { return this.orient ? hexRGB(this.mode === 0 ? this.SPEC.ORIENT.a : this.SPEC.ORIENT.b) : this.mode === 0 ? [255, 207, 61] : [74, 168, 255]; }
+
+  // ------------------------------------------------------------------ the oriental colour code (beta 0.3.4)
+  // the palette of ORIENT as CSS variables (the stylesheet's #device.orient rules use them) on the panel and on the preset browser
+  orientVars(e) {
+    const O = this.SPEC.ORIENT, set = (k, v) => e.style.setProperty(k, v);
+    set('--or-a', O.a); set('--or-b', O.b); set('--or-c1', O.c1); set('--or-c2', O.c2); set('--or-c3', O.c3); set('--or-c4', O.c4); set('--or-c5', O.c5);
+    set('--or-pl0', O.pl[0]); set('--or-pl1', O.pl[1]); set('--or-dim', O.dim);
+    for (const k of ['a', 'b']) { const c = hexRGB(O[k]); set('--or-' + k + '-soft', `rgba(${c},0.16)`); set('--or-' + k + '-tint', `rgba(${c},0.07)`); set('--or-' + k + '-line', `rgba(${c},0.26)`); }
+    set('--or-c2-line', `rgba(${hexRGB(O.c2)},0.25)`); set('--or-glow', `rgba(${hexRGB(O.a)},0.16)`); set('--or-c4-86', `rgba(${hexRGB(O.c4)},0.86)`);
+  }
+  updateOrient() {
+    const on = Math.round(this.host.get(this.P.mt_mode)) !== 0;
+    if (on === this.orient) return;
+    this.orient = on;
+    this.dev.classList.toggle('orient', on);
+    if (this.browser) this.browser.classList.toggle('orient', on);
+    for (const c of this.canvases) c.dirty = true;
+  }
+  // the PLAY card's pattern: octagons and squares (4.8.8), an eight-pointed star in each octagon, one SVG tile of ORIENT.tile px; the octagons are centred on the card's inner
+  // top-left corner and on every tile from it (the plug-in draws the same). It lies behind the controls and shows only in the oriental state (CSS)
+  orientPattern(se, s) {
+    const O = this.SPEC.ORIENT, T = O.tile, R = 0.5412 * T, dq = 0.2929 * T, W = s.w - 2, H = s.h - 2, c = T / 2, f = v => Math.round(v * 100) / 100;
+    const reg = (cx, cy, n, r, rot) => { const a = []; for (let k = 0; k < n; k++) { const g = rot + 2 * Math.PI * k / n; a.push(f(cx + r * Math.cos(g)) + ',' + f(cy + r * Math.sin(g))); } return a.join(' '); };
+    const star = (cx, cy, n, R1, r1, rot) => { const a = []; for (let k = 0; k < 2 * n; k++) { const g = rot + Math.PI * k / n, rr = k % 2 ? r1 : R1; a.push(f(cx + rr * Math.cos(g)) + ',' + f(cy + rr * Math.sin(g))); } return a.join(' '); };
+    const dia = (x, y, d) => `${f(x)},${f(y - d)} ${f(x + d)},${f(y)} ${f(x)},${f(y + d)} ${f(x - d)},${f(y)}`;
+    let tile = `<polygon points="${reg(c, c, 8, R, Math.PI / 8)}" fill="${O.c4}" stroke="${O.c1}" stroke-width="1.1" stroke-linejoin="round"/>` +
+      `<polygon points="${star(c, c, 8, R * 0.86, R * 0.58, Math.PI / 8)}" fill="${O.c1}"/><polygon points="${star(c, c, 8, R * 0.5, R * 0.27, 0)}" fill="${O.c2}"/>` +
+      `<circle cx="${c}" cy="${c}" r="${f(R * 0.12)}" fill="${O.c4}"/>`;
+    for (const [x, y] of [[0, 0], [T, 0], [0, T], [T, T]]) tile += `<polygon points="${dia(x, y, dq)}" fill="${O.c5}" stroke="${O.c1}" stroke-width="1" stroke-linejoin="round"/><polygon points="${dia(x, y, dq * 0.45)}" fill="${O.c3}"/>`;
+    const svgEl = document.createElementNS(SVGNS, 'svg');
+    svgEl.setAttribute('class', 'orientbg'); svgEl.setAttribute('width', W); svgEl.setAttribute('height', H); svgEl.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svgEl.style.opacity = O.opacity;
+    svgEl.innerHTML = `<defs><pattern id="orientTile" x="${-c}" y="${-c}" width="${T}" height="${T}" patternUnits="userSpaceOnUse">${tile}</pattern></defs>` +
+      `<rect width="${W}" height="${H}" fill="${O.c4}"/><rect width="${W}" height="${H}" fill="url(#orientTile)"/>`;
+    se.insertBefore(svgEl, se.firstChild);
+  }
 
   currentGains() {
     const C = this.C, live = this.live;
-    if (live && live.note >= 0 && live.mode === this.mode) return { g: live.gains, center: live.center, width: live.width, depth: live.depth, note: live.note };
-    const vals = this.host.values();
+    if (live && live.note >= 0 && live.slotLive && live.view === this.view) return { g: live.gains, center: live.center, width: live.width, depth: live.depth, note: live.note };
+    const vals = this.host.values(), k = C.K[this.view];
     const g = C.staticGains(vals, new Float64Array(C.NB));
-    return { g, center: vals[this.P.p_center], width: vals[this.P.p_width], depth: vals[this.P.p_depth], note: -1 };
+    return { g, center: vals[k.pcen], width: vals[k.pwid], depth: vals[k.pdep], note: -1 };
   }
 
+  // beta 0.3.1: the live gains and windows of the oscillators that play in the last voice (null when no voice plays: the displays then show the static ones)
+  liveSlots() { const d = this.live; return d && d.mask && d.sg ? { mask: d.mask, sg: d.sg, win: d.swin } : null; }
+
+  // beta 0.3: the whole sound: one cycle of the mix of every oscillator that plays (and the sub oscillator); beta 0.3.1: moving with the live sound when a note plays
   draw_scope(ctx, W, H) {
-    const C = this.C, tb = this.tables;
+    const C = this.C, sets = this.scope;
     ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
     for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(W * k / 4 + 0.5, 4); ctx.lineTo(W * k / 4 + 0.5, H - 4); ctx.stroke(); }
     ctx.strokeStyle = 'rgba(255,255,255,0.09)';
     ctx.beginPath(); ctx.moveTo(0, H / 2 + 0.5); ctx.lineTo(W, H / 2 + 0.5); ctx.stroke();
-    if (!tb || tb.mode !== this.mode) return;
-    const st = this.currentGains();
-    const y = C.displayCycle(tb, st.g, st.center, st.width, st.depth, this.cycle);
-    const ghost = tb.mode === 0 ? tb.layers[C.DRY] : null;
+    if (!sets) return;
+    const vals = this.host.values();
+    const names = this.SPEC.SLOTS.filter((sl, k) => sets[k]).map(sl => sl.name);
+    if (vals[this.P.sub_level] > 0) names.push('SUB');
+    const live = this.liveSlots(), y = C.globalCycle(vals, sets, this.cycle, live);
     let peak = 0.25;
-    for (let i = 0; i < C.N; i++) { peak = Math.max(peak, Math.abs(y[i])); if (ghost) peak = Math.max(peak, Math.abs(ghost[i])); }
+    for (let i = 0; i < C.N; i++) peak = Math.max(peak, Math.abs(y[i]));
     const sy = (H / 2 - 8) / peak;
-    if (st.depth > 0) {
-      const [r, g, b] = this.accentRGB();
-      for (let x = 0; x < W; x += 2) {
-        const wv = C.windowValue(x / W, st.center, st.width, 1);
-        if (wv > 0.01) { ctx.fillStyle = `rgba(${r},${g},${b},${0.10 * wv * st.depth})`; ctx.fillRect(x, 0, 2, H); }
-      }
+    ctx.beginPath();
+    for (let x = 0; x <= W; x++) {
+      const i = Math.min(C.N - 1, Math.floor(x / W * C.N));
+      const v = H / 2 - y[i] * sy;
+      if (x === 0) ctx.moveTo(x, v); else ctx.lineTo(x, v);
     }
-    const path = (arr) => {
-      ctx.beginPath();
-      for (let x = 0; x <= W; x++) {
-        const i = Math.min(C.N - 1, Math.floor(x / W * C.N));
-        const v = H / 2 - arr[i] * sy;
-        if (x === 0) ctx.moveTo(x, v); else ctx.lineTo(x, v);
-      }
-      ctx.stroke();
-    };
-    if (ghost) { ctx.strokeStyle = 'rgba(200,210,225,0.18)'; ctx.lineWidth = 1.2; path(ghost); }
     ctx.strokeStyle = this.accent(); ctx.lineWidth = 2; ctx.shadowColor = this.accent(); ctx.shadowBlur = 8;
-    path(y);
+    ctx.stroke();
     ctx.shadowBlur = 0;
-    pill(ctx, tb.mode === 0 ? 'ONE CYCLE · DRY (GREY) vs FILTERED' : 'ONE CYCLE · SUM OF ATOM BANDS', 8, 14, 'left', 'rgba(200,210,225,0.6)');
-    if (st.note >= 0) pill(ctx, noteName(st.note) + ' · LIVE', W - 8, 14, 'right', this.accent());
+    pill(ctx, (names.length ? names.join(' + ') : 'NO OSCILLATOR') + ' · ONE CYCLE OF THE MIX', 8, 14, 'left', 'rgba(200,210,225,0.6)');
+    if (live && this.live.note >= 0) pill(ctx, noteName(this.live.note) + ' · LIVE', W - 8, 14, 'right', this.accent());
   }
 
+  // beta 0.3: the whole sound: the atoms of every oscillator that plays (root of the sum of the squares of what each shows)
   draw_scalogram(ctx, W, H) {
-    const C = this.C, tb = this.tables;
+    const C = this.C, sets = this.scope;
     const lm = 26, pw = W - lm - 4, rh = (H - 6) / C.NB, top = 3;
     ctx.font = '600 8.5px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (let b = 1; b <= C.NB; b++) {
@@ -735,8 +882,8 @@ class SynthUI {
       ctx.fillText('B' + b, lm - 5, yy + rh / 2);
     }
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    if (!tb || tb.mode !== this.mode) return;
-    const st = this.currentGains();
+    if (!sets) return;
+    const bands = C.scopeBands(this.host.values(), sets, this.liveSlots());
     const [r0, g0, b0] = this.accentRGB();
     const col = (t) => {
       if (t <= 0) return null;
@@ -744,12 +891,12 @@ class SynthUI {
       const k = (t - 0.75) / 0.25;
       return `rgb(${Math.round(r0 + (255 - r0) * k)},${Math.round(g0 + (255 - g0) * k)},${Math.round(b0 + (255 - b0) * k)})`;
     };
-    const sq = 1 / Math.sqrt(C.N);
     for (let b = 1; b <= C.NB; b++) {
       const n = 1 << (b - 1), yy = top + (C.NB - b) * rh;
-      const scale = tb.bandScale[b - 1] * Math.pow(2, (b - 1) / 2) * sq * Math.abs(st.g[b - 1]);
       const val = k => {
-        const v = Math.abs(tb.coeffs[n + k]) * scale;
+        let e = 0;
+        for (const o of bands) { const v = Math.abs(o.coeffs[n + k]) * o.sc[b - 1]; e += v * v; }
+        const v = Math.sqrt(e);
         return v > 0 ? clamp((20 * Math.log10(v) + 60) / 60, 0, 1) : 0;
       };
       if (n <= pw) {
@@ -767,20 +914,10 @@ class SynthUI {
         }
       }
     }
-    if (st.depth > 0) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      for (let x = 0; x <= pw; x++) {
-        const wv = C.windowValue(x / pw, st.center, st.width, st.depth);
-        const yy = top + (1 - wv) * (H - 6);
-        if (x === 0) ctx.moveTo(lm + x, yy); else ctx.lineTo(lm + x, yy);
-      }
-      ctx.stroke(); ctx.setLineDash([]);
-    }
   }
 
   draw_atom(ctx, W, H) {
-    const C = this.C, wi = Math.round(this.host.get(this.P.wavelet));
+    const C = this.C, wi = Math.round(this.host.get(C.K[this.view].wavelet));
     if (!this.atomCache.has(wi)) this.atomCache.set(wi, C.atomShape(wi));
     const a = this.atomCache.get(wi);
     const span = a.hi - a.lo + 1, margin = Math.max(4, span * 0.15), lo = a.lo - margin, hi = a.hi + margin;
@@ -809,7 +946,8 @@ class SynthUI {
     const C = this.C, tb = this.tables;
     if (!tb || tb.mode !== 0) return;
     const vals = this.host.values();
-    const raw = C.sourceCycle(Math.round(vals[this.P.a_wave]), vals[this.P.a_width], vals[this.P.a_phase]);   // shifted by SOURCE PHASE
+    const k = C.K[this.view];
+    const raw = C.sourceCycle(Math.round(vals[k.wave]), vals[k.width], vals[k.phase]);   // shifted by SOURCE PHASE
     const dry = tb.layers[C.DRY];
     let peak = 1; for (let i = 0; i < C.N; i++) peak = Math.max(peak, Math.abs(dry[i]));
     const sy = (H / 2 - 8) / peak;
@@ -834,8 +972,10 @@ class SynthUI {
   }
 
   draw_adsr(ctx, W, H, c) {
-    const P = this.P, pre = c.w.env === 'amp' ? 'amp_' : 'mod_';
-    const a = this.host.get(P[pre + 'a']), d = this.host.get(P[pre + 'd']), s = this.host.get(P[pre + 's']), r = this.host.get(P[pre + 'r']);
+    const P = this.P;
+    // the AMP and MOD envelopes, or an oscillator's own envelope (its four parameters in a row from the widget's param)
+    const i0 = c.w.env === 'amp' ? P.amp_a : c.w.env === 'mod' ? P.mod_a : P[c.w.param];
+    const a = this.host.get(i0), d = this.host.get(i0 + 1), s = this.host.get(i0 + 2), r = this.host.get(i0 + 3);
     const f = t => 0.06 + Math.log10(1 + t * 100) / Math.log10(1001);
     const wa = f(a), wd = f(d), wr = f(r), hold = 0.35, tot = wa + wd + hold + wr;
     const X = v => 4 + v / tot * (W - 8), Y = v => H - 4 - v * (H - 8);
@@ -893,10 +1033,15 @@ class SynthUI {
     const whites = []; for (let n = KB_LO; n <= KB_HI; n++) if (!isBlack(n)) whites.push(n);
     const ww = W / whites.length, keys = this.host.keysDown();
     this.keyGeom = { ww, whites };
+    // Okto MultiWave Synth: with CHORD on, the selector octave is tinted (its keys choose the chord type and make no sound)
+    const P = this.P, chordOn = this.host.get(P.chord_mode) >= 0.5, selBase = 24 + 12 * Math.round(this.host.get(P.chord_oct));
+    const sel = n => chordOn && n >= selBase && n < selBase + 12;
     whites.forEach((n, k) => {
       const x = k * ww, on = keys.has(n);
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, '#e9fbf9'); } else { g.addColorStop(0, '#d9dee5'); g.addColorStop(1, '#f6f8fa'); }
+      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, '#e9fbf9'); }
+      else if (sel(n)) { g.addColorStop(0, '#9d93e0'); g.addColorStop(1, '#cfc9f2'); }
+      else { g.addColorStop(0, '#d9dee5'); g.addColorStop(1, '#f6f8fa'); }
       ctx.fillStyle = g; ctx.fillRect(x + 0.5, 0, ww - 1, H);
       ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x + 0.5, H - 3, ww - 1, 3);
       if (n % 12 === 0) { ctx.fillStyle = on ? '#0d1014' : '#7a8594'; ctx.font = '600 9px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(noteName(n), x + ww / 2, H - 8); ctx.textAlign = 'left'; }
@@ -910,9 +1055,25 @@ class SynthUI {
       if (!isBlack(n)) continue;
       const k = whites.indexOf(n - 1), x = (k + 1) * ww - ww * 0.31, bw = ww * 0.62, bh = H * 0.6, on = keys.has(n);
       const g = ctx.createLinearGradient(0, 0, 0, bh);
-      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, '#0f5a54'); } else { g.addColorStop(0, '#262b33'); g.addColorStop(1, '#0d0f12'); }
+      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, '#0f5a54'); }
+      else if (sel(n)) { g.addColorStop(0, '#4a4280'); g.addColorStop(1, '#1e1a3a'); }
+      else { g.addColorStop(0, '#262b33'); g.addColorStop(1, '#0d0f12'); }
       ctx.fillStyle = g; ctx.fillRect(x, 0, bw, bh);
       ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(x + 2, bh - 5, bw - 4, 3);
+    }
+    // beta 0.2, the oriental tuning: a small amber arrow on every key the tuning moves (down = lower than the equal-tempered key)
+    const mode = Math.round(this.host.get(P.mt_mode));
+    if (mode > 0 && this.SPEC.MICRO) {
+      const t = this.SPEC.MICRO[mode - 1][Math.round(this.host.get(P.mt_scale))], tonic = Math.round(this.host.get(P.mt_tonic));
+      ctx.fillStyle = '#ffae42';
+      for (let n = KB_LO; n <= KB_HI; n++) {
+        const off = t[(((n - tonic) % 12) + 12) % 12];
+        if (Math.abs(off) < 8) continue;
+        const k = isBlack(n) ? whites.indexOf(n - 1) : whites.indexOf(n), cx = isBlack(n) ? (k + 1) * ww : k * ww + ww / 2, cy = isBlack(n) ? H * 0.5 : H * 0.72;
+        ctx.beginPath();
+        if (off < 0) { ctx.moveTo(cx - 3.5, cy - 3); ctx.lineTo(cx + 3.5, cy - 3); ctx.lineTo(cx, cy + 3); } else { ctx.moveTo(cx - 3.5, cy + 3); ctx.lineTo(cx + 3.5, cy + 3); ctx.lineTo(cx, cy - 3); }
+        ctx.closePath(); ctx.fill();
+      }
     }
   }
 
@@ -974,6 +1135,154 @@ class SynthUI {
       ctx.fillStyle = 'rgba(200,210,225,0.45)'; ctx.font = '700 8px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(lab, x + ww / 2, H - 2); ctx.textAlign = 'left';
     });
+  }
+
+  // ------------------------------------------------------------------ Okto MultiWave Synth: toggle, chord pads, chord name, strum plate
+  // an on / off button (CHORD ON, BASS), lit when on: the plug-in's W_TOGGLE
+  toggle(w, box) {
+    const i = this.P[w.param], p = this.params[i];
+    box.classList.add('toggle');
+    const b = el('button', '', box);
+    b.textContent = w.text || p.short;
+    b.title = p.name;
+    b.onclick = () => { this.host.begin(i); this.host.set(i, this.host.get(i) >= 0.5 ? 0 : 1); this.host.end(i); };
+    const widget = { w, p, i, el: box, update: () => b.classList.toggle('on', this.host.get(i) >= 0.5) };
+    this.reg(w.param, widget);
+    widget.update();
+  }
+
+  // The twelve chord pads, laid out like the selector octave: the white-key family (Maj, 7, Maj7, Sus2, Sus4, Add9, Note)
+  // above, the black-key family (Min, m7, Dim, Aug, 5) below, between them. key = 0..11 (C .. B).
+  padRects(W) {
+    const cw = W / 7, pw = cw - 4, ph = 32, rects = [];
+    let wi = 0;
+    for (let k = 0; k < 12; k++) {
+      const black = isBlack(k);
+      rects.push(black ? { x: (wi - 0.5) * cw + 2, y: 36, w: pw, h: ph, key: k } : { x: wi * cw + 2, y: 0, w: pw, h: ph, key: k });
+      if (!black) wi++;
+    }
+    return rects;
+  }
+  draw_chordpads(ctx, W, H, c) {
+    const P = this.P, S = this.SPEC, on = this.host.get(P.chord_mode) >= 0.5, cur = Math.round(this.host.get(P.chord_type));
+    const base = 24 + 12 * Math.round(this.host.get(P.chord_oct));
+    ctx.globalAlpha = on ? 1 : 0.45;
+    for (const r of this.padRects(W)) {
+      const type = S.CHORD_KEYS[r.key], active = type === cur, black = isBlack(r.key), hot = c.hover === r.key;
+      roundRect(ctx, r.x, r.y, r.w, r.h, 6);
+      ctx.fillStyle = active ? this.accent() : black ? (hot ? '#1c2129' : '#121519') : (hot ? '#343b47' : '#262c35');
+      ctx.fill();
+      if (!active) { ctx.strokeStyle = black ? '#2a303a' : '#3a4250'; ctx.lineWidth = 1; ctx.stroke(); }
+      if (active) { ctx.shadowColor = this.accent(); ctx.shadowBlur = 10; ctx.fill(); ctx.shadowBlur = 0; }
+      ctx.textAlign = 'center';
+      ctx.fillStyle = active ? '#0d1014' : black ? '#aeb7c4' : '#eef2f7';
+      ctx.font = '700 11px Segoe UI, system-ui, sans-serif';
+      ctx.fillText(S.CHORDS[type].label, r.x + r.w / 2, r.y + 15);
+      ctx.fillStyle = active ? 'rgba(13,16,20,0.75)' : '#566070';
+      ctx.font = '600 8px Segoe UI, system-ui, sans-serif';
+      ctx.fillText(noteName(base + r.key), r.x + r.w / 2, r.y + 27);
+      ctx.textAlign = 'left';
+    }
+    ctx.globalAlpha = 1;
+  }
+  padAt(c, x, y) { for (const r of this.padRects(c.w.w)) if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r.key; return -1; }
+  padsInput(c) {
+    const cv = c.cv, P = this.P, S = this.SPEC;
+    cv.style.cursor = 'pointer';
+    c.hover = -1;
+    cv.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const p = this.localPos(c, e), k = this.padAt(c, p.x, p.y);
+      if (k < 0) return;
+      const i = P.chord_type;
+      this.host.begin(i); this.host.set(i, S.CHORD_KEYS[k]); this.host.end(i);
+      if (this.host.get(P.chord_mode) < 0.5) { this.host.begin(P.chord_mode); this.host.set(P.chord_mode, 1); this.host.end(P.chord_mode); }   // a pad switches CHORD on
+    });
+    cv.addEventListener('pointermove', (e) => { const p = this.localPos(c, e), k = this.padAt(c, p.x, p.y); if (k !== c.hover) { c.hover = k; c.dirty = true; } });
+    cv.addEventListener('pointerleave', () => { if (c.hover !== -1) { c.hover = -1; c.dirty = true; } });
+    cv.title = 'Chord type: click a pad (the keys of the selector octave do the same)';
+  }
+
+  // the chord sounding: its name (root and type), its notes; the type chosen while no root is held
+  chordLive() {
+    const P = this.P, live = this.live && this.live.chord;
+    const type = Math.round(this.host.get(P.chord_type)), held = !!(live && live.root >= 0);
+    return { on: this.host.get(P.chord_mode) >= 0.5, type, held, root: held ? live.root : live ? live.last : 60, notes: held ? live.notes : [] };
+  }
+  draw_chordname(ctx, W, H) {
+    const S = this.SPEC, C = this.C, st = this.chordLive();
+    ctx.fillStyle = '#0c0f13'; roundRect(ctx, 0, 0, W, H, 7); ctx.fill();
+    ctx.strokeStyle = '#252b34'; ctx.lineWidth = 1; roundRect(ctx, 0.5, 0.5, W - 1, H - 1, 7); ctx.stroke();
+    pill(ctx, 'CHORD', 8, 14, 'left', 'rgba(200,210,225,0.6)');
+    if (!st.on) {
+      ctx.fillStyle = '#566070'; ctx.font = '600 10px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('OFF · the keys play as usual', W / 2, H / 2 + 8); ctx.textAlign = 'left';
+      return;
+    }
+    const name = C.chordName(st.root, st.type), letter = name.slice(0, /^.#/.test(name) ? 2 : 1), suffix = name.slice(letter.length);
+    ctx.textAlign = 'left';
+    ctx.font = '700 26px Segoe UI, system-ui, sans-serif';
+    const lw = ctx.measureText(letter).width;
+    ctx.font = '700 15px Segoe UI, system-ui, sans-serif';
+    const sw = ctx.measureText(suffix).width, x0 = (W - lw - sw - 2) / 2;
+    ctx.fillStyle = st.held ? this.accent() : '#8792a1';
+    if (st.held) { ctx.shadowColor = this.accent(); ctx.shadowBlur = 10; }
+    ctx.font = '700 26px Segoe UI, system-ui, sans-serif'; ctx.fillText(letter, x0, 38);
+    ctx.font = '700 15px Segoe UI, system-ui, sans-serif'; ctx.fillText(suffix, x0 + lw + 2, 38);
+    ctx.shadowBlur = 0;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = st.held ? '#eef2f7' : '#566070';
+    ctx.font = '600 9.5px Segoe UI, system-ui, sans-serif';
+    ctx.fillText(st.held ? st.notes.map(n => noteName(n)).join(' · ') : S.CHORDS[st.type].name + ' · play a key above ' + noteName(24 + 12 * Math.round(this.host.get(this.P.chord_oct)) + 11), W / 2, 60);
+    ctx.textAlign = 'left';
+  }
+
+  // the strum plate: the chord's notes over three octaves as strings; drag across them (as on the touch plate of an electronic chord harp)
+  draw_strumplate(ctx, W, H, c) {
+    const C = this.C, st = this.chordLive(), keys = this.host.keysDown();
+    const notes = C.plateNotes(st.root, st.type), n = notes.length, sw = W / n;
+    c.plate = notes;
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0e1116'); g.addColorStop(1, '#171b22');
+    ctx.fillStyle = g; roundRect(ctx, 0, 0, W, H, 7); ctx.fill();
+    ctx.strokeStyle = '#252b34'; ctx.lineWidth = 1; roundRect(ctx, 0.5, 0.5, W - 1, H - 1, 7); ctx.stroke();
+    for (let k = 0; k < n; k++) {
+      const x = Math.round((k + 0.5) * sw) + 0.5, lit = keys.has(notes[k]) || c.touch === notes[k];
+      ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x, H - 16);
+      ctx.strokeStyle = lit ? this.accent() : 'rgba(200,210,225,0.32)'; ctx.lineWidth = lit ? 2.5 : 1.2;
+      if (lit) { ctx.shadowColor = this.accent(); ctx.shadowBlur = 8; }
+      ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.fillStyle = lit ? this.accent() : '#566070'; ctx.font = '600 7.5px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(noteName(notes[k]), x, H - 4);
+    }
+    ctx.textAlign = 'left';
+    pill(ctx, 'STRUM PLATE', 8, 14, 'left', 'rgba(200,210,225,0.5)');
+  }
+  plateInput(c) {
+    const cv = c.cv;
+    cv.style.cursor = 'ew-resize';
+    c.touch = -1;
+    const at = (e) => {
+      const p = this.localPos(c, e), notes = c.plate || [];
+      if (!notes.length) return { n: -1, vel: 0 };
+      const k = clamp(Math.floor(p.x / (c.w.w / notes.length)), 0, notes.length - 1);
+      return { n: notes[k], vel: clamp(0.4 + 0.6 * p.y / c.w.h, 0.2, 1) };
+    };
+    cv.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      cv.setPointerCapture(e.pointerId);
+      const s = at(e); if (s.n < 0) return;
+      c.touch = s.n; this.host.plateOn(s.n, s.vel);
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (c.touch < 0) return;
+      const s = at(e);
+      if (s.n >= 0 && s.n !== c.touch) { this.host.plateOff(c.touch); c.touch = s.n; this.host.plateOn(s.n, s.vel); }
+    });
+    const up = () => { if (c.touch >= 0) { this.host.plateOff(c.touch); c.touch = -1; } };
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
+    cv.title = 'Strum plate: drag across the strings to strum the chord (the RELEASE of the amp envelope is how long they ring)';
   }
 
   wheelInput(c) {

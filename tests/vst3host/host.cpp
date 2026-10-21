@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
 // host.cpp - vst3host: a minimal but faithful VST3 host that validates the
-// Wavelet Synthesizer instrument the way a DAW (modelled on Ableton Live on
+// Okto MultiWave Synth instrument the way a DAW (modelled on Ableton Live on
 // Windows) drives it.
 //
 //   Usage: vst3host.exe <path-to-.vst3-bundle-or-dll> <outdir> [options]
@@ -4247,7 +4247,7 @@ struct EditorSession
 	}
 
 	// ---------------------------------------------------------------- input simulation
-	POINT scaled (POINT p1x, double baseW = 1100, double baseH = 720)
+	POINT scaled (POINT p1x, double baseW = 1100, double baseH = 840)
 	{
 		RECT rc;
 		GetClientRect (container, &rc);
@@ -4255,6 +4255,8 @@ struct EditorSession
 		// one scale, from the height, maps the layout points
 		(void)baseW;
 		const double s = rc.bottom / baseH;
+		static double lastS = -1;
+		if (s != lastS) { lastS = s; LOG ("  (info) layout points scaled by %.4f (container client %ld x %ld, base %.0f)", s, rc.right, rc.bottom, baseH); }
 		return {(LONG)std::lround (p1x.x * s), (LONG)std::lround (p1x.y * s)};
 	}
 	HWND targetAt (POINT pc, POINT& local)
@@ -5793,7 +5795,7 @@ int main ()
 
 	SYSTEMTIME stime;
 	GetLocalTime (&stime);
-	LOG ("vst3host - Wavelet Synthesizer VST3 test host");
+	LOG ("vst3host - Okto MultiWave Synth VST3 test host");
 	LOG ("date      : %04d-%02d-%02d %02d:%02d:%02d", stime.wYear, stime.wMonth, stime.wDay, stime.wHour, stime.wMinute,
 	     stime.wSecond);
 	LOG ("plugin    : %s", w2u (g_opt.pluginPath).c_str ());

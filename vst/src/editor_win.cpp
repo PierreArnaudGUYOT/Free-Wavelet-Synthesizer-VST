@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.6).
 // The editor's Windows side (split from editor.cpp for the Mac port of beta 0.3, unchanged): a native Win32 child window
 // drawn with GDI+ (part of Windows) into a back buffer, its pop-up menus and dialogs. The panel itself is editor.cpp.
 #include <windows.h>
@@ -30,7 +30,7 @@ static G::Color gc(Col c) { return G::Color(c.a, c.r, c.g, c.b); }
 
 static ULONG_PTR gGdiToken = 0;
 static int gGdiUsers = 0, gClassUsers = 0;
-static const wchar_t* kClassName = L"WaveletSynthesizerEditorWnd";
+static const wchar_t* kClassName = L"OktoMultiWaveSynthEditorWnd";
 
 static HMODULE thisModule() {
   HMODULE h = nullptr;
@@ -78,6 +78,7 @@ class GdiCanvas : public Canvas {
     auto br = brush(b); g.FillPolygon(br.get(), pts.data(), n);
   }
   void text(const std::wstring& s, R r, float px, bool bold, Col c, int align, bool vcenter) override;
+  void textVertical(const std::wstring& s, R r, float px, bool bold, Col c) override;
   void textEllipsis(const std::wstring& s, R r, float px, bool bold, Col c, bool vcenter) override;
   float textWidth(const std::wstring& s, float px, bool bold) override;
   void pixels(const uint32_t* argb, int w, int h, R dst) override {
@@ -91,10 +92,14 @@ class GdiCanvas : public Canvas {
     g.DrawImage(&bmp, G::RectF(dst.x, dst.y, dst.w, dst.h), 0, 0, (float)w, (float)h, G::UnitPixel);
     g.SetInterpolationMode(im); g.SetPixelOffsetMode(po);
   }
+  // beta 0.3.4: the clip of the oriental pattern (the graphics state, with the window's own clip, is saved and restored)
+  void pushClipRR(R r, float rad) override { saved.push_back(g.Save()); G::GraphicsPath p; rrPath(p, r, rad); g.SetClip(&p, G::CombineModeIntersect); }
+  void popClip() override { if (!saved.empty()) { g.Restore(saved.back()); saved.pop_back(); } }
 
  private:
   G::Graphics& g;
   WinWindow& win;
+  std::vector<G::GraphicsState> saved;
   static std::unique_ptr<G::Brush> brush(const Brush& b) {
     if (b.grad) return std::unique_ptr<G::Brush>(new G::LinearGradientBrush(G::PointF(b.p0.x, b.p0.y), G::PointF(b.p1.x, b.p1.y), gc(b.c0), gc(b.c1)));
     return std::unique_ptr<G::Brush>(new G::SolidBrush(gc(b.c0)));
@@ -125,7 +130,7 @@ class WinWindow : public EditorWindow {
       wc.hInstance = thisModule(); wc.hCursor = LoadCursor(nullptr, IDC_ARROW); wc.lpszClassName = kClassName;
       RegisterClassExW(&wc);
     }
-    hwnd = CreateWindowExW(0, kClassName, L"Wavelet Synthesizer", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, w, h, parent, nullptr, thisModule(), this);
+    hwnd = CreateWindowExW(0, kClassName, L"Okto MultiWave Synth", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, w, h, parent, nullptr, thisModule(), this);
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     SetTimer(hwnd, 1, 33, nullptr);
   }
@@ -169,10 +174,10 @@ class WinWindow : public EditorWindow {
     return cmd;
   }
   void message(const std::wstring& text, bool warning) override {
-    MessageBoxW(hwnd, text.c_str(), L"Wavelet Synthesizer", MB_OK | (warning ? MB_ICONWARNING : MB_ICONINFORMATION));
+    MessageBoxW(hwnd, text.c_str(), L"Okto MultiWave Synth", MB_OK | (warning ? MB_ICONWARNING : MB_ICONINFORMATION));
   }
   bool ask(const std::wstring& text) override {
-    return MessageBoxW(hwnd, text.c_str(), L"Wavelet Synthesizer", MB_YESNO | MB_ICONQUESTION) == IDYES;
+    return MessageBoxW(hwnd, text.c_str(), L"Okto MultiWave Synth", MB_YESNO | MB_ICONQUESTION) == IDYES;
   }
   bool saveDialog(SaveDlg& d, const wchar_t* title, bool withSection, const wchar_t* note) override;
   std::wstring saveFileDialog(const wchar_t* title, const wchar_t* defaultName) override {
@@ -271,7 +276,7 @@ class WinWindow : public EditorWindow {
     if (msg == WM_INITDIALOG) {
       s = (SaveDlg*)lp;
       SetWindowLongPtrW(d, DWLP_USER, (LONG_PTR)s);
-      SendDlgItemMessageW(d, 101, EM_LIMITTEXT, 48, 0);
+      SendDlgItemMessageW(d, 101, EM_LIMITTEXT, (WPARAM)48, 0);
       SetDlgItemTextW(d, 101, s->name.c_str());
       if (s->withSection) {
         for (int i = 0; i < kNumBankSections; i++) SendDlgItemMessageW(d, 102, CB_ADDSTRING, 0, (LPARAM)toW(kBankSections[i]).c_str());
@@ -353,6 +358,13 @@ void GdiCanvas::text(const std::wstring& s, R r, float px, bool bold, Col c, int
   G::SolidBrush b(gc(c));
   g.DrawString(s.c_str(), -1, win.font(px, bold), G::RectF(r.x, r.y, r.w, r.h), &f, &b);
 }
+void GdiCanvas::textVertical(const std::wstring& s, R r, float px, bool bold, Col c) {
+  const G::GraphicsState st = g.Save();
+  g.TranslateTransform(r.x + r.w / 2, r.y + r.h / 2);
+  g.RotateTransform(-90);
+  text(s, R{-r.h / 2, -r.w / 2, r.h, r.w}, px, bold, c, 1, true);
+  g.Restore(st);
+}
 void GdiCanvas::textEllipsis(const std::wstring& s, R r, float px, bool bold, Col c, bool vcenter) {
   G::StringFormat ff; ff.SetFormatFlags(G::StringFormatFlagsNoWrap); ff.SetTrimming(G::StringTrimmingEllipsisCharacter);
   if (vcenter) ff.SetLineAlignment(G::StringAlignmentCenter);
@@ -408,6 +420,15 @@ bool WinWindow::saveDialog(SaveDlg& d, const wchar_t* title, bool withSection, c
 const char* editorPlatformType() { return Steinberg::kPlatformTypeHWND; }
 double windowScaleOf(void* parent) { return windowDpi((HWND)parent); }
 double systemScale() { return systemDpi(); }
+bool workAreaOf(void* parent, int& w, int& h) {
+  MONITORINFO mi = {}; mi.cbSize = sizeof mi;
+  HMONITOR mon = parent ? MonitorFromWindow((HWND)parent, MONITOR_DEFAULTTONEAREST) : MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY);
+  RECT rc = {};
+  if (mon && GetMonitorInfoW(mon, &mi)) rc = mi.rcWork;
+  else if (!SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0)) return false;
+  w = (int)(rc.right - rc.left); h = (int)(rc.bottom - rc.top);
+  return w > 0 && h > 0;
+}
 EditorWindow* createEditorWindow(EditorEvents* e, void* parent, int w, int h) { return new WinWindow(e, (HWND)parent, w, h); }
 
 }  // namespace ws

@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Wavelet Synthesizer — created by Pierre Arnaud GUYOT (OktoPierre).
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.7).
 // Release history: beta 0.1 (2026-10-14) — first release (see RELEASE_HISTORY.md).
 // Web application: audio, parameters, presets, MIDI, keyboard, manuals, demo.
 (function () {
@@ -23,13 +23,15 @@
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* storage unavailable */ } },
   };
-  let userPresets = store.get('ws.user', []);
+  let userPresets = store.get('mw.user', []);
   if (!Array.isArray(userPresets)) userPresets = [];
   // beta 0.6 (security review): stored data is untrusted (other pages of the same site share it): well-formed entries only
   userPresets = userPresets.filter(p => p && typeof p === 'object' && typeof p.name === 'string' && p.values && typeof p.values === 'object')
     .map(p => ({ name: p.name.slice(0, 40), values: p.values }));
 
-  const toKeyed = () => { const o = {}; PARAMS.forEach((p, i) => { if (!p.hidden) o[p.key] = +values[i].toFixed(6); }); return o; };
+  // Okto MultiWave Synth: the performance settings (perf: CHORD, its type, octave, voicing, bass, strum) are not part of a sound: a
+  // preset or an export never holds them (withPerf = false); the state saved by this page keeps them
+  const toKeyed = (withPerf) => { const o = {}; PARAMS.forEach((p, i) => { if (!p.hidden && (withPerf || !p.perf)) o[p.key] = +values[i].toFixed(6); }); return o; };
 
   // ---------------------------------------------------------------- parameters
   function post(msg, transfer) { if (node) node.port.postMessage(msg, transfer || []); }
@@ -39,55 +41,101 @@
     v = Math.min(p.max, Math.max(p.min, v));
     if (p.curve === 'int' || p.curve === 'choice') v = Math.round(v);
     if (values[i] === v) return;
-    const needs = i === P.ab_mix ? C.tableNeeds(values) : 0, morph = C.morphNeeded(values), phm = C.phaseModNeeded(values);
+    const needs = C.tableNeeds(values), morph = C.morphNeeded(values), vsig = C.variantSig(values);
     values[i] = v;
     post({ t: 'p', i, v });
     ui.refresh(i);
-    // A/B MIX rebuilds the tables only when it reaches or leaves one end (engine A or B alone); the WAVELET MORPH when
-    // it starts or stops needing the WAVELET 2 tables; LFO 2 when it starts or stops moving the SOURCE PHASE (beta 0.4)
-    if (p.structural || (i === P.ab_mix && C.tableNeeds(values) !== needs) || C.morphNeeded(values) !== morph ||
-        C.phaseModNeeded(values) !== phm) scheduleBuild();
-    // the ENGINE tabs only choose the panel shown: switching them does not modify the sound
-    if (user && !p.hidden && i !== P.engine) { if (!dirty) { dirty = true; ui.setPresetName(presetName, true); } }
+    // an oscillator's level rebuilds the tables only when it reaches or leaves 0 (it plays or not); the WAVELET MORPH when it
+    // starts or stops needing the WAVELET 2 tables; an LFO when it starts or stops moving the SOURCE PHASE, SPARSITY or SOURCE WIDTH (the variants tables); the
+    // OSC tabs only choose the oscillator shown (its display is built again, the sound does not change)
+    if (p.structural || C.tableNeeds(values) !== needs) scheduleDisplay();   // beta 0.3: also when an oscillator starts or stops playing (the scope shows them all)
+    if ((p.structural && i !== P.osc_view) || C.tableNeeds(values) !== needs || C.morphNeeded(values) !== morph ||
+        C.variantSig(values) !== vsig) scheduleBuild();
+    // the OSC tabs only choose the panel shown: switching them does not modify the sound
+    if (user && !p.hidden && !p.perf && i !== P.osc_view) { if (!dirty) { dirty = true; ui.setPresetName(presetName, true); } }
     if (user && !p.hidden) saveStateSoon();
   }
 
-  function scheduleBuild() {
-    if (buildTimer) return;
-    buildTimer = setTimeout(build, Math.max(0, 45 - (performance.now() - lastBuild)));
+  // Table building (the sound's tables, up to four oscillators each with its morph and phase sets): in a Worker when the browser
+  // lets this page start one (the page stays free to move, 7 to 200 ms of work), else here. A build asked for by a preset
+  // load (build()) is made at once on this thread, so that the notes that follow find their tables; a knob being moved asks for
+  // a build in the Worker (scheduleBuild), which does at most one at a time and then the latest request. Every request
+  // has a number: a result older than the last one delivered is dropped.
+  let worker = null, workerReady = false, workerBusy = false, workerAgain = false, buildSeq = 0, deliveredSeq = 0, heldTables = null;
+  function startWorker() {
+    try {
+      const src = 'const WSCoreFactory = ' + WSCoreFactory.toString() + ';\n' +
+        'let C = null;\n' +
+        'onmessage = (e) => {\n' +
+        '  const m = e.data;\n' +
+        '  if (m.spec) { C = WSCoreFactory(m.spec); postMessage({ ready: 1 }); return; }\n' +
+        '  const tb = C.buildTables(m.values, true), tr = [];\n' +
+        '  const add = s => { if (!s) return; tr.push(s.mips.buffer, s.rms.buffer); if (s.ph) s.ph.forEach(add); if (s.w2) add(s.w2); };\n' +
+        '  tb.slots.forEach(add);\n' +
+        '  postMessage({ seq: m.seq, tb }, tr);\n' +
+        '};\n';
+      worker = new Worker('data:text/javascript;charset=utf-8,' + encodeURIComponent(src));
+      worker.onmessage = (e) => {
+        if (e.data.ready) { workerReady = true; return; }
+        workerBusy = false;
+        if (e.data.seq > deliveredSeq) { deliveredSeq = e.data.seq; deliver(e.data.tb); }
+        if (workerAgain) { workerAgain = false; build(true); }
+      };
+      worker.onerror = () => { worker = null; workerReady = false; workerBusy = false; };   // not allowed here (file:// in some browsers): build on this thread
+      worker.postMessage({ spec: SPEC });
+    } catch (_) { worker = null; workerReady = false; }
   }
-  function build() {
-    buildTimer = null;
-    lastBuild = performance.now();
-    const tb = C.buildTables(values, true);
-    // a table set for the worklet: its arrays are transferred (with the SOURCE PHASE sets, beta 0.4, when LFO 2 moves it)
+  startWorker();
+
+  // the tables to the worklet (their arrays are transferred); held until the audio has started
+  function deliver(tb) {
+    if (!node) { heldTables = tb; return; }
     const transfer = [];
     const pack = s => {
       if (!s) return null;
       transfer.push(s.mips.buffer, s.rms.buffer);
       const o = { mode: s.mode, mips: s.mips, rms: s.rms };
-      if (s.ph) o.ph = s.ph.map(pack);
+      if (s.ph) { o.vk = s.vk; o.ph = s.ph.map(pack); }
+      if (s.w2) o.w2 = pack(s.w2);
       return o;
     };
-    const main = pack(tb), alt = pack(tb.alt);
-    // WAVELET MORPH: the tables of WAVELET 2 (with their own alt set when engines A and B are mixed)
-    const w2 = tb.w2 ? Object.assign(pack(tb.w2), { alt: pack(tb.w2.alt) }) : null;
-    if (node) post({ t: 'tables', mode: tb.mode, mips: tb.mips, rms: tb.rms, ph: main.ph || null, alt, w2 }, transfer);
-    // the displays show the engine of the panel; with A/B MIX at the other engine the sound uses other tables
-    ui.setTables(tb.mode === Math.round(values[P.engine]) ? tb : C.buildTables(values, false));
+    post({ t: 'tables', tables: { needs: tb.needs, slots: tb.slots.map(pack) } }, transfer);
+  }
+  let buildTimer2 = null;
+  function scheduleBuild() {
+    if (buildTimer) return;
+    buildTimer = setTimeout(() => { buildTimer = null; build(true); }, Math.max(0, 45 - (performance.now() - lastBuild)));
+  }
+  // the display of the oscillator shown (its source, its atoms, the scope and the scalogram)
+  function scheduleDisplay() {
+    if (buildTimer2) return;
+    buildTimer2 = setTimeout(() => { buildTimer2 = null; ui.setTables(C.buildTables(values, false)); }, 20);
+  }
+  // inWorker: a knob being moved (the Worker builds, if it can); else at once, here
+  function build(inWorker) {
+    lastBuild = performance.now();
+    const seq = ++buildSeq;
+    if (inWorker === true && worker && workerReady) {
+      if (workerBusy) workerAgain = true;
+      else { workerBusy = true; worker.postMessage({ seq, values: Float64Array.from(values) }); }
+    } else {
+      deliveredSeq = seq;
+      deliver(C.buildTables(values, true));
+    }
+    if (buildTimer2) { clearTimeout(buildTimer2); buildTimer2 = null; }
+    ui.setTables(C.buildTables(values, false));
   }
 
   let saveTimer = null;
   function saveStateSoon() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => store.set('ws.state', { id: presetId, name: presetName, dirty, values: toKeyed() }), 300);
+    saveTimer = setTimeout(() => store.set('mw.state', { id: presetId, name: presetName, dirty, values: toKeyed(true) }), 300);
   }
 
   function applyKeyed(obj) {
-    // presets and states saved before beta 0.2 have no A/B MIX: they play the engine they were made for
-    if (obj && obj.ab_mix === undefined && obj.engine !== undefined) obj = Object.assign({}, obj, { ab_mix: obj.engine });
     PARAMS.forEach((p, i) => {
       if (p.hidden) return;
+      if (p.perf && !(obj && obj[p.key] !== undefined)) return;   // Okto MultiWave Synth: a preset leaves the chord keyboard as it is
       const v = obj && obj[p.key] !== undefined && isFinite(obj[p.key]) ? +obj[p.key] : p.def;
       setParam(i, v, false);
     });
@@ -96,12 +144,19 @@
 
   // ---------------------------------------------------------------- presets
   function presetList() {
-    const list = [];
-    // ★ TOP SOUNDS (OktoPierre's selection, first in the factory order; beta 0.5), then one group per category.
-    SPEC.PRESETS.forEach((pr, k) => list.push({
-      id: 'f:' + k, name: pr.name, group: k < SPEC.TOP ? '★ TOP SOUNDS' : pr.cat.toUpperCase(),
-      current: presetId === 'f:' + k, deletable: false,
-    }));
+    const list = [], P = SPEC.PRESETS;
+    // ★ TOP SOUNDS (OktoPierre's selection, first in the factory order; beta 0.5), then one group per category, in the order of the
+    // categories and of the presets' ranks (beta 0.2: the numbering is not the order of the lists any more: the 300 new presets 201-500
+    // come before the 200 of beta 0.1 in the array, but each category lists its presets together). The arrows step through this list.
+    const add = (k, group) => list.push({ id: 'f:' + k, name: P[k].name, group, current: presetId === 'f:' + k, deletable: false });
+    SPEC.TOP_LIST.forEach(k => add(k, '★ TOP SOUNDS'));   // (version 1.0.3: the TOP Sounds list of the plug-in, the best first)
+    const inTop = new Set(SPEC.TOP_LIST);
+    for (const c of SPEC.CATEGORIES) {
+      const ks = [];
+      for (let k = 0; k < P.length; k++) if (P[k].cat === c && !inTop.has(k)) ks.push(k);
+      ks.sort((a, b) => P[a].rank - P[b].rank);
+      for (const k of ks) add(k, c.toUpperCase());
+    }
     userPresets.forEach((pr, k) => list.push({ id: 'u:' + k, name: pr.name, group: 'USER PRESETS', current: presetId === 'u:' + k, deletable: true }));
     return list;
   }
@@ -109,7 +164,7 @@
     const [kind, ks] = String(id).split(':'), k = +ks;
     if (kind === 'f' && SPEC.PRESETS[k]) {
       const pr = SPEC.PRESETS[k], o = {};
-      PARAMS.forEach((p, i) => { o[p.key] = pr.values[i]; });
+      PARAMS.forEach((p, i) => { if (!p.perf) o[p.key] = pr.values[i]; });   // Okto MultiWave Synth: a preset leaves the chord keyboard as it is
       applyKeyed(o); presetName = pr.name;
     } else if (kind === 'u' && userPresets[k]) {
       applyKeyed(userPresets[k].values); presetName = userPresets[k].name;
@@ -129,20 +184,20 @@
     if (!userPresets[k]) return;
     if (!confirm(`Delete user preset "${userPresets[k].name}"?`)) return;
     userPresets.splice(k, 1);
-    store.set('ws.user', userPresets);
+    store.set('mw.user', userPresets);
     if (presetId === id) { presetId = 'x'; dirty = true; ui.setPresetName(presetName, true); }
   }
   function savePreset() {
     const name = prompt('Save current sound as user preset:', dirty ? presetName + ' (edit)' : presetName);
     if (!name) return;
     userPresets.push({ name: name.slice(0, 40), values: toKeyed() });
-    store.set('ws.user', userPresets);
+    store.set('mw.user', userPresets);
     presetId = 'u:' + (userPresets.length - 1); presetName = name.slice(0, 40); dirty = false;
     ui.setPresetName(presetName, false);
     saveStateSoon();
   }
   function exportPreset() {
-    const data = { format: 'wavelet-synthesizer-preset', version: 1, name: presetName, values: toKeyed() };
+    const data = { format: 'okto-multiwave-synth-preset', version: 1, name: presetName, values: toKeyed() };
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     a.download = presetName.replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '_') + '.json';
@@ -154,10 +209,10 @@
     r.onload = () => {
       try {
         const data = JSON.parse(r.result);
-        if (!data || !data.values || typeof data.values !== 'object') throw new Error('not a Wavelet Synthesizer preset');
+        if (!data || !data.values || typeof data.values !== 'object') throw new Error('not a Okto MultiWave Synth preset');
         const name = String(data.name || file.name.replace(/\.json$/i, '')).slice(0, 40);
         userPresets.push({ name, values: data.values });
-        store.set('ws.user', userPresets);
+        store.set('mw.user', userPresets);
         loadPreset('u:' + (userPresets.length - 1));
       } catch (e) { alert('Could not import preset: ' + e.message); }
     };
@@ -172,6 +227,9 @@
     post({ t: 'on', n, v });
   }
   function noteOff(n) { localKeys.delete(n); post({ t: 'off', n }); }
+  // Okto MultiWave Synth: the strum plate's notes (played as themselves, whatever CHORD says)
+  function plateOn(n, v) { if (n < 0 || n > 127) return; if (!actx) startAudio(); post({ t: 'plateon', n, v }); }
+  function plateOff(n) { post({ t: 'plateoff', n }); }
   function allOff() { localKeys.clear(); heldCodes.clear(); post({ t: 'alloff' }); }
 
   // ---------------------------------------------------------------- audio
@@ -187,12 +245,18 @@
       const url = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(src);
       await actx.audioWorklet.addModule(url);
       node = new AudioWorkletNode(actx, 'wavelet-synth', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { spec: SPEC } });
+      // the processor threw (a bug, or a broken state): the audio stops for good; say so rather than stay silent
+      node.onprocessorerror = () => {
+        $('st-audio').classList.remove('on');
+        $('st-audio').lastElementChild.textContent = 'Audio engine stopped by an error: reload the page';
+        try { node.disconnect(); } catch (e) { /* already gone */ }
+      };
       const ready = new Promise(res => { node.port.onmessage = (e) => { if (e.data.t === 'ready') { sampleRate = e.data.sr; res(); } else onWorklet(e.data); }; });
       node.connect(actx.destination);
       await ready;
       node.port.onmessage = (e) => onWorklet(e.data);
       post({ t: 'all', v: Array.from(values) });
-      build();
+      if (heldTables) { const tb = heldTables; heldTables = null; deliver(tb); } else build();
       for (const n of localKeys) post({ t: 'on', n, v: 0.8 });
       if (actx.state !== 'running') await actx.resume();
       $('st-audio').classList.add('on');
@@ -212,6 +276,9 @@
     if (m.t !== 'disp') return;
     live = m;
     lastLevel = { peakL: m.peakL, peakR: m.peakR };
+    // Okto MultiWave Synth: a key of the selector octave chose a chord type in the engine: the panel follows (not a sound change)
+    // (only on that event: a pad clicked here reaches the engine a little later, the engine's older value must not undo it)
+    if (m.chord && m.chord.changed && m.chord.type !== values[P.chord_type]) { values[P.chord_type] = m.chord.type; ui.refresh(P.chord_type); saveStateSoon(); }
     ui.setLive(m);
     if (demo) demo.onSeqTime(m.seqTime);
   }
@@ -221,7 +288,7 @@
   // copies (same browser) stop their demo and pause their audio. Closing or leaving the page
   // stops everything immediately.
   const INSTANCE = Math.random().toString(36).slice(2);
-  function claimAudio() { store.set('ws.audioOwner', { id: INSTANCE, t: Date.now() }); }
+  function claimAudio() { store.set('mw.audioOwner', { id: INSTANCE, t: Date.now() }); }
   // The welcome window (index.html) comes back with the reason in place of its sub-title; its choices take the audio back.
   // While it is shown, the panel behind it is inert, so the Tab key stays in the window.
   const WELCOME_SUB = $('w-sub').textContent;
@@ -254,7 +321,7 @@
     }).catch(() => {});
   }
   window.addEventListener('storage', (e) => {
-    if (e.key !== 'ws.audioOwner' || !e.newValue || !actx) return;
+    if (e.key !== 'mw.audioOwner' || !e.newValue || !actx) return;
     try { if (JSON.parse(e.newValue).id !== INSTANCE) pauseAudio('The synthesizer is playing in another window or tab, so this one was paused.'); } catch (_) { /* ignore */ }
   });
   window.addEventListener('pagehide', () => {
@@ -268,9 +335,9 @@
   // default), Program Change selects a preset, and MIDI learn links a control change to a panel control: right-click
   // the control, then move a knob or fader on the controller. The channel and the links are kept in this browser.
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-  let midiCh = store.get('ws.midiCh', 0);                   // 0 = all channels, else 1..16
+  let midiCh = store.get('mw.midiCh', 0);                   // 0 = all channels, else 1..16
   if (!(Number.isInteger(midiCh) && midiCh >= 0 && midiCh <= 16)) midiCh = 0;
-  let ccMap = store.get('ws.ccMap', {});                    // CC number -> parameter key
+  let ccMap = store.get('mw.ccMap', {});                    // CC number -> parameter key
   if (!ccMap || typeof ccMap !== 'object' || Array.isArray(ccMap)) ccMap = {};
   for (const cc of Object.keys(ccMap)) if (!(/^\d+$/.test(cc) && +cc < 120 && typeof ccMap[cc] === 'string' && own(P, ccMap[cc]))) delete ccMap[cc];
   let learn = -1;                                           // parameter waiting for a control change
@@ -316,7 +383,7 @@
     const key = PARAMS[i].key;
     for (const c of Object.keys(ccMap)) if (ccMap[c] === key) delete ccMap[c];
     if (!unlink) ccMap[cc] = key;
-    store.set('ws.ccMap', ccMap);
+    store.set('mw.ccMap', ccMap);
     ui.setMidiMap(ccMap);
     stopLearn(unlink ? `MIDI: ${PARAMS[i].name} unlinked` : `MIDI: CC ${cc} → ${PARAMS[i].name}`);
   }
@@ -381,7 +448,7 @@
     const url = 'manual/manual-' + w + '.html';
     $('manual-iframe').src = url;
     $('manual-newtab').href = url;
-    $('manual-title').textContent = w === 'a' ? 'Manual A — Wavelet Subtractive engine' : 'Manual B — Wavelet Additive engine';
+    $('manual-title').textContent = w === 'a' ? 'Manual A — subtractive oscillators A1 · A2' : 'Manual B — additive oscillator B1';
     $('manual-overlay').hidden = false;
   }
   // The manual pages announce themselves (postMessage works across file:// frames),
@@ -390,7 +457,7 @@
     const w = e.data && e.data.wsManual;
     if ((w !== 'a' && w !== 'b') || $('manual-overlay').hidden) return;
     $('manual-newtab').href = 'manual/manual-' + w + '.html';
-    $('manual-title').textContent = w === 'a' ? 'Manual A — Wavelet Subtractive engine' : 'Manual B — Wavelet Additive engine';
+    $('manual-title').textContent = w === 'a' ? 'Manual A — subtractive oscillators A1 · A2' : 'Manual B — additive oscillator B1';
   });
 
   function closeManual() {
@@ -406,6 +473,7 @@
     set: (i, v) => setParam(i, v, true),
     begin() {}, end() {},
     noteOn, noteOff,
+    plateOn, plateOff,   // Okto MultiWave Synth: the strum plate
     presetStep, presetList, loadPreset, deletePreset,
     openManual,
     keysDown: () => {   // keys played here + notes playing in the engine (MIDI, demo)
@@ -425,10 +493,10 @@
       sel.appendChild(o);
     }
     sel.value = String(midiCh);
-    sel.onchange = () => { midiCh = +sel.value; store.set('ws.midiCh', midiCh); allOff(); sel.blur(); };
+    sel.onchange = () => { midiCh = +sel.value; store.set('mw.midiCh', midiCh); allOff(); sel.blur(); };
   }
 
-  // ---------------------------------------------------------------- demo (Bach, Toccata in D minor)
+  // ---------------------------------------------------------------- demo (Beethoven, Appassionata: a tour of the presets)
   demo = WSDemo({
     C, P, PARAMS, ui, post,
     startAudio: () => startAudio(),
@@ -436,29 +504,22 @@
     values: () => values,
     ctxTime: () => (actx ? actx.currentTime : 0),
     applyPreset: (name) => {
-      const k = SPEC.PRESETS.findIndex(p => p.name === name);
-      if (k < 0) return;
-      const o = {}; PARAMS.forEach((p, i) => { o[p.key] = SPEC.PRESETS[k].values[i]; });
+      // version 1.0: the demo's tour has presets of its own (the ones of the Wavelet Synthesizer's web app), then the factory list
+      const src = (SPEC.DEMO_PRESETS || []).find(p => p.name === name) || SPEC.PRESETS.find(p => p.name === name);
+      if (!src) return;
+      const o = {}; PARAMS.forEach((p, i) => { if (!p.perf) o[p.key] = src.values[i]; });
       applyKeyed(o);
     },
     snapshot: () => ({ values: toKeyed(), presetId, presetName, dirty }),
     restore: (s) => { applyKeyed(s.values); presetId = s.presetId; presetName = s.presetName; dirty = s.dirty; ui.setPresetName(presetName, dirty); },
     setPresetLabel: (txt, modified) => ui.setPresetName(txt, !!modified),
   });
-  const playDemo = (i) => demo.start(i).catch(() => {});
+  const playDemo = () => demo.start().catch(() => {});
   ui.makeDemoButton({
     running: () => demo.running(),
     stop: () => demo.stop(),
-    songs: () => demo.songs(),
     play: playDemo,
-    loadFile: () => $('file-midi').click(),
   });
-  $('file-midi').onchange = (e) => {
-    const f = e.target.files[0];
-    e.target.value = '';
-    if (!f) return;
-    f.arrayBuffer().then(buf => demo.startFile(buf, f.name)).catch(err => alert('Could not play this MIDI file: ' + err.message));
-  };
 
   // The app always opens on the default preset (A · Wavelet Lead); user presets stay in the preset list.
   loadPreset('f:' + SPEC.DEFAULT_PRESET);
@@ -472,7 +533,7 @@
   // The welcome window's choices. resumeAudio, not startAudio: after a pause the context exists but is suspended.
   // "Run the demo" then plays the default demo as the header's ▶ DEMO does; "Download the VST" is a plain link (new tab).
   $('start-btn').onclick = () => resumeAudio();
-  $('w-demo').onclick = () => resumeAudio().then(() => { if (actx) playDemo(0); });
+  $('w-demo').onclick = () => resumeAudio().then(() => { if (actx) playDemo(); });
   for (const w of ['a', 'b']) {   // the manual viewer, over the window (Ctrl / Shift / Cmd + click: the browser's new tab or window)
     $('w-man-' + w).onclick = (e) => { if (e.ctrlKey || e.shiftKey || e.metaKey) return; e.preventDefault(); openManual(w); };
   }
@@ -498,12 +559,15 @@
     loadPreset: idx => { const l = presetList(); if (l[idx]) loadPreset(l[idx].id); },
     openManual, closeManual,
     allNotesOff: allOff,
-    demoStart: (i) => demo.start(i || 0),
-    demoSongs: () => demo.songs(),
-    demoTour: (i) => demo.tourPlan(i || 0),
+    demoStart: () => demo.start(),
+    demoSong: () => demo.song(),
+    demoTour: () => demo.tourPlan(),
     demoStop: () => demo.stop(),
     demoState: () => demo.state(),
     midi: (bytes) => onMIDI({ data: bytes }),
+    chord: () => (live && live.chord ? Object.assign({}, live.chord) : null),   // Okto MultiWave Synth: the chord sounding
+    plateOn: (n, v) => plateOn(n, v == null ? 0.8 : v),
+    plateOff: n => plateOff(n),
     midiLearn: (key) => midiLearn(P[key]),
     midiMap: () => Object.assign({}, ccMap),
     midiStatus: () => $('st-midi').textContent,

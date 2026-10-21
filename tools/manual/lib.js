@@ -23,6 +23,7 @@ function rangeOf(key) {
     case 'dbband': return bip ? `${sgn(lo)} … ${sgn(hi)} dB/band` : `${num(lo)} – ${num(hi)} dB/band`;
     case 'sec': return `${secStr(lo, p)} – ${secStr(hi, p)}`;
     case 'hz': return `${num(lo)} – ${num(hi)} Hz`;
+    case 'semi': return `${sgn(lo)} … ${sgn(hi)} semitones`;
     case 'cents': return bip ? `${sgn(lo)} … ${sgn(hi)} cents` : `${num(lo)} – ${num(hi)} cents`;
     case 'band': return bip ? `${sgn(lo)} … ${sgn(hi)} bands` : `${num(lo)} – ${num(hi)}${key === 'lfo_cut' ? ' bands' : ''}`;
     case 'int': return bip ? `${sgn(lo)} … ${sgn(hi)}` : `${num(lo)} – ${num(hi)}`;
@@ -74,11 +75,11 @@ const snip = name => { if (!SNIPS[name]) throw new Error('missing diagram ' + na
 const fig = (src, cap, cls, alt) => `<figure class="${cls || 'frame'}"><img src="img/${src}" alt="${alt || cap.replace(/<[^>]+>/g, '').replace(/"/g, '')}"><figcaption>${cap}</figcaption></figure>`;
 const figInline = (name, cap) => `<figure class="frame inline">${snip(name)}<figcaption>${cap}</figcaption></figure>`;
 
-// annotated screenshot: image is 1124 x 782 CSS px, device panel at offset (12,12)
+// annotated screenshot: image is 1124 x 1112 CSS px (Okto MultiWave Synth beta 0.3: the 1100 x 1050 panel, 12 px margin, status bar), device panel at offset (12,12)
 function annotated(img, alt, pins) {
   const pct = (v, tot) => (Math.round(v / tot * 10000) / 100) + '%';
   let h = `<div class="annot"><img src="img/${img}" alt="${alt}">`;
-  pins.forEach((p, i) => { h += `<a class="pin" href="#${p.href}" style="left:${pct(12 + p.x, 1124)};top:${pct(12 + p.y, 782)}" title="${p.title}">${i + 1}</a>`; });
+  pins.forEach((p, i) => { h += `<a class="pin" href="#${p.href}" style="left:${pct(12 + p.x, 1124)};top:${pct(12 + p.y, 1112)}" title="${p.title}">${i + 1}</a>`; });
   h += '</div>';
   let lg = '<ol class="legend">';
   pins.forEach((p, i) => { lg += `<li><span class="no">${i + 1}</span><span><b><a href="#${p.href}">${p.title}</a></b> — ${p.desc}</span></li>`; });
@@ -94,8 +95,8 @@ const MARK = c => `<svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="
 // sections: [{id, num, title, html, subs:[{id,title}]}]
 function page(o) {
   const E = o.engine, other = E === 'a' ? 'b' : 'a';
-  let toc = `<aside class="toc"><a class="brand" href="#top"><span class="mark">${MARK(E === 'a' ? '#2fd4c6' : '#ffae42')}</span><span><b>WAVELET</b><span>MANUAL ${E.toUpperCase()}</span></span></a>`;
-  toc += `<a class="switch to-${other}" href="manual-${other}.html">Other engine<strong>${other === 'a' ? 'Manual A · Wavelet Subtractive' : 'Manual B · Wavelet Additive'} →</strong></a>`;
+  let toc = `<aside class="toc"><a class="brand" href="#top"><span class="mark">${MARK(E === 'a' ? '#2fd4c6' : '#ffae42')}</span><span><b>OKTOMULTIWAVE</b><span>MANUAL ${E.toUpperCase()}</span></span></a>`;
+  toc += `<a class="switch to-${other}" href="manual-${other}.html">Other oscillators<strong>${other === 'a' ? 'Manual A · Subtractive A1 A2' : 'Manual B · Additive B1'} →</strong></a>`;
   toc += '<nav aria-label="Contents"><div class="toc-title">CONTENTS</div><ol>';
   for (const s of o.sections) {
     toc += `<li><a href="#${s.id}"><span class="n">${o.sections.indexOf(s) + 1}</span>${s.title}</a>`;
