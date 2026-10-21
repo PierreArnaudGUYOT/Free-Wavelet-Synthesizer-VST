@@ -71,12 +71,16 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       const accent = () => q(`getComputedStyle(document.getElementById('device')).getPropertyValue('--accent').trim()`);
       check((await accent()) === '#ffcf3d' && !(await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING WEST: the yellow accent, no oriental class');
       await q(`WS_TEST.setParam('mt_mode', 1); true`); await sleep(250);
-      check((await accent()) === '#ff7b4a' && (await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING ARAB: the terracotta accent', await accent());
+      check((await accent()) === '#f0b84a' && (await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING ARAB: the sand-gold accent', await accent());
       check(await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'block'`), 'TUNING ARAB: the PLAY card shows its pattern');
       await B.screenshot(path.join(out, 'tuning-arab.png'), { width: 1500, height: 1160 });
       await q(`WS_TEST.setParam('osc_view', 2); true`); await sleep(250);
-      check((await accent()) === '#33d3c6', 'TUNING ARAB, additive oscillator B1: the turquoise accent', await accent());
+      check((await accent()) === '#e46f4a', 'TUNING ARAB, additive oscillator B1: the coral accent', await accent());
       await q(`WS_TEST.setParam('mt_mode', 2); true`); await sleep(250);
+      check((await accent()) === '#ffb347', 'TUNING TURK, additive oscillator B1: the carmine palette\'s amber accent', await accent());
+      await q(`WS_TEST.setParam('osc_view', 0); true`); await sleep(250);
+      check((await accent()) === '#ff5468', 'TUNING TURK, subtractive oscillator A1: the carmine accent', await accent());
+      await q(`WS_TEST.setParam('osc_view', 2); true`); await sleep(250);
       await B.screenshot(path.join(out, 'tuning-turk-b1.png'), { width: 1500, height: 1160 });
       await q(`WS_TEST.setParam('osc_view', 0); WS_TEST.setParam('mt_mode', 0); true`); await sleep(250);
       check((await accent()) === '#ffcf3d' && await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'none'`), 'TUNING WEST again: the yellow accent, no pattern');

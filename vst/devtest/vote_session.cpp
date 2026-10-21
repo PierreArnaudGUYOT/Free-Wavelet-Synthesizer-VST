@@ -382,7 +382,7 @@ int wmain(int argc, wchar_t** argv) {
     h.click(tx, ty); h.run(0.3);   // the middle segment: ARAB
     check(h.plain(P_MT_MODE) == 1, "a click on ARAB sets the Arabic tuning", fmt("mt_mode %.0f", h.plain(P_MT_MODE)));
     px = h.pixels({pA, pL});
-    check(closeTo(px[0], kOrientA) && closeTo(px[1], kOrientA), "TUNING ARAB: terracotta accent (oscillator tab A1, LFO 2 tab)", hex(px[0]) + " " + hex(px[1]));
+    check(closeTo(px[0], kOrientPals[0].a) && closeTo(px[1], kOrientPals[0].a), "TUNING ARAB: terracotta accent (oscillator tab A1, LFO 2 tab)", hex(px[0]) + " " + hex(px[1]));
     h.shot(out + L"\\15_arab.png");
     {   // the pattern and its clip in a scaled window (the zoom "fit" of a small screen)
       SetEnvironmentVariableW(L"MW_WORKAREA", L"1366x728");
@@ -398,8 +398,10 @@ int wmain(int argc, wchar_t** argv) {
     h.click(lt[0] + 6 + 29, tabY); h.run(0.2);   // back to LFO 2
     setP(P_OSC_VIEW, 2);   // B1: turquoise
     px = h.pixels({pB});
-    check(closeTo(px[0], kOrientB), "TUNING ARAB, additive oscillator B1 shown: turquoise accent", hex(px[0]));
+    check(closeTo(px[0], kOrientPals[0].b), "TUNING ARAB, additive oscillator B1 shown: turquoise accent", hex(px[0]));
     setP(P_MT_MODE, 2);
+    px = h.pixels({pB});
+    check(closeTo(px[0], kOrientPals[1].b), "TUNING TURK, additive oscillator B1 shown: the carmine palette's amber accent", hex(px[0]));
     h.shot(out + L"\\16_turk_b1.png");
     setP(P_OSC_VIEW, 0);
     h.shot(out + L"\\16_turk.png");

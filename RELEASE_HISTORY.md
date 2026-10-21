@@ -3,6 +3,16 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.5 — 2026-10-20 (a trail of light around the oscillators, ARAB sand-gold and TURK carmine)
+
+**In short**
+- **A trail of light around the oscillator tab** (the owner's choice, number 9 of ten proposals). The folder tab of the oscillator shown and the plate under it are outlined as one shape: a soft 2 px line in the oscillator's colour, bright where it leaves the tab and fading along the plate (1, 0.45, 0.06 of the colour) with a faint glow; the plate's background fades the same way (0.14 to 0.01). It follows the tab (OSC1, OSC2, OSC3) and the colour of the oscillator (yellow, blue, or the tuning's palette). Web: two SVG gradients (`oscStroke`, `oscFill` in `web/js/ui.js`, `svg.oscframe` in `web/css/synth.css`); plug-in: `drawOscFrame` in `vst/src/editor.cpp` (a polygon with a gradient fill, the stroke in pieces of about 4 px, each with its own transparency).
+- **PLAY: ARAB and TURK have their own colours**, with the same oriental pattern: **ARAB sand-gold, TURK carmine red** (the owner's choice, pair d of four). While a tuning is on, the panel's accent follows its palette: ARAB gold (subtractive oscillators) and coral (additive), TURK carmine and amber (`ORIENT.arab` / `ORIENT.turk` in `tools/spec.js`; C++ `kOrientPals[2]`).
+
+**Checked**
+- The plug-in and engine lane of `node tests/full.js` (13 steps): the quick suite, the C++ engine against the JavaScript reference (323 cases, worst difference 2.1e-7), the 18 TOP Sounds of beta 0.7, the engine tests, the presets file, the VST2 entry point, the plug-in window in a host (with the new checks: the accent of ARAB is sand-gold, the accent of TURK is carmine), the crackle of three chords.
+- The web app: the smoke test (the accent and the pattern of WEST, ARAB and TURK) and the demo tour (67 checks) pass, the full web run on every preset (`test_web`, 104 checks) passes too.
+
 ## Okto MultiWave Synth 1.0.4 — 2026-10-20 (a new tour for the demo, Flint Ripple Haze first)
 
 **In short**

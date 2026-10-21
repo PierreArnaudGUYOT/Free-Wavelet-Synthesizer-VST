@@ -7,18 +7,34 @@ var WS_SPEC = {
   "h": 944
  },
  "ORIENT": {
-  "a": "#ff7b4a",
-  "b": "#33d3c6",
-  "c1": "#e0653a",
-  "c2": "#33d3c6",
-  "c3": "#f2e3c8",
-  "c4": "#3a1d14",
-  "c5": "#5e2c1c",
-  "pl": [
-   "#44251a",
-   "#321a11"
-  ],
-  "dim": "#c9b5a6",
+  "arab": {
+   "a": "#f0b84a",
+   "b": "#e46f4a",
+   "c1": "#c98a1f",
+   "c2": "#e46f4a",
+   "c3": "#fbf0d6",
+   "c4": "#2b2010",
+   "c5": "#4a3715",
+   "pl": [
+    "#3a2c14",
+    "#281d0d"
+   ],
+   "dim": "#cdbf9c"
+  },
+  "turk": {
+   "a": "#ff5468",
+   "b": "#ffb347",
+   "c1": "#d6334a",
+   "c2": "#ffb347",
+   "c3": "#ffe9ea",
+   "c4": "#33101a",
+   "c5": "#5a1a2a",
+   "pl": [
+    "#401522",
+    "#2c0e17"
+   ],
+   "dim": "#d1aab1"
+  },
   "tile": 34,
   "opacity": 0.7
  },
@@ -30,8 +46,8 @@ var WS_SPEC = {
   "panelCredit": "By OktoPierre",
   "copyright": "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)",
   "license": "GPL v3",
-  "version": "1.0.4",
-  "versionNum": "1.0.4",
+  "version": "1.0.5",
+  "versionNum": "1.0.5",
   "date": "2026-10-20",
   "doi": "",
   "base": "Wavelet Synthesizer beta 0.7"

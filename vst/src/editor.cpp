@@ -30,7 +30,7 @@ namespace ws {
 
 // ------------------------------------------------------------------ palette
 static const uint32_t kText = 0xd5dce6, kDim = 0x8792a1, kFaint = 0x566070, kInset = 0x101317, kInsetEdge = 0x262c35;
-static const uint32_t kAccentA = 0xffcf3d, kAccentB = 0x4aa8ff;   // beta 0.3: A1 A2 yellow, B1 blue (the oriental kOrientA / kOrientB: generated/spec.h)
+static const uint32_t kAccentA = 0xffcf3d, kAccentB = 0x4aa8ff;   // beta 0.3: A1 A2 yellow, B1 blue (the oriental opal().a / opal().b: generated/spec.h)
 
 struct Item { const WidgetDef* w; int section; R r; };
 
@@ -155,6 +155,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   uint32_t lastVersion = 0;
   int view = 0, mode = 0;   // the oscillator shown (A1 A2 B1) and its engine
   bool orient = false;      // beta 0.3.4: the TUNING switch is ARAB or TURK: the oriental colour code and the pattern of the PLAY card
+  int orientMode = 0;       // version 1.0.5: 0 WEST, 1 ARAB (sand-gold), 2 TURK (carmine): opal() is its palette
   bool chordOn = false;     // CHORD MODE: the chord card is shown (under the keyboard and the panel taller, or under the list of the browser)
   int chordSec = -1; std::vector<int> chordItems;   // beta 0.3.3: the chord card's section and its items (moved into the browser while it is open)
   bool chordInBrowser() const { return chordOn && host->browserOpen(); }
@@ -193,7 +194,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   float devH() const { return kDeviceH + (chordOn && !host->browserOpen() ? kChordH : 0); }   // the panel's logical height: CHORD MODE adds the chord card under the keyboard, unless the browser shows it (beta 0.3.3)
   int pxH() const { return (int)std::lround(devH() * scale()); }
   // beta 0.3.4: the accent of an oscillator's kind (0 subtractive, 1 additive): yellow / blue, or terracotta / turquoise while the TUNING switch is ARAB or TURK (orient)
-  uint32_t accentOf(int m) const { return orient ? (m == 0 ? kOrientA : kOrientB) : (m == 0 ? kAccentA : kAccentB); }
+  const OrientPal& opal() const { return kOrientPals[orientMode == 2 ? 1 : 0]; }
+  uint32_t accentOf(int m) const { return orient ? (m == 0 ? opal().a : opal().b) : (m == 0 ? kAccentA : kAccentB); }
   uint32_t accent() const { return accentOf(mode); }
 
   void requestResize() {
@@ -228,7 +230,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (force || sig != dispSig) { buildTables(v, false, disp); buildScopeSets(v, disp, scopeSets); dispSig = sig; }
     view = std::max(0, std::min(NS - 1, (int)jsRound(v[P_OSC_VIEW]))); mode = kSlots[view].mode;
     chordOn = v[P_CHORD_MODE] >= 0.5;
-    orient = (int)jsRound(v[P_MT_MODE]) != 0;
+    orientMode = (int)jsRound(v[P_MT_MODE]); orient = orientMode != 0;
   }
 
   // a section shows for one oscillator (view) or always, and may need a parameter on / off (the chord card)
@@ -261,7 +263,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     uint32_t ver = host->paramVersion();
     if (ver != lastVersion) {
       lastVersion = ver;
-      const int oldView = view; const bool oldChord = chordOn, oldOrient = orient;
+      const int oldView = view, oldOrientMode = orientMode; const bool oldChord = chordOn, oldOrient = orient;
       bool any = false, structural = false, lfoCard = false;
       for (int i = 0; i < kNumParams; i++) {
         double v = host->getPlain(i);
@@ -279,7 +281,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       if (any) {
         rebuildDisplay(false);
         if (chordOn != oldChord) requestResize();   // CHORD MODE: the panel grows or shrinks
-        if (structural || view != oldView || chordOn != oldChord || lfoCard || orient != oldOrient) invalidateAll();   // (beta 0.3.4: a change of TUNING changes the colours of the whole panel)
+        if (structural || view != oldView || chordOn != oldChord || lfoCard || orient != oldOrient || orientMode != oldOrientMode) invalidateAll();   // (beta 0.3.4: a change of TUNING changes the colours of the whole panel)
         else for (int t : {W_SCOPE, W_SCALOGRAM, W_WINDOW, W_ADSR, W_LEDS, W_WHEELS, W_PRESETS}) invalidateType(t);
       }
       invalidateType(W_PRESETS);
@@ -432,7 +434,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         if (orient && it.section >= 0 && std::strcmp(kSections[it.section].id, "play") == 0) {   // beta 0.3.4: on the oriental pattern, a caption sits on a dark plate
           const float tw = g.textWidth(s, 10.5f, true);
           g.fillRR(R{it.r.x, it.r.y - 0.5f, tw + 14, 15}, 4, rgb(0x070a16, 199));
-          text(g, s, R{it.r.x + 7, it.r.y, tw + 7, it.r.h}, 10.5f, true, rgb(kOrientDim), 0);
+          text(g, s, R{it.r.x + 7, it.r.y, tw + 7, it.r.h}, 10.5f, true, rgb(opal().dim), 0);
         } else text(g, s, it.r, 10.5f, true, rgb(kDim), 0);
         break;
       }
@@ -537,12 +539,33 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     // the notch: half way between the tone card and OSC MIX, half way between the bottom of OSC MIX / SCOPE and the second row
     const float xl = s.x + 0.5f, xr = s.x + s.w - 0.5f, yt = s.y + 38.5f, yb = s.y + s.h - 0.5f;
     const float xn = (tone->x + tone->w + mix->x) / 2, yn = (mix->y + mix->h + flt->y) / 2;
-    const std::vector<Pt> corners{Pt{xl, yt}, Pt{xn, yt}, Pt{xn, yn}, Pt{xr, yn}, Pt{xr, yb}, Pt{xl, yb}};
-    const std::vector<float> rad{0, 12, 12, 12, 12, 12};
+    // version 1.0.5 (the owner's choice "trail of light"): one outline for the folder tab of the oscillator shown and the plate; the stroke is the accent where it leaves the tab and fades along the plate
+    // (the web app's gradient: 1 -> 0.45 -> 0.06 of the accent from the tab's left edge to the plate's right edge), the fill fades the same way (0.14 -> 0.01), a faint glow all round
+    const float tabL = std::max(s.x + view * 182.f, xl), tabR = s.x + view * 182.f + 176.f, tt = s.y + 0.5f;
+    std::vector<Pt> corners; std::vector<float> rad;
+    auto add = [&](float x, float y, float r) { corners.push_back(Pt{x, y}); rad.push_back(r); };
+    if (tabL > xl + 0.5f) { add(xl, yt, 0); add(tabL, yt, 0); } else add(xl, tt, 9);
+    if (tabL > xl + 0.5f) add(tabL, tt, 9);
+    add(tabR, tt, 9); add(tabR, yt, 0); add(xn, yt, 12); add(xn, yn, 12); add(xr, yn, 12); add(xr, yb, 12); add(xl, yb, 12);
     std::vector<Pt> poly; roundedPoly(corners, rad, poly);
-    g.fillPolygon(poly.data(), (int)poly.size(), rgb(accent(), 18));
+    const uint32_t ac = accentOf(kSlots[view].mode);
+    g.fillPolygon(poly.data(), (int)poly.size(), Brush(Pt{tabL, 0}, Pt{xr, 0}, rgb(ac, 36), rgb(ac, 3)));
     poly.push_back(poly.front());
-    g.lines(poly.data(), (int)poly.size(), Pen(rgb(accent(), 56), 1.f).join());
+    g.lines(poly.data(), (int)poly.size(), Pen(rgb(ac, 12), 7.f).join());   // the glow
+    g.lines(poly.data(), (int)poly.size(), Pen(rgb(ac, 24), 4.f).join());
+    auto alphaAt = [&](float x) {   // 255 at the tab, 115 half way, 15 at the right edge
+      const float t = std::max(0.f, std::min(1.f, (x - tabL) / std::max(1.f, xr - tabL)));
+      return t < 0.5f ? 255.f - 140.f * (t / 0.5f) : 115.f - 100.f * ((t - 0.5f) / 0.5f);
+    };
+    for (size_t k = 0; k + 1 < poly.size(); k++) {   // the stroke in short pieces (about 4 px), each with the alpha of its place
+      const Pt a = poly[k], b = poly[k + 1];
+      const float len = std::hypot(b.x - a.x, b.y - a.y);
+      const int n = std::max(1, (int)std::ceil(len / 4.f));
+      for (int j = 0; j < n; j++) {
+        const Pt p0{a.x + (b.x - a.x) * j / n, a.y + (b.y - a.y) * j / n}, p1{a.x + (b.x - a.x) * (j + 1) / n, a.y + (b.y - a.y) * (j + 1) / n};
+        g.line(p0, p1, Pen(rgb(ac, (int)alphaAt((p0.x + p1.x) / 2)), 2.f));
+      }
+    }
   }
 
   // beta 0.3: the three folder tabs OSC1 A1 · SUBTRACTIVE | OSC2 A2 · SUBTRACTIVE | OSC3 B1 · ADDITIVE (176 x 40 px every 182): the colour of the engine (A1 A2 yellow,
@@ -621,13 +644,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   void drawOrientCard(Canvas& g, R r, R dirty) {
     const float T = kOrientTile, Ro = 0.5412f * T, dq = 0.2929f * T, op = kOrientOpacity, pi8 = (float)PI / 8;
-    fillRR(g, r, 10, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(kOrientPl0), rgb(kOrientPl1)));
+    fillRR(g, r, 10, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(opal().pl0), rgb(opal().pl1)));
     const R in{r.x + 1, r.y + 1, r.w - 2, r.h - 2};
-    const uint32_t mid = mixRGB(kOrientPl0, kOrientPl1, 0.5f);
+    const uint32_t mid = mixRGB(opal().pl0, opal().pl1, 0.5f);
     auto pc = [&](uint32_t c) { return rgb(mixRGB(c, mid, op)); };
-    const Col c1 = pc(kOrientC1), c2 = pc(kOrientC2), c3 = pc(kOrientC3), c4 = pc(kOrientC4), c5 = pc(kOrientC5);
+    const Col c1 = pc(opal().c1), c2 = pc(opal().c2), c3 = pc(opal().c3), c4 = pc(opal().c4), c5 = pc(opal().c5);
     g.pushClipRR(in, 9);
-    g.fillRect(in, Brush(Pt{0, in.y}, Pt{0, in.y + in.h}, rgb(mixRGB(kOrientC4, kOrientPl0, op)), rgb(mixRGB(kOrientC4, kOrientPl1, op))));
+    g.fillRect(in, Brush(Pt{0, in.y}, Pt{0, in.y + in.h}, rgb(mixRGB(opal().c4, opal().pl0, op)), rgb(mixRGB(opal().c4, opal().pl1, op))));
     std::vector<Pt> pts;
     const int i0 = std::max(-1, (int)std::floor((dirty.x - in.x - T) / T)), i1 = std::min((int)std::ceil(in.w / T) + 1, (int)std::ceil((dirty.x + dirty.w - in.x + Ro) / T));
     const int j0 = std::max(-1, (int)std::floor((dirty.y - in.y - T) / T)), j1 = std::min((int)std::ceil(in.h / T) + 1, (int)std::ceil((dirty.y + dirty.h - in.y + Ro) / T));
@@ -648,12 +671,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       g.fillPolygon(si, 4, c3);
     }
     // the strip: the title turned, in turquoise, on the dark of the pattern
-    g.fillRect(R{in.x, in.y, 22, in.h}, Brush(Pt{in.x, 0}, Pt{in.x + 22, 0}, rgb(kOrientC4, 255), rgb(kOrientC4, 219)));
-    g.line(Pt{r.x + 22.5f, in.y}, Pt{r.x + 22.5f, in.y + in.h}, Pen(rgb(kOrientC2), 1));
+    g.fillRect(R{in.x, in.y, 22, in.h}, Brush(Pt{in.x, 0}, Pt{in.x + 22, 0}, rgb(opal().c4, 255), rgb(opal().c4, 219)));
+    g.line(Pt{r.x + 22.5f, in.y}, Pt{r.x + 22.5f, in.y + in.h}, Pen(rgb(opal().c2), 1));
     g.popClip();
-    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, rgb(kOrientC2));
-    strokeRR(g, R{r.x + 1.5f, r.y + 1.5f, r.w - 3, r.h - 3}, 9, rgb(kOrientC2, 64));
-    g.textVertical(L"PLAY", R{r.x + 1, r.y + 1, 22, r.h - 2}, 9.5f, true, rgb(kOrientC2));
+    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 10, rgb(opal().c2));
+    strokeRR(g, R{r.x + 1.5f, r.y + 1.5f, r.w - 3, r.h - 3}, 9, rgb(opal().c2, 64));
+    g.textVertical(L"PLAY", R{r.x + 1, r.y + 1, 22, r.h - 2}, 9.5f, true, rgb(opal().c2));
   }
 
   void drawStep(Canvas& g, const Item& it) {
@@ -2137,7 +2160,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       if (orient && std::strcmp(kSections[it.section].id, "play") == 0) {   // beta 0.3.4: on the oriental pattern, a dark plate under it
         const float tw = g.textWidth(cap, 9.5f, true) + 14;
         g.fillRR(R{it.r.x + (it.r.w - tw) / 2, it.r.y - 17.5f, tw, 15}, 4, rgb(0x070a16, 199));
-        text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(kOrientDim));
+        text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(opal().dim));
       } else text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(kDim));
     }
   }

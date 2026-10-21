@@ -66,6 +66,7 @@ class SynthUI {
     this.scale = 1;
     this.mode = 0; this.view = 0;   // the oscillator shown (A1 A2 B1) and its engine
     this.orient = false;            // beta 0.3.4: the oriental colour code (TUNING ARAB or TURK)
+    this.orientMode = 0;            // version 1.0.5: 0 WEST, 1 ARAB (sand-gold), 2 TURK (carmine): the palette
     this.chordOn = false;           // CHORD MODE: the chord card is shown and the panel is taller
     this.live = null;
     this.tip = el('div', 'tip', document.body, { display: 'none' });
@@ -97,7 +98,7 @@ class SynthUI {
         t.innerHTML = parts.length > 1 ? `<b>${parts[0]}</b> · ${parts.slice(1).join(' · ')}` : s.accentTitle ? `<b>${s.title}</b>` : s.title;   // beta 0.3.3: vtitle = a vertical strip at the left
       }
       se.dataset.sid = s.id;   // beta 0.3: addressable by the layout mock-ups (tools of the owner's review)
-      if (s.id === 'play') this.orientPattern(se, s);   // beta 0.3.4: the PLAY card's oriental pattern (shown while TUNING is ARAB or TURK)
+      if (s.id === 'play') { this.playSec = { se, s }; this.orientPattern(se, s); }   // beta 0.3.4: the PLAY card's oriental pattern (shown while TUNING is ARAB or TURK)
       this.sections.push({ spec: s, el: se });
       for (const w of s.widgets) this.makeWidget(w, se, s);
       this.sections[this.sections.length - 1].canvases = this.canvases.filter(c => c.sec === s);
@@ -312,10 +313,31 @@ class SynthUI {
     const svg = document.createElementNS(NSVG, 'svg');
     svg.setAttribute('class', 'oscframe'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     const path = document.createElementNS(NSVG, 'path');
-    path.setAttribute('d', `M${x0},${y0} H${xn - r} Q${xn},${y0} ${xn},${y0 + r} V${yn - r} Q${xn},${yn} ${xn + r},${yn} H${x1 - r} Q${x1},${yn} ${x1},${yn + r} ` +
-      `V${y1 - r} Q${x1},${y1} ${x1 - r},${y1} H${x0 + r} Q${x0},${y1} ${x0},${y1 - r} Z`);
+    // version 1.0.5 (the owner's choice "trail of light"): the outline is one shape, the folder tab of the oscillator shown and the plate. Its stroke is the accent where it leaves the tab and fades along the plate;
+    // the fill fades the same way (the gradients start at the tab's left edge; the stroke's glow is the CSS drop-shadow of svg.oscframe)
+    const outline = v => {
+      const tabL = Math.max(v * 182, x0), tabR = v * 182 + 176, tt = 0.5, rt = 9;
+      return 'M' + x0 + ',' + y0 + ' ' + (tabL > x0 + 0.5 ? 'H' + tabL + ' ' : '') + 'V' + (tt + rt) + ' Q' + tabL + ',' + tt + ' ' + (tabL + rt) + ',' + tt + ' H' + (tabR - rt) + ' Q' + tabR + ',' + tt + ' ' + tabR + ',' + (tt + rt) + ' V' + y0 +
+        ' H' + (xn - r) + ' Q' + xn + ',' + y0 + ' ' + xn + ',' + (y0 + r) + ' V' + (yn - r) + ' Q' + xn + ',' + yn + ' ' + (xn + r) + ',' + yn + ' H' + (x1 - r) + ' Q' + x1 + ',' + yn + ' ' + x1 + ',' + (yn + r) +
+        ' V' + (y1 - r) + ' Q' + x1 + ',' + y1 + ' ' + (x1 - r) + ',' + y1 + ' H' + (x0 + r) + ' Q' + x0 + ',' + y1 + ' ' + x0 + ',' + (y1 - r) + ' Z';
+    };
+    const defs = document.createElementNS(NSVG, 'defs');
+    const lg = (id, stops) => {
+      const g = document.createElementNS(NSVG, 'linearGradient');
+      g.setAttribute('id', id); g.setAttribute('gradientUnits', 'userSpaceOnUse'); g.setAttribute('x1', 0); g.setAttribute('x2', W); g.setAttribute('y1', 0); g.setAttribute('y2', 0);
+      for (const [o, a] of stops) { const st = document.createElementNS(NSVG, 'stop'); st.setAttribute('offset', o); st.setAttribute('stop-opacity', a); g.appendChild(st); }
+      defs.appendChild(g); return g;
+    };
+    const gStroke = lg('oscStroke', [[0, 1], [0.5, 0.45], [1, 0.06]]), gFill = lg('oscFill', [[0, 0.14], [1, 0.01]]);
+    svg.appendChild(defs);
     svg.appendChild(path);
     sec.insertBefore(svg, sec.firstChild);
+    const SLOTS_ = SL;
+    this.outlinePaint = () => {
+      const v = Math.round(this.host.get(i)), col = this.accentFor(SLOTS_[v] ? SLOTS_[v].mode : 0);
+      path.setAttribute('d', outline(v));
+      for (const g of [gStroke, gFill]) { g.setAttribute('x1', Math.max(v * 182, x0)); for (const st of g.children) st.setAttribute('stop-color', col); }
+    };
     const tabs = SL.map((sl, s) => {
       const b = el('button', 'otab ' + (sl.mode === 0 ? 'ea' : 'eb'), box);
       b.style.left = (s * 182) + 'px';
@@ -331,6 +353,7 @@ class SynthUI {
         t.b.classList.toggle('on', t.s === v);
         t.b.classList.toggle('heard', this.host.get(t.sl.k.lvl) > 0);
       }
+      this.outlinePaint();
     };
     const widget = { w, p: this.params[i], i, el: box, update };
     this.reg(w.param, widget);
@@ -793,30 +816,38 @@ class SynthUI {
   }
 
   // beta 0.3: A1 A2 yellow, B1 blue. Beta 0.3.4: while the TUNING switch is ARAB or TURK, the oriental colour code (ORIENT in tools/spec.js): terracotta / turquoise
-  accent() { return this.orient ? (this.mode === 0 ? this.SPEC.ORIENT.a : this.SPEC.ORIENT.b) : this.mode === 0 ? '#ffcf3d' : '#4aa8ff'; }
-  accentRGB() { return this.orient ? hexRGB(this.mode === 0 ? this.SPEC.ORIENT.a : this.SPEC.ORIENT.b) : this.mode === 0 ? [255, 207, 61] : [74, 168, 255]; }
+  accentFor(mode) { return this.orient ? (mode === 0 ? this.orientPal().a : this.orientPal().b) : mode === 0 ? '#ffcf3d' : '#4aa8ff'; }
+  accent() { return this.accentFor(this.mode); }
+  accentRGB() { return hexRGB(this.accentFor(this.mode)); }
+  // version 1.0.5: the palette of the tuning on (ARAB sand-gold, TURK carmine), with the tile and the opacity of the pattern
+  orientPal() { const O = this.SPEC.ORIENT; return Object.assign({ tile: O.tile, opacity: O.opacity }, this.orientMode === 2 ? O.turk : O.arab); }
 
   // ------------------------------------------------------------------ the oriental colour code (beta 0.3.4)
   // the palette of ORIENT as CSS variables (the stylesheet's #device.orient rules use them) on the panel and on the preset browser
   orientVars(e) {
-    const O = this.SPEC.ORIENT, set = (k, v) => e.style.setProperty(k, v);
+    const O = this.orientPal(), set = (k, v) => e.style.setProperty(k, v);
     set('--or-a', O.a); set('--or-b', O.b); set('--or-c1', O.c1); set('--or-c2', O.c2); set('--or-c3', O.c3); set('--or-c4', O.c4); set('--or-c5', O.c5);
     set('--or-pl0', O.pl[0]); set('--or-pl1', O.pl[1]); set('--or-dim', O.dim);
     for (const k of ['a', 'b']) { const c = hexRGB(O[k]); set('--or-' + k + '-soft', `rgba(${c},0.16)`); set('--or-' + k + '-tint', `rgba(${c},0.07)`); set('--or-' + k + '-line', `rgba(${c},0.26)`); }
     set('--or-c2-line', `rgba(${hexRGB(O.c2)},0.25)`); set('--or-glow', `rgba(${hexRGB(O.a)},0.16)`); set('--or-c4-86', `rgba(${hexRGB(O.c4)},0.86)`);
   }
   updateOrient() {
-    const on = Math.round(this.host.get(this.P.mt_mode)) !== 0;
-    if (on === this.orient) return;
-    this.orient = on;
+    const mode = Math.round(this.host.get(this.P.mt_mode)), on = mode !== 0;
+    if (on === this.orient && mode === this.orientMode) return;
+    this.orient = on; this.orientMode = mode;
     this.dev.classList.toggle('orient', on);
     if (this.browser) this.browser.classList.toggle('orient', on);
+    if (on) {   // version 1.0.5: ARAB and TURK have their own colours: the variables and the pattern follow the mode
+      this.orientVars(this.dev); if (this.browser) this.orientVars(this.browser);
+      if (this.playSec) { const old = this.playSec.se.querySelector('.orientbg'); if (old) old.remove(); this.orientPattern(this.playSec.se, this.playSec.s); }
+    }
+    if (this.outlinePaint) this.outlinePaint();
     for (const c of this.canvases) c.dirty = true;
   }
   // the PLAY card's pattern: octagons and squares (4.8.8), an eight-pointed star in each octagon, one SVG tile of ORIENT.tile px; the octagons are centred on the card's inner
   // top-left corner and on every tile from it (the plug-in draws the same). It lies behind the controls and shows only in the oriental state (CSS)
   orientPattern(se, s) {
-    const O = this.SPEC.ORIENT, T = O.tile, R = 0.5412 * T, dq = 0.2929 * T, W = s.w - 2, H = s.h - 2, c = T / 2, f = v => Math.round(v * 100) / 100;
+    const O = this.orientPal(), T = O.tile, R = 0.5412 * T, dq = 0.2929 * T, W = s.w - 2, H = s.h - 2, c = T / 2, f = v => Math.round(v * 100) / 100;
     const reg = (cx, cy, n, r, rot) => { const a = []; for (let k = 0; k < n; k++) { const g = rot + 2 * Math.PI * k / n; a.push(f(cx + r * Math.cos(g)) + ',' + f(cy + r * Math.sin(g))); } return a.join(' '); };
     const star = (cx, cy, n, R1, r1, rot) => { const a = []; for (let k = 0; k < 2 * n; k++) { const g = rot + Math.PI * k / n, rr = k % 2 ? r1 : R1; a.push(f(cx + rr * Math.cos(g)) + ',' + f(cy + rr * Math.sin(g))); } return a.join(' '); };
     const dia = (x, y, d) => `${f(x)},${f(y - d)} ${f(x + d)},${f(y)} ${f(x)},${f(y + d)} ${f(x - d)},${f(y)}`;

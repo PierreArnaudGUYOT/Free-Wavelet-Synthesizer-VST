@@ -110,7 +110,9 @@ button { font-family: inherit; }
 .seg button.on { color: #0d1014; background: var(--accent); box-shadow: 0 0 12px var(--accent-soft); }
 /* beta 0.3: the folder tabs of the oscillators and the L-shaped plate behind the cards of the oscillator shown */
 .osctabs { z-index: 3; }
-svg.oscframe { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; fill: var(--accent-tint); stroke: var(--accent-line); stroke-width: 1; stroke-linejoin: round; }
+/* version 1.0.5, the "trail of light": the outline of the oscillator tab and its plate fades from the accent (at the tab) along the plate; the gradients are in ui.js (oscStroke, oscFill), the glow is the shadow */
+svg.oscframe { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; stroke-linejoin: round; filter: drop-shadow(0 0 5px var(--accent-line)); }
+svg.oscframe path { fill: url(#oscFill); stroke: url(#oscStroke); stroke-width: 2; }
 .otab { position: absolute; top: 0; width: 176px; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 14px; box-sizing: border-box;
   border: 2px solid #3a4452; border-bottom: 0; border-radius: 10px 10px 0 0; background: #1a1f27; color: var(--dim); cursor: pointer; }
 .otab:hover { color: var(--text); background: #20262f; }

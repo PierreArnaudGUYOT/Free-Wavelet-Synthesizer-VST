@@ -12,7 +12,7 @@ authors:
 license: GPL-3.0-or-later
 repository-code: "https://github.com/PierreArnaudGUYOT/Okto-MultiWave-Synth"
 url: "https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/"
-version: "1.0.4"
+version: "1.0.5"
 date-released: "2026-10-20"
 references:
   - type: software

@@ -12,12 +12,18 @@
 'use strict';
 
 const DEVICE = { w: 1100, h: 944 };   // the panel (beta 0.3.4: 944, the owner's mock-up P6 / Q1 / R6); CHORD MODE adds CHORD_H below the keyboard row (the chord card)
-// beta 0.3.4: the ORIENTAL colour code, on while the TUNING switch of the PLAY card is ARAB or TURK (mt_mode is not 0): the accent becomes terracotta for the
-// subtractive oscillators (a) and turquoise for the additive one (b) (knob arcs, tabs, scope, toggles, ...), the cards stay grey, and the PLAY card gets a
-// pattern of octagons and squares (4.8.8, an eight-pointed star in each octagon; one tile = `tile` px) in c1 (terracotta) / c2 (turquoise) / c3 (sand) over
-// c4 / c5 (dark terracotta); pl = the card's gradient, dim = the captions on the pattern; `opacity`: the pattern over the card's gradient. Web: CSS
+// beta 0.3.4: the ORIENTAL colour code, on while the TUNING switch of the PLAY card is ARAB or TURK (mt_mode is not 0): the accent becomes the palette's colour for the
+// subtractive oscillators (a) and for the additive one (b) (knob arcs, tabs, scope, toggles, ...), the cards stay grey, and the PLAY card gets a
+// pattern of octagons and squares (4.8.8, an eight-pointed star in each octagon; one tile = `tile` px) in c1 / c2 / c3 (light) over
+// c4 / c5 (dark); pl = the card's gradient, dim = the captions on the pattern; `opacity`: the pattern over the card's gradient. Web: CSS
 // variables + an SVG pattern; plug-in: accent() and polygons (the owner's mock-up, tuning ARAB).
-const ORIENT = { a: '#ff7b4a', b: '#33d3c6', c1: '#e0653a', c2: '#33d3c6', c3: '#f2e3c8', c4: '#3a1d14', c5: '#5e2c1c', pl: ['#44251a', '#321a11'], dim: '#c9b5a6', tile: 34, opacity: 0.7 };
+// version 1.0.5: the same pattern in two colours, one for each tuning: ARAB sand-gold, TURK carmine (the owner's choice among four pairs); a / b = the accent of the subtractive / additive oscillators
+// while the tuning is on (the rest of the names as above); the web reads ORIENT.arab / ORIENT.turk, the plug-in kOrientPals[0] / [1].
+const ORIENT = {
+  arab: { a: '#f0b84a', b: '#e46f4a', c1: '#c98a1f', c2: '#e46f4a', c3: '#fbf0d6', c4: '#2b2010', c5: '#4a3715', pl: ['#3a2c14', '#281d0d'], dim: '#cdbf9c' },
+  turk: { a: '#ff5468', b: '#ffb347', c1: '#d6334a', c2: '#ffb347', c3: '#ffe9ea', c4: '#33101a', c5: '#5a1a2a', pl: ['#401522', '#2c0e17'], dim: '#d1aab1' },
+  tile: 34, opacity: 0.7,
+};
 const APP = {
   name: 'Okto MultiWave Synth',
   author: 'Pierre Arnaud GUYOT',
@@ -25,8 +31,8 @@ const APP = {
   panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: '1.0.4',
-  versionNum: '1.0.4',
+  version: '1.0.5',
+  versionNum: '1.0.5',
   date: '2026-10-20',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on

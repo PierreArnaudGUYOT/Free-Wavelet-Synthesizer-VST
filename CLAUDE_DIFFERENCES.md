@@ -55,7 +55,7 @@ on GDI+, `vst/src/editor.cpp`), both from the widget list of `tools/spec.js`:
   its colour; OSC MIX, SUB OSC, SCOPE and SCALOGRAM are common and sit at the top right.
 - Rows of common cards: FILTER, AMP ENVELOPE, MOD ENVELOPE; LFO 1 (wave selector underlined beside its title), LFO 2 | LFO 3 (two tabs, a stepped SHAPE knob with the name
   of the wave under it, TARGET menu, SYNC in the plug-in), VOICE; EFFECTS and PLAY (CHORD MODE, TUNING WEST / ARAB / TURK, maqam, tonic) with their titles written vertically; the keyboard and the wheels.
-- **Colour code**: subtractive oscillators and what belongs to them yellow, the additive one blue; while TUNING is ARAB or TURK the accent becomes terracotta / turquoise and the PLAY card
+- **Colour code**: subtractive oscillators and what belongs to them yellow, the additive one blue; the tab of the oscillator shown and its plate are outlined as one shape (a trail of light that fades along the plate); while TUNING is ARAB or TURK the accent becomes sand-gold / coral (ARAB) or carmine / amber (TURK) and the PLAY card
   takes an oriental tiling pattern (`ORIENT` in `tools/spec.js`). Knobs are drawn as a ring (accent) around a dark disc with a pointer; choices are segmented buttons or stepped knobs.
 - **Preset browser** (at the right of the panel; the web app has the same browser, without the star rating): TOP Sounds first, then the sections Pad, SuperModulation, Bass, Lead, Keyboard (Keys + Pluck), Organ, Strings,
   Brass & Wind, Bells & Mallets, FX, Drums & Perc; FACTORY / USER BANK tabs; every row shows its type in colour (A yellow, B blue), the name and five stars; one click plays a sound, the arrow keys step.
