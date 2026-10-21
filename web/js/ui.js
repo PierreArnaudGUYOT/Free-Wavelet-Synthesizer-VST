@@ -17,6 +17,8 @@ const engHTML = (eng) => eng.replace(/[AB]/g, c => `<span class="${c.toLowerCase
 const SVGNS = 'http://www.w3.org/2000/svg';
 // beta 0.6: where the free plug-in is published (the header's DOWNLOAD VST; index.html's welcome window links there too)
 const VST_RELEASES = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest';   // the official release page (version 1.0.3: the Free-Wavelet-Synthesizer-VST repository)
+// version 1.0.9: the owner's feedback form (a Google Form: it opens without a Google account; the header's SEND FEEDBACK; index.html's welcome window links to the same address)
+const FEEDBACK_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdqkWNwanzcDDURcKepEK_U1P8b_HyR8B5_Gk48xtuQOYHqgQ/viewform';
 
 function el(tag, cls, parent, style) {
   const e = document.createElement(tag);
@@ -157,6 +159,13 @@ class SynthUI {
         a.href = VST_RELEASES; a.target = '_blank'; a.rel = 'noopener';
         a.innerHTML = 'DOWNLOAD<b>VST</b>';
         a.title = 'Download the free VST plug-in (Windows VST3 / VST2) from GitHub';
+        return;
+      }
+      case 'feedback': {   // version 1.0.9, web only: the feedback form, in a new tab (no referrer sent)
+        const a = el('a', 'hbtn fb', box, { width: '100%', height: '100%' });
+        a.href = FEEDBACK_FORM; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.innerHTML = 'SEND<b>FEEDBACK</b>';
+        a.title = 'Tell the developer what you think: a short form opens in a new tab (Google Forms, no account needed)';
         return;
       }
       case 'label': box.classList.add('wlabel'); el('span', '', box).textContent = w.text; return;   // (a span: the oriental PLAY card puts the caption on a plate)
@@ -824,7 +833,8 @@ class SynthUI {
   orientVars(e) {
     const O = this.orientPal(), set = (k, v) => e.style.setProperty(k, v);
     set('--or-a', O.a); set('--or-b', O.b); set('--or-c1', O.c1); set('--or-c2', O.c2); set('--or-c3', O.c3); set('--or-c4', O.c4); set('--or-c5', O.c5);
-    set('--or-pl0', O.pl[0]); set('--or-pl1', O.pl[1]); set('--or-dim', O.dim);
+    set('--or-pl0', O.pl[0]); set('--or-pl1', O.pl[1]); set('--or-dim', O.dim); set('--or-plate', this.SPEC.ORIENT.plate);
+    O.g.forEach((c, i) => set('--or-g' + i, c)); O.glow.forEach((c, i) => set('--or-glow' + (i + 1), c)); set('--or-page', O.page);   // version 1.0.9: the panel in the colours of the pattern
     for (const k of ['a', 'b']) { const c = hexRGB(O[k]); set('--or-' + k + '-soft', `rgba(${c},0.16)`); set('--or-' + k + '-tint', `rgba(${c},0.07)`); set('--or-' + k + '-line', `rgba(${c},0.26)`); }
     set('--or-c2-line', `rgba(${hexRGB(O.c2)},0.25)`); set('--or-glow', `rgba(${hexRGB(O.a)},0.16)`); set('--or-c4-86', `rgba(${hexRGB(O.c4)},0.86)`);
   }
@@ -834,8 +844,10 @@ class SynthUI {
     this.orient = on; this.orientMode = mode;
     this.dev.classList.toggle('orient', on);
     if (this.browser) this.browser.classList.toggle('orient', on);
+    document.documentElement.classList.toggle('orient', on); document.body.classList.toggle('orient', on);   // version 1.0.9: the page's margins show the pattern
     if (on) {   // version 1.0.5: ARAB and TURK have their own colours: the variables and the pattern follow the mode
       this.orientVars(this.dev); if (this.browser) this.orientVars(this.browser);
+      this.orientVars(document.documentElement); this.orientPage();
       if (this.playSec) { const old = this.playSec.se.querySelector('.orientbg'); if (old) old.remove(); this.orientPattern(this.playSec.se, this.playSec.s); }
     }
     if (this.outlinePaint) this.outlinePaint();
@@ -843,8 +855,15 @@ class SynthUI {
   }
   // the PLAY card's pattern: octagons and squares (4.8.8), an eight-pointed star in each octagon, one SVG tile of ORIENT.tile px; the octagons are centred on the card's inner
   // top-left corner and on every tile from it (the plug-in draws the same). It lies behind the controls and shows only in the oriental state (CSS)
-  orientPattern(se, s) {
-    const O = this.orientPal(), T = O.tile, R = 0.5412 * T, dq = 0.2929 * T, W = s.w - 2, H = s.h - 2, c = T / 2, f = v => Math.round(v * 100) / 100;
+  // version 1.0.9: the page's margins (the dark ground around the panel): the same pattern, ORIENT.pageTile px, as a repeated SVG background (the CSS variable --or-page-img), over the palette's dark ground
+  orientPage() {
+    const O = this.orientPal(), SO = this.SPEC.ORIENT, T = SO.pageTile;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${T}" height="${T}" viewBox="0 0 ${T} ${T}"><g opacity="${SO.pageOpacity}"><rect width="${T}" height="${T}" fill="${O.c4}"/>${this.orientTile(O, T)}</g></svg>`;
+    document.documentElement.style.setProperty('--or-page-img', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+  }
+  // (version 1.0.9: the tile's markup is a method of its own: the page's margins use it too, larger)
+  orientTile(O, T) {
+    const R = 0.5412 * T, dq = 0.2929 * T, c = T / 2, f = v => Math.round(v * 100) / 100;
     const reg = (cx, cy, n, r, rot) => { const a = []; for (let k = 0; k < n; k++) { const g = rot + 2 * Math.PI * k / n; a.push(f(cx + r * Math.cos(g)) + ',' + f(cy + r * Math.sin(g))); } return a.join(' '); };
     const star = (cx, cy, n, R1, r1, rot) => { const a = []; for (let k = 0; k < 2 * n; k++) { const g = rot + Math.PI * k / n, rr = k % 2 ? r1 : R1; a.push(f(cx + rr * Math.cos(g)) + ',' + f(cy + rr * Math.sin(g))); } return a.join(' '); };
     const dia = (x, y, d) => `${f(x)},${f(y - d)} ${f(x + d)},${f(y)} ${f(x)},${f(y + d)} ${f(x - d)},${f(y)}`;
@@ -852,6 +871,11 @@ class SynthUI {
       `<polygon points="${star(c, c, 8, R * 0.86, R * 0.58, Math.PI / 8)}" fill="${O.c1}"/><polygon points="${star(c, c, 8, R * 0.5, R * 0.27, 0)}" fill="${O.c2}"/>` +
       `<circle cx="${c}" cy="${c}" r="${f(R * 0.12)}" fill="${O.c4}"/>`;
     for (const [x, y] of [[0, 0], [T, 0], [0, T], [T, T]]) tile += `<polygon points="${dia(x, y, dq)}" fill="${O.c5}" stroke="${O.c1}" stroke-width="1" stroke-linejoin="round"/><polygon points="${dia(x, y, dq * 0.45)}" fill="${O.c3}"/>`;
+    return tile;
+  }
+  // the PLAY card's pattern as an SVG layer behind the controls (see orientTile)
+  orientPattern(se, s) {
+    const O = this.orientPal(), T = O.tile, W = s.w - 2, H = s.h - 2, c = T / 2, tile = this.orientTile(O, T);
     const svgEl = document.createElementNS(SVGNS, 'svg');
     svgEl.setAttribute('class', 'orientbg'); svgEl.setAttribute('width', W); svgEl.setAttribute('height', H); svgEl.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svgEl.style.opacity = O.opacity;

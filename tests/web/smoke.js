@@ -78,6 +78,17 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       check((await accent()) === '#f0b84a' && (await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING ARAB: the sand-gold accent', await accent());
       check(await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'block'`), 'TUNING ARAB: the PLAY card shows its pattern');
       await noOverlap('TUNING ARAB');
+      // version 1.0.9: on the pattern the PLAY card's selectors (TUNING, MAQAM, TONIC) and their captions sit on an OPAQUE plate (--or-plate), in both oriental modes; plain translucent in WEST.
+      // The colour code also reaches the panel (its gradient is the palette's ORIENT.g) and the page: its margins show the pattern (a repeated SVG background over the palette's dark ground)
+      const plates = () => q(`(() => { const p = '#device .section[data-sid="play"] ', bg = (s) => { const e = document.querySelector(p + s); return e ? getComputedStyle(e).backgroundColor : null; }, cs = getComputedStyle(document.body);
+        return { plate: getComputedStyle(document.getElementById('device')).getPropertyValue('--or-plate').trim(), seg: bg('.seg'), menu: bg('.menu button'), step: bg('.step'), cap: bg('.wlabel span'), mcap: bg('.menu .mcap span'),
+          pattern: getComputedStyle(document.querySelector('#device .orientbg')).display, g0: getComputedStyle(document.getElementById('device')).getPropertyValue('--or-g0').trim(), grad: getComputedStyle(document.getElementById('device')).backgroundImage.slice(0, 60),
+          page: cs.backgroundColor, pageImg: cs.backgroundImage.slice(0, 30), barBg: getComputedStyle(document.getElementById('statusbar')).backgroundColor }; })()`);
+      const rgbOf = (hex) => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ''); return m ? `rgb(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)})` : '?'; };
+      const opaquePlates = (r) => [r.seg, r.menu, r.step, r.cap, r.mcap].every((c) => c === rgbOf(r.plate));
+      let pl = await plates();
+      check(opaquePlates(pl) && pl.pattern === 'block', 'TUNING ARAB: the TUNING switch, the MAQAM menu, the TONIC step and their captions sit on the opaque plate; the pattern stays on the card', JSON.stringify(pl));
+      check(/^url\("data:image\/svg\+xml/.test(pl.pageImg) && pl.page === 'rgb(14, 10, 5)' && /^linear-gradient/.test(pl.grad) && pl.barBg === 'rgb(14, 10, 5)', 'TUNING ARAB: the page\'s margins show the pattern over the dark bronze ground, the panel has the bronze gradient, the status bar the ground colour', JSON.stringify(pl));
       await B.screenshot(path.join(out, 'tuning-arab.png'), { width: 1500, height: 1160 });
       await q(`WS_TEST.setParam('osc_view', 2); true`); await sleep(250);
       check((await accent()) === '#e46f4a', 'TUNING ARAB, additive oscillator B1: the coral accent', await accent());
@@ -86,10 +97,15 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       await q(`WS_TEST.setParam('osc_view', 0); true`); await sleep(250);
       check((await accent()) === '#ff5468', 'TUNING TURK, subtractive oscillator A1: the carmine accent', await accent());
       await noOverlap('TUNING TURK');
+      const gArab = pl.g0;
+      pl = await plates();
+      check(opaquePlates(pl) && pl.pattern === 'block' && pl.g0 !== gArab && pl.page === 'rgb(18, 6, 10)' && /^url\("data:image\/svg\+xml/.test(pl.pageImg), 'TUNING TURK: the same opaque plate, the carmine panel (another gradient) and the page\'s margins in the carmine ground', JSON.stringify(pl));
       await q(`WS_TEST.setParam('osc_view', 2); true`); await sleep(250);
       await B.screenshot(path.join(out, 'tuning-turk-b1.png'), { width: 1500, height: 1160 });
       await q(`WS_TEST.setParam('osc_view', 0); WS_TEST.setParam('mt_mode', 0); true`); await sleep(250);
       check((await accent()) === '#ffd166' && await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'none'`), 'TUNING WEST again: the yellow accent, no pattern');
+      pl = await plates();
+      check(pl.seg === 'rgba(0, 0, 0, 0.28)' && pl.pageImg === 'none' && pl.page === 'rgb(15, 10, 18)' && pl.barBg === 'rgb(21, 10, 24)', 'TUNING WEST again: the usual translucent controls, the violet page and status bar, no pattern in the margins', JSON.stringify(pl));
     }
     check(!(await shown()).some(x => x.includes('CHORD KEYBOARD')), 'the chord card is hidden while CHORD MODE is off');
     const h0 = await B.evaluate(`document.getElementById('device').style.height`);

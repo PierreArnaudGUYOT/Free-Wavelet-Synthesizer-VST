@@ -20,9 +20,14 @@ const DEVICE = { w: 1100, h: 944 };   // the panel (beta 0.3.4: 944, the owner's
 // version 1.0.5: the same pattern in two colours, one for each tuning: ARAB sand-gold, TURK carmine (the owner's choice among four pairs); a / b = the accent of the subtractive / additive oscillators
 // while the tuning is on (the rest of the names as above); the web reads ORIENT.arab / ORIENT.turk, the plug-in kOrientPals[0] / [1].
 const ORIENT = {
-  arab: { a: '#f0b84a', b: '#e46f4a', c1: '#c98a1f', c2: '#e46f4a', c3: '#fbf0d6', c4: '#2b2010', c5: '#4a3715', pl: ['#3a2c14', '#281d0d'], dim: '#cdbf9c' },
-  turk: { a: '#ff5468', b: '#ffb347', c1: '#d6334a', c2: '#ffb347', c3: '#ffe9ea', c4: '#33101a', c5: '#5a1a2a', pl: ['#401522', '#2c0e17'], dim: '#d1aab1' },
+  // version 1.0.9 (proposal): g = the panel's gradient (5 stops, as the Crepuscule one) and glow = its three colour blobs, in the colours of the pattern; page = the dark ground of the web page behind the pattern
+  arab: { a: '#f0b84a', b: '#e46f4a', c1: '#c98a1f', c2: '#e46f4a', c3: '#fbf0d6', c4: '#2b2010', c5: '#4a3715', pl: ['#3a2c14', '#281d0d'], dim: '#cdbf9c',
+    g: ['#2b2010', '#4a3715', '#7a5618', '#b07a22', '#d9a03a'], glow: ['#e46f4a', '#f0b84a', '#a8431f'], page: '#0e0a05' },
+  turk: { a: '#ff5468', b: '#ffb347', c1: '#d6334a', c2: '#ffb347', c3: '#ffe9ea', c4: '#33101a', c5: '#5a1a2a', pl: ['#401522', '#2c0e17'], dim: '#d1aab1',
+    g: ['#33101a', '#5a1a2a', '#8f2a3c', '#c23a4a', '#e0603c'], glow: ['#ff5468', '#ffb347', '#a0183a'], page: '#12060a' },
   tile: 34, opacity: 0.7,
+  plate: '#0a0e1b',   // version 1.0.9: the OPAQUE dark plate under the PLAY card's captions and selectors (TUNING, MAQAM, TONIC) on the pattern
+  pageTile: 64, pageOpacity: 0.55,   // version 1.0.9 (web): the same pattern, larger, in the page's margins
 };
 const APP = {
   name: 'Okto MultiWave Synth',
@@ -31,8 +36,8 @@ const APP = {
   panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: '1.0.8',
-  versionNum: '1.0.8',
+  version: '1.0.9',
+  versionNum: '1.0.9',
   date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -388,7 +393,8 @@ section('header', '', 0, 0, 1100, 48, -1, [
   { type: 'logo', x: 16, y: 8, w: 224, h: 32 },   // version 1.0: OKTOWAVE / FRACTAL WAVELET SYNTHESIZER
   { type: 'zoom', x: 248, y: 14, w: 50, h: 20 },
   { type: 'presets', x: 384, y: 9, w: 296, h: 30 },   // beta 0.3: narrower (the oscillator tabs left the header: they are the folder tabs under it)
-  { type: 'download', only: 'web', x: 862, y: 9, w: 68, h: 30 },   // the plug-in has SAVE PRESET there
+  { type: 'download', only: 'web', x: 788, y: 9, w: 68, h: 30 },   // version 1.0.9: one button to the left (the plug-in has SAVE PRESET at 862)
+  { type: 'feedback', only: 'web', x: 862, y: 9, w: 68, h: 30 },   // version 1.0.9: SEND FEEDBACK, between DOWNLOAD VST and USER MANUAL (a Google Form in a new tab)
   { type: 'manual', x: 936, y: 9, w: 68, h: 30 },
   { type: 'knobS', param: 'master', x: 1028, y: 6, w: 36, h: 36 },
   { type: 'meter', x: 1072, y: 9, w: 14, h: 30 },

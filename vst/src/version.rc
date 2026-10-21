@@ -15,9 +15,9 @@ BEGIN
       VALUE "Comments", "Created by Pierre Arnaud GUYOT. Release 1.0. Free software under the GNU GPL v3 or later, without any warranty."
       VALUE "FileDescription", "Okto MultiWave Synth (VST3 / VST2 instrument) - created by OktoPierre"
       VALUE "LegalCopyright", "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). GPL-3.0-or-later"
-      VALUE "FileVersion", "1.0.8"
+      VALUE "FileVersion", "1.0.9"
       VALUE "ProductName", "Okto MultiWave Synth"
-      VALUE "ProductVersion", "1.0.8"
+      VALUE "ProductVersion", "1.0.9"
       VALUE "OriginalFilename", "OktoMultiWaveSynth.vst3"
     END
   END

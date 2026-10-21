@@ -255,8 +255,8 @@ async function lifecycleTests() {
   log(`  after tab B starts: tab A audio '${aState}', demo running ${aDemo}, overlay ${JSON.stringify(aOv)}`);
   check(aState === 'suspended', "starting audio in tab B suspends tab A's AudioContext", aState);
   check(!aDemo, "starting audio in tab B stops tab A's demo");
-  check(!!aOv && aOv.visible && /playing in another window or tab/.test(aOv.text) && /Play the synth/.test(aOv.button) && aOv.choices === 4,
-    "tab A shows the welcome window again: 'The synthesizer is playing in another window or tab…' and its four choices", JSON.stringify(aOv));
+  check(!!aOv && aOv.visible && /playing in another window or tab/.test(aOv.text) && /Play the synth/.test(aOv.button) && aOv.choices === 5,
+    "tab A shows the welcome window again: 'The synthesizer is playing in another window or tab…' and its five choices", JSON.stringify(aOv));
   check(await T2.evaluate('WS_TEST.audioState()') === 'running', "tab B: audioState() 'running'");
   const lvB = await tabLevel(T2, 64);
   check(lvB > 0.003, 'tab B plays (level rises on a note)', `max ${lvB}`);
@@ -311,7 +311,7 @@ async function main() {
     await B.navigate(URL0);
     await sleep(1200);
     const ov0 = await ev(OVERLAY_EXPR), a0 = await ev('WS_TEST.audioState()');
-    check(!!ov0 && ov0.visible && ov0.choices === 4 && a0 === 'none', 'the page opens on the welcome window, audio not started', JSON.stringify({ ov0, a0 }));
+    check(!!ov0 && ov0.visible && ov0.choices === 5 && a0 === 'none', 'the page opens on the welcome window, audio not started', JSON.stringify({ ov0, a0 }));
     if (ov0 && ov0.visible) await B.click(ov0.dx, ov0.dy);
     const wd = await waitDemoTime(0, 10000);
     const song = await ev('WS_TEST.demoSong()');

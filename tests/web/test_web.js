@@ -76,6 +76,8 @@ function writeReport(abort) {
 }
 // beta 0.6: where the free VST plug-in is published (the header's DOWNLOAD VST and the welcome window's third choice)
 const VST_URL = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest';
+// version 1.0.9: the owner's feedback form (Google Forms), opened by the header's SEND FEEDBACK and by the welcome window's fifth box
+const FEEDBACK_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdqkWNwanzcDDURcKepEK_U1P8b_HyR8B5_Gk48xtuQOYHqgQ/viewform';
 const db = (x) => (x > 0 ? (20 * Math.log10(x)).toFixed(1) : '-inf');
 const short = (arr, max = 10) => (arr.length > max ? arr.slice(0, max).join('; ') + `; ... (${arr.length} total)` : arr.join('; '));
 
@@ -427,12 +429,16 @@ async function stepWelcome() {
   log(`  title '${w.title}'; choices: ${w.choices.map((c) => c.title).join(' | ')}`);
   check(/OKTOMULTIWAVE/.test(w.title) && /Wavelet Synthesizer/.test(w.title), "its title is 'OKTOMULTIWAVE · Wavelet Synthesizer'", w.title);
   const titles = w.choices.map((c) => c.title);
-  check(JSON.stringify(titles) === JSON.stringify(['Run the demo', 'Play the synth', 'Download the VST', 'Learn more about the sound engine']), 'four boxes: Run the demo, Play the synth, Download the VST, Learn more about the sound engine', JSON.stringify(titles));
+  check(JSON.stringify(titles) === JSON.stringify(['Run the demo', 'Play the synth', 'Download the VST', 'Learn more about the sound engine', 'Send your feedback']), 'five boxes: Run the demo, Play the synth, Download the VST, Learn more about the sound engine, Send your feedback', JSON.stringify(titles));
   const demo = w.choices[0] || {}, play = w.choices.find((c) => c.id === 'start-btn'), dl = w.choices[2] || {};
   check(/Appassionata/.test(demo.small) && demo.id === 'w-demo', "'Run the demo' (#w-demo) announces the Appassionata tour", JSON.stringify(demo));
   check(!!play && play.title === 'Play the synth' && play.small.trim() === 'MIDI supported', "'Play the synth' is #start-btn and says only 'MIDI supported'", JSON.stringify(play));
   check(dl.tag === 'A' && dl.href === VST_URL && dl.target === '_blank' && /\bnoopener\b/.test(dl.rel || ''), `'Download the VST' opens ${VST_URL} in a new tab (rel noopener)`, JSON.stringify(dl));
   check(w.manuals.length === 1 && /manual\.html$/.test(w.manuals[0]), 'its footer links to the manual (the contents page)', JSON.stringify(w.manuals));
+  // version 1.0.9: the fifth box opens the feedback form in a new tab (no referrer sent), the same address as the header's SEND FEEDBACK
+  const fbBox = w.choices.find((c) => c.id === 'w-feedback') || {};
+  check(fbBox.tag === 'A' && fbBox.href === FEEDBACK_URL && fbBox.target === '_blank' && /\bnoopener\b/.test(fbBox.rel || '') && /\bnoreferrer\b/.test(fbBox.rel || '') && /no account needed/.test(fbBox.small || ''),
+    `'Send your feedback' (#w-feedback) opens ${FEEDBACK_URL} in a new tab (rel noopener noreferrer) and says no account is needed`, JSON.stringify(fbBox));
   // the fourth box: a link to the introduction to wavelets (a new tab with Ctrl / Shift / Cmd), shown in the manual viewer over the window; nothing starts the audio
   const learn = w.choices.find((c) => c.id === 'w-learn') || {};
   check(learn.tag === 'A' && /manual\/wavelets\.html$/.test(learn.href || '') && learn.target === '_blank' && /\bnoopener\b/.test(learn.rel || '') && /wavelet transform/.test(learn.small || ''),
@@ -448,7 +454,7 @@ async function stepWelcome() {
     await sleep(300);
     const m2 = await ev("document.getElementById('manual-overlay').hidden"), wl2 = await ev(WELCOME_EXPR);
     check(m2 === true && wl2.visible && (await ev('WS_TEST.audioState()')) === 'none', 'Esc closes the manual and the welcome window is still there, the audio still off', JSON.stringify({ hidden: m2, window: wl2.visible }));
-    // the owner's rule, nothing overlaps: the four boxes sit inside the window and apart from each other, on a desktop and on a phone
+    // the owner's rule, nothing overlaps: the five boxes sit inside the window and apart from each other, on a desktop and on a phone
     const boxes = `(() => { const w = document.querySelector('.welcome').getBoundingClientRect(); const r = [...document.querySelectorAll('.welcome .choice')].map((c) => { const q = c.getBoundingClientRect(); return [q.left, q.top, q.right, q.bottom]; }); return { w: [w.left, w.top, w.right, w.bottom], r }; })()`;
     for (const [vw, vh] of [[1280, 860], [390, 800]]) {
       await B.setViewport(vw, vh);
@@ -458,7 +464,7 @@ async function stepWelcome() {
         if (p[0] < g.w[0] - 0.5 || p[2] > g.w[2] + 0.5 || p[1] < g.w[1] - 0.5 || p[3] > g.w[3] + 0.5) bad.push('box ' + (i + 1) + ' leaves the window');
         g.r.forEach((q, j) => { if (j > i && p[0] < q[2] - 0.5 && q[0] < p[2] - 0.5 && p[1] < q[3] - 0.5 && q[1] < p[3] - 0.5) bad.push('boxes ' + (i + 1) + ' and ' + (j + 1) + ' overlap'); });
       });
-      check(g.r.length === 4 && bad.length === 0, `the four boxes of the welcome window sit apart and inside it (${vw} px wide)`, bad.join('; ') || g.r.length + ' boxes');
+      check(g.r.length === 5 && bad.length === 0, `the five boxes of the welcome window sit apart and inside it (${vw} px wide)`, bad.join('; ') || g.r.length + ' boxes');
     }
     await B.setViewport(1280, 860);
     await sleep(200);
@@ -477,6 +483,13 @@ async function stepWelcome() {
   await sleep(400);
   const w2 = await ev(WELCOME_EXPR), clicked = await ev('window.__wsDl || 0'), st0 = await ev('WS_TEST.audioState()');
   check(clicked === 1 && w2.visible && st0 === 'none', "a click on 'Download the VST' leaves the window open and starts no audio", `click ${clicked}, window ${w2.visible}, audio '${st0}'`);
+  // Feedback (version 1.0.9): the same, the form's new tab cancelled here
+  await ev(`document.getElementById('w-feedback').addEventListener('click', (e) => { window.__wsFb = (window.__wsFb || 0) + 1; e.preventDefault(); }, { once: true }); true`);
+  const fbc = await centreOf('#w-feedback');
+  await B.click(fbc.x, fbc.y);
+  await sleep(400);
+  const w2f = await ev(WELCOME_EXPR), clickedFb = await ev('window.__wsFb || 0'), stFb = await ev('WS_TEST.audioState()');
+  check(clickedFb === 1 && w2f.visible && stFb === 'none', "a click on 'Send your feedback' leaves the window open and starts no audio", `click ${clickedFb}, window ${w2f.visible}, audio '${stFb}'`);
   // Play: starts the audio, closes the window, plays no note
   const p = await centreOf('#start-btn');
   await B.click(p.x, p.y);
@@ -677,6 +690,16 @@ async function stepPanel() {
   const [dx, dy] = dw ? P(dw.sx, dw.sy) : [NaN, NaN];
   check(!!dl && /^DOWNLOAD\s*VST$/.test(dl.text) && dl.href === VST_URL && dl.target === '_blank' && /\bnoopener\b/.test(dl.rel) && !dl.clipped &&
     Math.abs(dl.x - dx) < 2 && Math.abs(dl.y - dy) < 2, `header 'DOWNLOAD VST' opens ${VST_URL} in a new tab, at its spec place`, JSON.stringify({ dl, spec: [dx, dy] }));
+  // version 1.0.9: SEND FEEDBACK (web only) between DOWNLOAD VST and USER MANUAL: the owner's form in a new tab, at its spec place, the three buttons in that order, apart, the text not clipped
+  const fw = all.find((w) => w.type === 'feedback');
+  const hb = await ev(`(() => { const r = (s) => { const a = document.querySelector(s); if (!a) return null; const q = a.getBoundingClientRect(), b = a.querySelector('b');
+    return { text: a.textContent, href: a.getAttribute('href'), target: a.target, rel: a.rel, title: a.title, x: q.left, y: q.top, r: q.right, clipped: a.scrollWidth > a.clientWidth + 1 || (b ? b.scrollWidth > b.clientWidth + 1 : false) }; };
+    return { dl: r('#device a.hbtn.dl'), fb: r('#device a.hbtn.fb'), man: r('#device .hbtn.manual'), n: document.querySelectorAll('#device .hbtn.fb').length }; })()`);
+  const [fx, fy] = fw ? P(fw.sx, fw.sy) : [NaN, NaN];
+  check(hb.n === 1 && !!hb.fb && /^SEND\s*FEEDBACK$/.test(hb.fb.text) && hb.fb.href === FEEDBACK_URL && hb.fb.target === '_blank' && /\bnoopener\b/.test(hb.fb.rel) && /\bnoreferrer\b/.test(hb.fb.rel) && !hb.fb.clipped &&
+    Math.abs(hb.fb.x - fx) < 2 && Math.abs(hb.fb.y - fy) < 2 && /Google Forms/.test(hb.fb.title), `header 'SEND FEEDBACK' opens ${FEEDBACK_URL} in a new tab, at its spec place`, JSON.stringify({ fb: hb.fb, spec: [fx, fy] }));
+  check(!!hb.dl && !!hb.fb && !!hb.man && hb.dl.r <= hb.fb.x + 0.5 && hb.fb.r <= hb.man.x + 0.5 && Math.abs(hb.dl.y - hb.fb.y) < 1 && Math.abs(hb.fb.y - hb.man.y) < 1,
+    'the header reads DOWNLOAD VST, SEND FEEDBACK, USER MANUAL from left to right, on one line, apart', JSON.stringify({ dl: hb.dl && [hb.dl.x, hb.dl.r], fb: hb.fb && [hb.fb.x, hb.fb.r], man: hb.man && [hb.man.x, hb.man.r] }));
   const mb = await ev(`[...document.querySelectorAll('#device button, #device a')].filter((b) => /MANUAL/.test(b.textContent)).map((b) => b.textContent)`);
   check(mb.length === 1 && mb[0] === 'USERMANUAL', "one 'USER MANUAL' button (no MANUAL A / MANUAL B)", JSON.stringify(mb));
   const eng0 = await ev(`WS_TEST.getParam('osc_view')`);

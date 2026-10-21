@@ -43,6 +43,12 @@ const check = (ok, name, detail = '', sev = 'FAIL') => { if (!ok) { if (sev === 
       const wide = await B.evaluate('document.documentElement.scrollWidth > window.innerWidth + 1');
       check(!wide, `${p}: nothing wider than a phone screen (390 px)`, `scrollWidth ${await B.evaluate('document.documentElement.scrollWidth')}`);
     }
+    // version 1.0.9: the credits and thanks of the earlier manuals are kept on the contents page (the testers, the demo music, the licences of what is reused)
+    await B.navigate(pathToFileURL(path.join(DIR, 'manual.html')).href);
+    await sleep(300);
+    const credits = await B.evaluate(`(() => { const h = document.getElementById('credits'); if (!h) return null; let t = ''; for (let e = h.nextElementSibling; e && e.tagName !== 'FOOTER' && e.tagName !== 'H2'; e = e.nextElementSibling) t += ' ' + e.textContent; return t; })()`);
+    check(!!credits && /Jeremi Palmigani \(Saoul Machine\)/.test(credits) && /Flo \(Go Tiger\)/.test(credits) && /Arnaud Grignard/.test(credits) && /Mutopia/.test(credits) && /PyWavelets/.test(credits) && /Steinberg/.test(credits),
+      'manual: "Credits and thanks" names Saoul Machine, Go Tiger, Arnaud Grignard, the demo music (Mutopia), PyWavelets and the Steinberg headers', String(credits).slice(0, 200));
     // one A4 sheet per page of the explanation
     await B.setViewport(1000, 900);
     for (const p of PAGES.slice(1)) {

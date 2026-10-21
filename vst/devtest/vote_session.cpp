@@ -211,6 +211,20 @@ static bool widgetCenter(int type, int param, int view, float& cx, float& cy) {
   return false;
 }
 
+// version 1.0.9: the box (x, y, w, h) of the first widget of a type and a parameter
+static bool widgetBoxOf(int type, int param, float* b) {
+  for (int s = 0; s < kNumSections; s++) {
+    const SectionDef& sd = kSections[s];
+    for (int k = 0; k < sd.numWidgets; k++) {
+      const WidgetDef& w = kWidgets[sd.firstWidget + k];
+      if (w.type != type || w.param != param) continue;
+      b[0] = sd.x + w.x; b[1] = sd.y + w.y; b[2] = w.w; b[3] = w.h;
+      return true;
+    }
+  }
+  return false;
+}
+
 // the box of the first widget of a type (any parameter) in a section shown for every oscillator
 static bool widgetBox(int type, float* b) {
   for (int s = 0; s < kNumSections; s++) {
@@ -377,6 +391,8 @@ int wmain(int argc, wchar_t** argv) {
     auto hex = [](uint32_t c) { char s[16]; std::snprintf(s, sizeof s, "%06X", c); return std::string(s); };
     std::vector<uint32_t> px = h.pixels({pA, pL});
     check(closeTo(px[0], kAccentColA) && closeTo(px[1], kAccentColA), "TUNING WEST: yellow accent (oscillator tab A1, LFO 2 tab)", hex(px[0]) + " " + hex(px[1]));
+    const POINT pBg{24, 3};   // version 1.0.9: the panel's gradient at its top-left, above the logo (no widget there)
+    const uint32_t bgWest = h.pixels({pBg})[0];
     float tx = 0, ty = 0;
     check(widgetCenter(W_SEG, P_MT_MODE, 0, tx, ty), "the TUNING switch is in the layout", fmt("(%.0f, %.0f)", tx, ty));
     h.click(tx, ty); h.run(0.3);   // the middle segment: ARAB
@@ -384,6 +400,20 @@ int wmain(int argc, wchar_t** argv) {
     px = h.pixels({pA, pL});
     check(closeTo(px[0], kOrientPals[0].a) && closeTo(px[1], kOrientPals[0].a), "TUNING ARAB: terracotta accent (oscillator tab A1, LFO 2 tab)", hex(px[0]) + " " + hex(px[1]));
     h.shot(out + L"\\15_arab.png");
+    // version 1.0.9: the panel takes the colours of the pattern (a bronze gradient for ARAB, carmine for TURK: ORIENT.g), and on the pattern the TUNING switch, the MAQAM menu and the TONIC step
+    // sit on the OPAQUE plate (kOrientPlate): a pixel just inside the left edge of each, where no letter is, is the plate's colour (translucent, it would be the pattern's)
+    const uint32_t bgArab = h.pixels({pBg})[0];
+    check(!closeTo(bgArab, bgWest) && ((bgArab >> 16) & 255) > (bgArab & 255) + 8, "TUNING ARAB: the panel's gradient is bronze, not the violet of WEST", hex(bgWest) + " -> " + hex(bgArab));
+    auto plateCheck = [&](const char* what) {
+      float sb[4], mb[4], tb[4];
+      const bool there = widgetBoxOf(W_SEG, P_MT_MODE, sb) && widgetBoxOf(W_MENU, P_MT_SCALE, mb) && widgetBoxOf(W_STEP, P_MT_TONIC, tb);
+      check(there, "the TUNING switch, the MAQAM menu and the TONIC step are in the layout");
+      if (!there) return;
+      auto at = [](const float* b) { return POINT{(LONG)(b[0] + 3.5f), (LONG)(b[1] + b[3] / 2)}; };
+      const std::vector<uint32_t> pp = h.pixels({at(sb), at(mb), at(tb)});
+      check(closeTo(pp[0], kOrientPlate) && closeTo(pp[1], kOrientPlate) && closeTo(pp[2], kOrientPlate), what, hex(pp[0]) + " " + hex(pp[1]) + " " + hex(pp[2]) + " (the plate is " + hex(kOrientPlate) + ")");
+    };
+    plateCheck("TUNING ARAB: the TUNING switch, the MAQAM menu and the TONIC step sit on the opaque plate, their text readable over the pattern");
     {   // the pattern and its clip in a scaled window (the zoom "fit" of a small screen)
       SetEnvironmentVariableW(L"MW_WORKAREA", L"1366x728");
       setP(P_CHORD_MODE, 1); setP(P_CHORD_MODE, 0);
@@ -405,7 +435,13 @@ int wmain(int argc, wchar_t** argv) {
     h.shot(out + L"\\16_turk_b1.png");
     setP(P_OSC_VIEW, 0);
     h.shot(out + L"\\16_turk.png");
+    plateCheck("TUNING TURK: the same plate under the TUNING switch, the MAQAM menu and the TONIC step");
+    {
+      const uint32_t bgTurk = h.pixels({pBg})[0];
+      check(!closeTo(bgTurk, bgArab) && !closeTo(bgTurk, bgWest) && ((bgTurk >> 16) & 255) > (bgTurk & 255), "TUNING TURK: the panel's gradient is carmine (neither the bronze of ARAB nor the violet of WEST)", hex(bgArab) + " -> " + hex(bgTurk));
+    }
     setP(P_MT_MODE, 0);
+    check(closeTo(h.pixels({pBg})[0], bgWest), "TUNING WEST again: the panel's violet gradient is back", hex(h.pixels({pBg})[0]) + " (was " + hex(bgWest) + ")");
     px = h.pixels({pA, pL});
     check(closeTo(px[0], kAccentColA) && closeTo(px[1], kAccentColA), "TUNING WEST again: the yellow accent is back", hex(px[0]) + " " + hex(px[1]));
     h.run(0.2);

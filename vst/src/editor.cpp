@@ -359,6 +359,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void inset(Canvas& g, R r, float rad = 9, bool hot = false) {
     g.fillRR(r, rad, Brush(hot ? hotC() : insetC())); g.strokeRR(R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, Pen(edgeC(hot), 1));
   }
+  // version 1.0.9: on the oriental pattern the PLAY card's selectors (TUNING, MAQAM, TONIC) and captions sit on an OPAQUE dark plate (kOrientPlate, the web's --or-plate): over the
+  // tiles their text was hard to read; the pattern stays on the rest of the card. The edge is the palette's second colour at 25 % (40 % hovered)
+  bool onPattern(const Item& it) const { return orient && it.section >= 0 && std::strcmp(kSections[it.section].id, "play") == 0; }
+  void plateInset(Canvas& g, R r, float rad = 9, bool hot = false) {
+    g.fillRR(r, rad, rgb(kOrientPlate)); g.strokeRR(R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, Pen(rgb(opal().c2, hot ? 102 : 64), 1));
+  }
   // a glass card: translucent white fading downwards, a 1 px white 20 % edge, a lit top edge
   void glass(Canvas& g, R r, float rad = 14) {
     g.fillRR(r, rad, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, argb(26, 255, 255, 255), argb(12, 255, 255, 255)));
@@ -416,11 +422,17 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   Backdrop bgPanel, bgBrowser;
   void drawBackdrop(Canvas& g, R dirty) {
     g.fillRect(dirty, Brush(rgb(kPage)));
-    const int H = (int)devH();
-    if (bgPanel.key != H) {
+    const int H = (int)devH(), key = H * 4 + (orient ? 1 + (orientMode == 2 ? 1 : 0) : 0);   // (version 1.0.9: the image is made again when the tuning changes)
+    if (bgPanel.key != key) {
       static const Stop st[5] = {{0, 0x2b0f2e}, {0.25f, 0x5a1f4a}, {0.55f, 0x8a3a3a}, {0.85f, 0xc25a2a}, {1, 0xe08a2a}};
       static const Blob bl[3] = {{0.08f, 0.15f, 0.56f, 0.42f, 0xff7a3d}, {0.85f, 0.08f, 0.49f, 0.42f, 0x7a3dff}, {0.57f, 1.06f, 0.63f, 0.49f, 0xff3d8a}};
-      makeBackdrop(bgPanel, (int)kDeviceW, H, 135, st, 5, bl, 3); bgPanel.key = H;
+      if (orient) {   // version 1.0.9: ARAB / TURK: the panel in the colours of the pattern (ORIENT.g and ORIENT.glow in tools/spec.js; the web app's #device.orient)
+        const OrientPal& P = opal();
+        const Stop os[5] = {{0, P.g[0]}, {0.25f, P.g[1]}, {0.55f, P.g[2]}, {0.85f, P.g[3]}, {1, P.g[4]}};
+        const Blob ob[3] = {{0.08f, 0.15f, 0.56f, 0.42f, P.glow[0]}, {0.85f, 0.08f, 0.49f, 0.42f, P.glow[1]}, {0.57f, 1.06f, 0.63f, 0.49f, P.glow[2]}};
+        makeBackdrop(bgPanel, (int)kDeviceW, H, 135, os, 5, ob, 3);
+      } else makeBackdrop(bgPanel, (int)kDeviceW, H, 135, st, 5, bl, 3);
+      bgPanel.key = key;
     }
     const R panel{0, 0, kDeviceW, (float)H};
     if (!panel.hits(dirty)) return;
@@ -511,7 +523,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         const std::wstring s = toW(it.w->text ? it.w->text : "");
         if (orient && it.section >= 0 && std::strcmp(kSections[it.section].id, "play") == 0) {   // beta 0.3.4: on the oriental pattern, a caption sits on a dark plate
           const float tw = g.textWidth(s, 10.5f, true);
-          g.fillRR(R{it.r.x, it.r.y - 0.5f, tw + 14, 15}, 4, rgb(0x070a16, 199));
+          g.fillRR(R{it.r.x, it.r.y - 0.5f, tw + 14, 15}, 4, rgb(kOrientPlate));   // (version 1.0.9: opaque, was 78 %)
           text(g, s, R{it.r.x + 7, it.r.y, tw + 7, it.r.h}, 10.5f, true, rgb(opal().dim), 0);
         } else text(g, s, it.r, 10.5f, true, rgb(kDim), 0);
         break;
@@ -582,7 +594,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       }
       return;
     }
-    inset(g, it.r, 9.f);
+    if (onPattern(it)) plateInset(g, it.r, 9.f); else inset(g, it.r, 9.f);   // (version 1.0.9: the TUNING switch on its plate over the oriental pattern)
     float pad = engine ? 3.f : 2.f, gap = 2, bw = (it.r.w - 2 * pad - gap * (n - 1)) / n;
     for (int k = 0; k < n; k++) {
       R b{it.r.x + pad + k * (bw + gap), it.r.y + pad, bw, it.r.h - 2 * pad};
@@ -744,7 +756,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
 
   void drawStep(Canvas& g, const Item& it) {
     const ParamDef& p = kParams[it.w->param];
-    inset(g, it.r, 9);
+    if (onPattern(it)) plateInset(g, it.r, 9); else inset(g, it.r, 9);   // (version 1.0.9: the TONIC step on its plate over the oriental pattern)
     text(g, L"◀", R{it.r.x, it.r.y, 30, it.r.h}, 11, false, rgb(kDim));
     text(g, L"▶", R{it.r.x + it.r.w - 30, it.r.y, 30, it.r.h}, 11, false, rgb(kDim));
     int v = (int)jsRound(plainOf(it.w->param));
@@ -2039,10 +2051,17 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     Library& lib = Library::get();
     if (lib.version() != bCacheVer) { buildCategories(); menuBank = lib.bank(); bCacheVer = lib.version(); }   // (version 1.0.7: when the library changed, not at every paint)
     const R c = bCard();
-    if (bgBrowser.key != 1) {   // the same colours as the panel, at another angle
+    const int bkey = 1 + (orient ? 1 + (orientMode == 2 ? 1 : 0) : 0);   // (version 1.0.9: again when the tuning changes)
+    if (bgBrowser.key != bkey) {   // the same colours as the panel, at another angle
       static const Stop st[4] = {{0, 0x2b0f2e}, {0.30f, 0x5a1f4a}, {0.62f, 0x8a3a3a}, {1, 0xc25a2a}};
       static const Blob bl[3] = {{0.08f, 0.15f, 0.56f, 0.42f, 0xff7a3d}, {0.85f, 0.08f, 0.49f, 0.42f, 0x7a3dff}, {0.57f, 1.06f, 0.63f, 0.49f, 0xff3d8a}};
-      makeBackdrop(bgBrowser, (int)c.w, (int)c.h, 160, st, 4, bl, 3); bgBrowser.key = 1;
+      if (orient) {   // version 1.0.9: the pattern's colours here too
+        const OrientPal& P = opal();
+        const Stop os[4] = {{0, P.g[0]}, {0.30f, P.g[1]}, {0.62f, P.g[2]}, {1, P.g[3]}};
+        const Blob ob[3] = {{0.08f, 0.15f, 0.56f, 0.42f, P.glow[0]}, {0.85f, 0.08f, 0.49f, 0.42f, P.glow[1]}, {0.57f, 1.06f, 0.63f, 0.49f, P.glow[2]}};
+        makeBackdrop(bgBrowser, (int)c.w, (int)c.h, 160, os, 4, ob, 3);
+      } else makeBackdrop(bgBrowser, (int)c.w, (int)c.h, 160, st, 4, bl, 3);
+      bgBrowser.key = bkey;
     }
     g.pushClipRR(c, 18);
     drawHalf(g, bgBrowser, R{c.x, c.y, 0, 0}, c);
@@ -2218,15 +2237,18 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     const ParamDef& p = kParams[it.w->param];
     const int v = (int)jsRound(plainOf(it.w->param));
     const bool hot = hover == idx;
-    fillRR(g, it.r, 9, Brush(insetC()));
-    strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 9, edgeC(hot));
+    if (onPattern(it)) plateInset(g, it.r, 9, hot);   // version 1.0.9: the MAQAM menu on its plate over the oriental pattern
+    else {
+      fillRR(g, it.r, 9, Brush(insetC()));
+      strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 9, edgeC(hot));
+    }
     g.textEllipsis(toW(p.choiceShort[v]), R{it.r.x + (kSections[it.section].tabbed ? 5.f : 6.f), it.r.y, it.r.w - 19, it.r.h}, 9.5f, true, rgb(accent()), true);   // (beta 0.3.4: the TARGET menu is 80 px wide: a long name ends with \u2026)
     text(g, L"\u25BE", R{it.r.x + it.r.w - 14, it.r.y, 12, it.r.h}, 9, false, rgb(kDim));
     if (it.w->text) {   // beta 0.6: its caption
       const std::wstring cap = toW(it.w->text);
       if (orient && std::strcmp(kSections[it.section].id, "play") == 0) {   // beta 0.3.4: on the oriental pattern, a dark plate under it
         const float tw = g.textWidth(cap, 9.5f, true) + 14;
-        g.fillRR(R{it.r.x + (it.r.w - tw) / 2, it.r.y - 17.5f, tw, 15}, 4, rgb(0x070a16, 199));
+        g.fillRR(R{it.r.x + (it.r.w - tw) / 2, it.r.y - 17.5f, tw, 15}, 4, rgb(kOrientPlate));   // (version 1.0.9: opaque, was 78 %)
         text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(opal().dim));
       } else text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(kDim));
     }

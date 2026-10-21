@@ -3,6 +3,17 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.9 — 2026-10-21 (a way to send feedback, a clearer oriental look)
+
+**In short**
+- **A "Send feedback" button in the web app.** In the header, between **DOWNLOAD VST** and **USER MANUAL**, **SEND FEEDBACK** opens a short form (Google Forms: two optional questions, one for your feedback, one for a bug with your OS and setup) in a new tab; no Google account is needed. The welcome window has the same door: a fifth box, **Send your feedback**, under "Learn more about the sound engine". The web page itself sends nothing: the buttons are plain links, and no referrer is sent to Google.
+- **A clearer oriental look (TUNING ARAB / TURK).** On the PLAY card the pattern stays, but the **TUNING switch, the MAQAM menu, the TONIC step and their captions now sit on an opaque dark plate**: their text was hard to read over the tiles (web app and plug-in). **The synthesizer takes the colours of the pattern**: the panel and the preset browser are bronze with ARAB and carmine with TURK (WEST keeps its violet and orange), in the web app and in the plug-in. **In the web app the pattern also fills the dark margins of the page** around the panel, with the status bar in the colour of its ground.
+- **The credits are back in the manual**: its contents page has its "Credits and thanks" again (Jeremi Palmigani / Saoul Machine, Flo / Go Tiger, Arnaud Grignard; the demo music from the Mutopia Project; PyWavelets; the Steinberg headers), which the new manuals had dropped.
+- No sound, no preset and no layout changed: the sound engine is the 1.0.8 one (the plug-in's editor draws the panel in new colours in ARAB and TURK).
+
+**Checked** (a short validation: the sound engine did not change)
+- Build, the quick suite with the C++/JS cross-check (323 cases), the plug-in window in a host (with new checks: the plates and the panel colours read from the pixels of the window), the VST2 entry point, the web smoke test (plates, panel colours, the pattern in the margins), the manual's pages (with the credits), the welcome window and the panel of the web test (65 checks), the demo test.
+
 ## Okto MultiWave Synth 1.0.8 — 2026-10-21 (the demo changes preset exactly on the chord)
 
 **In short**

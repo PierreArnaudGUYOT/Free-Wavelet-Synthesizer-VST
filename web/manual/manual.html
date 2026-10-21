@@ -51,7 +51,7 @@
 <img class="panel" src="panel.jpg" alt="The OktoWave panel with oscillator A1 shown" width="1140">
 <p>The panel is the same in the browser and in the plug-in, except for a few buttons (listed under the table). From top to bottom:</p>
 <table>
-  <tr><th>Header</th><td>The <b>preset box</b> (◀ ▶ step through the sounds, a click on the name opens the preset browser), <b>MANUAL</b>, the master volume knob and the level meter. Browser only: <b>▶ DEMO</b> and <b>DOWNLOAD VST</b>. Plug-in only: <b>SAVE PRESET</b> and the window-size button.</td></tr>
+  <tr><th>Header</th><td>The <b>preset box</b> (◀ ▶ step through the sounds, a click on the name opens the preset browser), <b>MANUAL</b>, the master volume knob and the level meter. Browser only: <b>▶ DEMO</b>, <b>DOWNLOAD VST</b> and <b>SEND FEEDBACK</b> (a short form that opens in a new tab: a bug, an idea, a sound you miss). Plug-in only: <b>SAVE PRESET</b> and the window-size button.</td></tr>
   <tr><th>OSC1 A1 · OSC2 A2 · OSC3 B1</th><td>The three folder tabs choose <em>which oscillator's cards you see</em>. They never change the sound: a lit dot says the oscillator is heard, and what you hear is set by <b>OSC MIX</b>.</td></tr>
   <tr><th>WAVELET · SUBTRACTIVE</th><td>The heart of A1 and A2: the wave, the wavelet, <b>SOURCE CYCLE</b>, <b>MORPH</b>, <b>SPARSITY</b>. → <a href="subtractive-1.html">Subtractive 1</a></td></tr>
   <tr><th>WAVELET · ADDITIVE</th><td>The heart of B1: the pattern, the 11 drawbars, <b>TILT</b>, <b>SEED</b>, the band envelope knobs. → <a href="additive-1.html">Additive 1</a></td></tr>
@@ -115,6 +115,13 @@
 <details><summary>It crackles, or the page slows down</summary><p>The cost grows with VOICES × UNISON × the oscillators that are on. Lower UNISON or VOICES, turn off oscillators you do not hear, open the FILTER, or use the plug-in, which has the whole computer's time. A few sounds with long releases and many unison copies are heavy on a slow computer.</p></details>
 <details><summary>The plug-in does not appear in my DAW</summary><p>Copy the <b>whole</b> bundle folder (not only the file inside), then rescan. On Windows the DAW must see the VST3 (or VST2) folder you used.</p></details>
 <details><summary>SAVE PRESET says it cannot write</summary><p>The presets file sits next to the <code>.vst3</code> folder, which must allow writing. Install the plug-in in a folder you own, or run your DAW as administrator once.</p></details>
+
+<h2 id="credits">Credits and thanks</h2>
+<ul>
+  <li>Demo music: MIDI from the <a href="https://www.mutopiaproject.org">Mutopia Project</a> — Beethoven's Piano Sonata No. 23 <i>Appassionata</i>, Op. 57 III (public domain).</li>
+  <li>VST3 interface headers: Steinberg Media Technologies, MIT licence. Wavelet filter coefficients generated with PyWavelets (MIT).</li>
+  <li>Thanks to Jeremi Palmigani (Saoul Machine), Flo (Go Tiger) and Arnaud Grignard for testing and review of the Wavelet Synthesizer.</li>
+</ul>
 
 <footer>
   <p>OktoWave — Okto MultiWave Synth, created by <b>Pierre Arnaud GUYOT</b> (OktoPierre), on the basis of his Wavelet Synthesizer. Free software under the GNU GPL v3 or later, without any warranty: <a href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST">github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST</a>. Demo music: Beethoven, <i>Appassionata</i>, Op. 57 III, public domain, MIDI from the <a href="https://www.mutopiaproject.org">Mutopia Project</a>.</p>
