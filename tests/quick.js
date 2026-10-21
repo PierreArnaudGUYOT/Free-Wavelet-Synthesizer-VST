@@ -174,7 +174,7 @@ function vst3() {
 }
 
 // ---------------------------------------------------------------- 4. web app smoke test (muted headless Edge)
-const DEMO_FIRST = require('../web/js/spec.js').TOUR[2];   // the opening sound of the demo (version 1.0.6: A · Wavelet Lead; tests/web/test_demo.js has the whole sequence)
+const DEMO_FIRST = require('../web/js/spec.js').TOUR[0];   // the opening sound of the demo (version 1.0.6: A · Wavelet Lead; version 1.0.10: the first entry of the 30; tests/web/test_demo.js has the whole sequence)
 async function web() {
   const t = Date.now(), bad = [];
   const { Browser, sleep } = require(R('tests', 'web', 'cdp.js'));

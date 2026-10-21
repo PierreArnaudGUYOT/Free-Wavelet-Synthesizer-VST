@@ -3,6 +3,16 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.10 — 2026-10-21 (the demo in phrases of 8 beats, the tour chosen by vote)
+
+- **The demo changes preset with the music**: it starts on the low F that begins the theme of the right hand and a new preset comes every 8 beats (3.58 s), at the start of each phrase (30 phrases for the 30 presets), instead of on a chord near every 4 s. The levels of the presets were measured again on their own phrase.
+- **The tour of the demo is the owner's choice**: he rated each preset of the tour with the vote test version, replaced the poor ones by presets of the factory list he picked, and the new demo plays his list (30 presets, A · Wavelet Lead first). The levels of the presets were measured again on their own phrase.
+- **A test version to sort the presets**: the web app with a vote on the demo (rate each preset 1 to 10 stars at the end of its phrase; 10 can be moved to the start, under 5 five other presets are offered; the whole demo is played again to accept; the report goes to the feedback form). Built by `tools/make_vote_build.js`, published in the test repository only.
+- The plug-in is the 1.0.9 one with its version number (its version resource now says 1.0.10 in its numbers too); no sound, no preset, no layout changed.
+
+**Checked** (a short validation: the sound engine did not change)
+- Build, the quick suite with the C++/JS cross-check (323 cases), the plug-in window in a host, the VST2 entry point, the preset change and demo sync tests (all 29 changes of the new tour on the real audio code: made 33 ms before the note, up when it starts, the longest non-silent quantum around a change 1.7 ms), the web smoke test, the manual's pages, the demo test (30 phrases, 8 beats each), the vote test.
+
 ## Okto MultiWave Synth 1.0.9 — 2026-10-21 (a way to send feedback, a clearer oriental look)
 
 **In short**

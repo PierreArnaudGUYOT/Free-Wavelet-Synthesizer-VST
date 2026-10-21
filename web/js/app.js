@@ -570,7 +570,7 @@
     const o = {}; PARAMS.forEach((p, i) => { if (!p.perf) o[p.key] = src.values[i]; });
     return o;
   }
-  demo = WSDemo({
+  const demoApi = {
     C, P, PARAMS, ui, post,
     startAudio: () => startAudio(),
     setParam: (i, v) => setParam(i, v, false),
@@ -582,13 +582,16 @@
     snapshot: () => ({ values: toKeyed(), presetId, presetName, dirty }),
     restore: (s) => { applyKeyed(s.values); presetId = s.presetId; presetName = s.presetName; dirty = s.dirty; ui.setPresetName(presetName, dirty); },
     setPresetLabel: (txt, modified) => ui.setPresetName(txt, !!modified),
-  });
+  };
+  demo = WSDemo(demoApi);
   const playDemo = () => demo.start().catch(() => {});
   ui.makeDemoButton({
     running: () => demo.running(),
     stop: () => demo.stop(),
     play: playDemo,
   });
+  // version 1.0.10: the vote build (tools/make_vote_build.js) loads tools/vote/vote.js, which rates the presets of the demo; the released app has no WSVote and nothing happens here
+  if (typeof window.WSVote === 'function') window.WSVote(demoApi, demo, { resumeAudio });
 
   // The app always opens on the default preset (A · Wavelet Lead); user presets stay in the preset list.
   loadPreset('f:' + SPEC.DEFAULT_PRESET);

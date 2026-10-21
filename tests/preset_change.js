@@ -61,7 +61,7 @@ const rms = (r, a, b) => { let e = 0, n = 0; for (let i = Math.round(a * sr); i 
 const minBlockRms = (r, a, b) => { let m = Infinity; for (let s = Math.round(a * sr); s + Q <= Math.round(b * sr); s += Q) { let e = 0; for (let i = s; i < s + Q; i++) e += r.L[i] * r.L[i] + r.R[i] * r.R[i]; m = Math.min(m, Math.sqrt(e / (2 * Q))); } return m; };
 
 // 1. under a held chord: the click of the change, the dip, the end state
-const PAIRS = [['AA · Flint Ripple Haze', 'AB · Kalimba Lung Machine'], ['AB · Kalimba Lung Machine', 'B · Mirror Sub Bass'], ['AB · Velvet Cloud', 'B · Flute Lead'], ['A · Cello Section', 'A · Warm Pad']];
+const PAIRS = [['AA · Flint Ripple Haze', 'AB · Kalimba Lung Machine'], ['AA · Flint Ripple Haze', 'AA · Hollow Bass'], ['AB · Pure Fog', 'B · Flute Lead'], ['A · Cello Section', 'AA · Tide Lute']];   // (version 1.0.10: presets of the tour, the old tour's own copies are gone)
 for (const [from, to] of PAIRS) {
   const n = play(from, to, 'bulk', true), o = play(from, to, 'p', true), label = `${from} > ${to}`;
   const cn = d2max(n, 1.5, 1.56), co = d2max(o, 1.5, 1.56);

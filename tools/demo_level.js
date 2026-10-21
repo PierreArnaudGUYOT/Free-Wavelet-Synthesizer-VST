@@ -1,18 +1,19 @@
 // Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Version 1.0: the level of the web demo. The demo plays Beethoven's Appassionata with every note at velocity 1 and 16 voices, through the presets of the tour (WS_SPEC.DEMO_PRESETS, web/js/demo.js:
-// the presets are set as in enterScene). This tool renders the 4 s each preset plays (song time 4 k to 4 k + 4) with the engine, with the master lowered by each trim in turn, and measures what
+// the presets are set as in enterScene). This tool renders the phrase each preset plays (version 1.0.10: 8 beats, song.phrase = 3.58 s, scene k from k phrases; before: 4 s, song time 4 k to 4 k + 4) with the engine, with the master lowered by each trim in turn, and measures what
 // the output stage (the peak guard and the soft limiter) adds: the same window 24 dB lower, scaled back up, is the clean reference (`d` = relative RMS of the difference), and the share of
 // the time the output goes above the limiter's knee (0.7).
 //   node tools/demo_level.js                   trims 0 -3 -6 -9 -12 dB, a table per trim
 //   node tools/demo_level.js --trims 0,-6      other trims
 //   node tools/demo_level.js --trims 0 --write-trim [--target 0.7]   writes tools/demo_trim.js: the whole dB each preset of the tour goes down in the demo (version 1.0.4)
-//   node tools/demo_level.js --all --window 13 every preset of the factory list (the plug-in's) plays one window of the piece, here the densest (4 s from 4 x 13 s), the demo's way
+//   node tools/demo_level.js --all [--window n] every preset of the factory list (the plug-in's) plays one phrase of the piece, by default the densest (most notes sounding), the demo's way; --write-trim with --all writes
+//                                              tools/demo_trim_all.js (version 1.0.10: for the vote build, where a preset can sit anywhere in the tour)
 'use strict';
 const path = require('path');
 const { fork } = require('child_process');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; };
-const TRIMS = arg('trims', '0,-3,-6,-9,-12').split(',').map(Number), PROCS = +arg('procs', 12), STEP = 4, TAIL = 0.6, ALL = process.argv.includes('--all'), WIN = +arg('window', 13);
+const TRIMS = arg('trims', '0,-3,-6,-9,-12').split(',').map(Number), PROCS = +arg('procs', 12), TAIL = 0.6, ALL = process.argv.includes('--all'), WIN = arg('window', 'auto');
 
 function load() {
   const fs = require('fs');
@@ -28,12 +29,16 @@ if (process.argv.includes('--worker')) {
   const part = +arg('worker', 0), of = +arg('of', 1);
   const { SPEC, C, song } = load();
   const P = C.P, sr = 48000, mp = SPEC.PARAMS[P.master];
+  const STEP = song.phrase;   // version 1.0.10: a scene is a phrase of 8 beats
+  // the densest phrase: the one with the most note-seconds (the most voices sounding)
+  const densest = () => { let best = 0, bv = -1; for (let j = 0; (j + 1) * STEP <= song.duration; j++) { let v = 0; for (let i = 0; i < song.notes.length; i += 4) { const a = song.notes[i], b = a + song.notes[i + 1]; v += Math.max(0, Math.min(b, (j + 1) * STEP) - Math.max(a, j * STEP)); } if (v > bv) { bv = v; best = j; } } return best; };
+  const WINDOW = WIN === 'auto' ? densest() : +WIN;
   const out = [];
   const LIST = process.env.DEMOSET ? SPEC.DEMO_PRESETS : SPEC.PRESETS;   // (DEMOSET=1 with --all: the presets of the demo's tour on that one window)
   const items = ALL ? LIST.map((p, i) => [p.name, i]) : SPEC.TOUR.map((n, k) => [n, k]);
   items.forEach(([name, idx]) => {
-    const k = ALL ? WIN : idx;
-    if (ALL ? idx % of !== part : (k < 2 || k % of !== part)) return;
+    const k = ALL ? WINDOW : idx;
+    if (ALL ? idx % of !== part : k % of !== part) return;
     const pr = ALL ? LIST[idx] : SPEC.DEMO_PRESETS.find(p => p.name === name) || SPEC.PRESETS.find(p => p.name === name);
     const base = Float64Array.from(pr.values);
     // as demo.js enterScene: polyphonic, normal octave, no glide, short attack, little delay
@@ -90,7 +95,7 @@ for (let w = 0; w < PROCS; w++) {
     if (++done < PROCS) return;
     let rows = [];
     for (let k = 0; k < PROCS; k++) { const f = path.join(__dirname, 'out', `demo_level_${k}.json`); rows = rows.concat(JSON.parse(fs.readFileSync(f, 'utf8'))); fs.unlinkSync(f); }
-    console.log(`${new Set(rows.map(r => r.name)).size} ${ALL ? 'presets of the list' : 'tour presets'}, 4 s each, in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+    console.log(`${new Set(rows.map(r => r.name)).size} ${ALL ? 'presets of the list' : 'tour presets'}, one phrase each, in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     console.log('trim dB | presets with output-stage distortion d above 2 % / 5 % / 10 % | median d | median time above the knee (0.7) | median peak before the output stage');
     for (const trim of TRIMS) {
       const r = rows.filter(x => x.trim === trim), med = (f) => { const v = r.map(f).sort((a, b) => a - b); return v[v.length >> 1]; };
@@ -101,8 +106,8 @@ for (let w = 0; w < PROCS; w++) {
       const target = +arg('target', 0.7), table = {};
       for (const r of rows.filter(x => x.trim === 0)) if (r.peak > target) table[r.name] = Math.ceil(20 * Math.log10(r.peak / target) - 1e-9);
       const body = Object.keys(table).sort().map(k => '  ' + JSON.stringify(k) + ': ' + table[k]).join(',' + '\n');
-      fs.writeFileSync(path.join(__dirname, 'demo_trim.js'), '// Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)\n// SPDX-License-Identifier: GPL-3.0-or-later\n// GENERATED by tools/demo_level.js --write-trim: the whole dB the master volume of a preset of the demo goes down while the piece plays (velocity 1, 16 voices),' + '\n' + '// so that it stays under ' + target + ' before the output stage. Read by tools/spec.js (DEMO_TRIM); web/js/demo.js applies it.\n' + "'use strict';\n" + 'module.exports = {\n' + body + '\n};\n');
-      console.log('demo_trim.js: ' + Object.keys(table).length + ' presets of the tour go down in the demo');
+      fs.writeFileSync(path.join(__dirname, ALL ? 'demo_trim_all.js' : 'demo_trim.js'), '// Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)\n// SPDX-License-Identifier: GPL-3.0-or-later\n// GENERATED by tools/demo_level.js --write-trim: the whole dB the master volume of a preset of the demo goes down while the piece plays (velocity 1, 16 voices),' + '\n' + '// so that it stays under ' + target + ' before the output stage. ' + (ALL ? 'Every preset of the factory list on the densest phrase; read by tools/make_vote_build.js (the vote build: a preset can sit anywhere in the tour).' : 'Read by tools/spec.js (DEMO_TRIM); web/js/demo.js applies it.') + '\n' + "'use strict';\n" + 'module.exports = {\n' + body + '\n};\n');
+      console.log((ALL ? 'demo_trim_all.js: ' : 'demo_trim.js: ') + Object.keys(table).length + ' presets of the ' + (ALL ? 'list' : 'tour') + ' go down in the demo');
     }
   });
 }

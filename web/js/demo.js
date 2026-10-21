@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.7). Release beta 0.2.
 // Demo player: plays Beethoven's Appassionata (III) (public-domain MIDI from the Mutopia Project, web/js/demo_data.js) as a tour of the
-// presets (a new preset about every 4 s, on a change of chord). A small window says which preset plays and what it is made of.
+// presets (a new preset every 8 beats, 3.6 s, at the start of the theme's phrase; before 1.0.10: about every 4 s, on a change of chord). A small window says which preset plays and what it is made of.
 function WSDemo(api) {
   'use strict';
   const SONG = WS_DEMO_SONGS[0];
@@ -10,23 +10,21 @@ function WSDemo(api) {
   const LEAD_IN = 0.25;   // seconds between the click and the first note
 
   // The preset sequence of the tour (tools/spec.js TOUR: the tour of the Wavelet Synthesizer's web app, same piece, same presets, same level; the presets are
-  // WS_SPEC.DEMO_PRESETS, app.js applyPreset): written out so that a new menu order does not change the demo. The demo starts at song.origin (7.8 s: its opening chords are cut).
-  const TOUR_STEP = 4;
+  // WS_SPEC.DEMO_PRESETS, app.js applyPreset): written out so that a new menu order does not change the demo. The demo starts at song.origin (version 1.0.10: 17.0 s, the low F that starts the theme; its opening line and chords are cut).
   // version 1.0.6: the window presents the synth while the piece plays, one short sentence per preset of the tour (the wavelets, the idea of an oscillator made of them, how it differs from the
   // other synthesizers): WS_SPEC.DEMO_STORY ([chapter, sentence], tools/spec.js); the last one stays if the tour is longer
   const STORY = WS_SPEC.DEMO_STORY;
 
-  // Preset tour: about every `step` seconds the next preset of the spec's TOUR (wraps around).
-  // Each change is moved to a change of chord of the piece: near every `step`-second mark (within TOUR_SNAP), the onset
-  // where the most notes start together. The preset is loaded TOUR_LEAD before it, so the new sound starts with the chord.
-  // `origin` = where the demo starts in the piece (song.origin, when its opening bars are cut): the grid and the sequence
-  // are those of the whole piece, and the tour begins with the preset loaded at the cut or less than TOUR_CUT after it,
-  // so cutting the opening changes nothing after the cut.
+  // Preset tour: a new preset of the tour (WS_SPEC.TOUR, or the list given to start()) every PHRASE of the piece. Version 1.0.10: the owner's request, the change goes with the music: the theme
+  // of the right hand repeats over 8 beats and starts with a low note, so the demo starts on that low F (song.origin, tools/make_demo.js) and a preset lasts 8 beats, song.phrase seconds
+  // (the tempo is 134 beats a minute, fitted on the onsets): the preset k changes at k phrases, on the onset of the note that sits there (every note of the piece starts on a sixteenth of
+  // that grid). Before, a change went to the chord with the most notes near every 4-second mark of the whole piece. The preset is loaded TOUR_LEAD before the note, so the new sound starts
+  // with it. The last scene is at least TOUR_MIN_LAST seconds long (30 phrases for the 30 presets, the last one 6 s: the end of the piece).
   // Every preset is made playable on the piece: polyphonic, normal octave, no glide, short attack.
   const TOUR_SAFE = { v_voices: 16, v_oct: 0, v_glide: 0 };
   const TOUR_MAX_ATTACK = 0.08;
   const TOUR_MAX_DELAY_MIX = 0.1, TOUR_MAX_DELAY_FB = 0.3;   // long echoes on a fast piece sound like a canon
-  const TOUR_SNAP = 1.5, TOUR_LEAD = 0.08, TOUR_CUT = 0.25;
+  const TOUR_LEAD = 0.08, TOUR_MIN_LAST = 3;
   // version 1.0.8: the change of preset is made by the audio thread, at the chord. The page sends it SEND_LEAD seconds ahead (the new sound's values and tables, with the song time of the chord:
   // worklet.js starts the dip so that it ends at the chord); the panel, the window and the label follow at TOUR_LEAD before the chord, as before. A page that was late (a busy main thread) made the
   // change late, 100 ms after the chord for a delay of 100 ms: the audio thread's clock does not wait for the page.
@@ -39,28 +37,12 @@ function WSDemo(api) {
     }
     return ev;
   }
-  function tourScenes(notes, duration, step, origin) {
-    const names = WS_SPEC.TOUR, ev = chordOnsets(notes);
-    let out = [], prev = -origin;
-    for (let k = 0; k * step < origin + duration; k++) {
-      let t = k * step - origin, chord = t + TOUR_LEAD;   // chord: the song time of the chord the change goes with (version 1.0.8)
-      if (k > 0) {
-        let best = null, score = -Infinity;
-        for (const e of ev) {
-          if (e.t < t - TOUR_SNAP || e.t <= prev + step / 2) continue;
-          if (e.t > t + TOUR_SNAP) break;
-          const s = e.n - Math.abs(e.t - t);   // a full chord close to the mark wins
-          if (s > score) { score = s; best = e; }
-        }
-        if (best) { t = best.t - TOUR_LEAD; chord = best.t; }
-      }
-      out.push({ t, chord, tour: true, preset: names[k % names.length] });
-      prev = t;
+  function tourScenes(song, names) {
+    const P = song.phrase, ev = chordOnsets(song.notes), out = [];
+    for (let k = 0; k * P <= song.duration - TOUR_MIN_LAST + 1e-9; k++) {
+      const g = k * P, e = ev.find(x => x.t >= g - 0.03), chord = e ? e.t : g;   // chord: the song time of the note the change goes with (version 1.0.8)
+      out.push({ t: k ? chord - TOUR_LEAD : 0, chord, tour: true, preset: names[k % names.length] });
     }
-    let first = 0;
-    out.forEach((sc, i) => { if (sc.t < TOUR_CUT) first = i; });
-    out = out.slice(first);
-    out[0].t = 0;
     out.forEach((sc, i) => { sc.pos = i; sc.of = out.length; });
     return out;
   }
@@ -185,12 +167,12 @@ function WSDemo(api) {
   }
 
   // Plays Beethoven's Appassionata (III) as a tour of the presets.
-  async function start() {
+  async function start(opts) {
     if (st) stop();
     await api.startAudio();
     if (!win) buildWindow();
     const song = SONG;
-    const scenes = tourScenes(song.notes, song.duration, TOUR_STEP, song.origin || 0);
+    const scenes = tourScenes(song, (opts && opts.tour) || WS_SPEC.TOUR);   // (opts.tour: another list of presets, the vote build's)
     st = { song, scenes, saved: api.snapshot(), scene: -1, t0: 0, raf: 0, sync: null, pre: 0 };
     api.post({ t: 'alloff' });
     win.title.textContent = 'DEMO · ' + song.composer + ' — ' + (song.short || song.title);
@@ -231,8 +213,10 @@ function WSDemo(api) {
     start, stop, onSeqTime,
     running: () => !!st,
     // the preset tour ([{ t, preset }]): for the tests and the manual
-    tourPlan: () => tourScenes(SONG.notes, SONG.duration, TOUR_STEP, SONG.origin || 0).map(x => ({ t: x.t, chord: x.chord, preset: x.preset })),
-    song: () => ({ title: SONG.title, short: SONG.short || SONG.title, composer: SONG.composer, duration: SONG.duration, license: SONG.license }),
+    tourPlan: (names) => tourScenes(SONG, names || WS_SPEC.TOUR).map(x => ({ t: x.t, chord: x.chord, preset: x.preset })),
+    rules: (name) => sceneRules({ preset: name }),   // version 1.0.10: the demo's rules for a preset (polyphonic, short attack, trim...), for the vote build
+    tourLead: TOUR_LEAD,
+    song: () => ({ title: SONG.title, short: SONG.short || SONG.title, composer: SONG.composer, duration: SONG.duration, phrase: SONG.phrase, license: SONG.license }),
     state: () => (st ? { running: true, song: st.song.title, scene: st.scene, preset: st.scenes[Math.max(0, st.scene)].preset,
       scenes: st.scenes.length, time: now() } : { running: false }),
   };

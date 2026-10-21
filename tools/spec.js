@@ -36,8 +36,8 @@ const APP = {
   panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: '1.0.9',
-  versionNum: '1.0.9',
+  version: '1.0.10',
+  versionNum: '1.0.10',
   date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -757,37 +757,51 @@ const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, 
   return { name: p.name, from: p.name, stars: p.vote, v };
 });
 const DEFAULT_PRESET = PRESETS[TOP_LIST[0]].name;   // sound loaded when the app / a new plugin instance opens: the first of TOP Sounds (beta 1.0)
-// The preset tour of the demo (the default piece, Beethoven's Appassionata, about one preset every 4 s; it starts at 7.8 s, so the first two are not heard). Version 1.0: it is the tour of the
+// The preset tour of the demo (the default piece, Beethoven's Appassionata; version 1.0.10: one preset per phrase of 8 beats, 3.6 s, from the low F that starts the theme; before, about one every 4 s from 7.8 s, so the first two entries of the old list were not heard). Version 1.0: it is the tour of the
 // Wavelet Synthesizer's web app (beta 0.7.1): the same piece, the same presets in the same order, at the same level. Those presets are not all in the factory list (the 237 the owner kept), so
 // the tour carries its own copies, DEMO_PRESETS (tools/demo_presets.js, written by tools/demo_presets_extract.js from that web app and converted as the TOP Sounds are): they play the demo
 // and are in no list of the browsers.
 const DEMO_RAW = require('./demo_presets.js');
 const DEMO_PRESETS = DEMO_RAW.presets.map(r => ({ name: r.name, v: convertLegacy(r.v) }));
-const TOUR = DEMO_RAW.order.slice();
+// Version 1.0.10: the tour is the owner's own list, from his vote on the demo (the demo vote test version, 2026-10-21): he rated the 30 presets of the previous tour one phrase at a time, kept the
+// ones he liked, replaced the poor ones by presets of the factory list he picked among five proposed (and the 10-star favourite stays first), and this is the order he sent. One preset per
+// phrase of 8 beats (web/js/demo.js), scene k plays TOUR[k]. The names are found in DEMO_PRESETS (the copies the old tour carried) or in the factory list, in that order (app.js demoPreset).
+const TOUR = [
+  "A · Wavelet Lead",
+  "AA · Tide Lute",
+  "AB · Kalimba Lung Machine",
+  "AA · Hollow Bass",
+  "AA · Drum Bloom",
+  "A · Wave Pulse Lead",
+  "A · Wave Atom Choir Shift",
+  "AA · Knock Sweep",
+  "A · Spiccato Strings",
+  "AAB · Sweep Call",
+  "AA · Wood Rise Bows",
+  "AB · Pure Fog",
+  "AA · Moon & Breath",
+  "AB · Ripple Reeds",
+  "B · Flute Lead",
+  "AB · Silk Strings",
+  "AB · Swing of Odd",
+  "AB · Sweep of Trumpet",
+  "AA · Orbit Drum",
+  "AAB · Rust Aurora",
+  "A · Cello Section",
+  "AB · Step Sub",
+  "AAB · Ice Rise Clav",
+  "AA · Opal Rise Chords",
+  "AB · Bloom of Timber",
+  "AB · Orbit Cloud",
+  "AB · Open Mallets",
+  "AA · Analog Cloud",
+  "AA · Salt Beam Strings",
+  "AB · Beam Lung Keys"
+];
 let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }   // version 1.0.4: the whole dB each preset of the tour goes down while the piece plays (tools/demo_level.js --write-trim)
-// version 1.0.4: the tour is made again. The 28 presets heard (the piece lasts 119 s, one preset about every 4 s, from the third entry on) are the best presets of the owner's last list (his third listening, the
-// most starred first; the first two heard are two of his 10-star favourites, a pad and a kalimba) and eight sounds of the old tour that he keeps, spread over the piece: they play with the values of the
-// Wavelet Synthesizer (DEMO_PRESETS). The first two entries (not heard: the demo starts at 7.8 s) and the last two (after the end of the piece) are fillers.
-{
-  // version 1.0.6: the demo opens on A · Wavelet Lead (the owner's request), then AA · Deep Ripple in the place of AA · Flint Ripple Haze, which is out of the demo (the owner's request, 2026-10-21: not in the opening, and not later either), then a favourite
-  const FIRST_OLD = 'A · Wavelet Lead';
-  const KEEP_OLD = ['B · Mirror Sub Bass', 'A · Wave Atom Choir Shift', 'A · String Machine', 'B · Flute Lead', 'AB · Dream Pad', 'A · Warm Pad', 'AB · Organ Lead'];
-  const FIRST_NEW = ['AA · Deep Ripple', 'AB · Kalimba Lung Machine'], NOT_IN_DEMO = ['AA · Flint Ripple Haze'], HEARD = 28, OPENING = 1 + FIRST_NEW.length;
-  for (const n of [FIRST_OLD, ...KEEP_OLD]) if (!DEMO_PRESETS.some(p => p.name === n)) throw new Error('TOUR: the old tour has no ' + n);
-  const best = PRESETS.map((p, i) => i).filter(i => stars3(PRESETS[i])).sort(before3).map(i => PRESETS[i].name).filter(n => n !== FIRST_OLD && !KEEP_OLD.includes(n) && !FIRST_NEW.includes(n) && !NOT_IN_DEMO.includes(n));
-  const fresh = [...FIRST_NEW, ...best];
-  const slots = new Array(HEARD).fill(null);
-  slots[0] = FIRST_OLD;
-  KEEP_OLD.forEach((n, j) => { let at = Math.max(OPENING, Math.round((j + 0.5) * HEARD / KEEP_OLD.length)); while (slots[at]) at++; slots[at] = n; });   // spread, never in the opening three
-  let f = 0; for (let i = 0; i < HEARD; i++) if (!slots[i]) slots[i] = fresh[f++];
-  // a sound swapped for another AT ITS PLACE (the order of the others does not move): AA · Morph of Brass froze the owner's browser (the heaviest sound of the demo, 0.31 of real time with 16 voices, a 2.8 s release),
-  // A · Wave Brass takes its place (0.06)
-  const SWAP_IN_DEMO = { 'AA · Morph of Brass': 'A · Wave Brass' };
-  for (let i = 0; i < HEARD; i++) if (SWAP_IN_DEMO[slots[i]]) slots[i] = SWAP_IN_DEMO[slots[i]];
-  if (new Set(slots).size !== HEARD) throw new Error('TOUR: a sound plays twice');
-  TOUR.splice(2, TOUR.length - 2, ...slots, fresh[f], fresh[f + 1]);
-}
 for (const n of TOUR) if (!DEMO_PRESETS.some(p => p.name === n) && !PRESETS.some(p => p.name === n)) throw new Error('TOUR: preset not found: ' + n);
+// version 1.0.10: only the copies the tour still uses are kept (the others were the old tour's presets: the demo vote replaced them; tools/demo_presets.js keeps them all)
+for (let i = DEMO_PRESETS.length - 1; i >= 0; i--) if (!TOUR.includes(DEMO_PRESETS[i].name)) DEMO_PRESETS.splice(i, 1);
 // version 1.0.6: what the demo window says while the piece plays (the owner's request: a short, readable presentation of the synth, the wavelets and the idea of an oscillator made of them, and how it
 // differs from the other synthesizers). One sentence per preset of the tour (every ~4 s, so about 13 words at the most, simple words), [chapter, sentence]; the web app shows them in order, the last one stays
 // if the tour is longer. Only facts of the engine: tools/ and CLAUDE.md section 3.1 (a cycle is split into 11 bands of wavelets; the scale filter works on bands, the position window on a part of the cycle).

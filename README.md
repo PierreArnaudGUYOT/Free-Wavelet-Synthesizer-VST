@@ -2,8 +2,8 @@
 
 # ⬇ DOWNLOAD THE PLUG-IN (Windows VST3 / VST2, macOS VST3)
 
-1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.9**).
-2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.9-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.9-mac.zip** (macOS).
+1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.10**).
+2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.10-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.10-mac.zip** (macOS).
 3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (Windows, VST3; needs administrator rights) or into your VST2 plug-in folder; on a Mac into `~/Library/Audio/Plug-Ins/VST3`. `INSTALL.txt` (`INSTALL-mac.txt`) in the zip says more.
 4. In your DAW, rescan the plug-ins (Ableton Live: *Preferences → Plug-ins → Rescan*), then open *Plug-ins → OktoPierre → Okto MultiWave Synth*.
 
@@ -13,7 +13,7 @@
 
 ---
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **version 1.0.9**, a "Send feedback" button (2026-10-21), see
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **version 1.0.10**, the demo changes preset with the music (2026-10-21), see
 [RELEASE_HISTORY.md](RELEASE_HISTORY.md). Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 Okto MultiWave Synth is the [Wavelet Synthesizer](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v0.7.1-beta)
@@ -30,6 +30,11 @@ the preset list (see the notes of the betas below), and the demo is one piece, B
 The web app also works offline: download the repository and open `web/index.html`. The same web app is at https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/ too (the development repository).
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
+
+## What version 1.0.10 changes
+
+- **The demo changes preset with the music**: it starts on the low note that begins the theme of Beethoven's *Appassionata* and a new preset comes every 8 beats, at the start of each phrase (30 phrases, 3.6 s each), instead of about every 4 s on a chord.
+- **The 30 presets of the demo are the author's choice**: the poorest ones were replaced after a vote, ear by ear.
 
 ## What version 1.0.9 changes
 

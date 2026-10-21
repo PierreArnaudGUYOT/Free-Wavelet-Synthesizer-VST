@@ -42,11 +42,11 @@ const presetValues = (name) => {
 };
 
 const TOL_T = 0.3; // s: scene clock vs. parameter update (rAF) tolerance
-const TOUR_STEP = 4; // s per preset in the tour (TOL_T = 0.3 s leaves a 3.4 s checked window per preset)
-// the preset sequence of the default demo: tools/spec.js TOUR from its third entry (the opening chords of the piece are cut), wrapping round
+const TOUR_STEP = 3.5821; // s per preset in the tour: version 1.0.10, a phrase of 8 beats at 134 a minute (TOL_T = 0.3 s leaves a 3.0 s checked window per preset)
+// the preset sequence of the default demo: tools/spec.js TOUR from its first entry, one preset per phrase (version 1.0.10: 30 presets for the 30 phrases; the two entries that were never heard are gone)
 const TOUR = SPEC.TOUR;
 const tourFrom = (first, n) => Array.from({ length: n }, (_, i) => TOUR[(first + i) % TOUR.length]);
-const TOUR_START = TOUR[2];   // first preset heard on the default song
+const TOUR_START = TOUR[0];   // first preset heard on the default song
 // version 1.0.6: the demo window presents the synth while the piece plays: one sentence per preset of the tour (web/js/demo.js, the spec's DEMO_STORY: [chapter, sentence]; the last one stays if the tour is longer)
 const STORY = SPEC.DEMO_STORY;
 const storyAt = (k) => STORY[Math.min(k, STORY.length - 1)];
@@ -128,13 +128,13 @@ async function follow(maxSec, onSample) {
   return samples;
 }
 // ------------------------------------------------------------------ checks
-// The tour plan itself (independent of the player): the agreed sequence, a change about every TOUR_STEP s.
+// The tour plan itself (independent of the player): the agreed sequence, a change every phrase of 8 beats (TOUR_STEP s), on the note that starts it.
 function planChecks(plan, song, first) {
-  const seq = plan.map((p) => p.preset), gaps = plan.slice(1).map((p, i) => p.t - plan[i].t), want = tourFrom(first, plan.length);
+  const seq = plan.map((p) => p.preset), gaps = plan.slice(1).map((p, i) => p.chord - plan[i].chord), want = tourFrom(first, plan.length);
   check(JSON.stringify(seq) === JSON.stringify(want), `tour plan: the spec's TOUR from entry ${first + 1} on (${plan.length} presets, from '${want[0]}')`,
     seq.map((n, i) => (n === want[i] ? null : `#${i + 1} '${n}' expected '${want[i]}'`)).filter(Boolean).slice(0, 3).join('; ') || `${seq.length} presets`);
-  check(plan.length > 0 && plan[0].t === 0 && gaps.every((g) => g > TOUR_STEP - 1.5 && g < TOUR_STEP + 1.5) && plan[plan.length - 1].t < song.duration,
-    `tour plan: starts at 0 s, then a change every ${TOUR_STEP} ± 1.5 s (on a chord) until the end`,
+  check(plan.length === 30 && plan[0].t === 0 && gaps.every((g) => Math.abs(g - TOUR_STEP) < 0.01) && plan[plan.length - 1].t < song.duration - 3,
+    `tour plan: 30 scenes, the first at 0 s, then a change every phrase of 8 beats (${TOUR_STEP} s ± 10 ms), the last scene at least 3 s long`,
     `gaps ${Math.min(...gaps).toFixed(2)}–${Math.max(...gaps).toFixed(2)} s, last change ${plan[plan.length - 1].t.toFixed(1)} s of ${song.duration} s`);
 }
 
@@ -333,7 +333,7 @@ async function main() {
     if (!check(api.every((t) => t === 'function'), 'WS_TEST exposes demoStart/demoStop/demoState/demoSong/demoTour', JSON.stringify(api))) throw new Error('no demo API');
     const names = await ev('WS_TEST.presets()');
     log(`  the demo: ${song.composer} - ${song.title} (${fmtT(song.duration)})`);
-    check(song.license === 'Public Domain' && /Appassionata/.test(song.title) && Math.abs(song.duration - 119.104) < 0.01, 'the only song is Beethoven, Appassionata III (public domain, 119.1 s)', JSON.stringify(song));
+    check(song.license === 'Public Domain' && /Appassionata/.test(song.title) && Math.abs(song.duration - 109.925) < 0.01 && Math.abs(song.phrase - TOUR_STEP) < 0.001, 'the only song is Beethoven, Appassionata III (public domain, 109.9 s from the low F that starts the theme, phrase 3.58 s)', JSON.stringify(song));
     const startLabel = await ev(`(document.querySelector('.presets .pname') || {}).textContent || ''`);
     if (SPEC.DEFAULT_PRESET) check(startLabel.includes(SPEC.DEFAULT_PRESET), `the app opens on '${SPEC.DEFAULT_PRESET}'`, `label '${startLabel}'`);
     // the preset menu (click on the name) and WS_TEST.presets() list the factory presets in tools/spec.js order
@@ -380,7 +380,7 @@ async function main() {
     });
     if (isTour) {
       const plan = plan0;
-      planChecks(plan, song, 2);
+      planChecks(plan, song, 0);
       const n = tourChecks('tour', song, [st0, ...tourSamples], plan, !opt.smoke, true, TOUR_START);
       check(n >= (opt.smoke ? 5 : plan.length), `tour: at least ${opt.smoke ? 5 : plan.length} presets observed`, `${n}`);
       // version 1.0.8: the audio thread made the changes at their chords. The page sent each one ahead with the song time of its chord, and the worklet reported when it made it
