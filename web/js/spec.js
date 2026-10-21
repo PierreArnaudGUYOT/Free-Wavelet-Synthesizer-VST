@@ -373,30 +373,30 @@ var WS_SPEC = {
  "TOUR": [
   "A · Warm Pad",
   "A · Wavelet Lead",
+  "A · Wavelet Lead",
   "AA · Flint Ripple Haze",
   "AB · Kalimba Lung Machine",
   "B · Mirror Sub Bass",
   "A · Siren Sweep",
   "A · Wave Pulse Lead",
-  "A · Wavelet Lead",
+  "A · Wave Atom Choir Shift",
   "AA · Knock Sweep",
   "AAB · Drift Pick",
   "AA · Deep Ripple",
-  "A · Wave Atom Choir Shift",
+  "A · String Machine",
   "AA · Orbit Pad",
   "AB · Pearl Wash",
-  "A · String Machine",
   "AB · Velvet Cloud",
+  "B · Flute Lead",
   "AA · Morph of Brass",
   "AB · Silk Strings",
-  "B · Flute Lead",
   "AA · Sweep of Pixel",
-  "AA · Chalk Edge Call",
   "AB · Dream Pad",
+  "AA · Chalk Edge Call",
   "AAB · Rust Aurora",
   "A · Cello Section",
-  "AB · Step Sub",
   "A · Warm Pad",
+  "AB · Step Sub",
   "AA · Opal Rise Chords",
   "AB · Bloom of Timber",
   "AB · Organ Lead",
@@ -3460,7 +3460,7 @@ var WS_SPEC = {
      "type": "seg",
      "param": "a_wave",
      "x": 12,
-     "y": 32,
+     "y": 26,
      "w": 520,
      "h": 28
     },
@@ -3506,7 +3506,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "wmorph",
      "x": 470,
-     "y": 64,
+     "y": 62,
      "w": 52,
      "h": 60
     },
@@ -3514,7 +3514,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "env_wav",
      "x": 470,
-     "y": 122,
+     "y": 124,
      "w": 52,
      "h": 60
     },
@@ -3538,7 +3538,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a1_lvl",
      "x": 470,
-     "y": 180,
+     "y": 186,
      "w": 52,
      "h": 60
     }
@@ -3557,7 +3557,7 @@ var WS_SPEC = {
      "type": "seg",
      "param": "f_type",
      "x": 12,
-     "y": 30,
+     "y": 26,
      "w": 312,
      "h": 24
     },
@@ -3565,7 +3565,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "f_cutoff",
      "x": 12,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3573,7 +3573,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "f_slope",
      "x": 64,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3581,7 +3581,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "f_res",
      "x": 116,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3589,7 +3589,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "f_keytrk",
      "x": 168,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3597,7 +3597,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "f_env",
      "x": 220,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3605,7 +3605,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "f_vel",
      "x": 272,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     }
@@ -3623,7 +3623,7 @@ var WS_SPEC = {
     {
      "type": "window",
      "x": 12,
-     "y": 30,
+     "y": 26,
      "w": 156,
      "h": 24
     },
@@ -3631,7 +3631,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "p_center",
      "x": 12,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3639,7 +3639,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "p_width",
      "x": 64,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3647,7 +3647,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "p_depth",
      "x": 116,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     }
@@ -3699,7 +3699,7 @@ var WS_SPEC = {
      "param": "a1_eon",
      "text": "OWN ENVELOPE",
      "x": 184,
-     "y": 28,
+     "y": 26,
      "w": 104,
      "h": 22
     },
@@ -3708,7 +3708,7 @@ var WS_SPEC = {
      "env": "own",
      "param": "a1_ea",
      "x": 296,
-     "y": 28,
+     "y": 26,
      "w": 112,
      "h": 22
     },
@@ -3783,7 +3783,7 @@ var WS_SPEC = {
      "type": "seg",
      "param": "a2_wave",
      "x": 12,
-     "y": 32,
+     "y": 26,
      "w": 520,
      "h": 28
     },
@@ -3829,7 +3829,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "wmorph",
      "x": 470,
-     "y": 64,
+     "y": 62,
      "w": 52,
      "h": 60
     },
@@ -3837,7 +3837,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "env_wav",
      "x": 470,
-     "y": 122,
+     "y": 124,
      "w": 52,
      "h": 60
     },
@@ -3861,7 +3861,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_lvl",
      "x": 470,
-     "y": 180,
+     "y": 186,
      "w": 52,
      "h": 60
     }
@@ -3880,7 +3880,7 @@ var WS_SPEC = {
      "type": "seg",
      "param": "a2_ftype",
      "x": 12,
-     "y": 30,
+     "y": 26,
      "w": 312,
      "h": 24
     },
@@ -3888,7 +3888,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_fcut",
      "x": 12,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3896,7 +3896,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_fslope",
      "x": 64,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3904,7 +3904,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_fres",
      "x": 116,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3912,7 +3912,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_fkey",
      "x": 168,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3920,7 +3920,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_fenv",
      "x": 220,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3928,7 +3928,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_fvel",
      "x": 272,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     }
@@ -3946,7 +3946,7 @@ var WS_SPEC = {
     {
      "type": "window",
      "x": 12,
-     "y": 30,
+     "y": 26,
      "w": 156,
      "h": 24
     },
@@ -3954,7 +3954,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_pcen",
      "x": 12,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3962,7 +3962,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_pwid",
      "x": 64,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -3970,7 +3970,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "a2_pdep",
      "x": 116,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     }
@@ -4022,7 +4022,7 @@ var WS_SPEC = {
      "param": "a2_eon",
      "text": "OWN ENVELOPE",
      "x": 184,
-     "y": 28,
+     "y": 26,
      "w": 104,
      "h": 22
     },
@@ -4031,7 +4031,7 @@ var WS_SPEC = {
      "env": "own",
      "param": "a2_ea",
      "x": 296,
-     "y": 28,
+     "y": 26,
      "w": 112,
      "h": 22
     },
@@ -4106,7 +4106,7 @@ var WS_SPEC = {
      "type": "seg",
      "param": "b_pattern",
      "x": 12,
-     "y": 32,
+     "y": 26,
      "w": 520,
      "h": 28
     },
@@ -4292,7 +4292,7 @@ var WS_SPEC = {
      "type": "seg",
      "param": "b1_ftype",
      "x": 12,
-     "y": 30,
+     "y": 26,
      "w": 312,
      "h": 24
     },
@@ -4300,7 +4300,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_fcut",
      "x": 12,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -4308,7 +4308,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_fslope",
      "x": 64,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -4316,7 +4316,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_fres",
      "x": 116,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -4324,7 +4324,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_fkey",
      "x": 168,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -4332,7 +4332,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_fenv",
      "x": 220,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -4340,7 +4340,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_fvel",
      "x": 272,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     }
@@ -4358,7 +4358,7 @@ var WS_SPEC = {
     {
      "type": "window",
      "x": 12,
-     "y": 30,
+     "y": 26,
      "w": 156,
      "h": 24
     },
@@ -4366,7 +4366,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_pcen",
      "x": 12,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -4374,7 +4374,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_pwid",
      "x": 64,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     },
@@ -4382,7 +4382,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "b1_pdep",
      "x": 116,
-     "y": 56,
+     "y": 59,
      "w": 52,
      "h": 60
     }
@@ -4434,7 +4434,7 @@ var WS_SPEC = {
      "param": "b1_eon",
      "text": "OWN ENVELOPE",
      "x": 184,
-     "y": 28,
+     "y": 26,
      "w": 104,
      "h": 22
     },
@@ -4443,7 +4443,7 @@ var WS_SPEC = {
      "env": "own",
      "param": "b1_ea",
      "x": 296,
-     "y": 28,
+     "y": 26,
      "w": 112,
      "h": 22
     },
@@ -4627,7 +4627,7 @@ var WS_SPEC = {
      "env": "own",
      "param": "vf_a",
      "x": 284,
-     "y": 30,
+     "y": 24,
      "w": 208,
      "h": 26
     },
@@ -4635,7 +4635,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_cut",
      "x": 12,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4643,7 +4643,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_res",
      "x": 64,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4651,7 +4651,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_drive",
      "x": 116,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4659,7 +4659,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_key",
      "x": 168,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4667,7 +4667,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_env",
      "x": 220,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4675,7 +4675,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_a",
      "x": 284,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4683,7 +4683,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_d",
      "x": 336,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4691,7 +4691,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_s",
      "x": 388,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4699,7 +4699,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "vf_r",
      "x": 440,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     }
@@ -4718,7 +4718,7 @@ var WS_SPEC = {
      "type": "adsr",
      "env": "amp",
      "x": 12,
-     "y": 30,
+     "y": 24,
      "w": 260,
      "h": 26
     },
@@ -4726,7 +4726,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "amp_a",
      "x": 12,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4734,7 +4734,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "amp_d",
      "x": 64,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4742,7 +4742,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "amp_s",
      "x": 116,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4750,7 +4750,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "amp_r",
      "x": 168,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4758,7 +4758,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "amp_vel",
      "x": 220,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     }
@@ -4777,7 +4777,7 @@ var WS_SPEC = {
      "type": "adsr",
      "env": "mod",
      "x": 12,
-     "y": 30,
+     "y": 24,
      "w": 248,
      "h": 26
     },
@@ -4785,7 +4785,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "mod_a",
      "x": 32,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4793,7 +4793,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "mod_d",
      "x": 84,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4801,7 +4801,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "mod_s",
      "x": 136,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     },
@@ -4809,7 +4809,7 @@ var WS_SPEC = {
      "type": "knobM",
      "param": "mod_r",
      "x": 188,
-     "y": 54,
+     "y": 58,
      "w": 52,
      "h": 60
     }

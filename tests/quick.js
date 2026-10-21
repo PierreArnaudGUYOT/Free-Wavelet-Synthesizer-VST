@@ -46,6 +46,46 @@ function staticChecks() {
   report('up to date', stale.length === 0, stale.length ? stale.join('; ') : 'generated spec, VST3 build and manuals are newer than their sources', t2);
 }
 
+// ---------------------------------------------------------------- 1b. the layout rule: nothing overlaps (the owner's rule, 2026-10-21, for every future implementation)
+// On the spec's numbers, for the web app AND the plug-in (it has widgets of its own: the SYNC buttons, the note-value knobs): inside a card no two widgets overlap (a knob counts as
+// its ring, 4 px outside the disc, with the stroke), no widget leaves its card, and no two cards that are on screen together overlap (the plate behind the oscillator cards is a frame).
+// The text (labels, titles) is checked in the page: tests/web/smoke.js with tests/web/overlap.js.
+function layoutChecks() {
+  const t = Date.now(), bad = [];
+  const SPEC = require(R('web', 'js', 'spec.js'));
+  const ink = (w) => {
+    if (/^knob/.test(w.type)) {
+      const thin = w.type === 'knobS' || w.type === 'knobT', d = w.type === 'knobL' ? 42 : w.type === 'knobS' ? 30 : w.type === 'knobT' ? 26 : 38;
+      const cx = w.x + w.w / 2, cy = w.y + (w.type === 'knobL' ? 22 : w.type === 'knobS' ? 18 : w.type === 'knobT' ? 15 : 20), ar = d / 2 + (thin ? 2 : 4) + (thin ? 1.25 : 1.5);
+      return { x0: cx - ar, y0: cy - ar, x1: cx + ar, y1: cy + ar };
+    }
+    return { x0: w.x, y0: w.y, x1: w.x + w.w, y1: w.y + w.h };
+  };
+  const hit = (a, b) => Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 0.01 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 0.01;
+  const never = (a, b) => a.vis && b.vis && a.vis === b.vis && !!a.visOn !== !!b.visOn;   // twins: only one is shown (RATE or the note value)
+  // the bars (the LFO 2/3 tab bar, the strip of the effects' captions) draw their tabs / captions on the left and leave the rest to the plug-in's SYNC button
+  const barAndSync = (a, b) => (/^(lfotabs|fxheads)$/.test(a.type) && b.type === 'toggle') || (/^(lfotabs|fxheads)$/.test(b.type) && a.type === 'toggle');
+  for (const platform of ['web', 'vst']) {
+    const here = (w) => !w.only || w.only === platform, label = (w) => (w.type === 'adsr' || w.type === 'toggle' || w.type === 'label' ? w.type + ' ' + (w.param || w.text || '') : w.type + ' ' + (w.param || ''));
+    for (const s of SPEC.SECTIONS) {
+      const ws = s.widgets.filter(here).map(w => Object.assign({ w }, ink(w)));
+      for (let i = 0; i < ws.length; i++) {
+        const a = ws[i];
+        if (a.x0 < -0.01 || a.y0 < -0.01 || a.x1 > s.w + 0.01 || a.y1 > s.h + 0.01) bad.push(platform + ' ' + s.id + ': ' + label(a.w) + ' leaves the card');
+        for (let j = i + 1; j < ws.length; j++) if (hit(a, ws[j]) && !never(a.w, ws[j].w) && !barAndSync(a.w, ws[j].w)) bad.push(platform + ' ' + s.id + ': ' + label(a.w) + ' overlaps ' + label(ws[j].w));
+      }
+    }
+    const cards = SPEC.SECTIONS.filter(s => s.id !== 'oscframe' && (platform === 'vst' || !s.widgets.every(w => w.only === 'vst')));
+    for (let i = 0; i < cards.length; i++) for (let j = i + 1; j < cards.length; j++) {
+      const a = cards[i], b = cards[j];
+      if (a.view >= 0 && b.view >= 0 && a.view !== b.view) continue;   // another oscillator's cards: not on screen together
+      if (a.id.startsWith('lfo') && b.id.startsWith('lfo') && a.id !== 'lfo' && b.id !== 'lfo') continue;   // LFO 2 and LFO 3 share the place
+      if (hit({ x0: a.x, y0: a.y, x1: a.x + a.w, y1: a.y + a.h }, { x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h })) bad.push(platform + ': the cards ' + a.id + ' and ' + b.id + ' overlap');
+    }
+  }
+  report('layout', bad.length === 0, bad.length ? [...new Set(bad)].slice(0, 6).join('; ') + (bad.length > 6 ? ' ...' : '') : 'no widget overlaps another or leaves its card, no card overlaps another (web app and plug-in)', t);
+}
+
 // ---------------------------------------------------------------- 2. JS engine (reference DSP), no browser
 async function jsEngine() {
   const t = Date.now(), bad = [];
@@ -107,7 +147,7 @@ function vst3() {
 }
 
 // ---------------------------------------------------------------- 4. web app smoke test (muted headless Edge)
-const DEMO_FIRST = require('../web/js/spec.js').TOUR[2];   // the opening sound of the demo, as in the Wavelet Synthesizer's web app: B · Clarinet (tests/web/test_demo.js has the whole sequence)
+const DEMO_FIRST = require('../web/js/spec.js').TOUR[2];   // the opening sound of the demo (version 1.0.6: A · Wavelet Lead; tests/web/test_demo.js has the whole sequence)
 async function web() {
   const t = Date.now(), bad = [];
   const { Browser, sleep } = require(R('tests', 'web', 'cdp.js'));
@@ -195,6 +235,7 @@ async function dspCompare() {
 (async () => {
   console.log('Okto MultiWave Synth - quick check' + (opt.dsp ? ' (+ C++/JS cross-check)' : ''));
   staticChecks();
+  layoutChecks();
   await Promise.all([jsEngine(), vst3(), web()]);   // the slowest parts run side by side
   if (opt.dsp) await dspCompare();
   for (const r of results) console.log(`  ${r.ok ? 'ok  ' : 'FAIL'}  ${r.name.padEnd(11)} ${r.detail}${r.time ? `  (${r.time})` : ''}`);

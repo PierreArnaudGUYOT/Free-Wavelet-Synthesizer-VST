@@ -35,6 +35,8 @@
 
   // ---------------------------------------------------------------- parameters
   function post(msg, transfer) { if (node) node.port.postMessage(msg, transfer || []); }
+  // a preset change (applyKeyed) holds the parameter messages and sends them with the tables in ONE message (see applyKeyed)
+  let hold = null;
 
   function setParam(i, v, user) {
     const p = PARAMS[i];
@@ -43,7 +45,7 @@
     if (values[i] === v) return;
     const needs = C.tableNeeds(values), morph = C.morphNeeded(values), vsig = C.variantSig(values);
     values[i] = v;
-    post({ t: 'p', i, v });
+    if (hold) hold.n++; else post({ t: 'p', i, v });
     ui.refresh(i);
     // an oscillator's level rebuilds the tables only when it reaches or leaves 0 (it plays or not); the WAVELET MORPH when it
     // starts or stops needing the WAVELET 2 tables; an LFO when it starts or stops moving the SOURCE PHASE, SPARSITY or SOURCE WIDTH (the variants tables); the
@@ -62,19 +64,22 @@
   // a build in the Worker (scheduleBuild), which does at most one at a time and then the latest request. Every request
   // has a number: a result older than the last one delivered is dropped.
   let worker = null, workerReady = false, workerBusy = false, workerAgain = false, buildSeq = 0, deliveredSeq = 0, heldTables = null;
+  const workerUrl = () => {
+    const src = 'const WSCoreFactory = ' + WSCoreFactory.toString() + ';\n' +
+      'let C = null;\n' +
+      'onmessage = (e) => {\n' +
+      '  const m = e.data;\n' +
+      '  if (m.spec) { C = WSCoreFactory(m.spec); postMessage({ ready: 1 }); return; }\n' +
+      '  const tb = C.buildTables(m.values, true), tr = [];\n' +
+      '  const add = s => { if (!s) return; tr.push(s.mips.buffer, s.rms.buffer); if (s.ph) s.ph.forEach(add); if (s.w2) add(s.w2); };\n' +
+      '  tb.slots.forEach(add);\n' +
+      '  postMessage({ seq: m.seq, tb }, tr);\n' +
+      '};\n';
+    return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(src);
+  };
   function startWorker() {
     try {
-      const src = 'const WSCoreFactory = ' + WSCoreFactory.toString() + ';\n' +
-        'let C = null;\n' +
-        'onmessage = (e) => {\n' +
-        '  const m = e.data;\n' +
-        '  if (m.spec) { C = WSCoreFactory(m.spec); postMessage({ ready: 1 }); return; }\n' +
-        '  const tb = C.buildTables(m.values, true), tr = [];\n' +
-        '  const add = s => { if (!s) return; tr.push(s.mips.buffer, s.rms.buffer); if (s.ph) s.ph.forEach(add); if (s.w2) add(s.w2); };\n' +
-        '  tb.slots.forEach(add);\n' +
-        '  postMessage({ seq: m.seq, tb }, tr);\n' +
-        '};\n';
-      worker = new Worker('data:text/javascript;charset=utf-8,' + encodeURIComponent(src));
+      worker = new Worker(workerUrl());
       worker.onmessage = (e) => {
         if (e.data.ready) { workerReady = true; return; }
         workerBusy = false;
@@ -87,8 +92,33 @@
   }
   startWorker();
 
+  // Version 1.0.6: the demo asks for the tables of the next preset a few seconds ahead (prebuild), in a Worker of its own: at the change itself the main thread only sends them. Building them there
+  // took 60 to 190 ms for the heavy presets, during which the page (and, on a slow machine, the audio) stood still. { key: the values they are for, tb }
+  let prebuilt = null, pworker = null, pready = false, pwant = null, pwait = null;
+  function startPreWorker() {
+    try {
+      pworker = new Worker(workerUrl());
+      pworker.onmessage = (e) => {
+        if (e.data.ready) { pready = true; if (pwant) { const w = pwant; pwant = null; prebuild(w); } return; }
+        if (pwait) prebuilt = { key: pwait, tb: e.data.tb };
+        pwait = null;
+      };
+      pworker.onerror = () => { pworker = null; pready = false; };
+      pworker.postMessage({ spec: SPEC });
+    } catch (_) { pworker = null; pready = false; }
+  }
+  function prebuild(vals) {
+    if (!pworker) startPreWorker();
+    if (!pworker) return;
+    if (!pready) { pwant = vals; return; }
+    const key = vals.join(',');
+    if (prebuilt && prebuilt.key === key) return;
+    prebuilt = null; pwait = key;
+    pworker.postMessage({ seq: 0, values: Float64Array.from(vals) });
+  }
+
   // the tables to the worklet (their arrays are transferred); held until the audio has started
-  function deliver(tb) {
+  function deliver(tb, all) {   // all (a preset change): the values go with the tables, in one message
     if (!node) { heldTables = tb; return; }
     const transfer = [];
     const pack = s => {
@@ -99,7 +129,7 @@
       if (s.w2) o.w2 = pack(s.w2);
       return o;
     };
-    post({ t: 'tables', tables: { needs: tb.needs, slots: tb.slots.map(pack) } }, transfer);
+    post(all ? { t: 'bulk', v: Array.from(all), tables: { needs: tb.needs, slots: tb.slots.map(pack) } } : { t: 'tables', tables: { needs: tb.needs, slots: tb.slots.map(pack) } }, transfer);
   }
   let buildTimer2 = null;
   function scheduleBuild() {
@@ -112,7 +142,7 @@
     buildTimer2 = setTimeout(() => { buildTimer2 = null; ui.setTables(C.buildTables(values, false)); }, 20);
   }
   // inWorker: a knob being moved (the Worker builds, if it can); else at once, here
-  function build(inWorker) {
+  function build(inWorker, bulk, tables) {
     lastBuild = performance.now();
     const seq = ++buildSeq;
     if (inWorker === true && worker && workerReady) {
@@ -120,7 +150,8 @@
       else { workerBusy = true; worker.postMessage({ seq, values: Float64Array.from(values) }); }
     } else {
       deliveredSeq = seq;
-      deliver(C.buildTables(values, true));
+      if (buildTimer) { clearTimeout(buildTimer); buildTimer = null; }   // (a build of the Worker asked for by a parameter of this very change: this one has it all)
+      deliver(tables || C.buildTables(values, true), bulk ? values : null);
     }
     if (buildTimer2) { clearTimeout(buildTimer2); buildTimer2 = null; }
     ui.setTables(C.buildTables(values, false));
@@ -132,14 +163,29 @@
     saveTimer = setTimeout(() => store.set('mw.state', { id: presetId, name: presetName, dirty, values: toKeyed(true) }), 300);
   }
 
-  function applyKeyed(obj) {
+  // Version 1.0.6: a preset change reaches the audio thread in ONE message, all the parameters and the tables together ('bulk'). Sent one by one, the parameters were taken by the audio thread a few at a
+  // time between two of its render quanta, and the sound played for a moment with half of the new preset on the tables of the old one: a burst of noise ("buzz") at every change of preset, worst
+  // when the notes held were loud. `modify` (the demo) adjusts the new values before they are sent: modify(set(key, value), get(key)).
+  // the values a preset change leads to: the preset's (`obj`: key -> value; the others at their defaults; a performance setting stays as it is), then `modify` (the demo's rules): modify(set(key, value), get(key)).
+  // Every value as setParam takes it (limits, rounding). Nothing is applied here: applyKeyed does, prebuild() builds the tables ahead.
+  function finalValues(obj, modify) {
+    const v = Float64Array.from(values);
+    const fit = (i, x) => { const p = PARAMS[i]; x = Math.min(p.max, Math.max(p.min, x)); return p.curve === 'int' || p.curve === 'choice' ? Math.round(x) : x; };
     PARAMS.forEach((p, i) => {
       if (p.hidden) return;
       if (p.perf && !(obj && obj[p.key] !== undefined)) return;   // Okto MultiWave Synth: a preset leaves the chord keyboard as it is
-      const v = obj && obj[p.key] !== undefined && isFinite(obj[p.key]) ? +obj[p.key] : p.def;
-      setParam(i, v, false);
+      v[i] = fit(i, obj && obj[p.key] !== undefined && isFinite(obj[p.key]) ? +obj[p.key] : p.def);
     });
-    build();
+    if (modify) modify((key, x) => { if (key in P) v[P[key]] = fit(P[key], x); }, key => v[P[key]]);
+    return v;
+  }
+  function applyKeyed(obj, modify) {
+    const v = finalValues(obj, modify);
+    hold = { n: 0 };
+    try { for (let i = 0; i < v.length; i++) setParam(i, v[i], false); } finally { hold = null; }
+    const tb = prebuilt && prebuilt.key === v.join(',') ? prebuilt.tb : null;   // built ahead by the demo (prebuild)
+    prebuilt = null;
+    build(false, true, tb);
   }
 
   // ---------------------------------------------------------------- presets
@@ -497,19 +543,21 @@
   }
 
   // ---------------------------------------------------------------- demo (Beethoven, Appassionata: a tour of the presets)
+  // version 1.0: the demo's tour has presets of its own (the ones of the Wavelet Synthesizer's web app), then the factory list
+  function demoPreset(name) {
+    const src = (SPEC.DEMO_PRESETS || []).find(p => p.name === name) || SPEC.PRESETS.find(p => p.name === name);
+    if (!src) return null;
+    const o = {}; PARAMS.forEach((p, i) => { if (!p.perf) o[p.key] = src.values[i]; });
+    return o;
+  }
   demo = WSDemo({
     C, P, PARAMS, ui, post,
     startAudio: () => startAudio(),
     setParam: (i, v) => setParam(i, v, false),
     values: () => values,
     ctxTime: () => (actx ? actx.currentTime : 0),
-    applyPreset: (name) => {
-      // version 1.0: the demo's tour has presets of its own (the ones of the Wavelet Synthesizer's web app), then the factory list
-      const src = (SPEC.DEMO_PRESETS || []).find(p => p.name === name) || SPEC.PRESETS.find(p => p.name === name);
-      if (!src) return;
-      const o = {}; PARAMS.forEach((p, i) => { if (!p.perf) o[p.key] = src.values[i]; });
-      applyKeyed(o);
-    },
+    applyPreset: (name, modify) => { const o = demoPreset(name); if (o) applyKeyed(o, modify); },
+    prebuildPreset: (name, modify) => { const o = demoPreset(name); if (o) prebuild(finalValues(o, modify)); },   // the tables of a preset the demo will load in a few seconds
     snapshot: () => ({ values: toKeyed(), presetId, presetName, dirty }),
     restore: (s) => { applyKeyed(s.values); presetId = s.presetId; presetName = s.presetName; dirty = s.dirty; ui.setPresetName(presetName, dirty); },
     setPresetLabel: (txt, modified) => ui.setPresetName(txt, !!modified),

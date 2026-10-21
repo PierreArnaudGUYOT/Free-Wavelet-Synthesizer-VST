@@ -31,6 +31,12 @@ The web app also works offline: download the repository and open `web/index.html
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 this version is built for Windows and the web (the code is portable, but no macOS build is made or tested here).
 
+## Web app update of 2026-10-21 (the plug-in stays 1.0.5)
+
+- **The demo opens on A · Wavelet Lead**, and a change of preset in the demo no longer clicks or buzzes (the output dips for 35 ms, the continuous parameters travel in 64 ms, the first preset is loaded before the first note).
+- **Nothing overlaps on the panel any more** (the envelope pictures and the knobs under them, the selectors of the filter cards ...); a rule, with two tests.
+- The plug-in takes the layout and the other sources with its next release (1.0.6).
+
 ## What version 1.0.5 changes
 
 - **A trail of light around the oscillators**: the tab of the oscillator shown and the plate under it are outlined as one shape, bright at the tab and fading along the plate. **PLAY**: ARAB is sand-gold, TURK carmine red, with the same oriental pattern.

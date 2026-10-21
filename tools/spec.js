@@ -566,13 +566,26 @@ section('chord', 'CHORD KEYBOARD', 12, 1054, 1076, 104, -1, [
         else if (w.type === 'knobL') { w.x = (nBig++ ? 410 : 326) - w.w / 2; w.y = 184 - 22; }   // R6: SOURCE WIDTH and SPARSITY, 42 px discs, centres (326, 184) and (410, 184)
         else if (w.y >= 140 && !(/^knob/.test(w.type) && w.x >= 460)) w.y -= 8;
       }
-    } else if (base === 'filter' || base === 'position' || base === 'osc') { s.y = 356; s.h = 132; shift(s, 50, -8); }
+      // version 1.0.6 (the owner's rule: nothing overlaps): the wave selector is 6 px higher, and the three knobs of the right-hand column (WAVELET MORPH, ENV>WAV, LEVEL) are 62 px apart (their
+      // rings and labels touched), the first one under the selector
+      for (const w of s.widgets) if (w.type === 'seg') w.y -= 6;
+      if (base === 'tone' && s.id !== 'tone_b1') s.widgets.filter(w => /^knob/.test(w.type) && w.x >= 460).sort((a, b) => a.y - b.y).forEach((w, i) => { w.y = 62 + 62 * i; });
+    } else if (base === 'filter' || base === 'position' || base === 'osc') {
+      s.y = 356; s.h = 132; shift(s, 50, -8);
+      // version 1.0.6 (nothing overlaps): the type selector / window picture is 4 px higher and the knobs 3 px lower: the rings of the knobs cleared it by -2.5 px
+      if (base !== 'osc') for (const w of s.widgets) { if (w.y === 30) w.y = 26; else if (/^knob/.test(w.type)) w.y += 3; }
+      else for (const w of s.widgets) if (w.y === 28) w.y = 26;   // the TUNE card: the OWN ENVELOPE toggle and its picture 2 px higher (1.5 px from the rings under them)
+    }
   }
   const mix = find('mix'); mix.h = 290; shift(mix, 190, -8);
   const dsp = find('display'); dsp.h = 290;
   widget(dsp, 0, 12, 30, 360, 104); widget(dsp, 1, 12, 142, 360, 14); widget(dsp, 2, 12, 158, 360, 122);
   find('oscframe').h = 444;
-  for (const [id, x, y, w, from] of [['flt', 12, 496, 504, 50], ['ampenv', 524, 496, 284, 50], ['modenv', 816, 496, 272, 50]]) { const s = find(id); box(s, x, y, w, 120); shift(s, from, -8); }
+  for (const [id, x, y, w, from] of [['flt', 12, 496, 504, 50], ['ampenv', 524, 496, 284, 50], ['modenv', 816, 496, 272, 50]]) {
+    const s = find(id); box(s, x, y, w, 120); shift(s, from, -8);
+    // version 1.0.6 (nothing overlaps): the ADSR picture goes up 6 px (it ended 6.5 px inside the rings of the knobs) and the knobs down 4 px
+    for (const w of s.widgets) { if (w.type === 'adsr') w.y = 24; else if (/^knob/.test(w.type)) w.y += 4; }
+  }
   // beta 0.3.4 (the owner's mock-ups P6 / Q1): the row LFO 1 | LFO 2/3 | VOICE is 98 px tall (22 less); the knobs of the three cards are on ONE line (K0 = 32 px under the top of
   // the card); the wave selector of LFO 1, the tab bar of LFO 2/3 (its tabs, its SYNC) and the header of VOICE are on the title line
   const K0 = 32;
@@ -750,13 +763,16 @@ let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { i
 // most starred first; the first two heard are two of his 10-star favourites, a pad and a kalimba) and eight sounds of the old tour that he keeps, spread over the piece: they play with the values of the
 // Wavelet Synthesizer (DEMO_PRESETS). The first two entries (not heard: the demo starts at 7.8 s) and the last two (after the end of the piece) are fillers.
 {
-  const KEEP_OLD = ['B · Mirror Sub Bass', 'A · Wavelet Lead', 'A · Wave Atom Choir Shift', 'A · String Machine', 'B · Flute Lead', 'AB · Dream Pad', 'A · Warm Pad', 'AB · Organ Lead'];
-  const FIRST_NEW = ['AA · Flint Ripple Haze', 'AB · Kalimba Lung Machine'], HEARD = 28;
-  for (const n of KEEP_OLD) if (!DEMO_PRESETS.some(p => p.name === n)) throw new Error('TOUR: the old tour has no ' + n);
-  const best = PRESETS.map((p, i) => i).filter(i => stars3(PRESETS[i])).sort(before3).map(i => PRESETS[i].name).filter(n => !KEEP_OLD.includes(n) && !FIRST_NEW.includes(n));
+  // version 1.0.6: the demo opens on A · Wavelet Lead (the owner's request), then the two favourites
+  const FIRST_OLD = 'A · Wavelet Lead';
+  const KEEP_OLD = ['B · Mirror Sub Bass', 'A · Wave Atom Choir Shift', 'A · String Machine', 'B · Flute Lead', 'AB · Dream Pad', 'A · Warm Pad', 'AB · Organ Lead'];
+  const FIRST_NEW = ['AA · Flint Ripple Haze', 'AB · Kalimba Lung Machine'], HEARD = 28, OPENING = 1 + FIRST_NEW.length;
+  for (const n of [FIRST_OLD, ...KEEP_OLD]) if (!DEMO_PRESETS.some(p => p.name === n)) throw new Error('TOUR: the old tour has no ' + n);
+  const best = PRESETS.map((p, i) => i).filter(i => stars3(PRESETS[i])).sort(before3).map(i => PRESETS[i].name).filter(n => n !== FIRST_OLD && !KEEP_OLD.includes(n) && !FIRST_NEW.includes(n));
   const fresh = [...FIRST_NEW, ...best];
   const slots = new Array(HEARD).fill(null);
-  KEEP_OLD.forEach((n, j) => { let at = Math.max(2, Math.round((j + 0.5) * HEARD / KEEP_OLD.length)); while (slots[at]) at++; slots[at] = n; });   // spread, never the first two
+  slots[0] = FIRST_OLD;
+  KEEP_OLD.forEach((n, j) => { let at = Math.max(OPENING, Math.round((j + 0.5) * HEARD / KEEP_OLD.length)); while (slots[at]) at++; slots[at] = n; });   // spread, never in the opening three
   let f = 0; for (let i = 0; i < HEARD; i++) if (!slots[i]) slots[i] = fresh[f++];
   TOUR.splice(2, TOUR.length - 2, ...slots, fresh[f], fresh[f + 1]);
 }

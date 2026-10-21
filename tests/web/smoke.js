@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { Browser, sleep } = require('./cdp');
+const OVERLAP = require('./overlap');   // the layout rule: nothing overlaps (see overlap.js)
 const ROOT = path.resolve(__dirname, '..', '..');
 let out = path.join(__dirname, 'out'), hash = '#noaudio#nobrowser';
 for (let i = 2; i < process.argv.length; i++) {
@@ -24,6 +25,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
     await B.navigate(pathToFileURL(path.join(ROOT, 'web', 'index.html')).href + hash);
     await sleep(800);
     check(await B.evaluate('typeof WS_TEST === "object"'), 'the test hook is there');
+    const noOverlap = async (what) => { const l = JSON.parse(await B.evaluate(OVERLAP)); check(l.length === 0, `${what}: nothing overlaps (knob rings, labels, pictures) and nothing leaves its card`, l.slice(0, 4).join(' | ')); };
     const shown = () => B.evaluate(`[...document.querySelectorAll('#device .section')].filter(s => !s.classList.contains('hidden')).map(s => s.querySelector('.title') ? s.querySelector('.title').textContent : '(' + s.style.top + ')')`);
     // beta 0.3: the three folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 (no engine tabs), the cards of the oscillator shown, OSC MIX and the SCOPE common to all
     const tabs = () => B.evaluate(`[...document.querySelectorAll('#device .otab')].map(b => b.querySelector('.t1').textContent.trim() + (b.classList.contains('on') ? '*' : ''))`);
@@ -38,6 +40,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       check(n(name === 'B1' ? 'WAVELET · ADDITIVE' : 'WAVELET · SUBTRACTIVE') === 1 && n(name === 'B1' ? 'WAVELET · SUBTRACTIVE' : 'WAVELET · ADDITIVE') === 0, `view ${name}: its wavelet card is shown, and only that one`, JSON.stringify(t));
       check(n('SCALE FILTER') === 1 && n('POSITION') === 1 && n('TUNE · OWN ENVELOPE · PITCH ENVELOPE') === 1, `view ${name}: one SCALE FILTER, POSITION and TUNE card`, JSON.stringify(t));
       check(n('OSC MIX') === 1 && t.some(x => x.startsWith('SCOPE')) && n('FILTER') === 1 && n('LFO 1') === 1, `view ${name}: OSC MIX, the SCOPE, the FILTER and LFO 1 are always there`, JSON.stringify(t));
+      await noOverlap('view ' + name);
       await B.screenshot(path.join(out, `view-${name}.png`), { width: 1500, height: 1160 });
     }
     // the LFO 2 | LFO 3 sub-tab: one card at a time
@@ -46,6 +49,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       await sleep(200);
       const t = await shown();
       check(t.filter(x => x === 'LFO 2/3').length === 1, `LFO card ${lv === 0 ? 'LFO 2' : 'LFO 3'}: one LFO 2/3 card is shown`, JSON.stringify(t.filter(x => /LFO/.test(x))));
+      await noOverlap(lv === 0 ? 'LFO 2' : 'LFO 3');
     }
     // beta 0.3.4: the LFO 2 | LFO 3 tabs, the stepped SHAPE knob, the knobs of LFO 1 / LFO 2/3 / VOICE on one line, LFO 1's underlined selector
     {
@@ -73,6 +77,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       await q(`WS_TEST.setParam('mt_mode', 1); true`); await sleep(250);
       check((await accent()) === '#f0b84a' && (await q(`document.getElementById('device').classList.contains('orient')`)), 'TUNING ARAB: the sand-gold accent', await accent());
       check(await q(`getComputedStyle(document.querySelector('#device .orientbg')).display === 'block'`), 'TUNING ARAB: the PLAY card shows its pattern');
+      await noOverlap('TUNING ARAB');
       await B.screenshot(path.join(out, 'tuning-arab.png'), { width: 1500, height: 1160 });
       await q(`WS_TEST.setParam('osc_view', 2); true`); await sleep(250);
       check((await accent()) === '#e46f4a', 'TUNING ARAB, additive oscillator B1: the coral accent', await accent());
@@ -80,6 +85,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
       check((await accent()) === '#ffb347', 'TUNING TURK, additive oscillator B1: the carmine palette\'s amber accent', await accent());
       await q(`WS_TEST.setParam('osc_view', 0); true`); await sleep(250);
       check((await accent()) === '#ff5468', 'TUNING TURK, subtractive oscillator A1: the carmine accent', await accent());
+      await noOverlap('TUNING TURK');
       await q(`WS_TEST.setParam('osc_view', 2); true`); await sleep(250);
       await B.screenshot(path.join(out, 'tuning-turk-b1.png'), { width: 1500, height: 1160 });
       await q(`WS_TEST.setParam('osc_view', 0); WS_TEST.setParam('mt_mode', 0); true`); await sleep(250);
@@ -92,6 +98,7 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
     const h1 = await B.evaluate(`document.getElementById('device').style.height`);
     check((await shown()).some(x => x.includes('CHORD KEYBOARD')), 'CHORD MODE shows the chord card');
     check(parseFloat(h1) === parseFloat(h0) + 120, 'CHORD MODE grows the panel by 120', `${h0} -> ${h1}`);
+    await noOverlap('CHORD MODE');
     await B.screenshot(path.join(out, 'chord-mode.png'), { width: 1500, height: 1320 });
     await B.evaluate(`WS_TEST.setParam('chord_mode', 0)`);
     await sleep(200);

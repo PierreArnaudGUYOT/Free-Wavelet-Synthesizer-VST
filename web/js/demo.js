@@ -136,18 +136,28 @@ function WSDemo(api) {
   // ---------------------------------------------------------------- control
   function set(key, v) { if (key in P) api.setParam(P[key], v); }
 
+  // the demo's rules for a preset (modify(set, get) of app.js applyKeyed): polyphonic, normal octave, no glide, short attack, little delay, and from 1.0.4 the trim that keeps the piece
+  // under the output stage (tools/demo_trim.js)
+  const sceneRules = (sc) => (setk, get) => {
+    for (const key in TOUR_SAFE) setk(key, TOUR_SAFE[key]);
+    if (get('amp_a') > TOUR_MAX_ATTACK) setk('amp_a', TOUR_MAX_ATTACK);
+    if (get('fx_dmix') > TOUR_MAX_DELAY_MIX) setk('fx_dmix', TOUR_MAX_DELAY_MIX);
+    if (get('fx_dfb') > TOUR_MAX_DELAY_FB) setk('fx_dfb', TOUR_MAX_DELAY_FB);
+    const trim = (WS_SPEC.DEMO_TRIM || {})[sc.preset];
+    if (trim) setk('master', Math.max(PARAMS[P.master].min, get('master') - trim));
+  };
+
   function enterScene(k) {
     const sc = st.scenes[k];
     if (sc.tour) {
-      api.applyPreset(sc.preset);
-      for (const key in TOUR_SAFE) set(key, TOUR_SAFE[key]);
-      if (api.values()[P.amp_a] > TOUR_MAX_ATTACK) set('amp_a', TOUR_MAX_ATTACK);
-      if (api.values()[P.fx_dmix] > TOUR_MAX_DELAY_MIX) set('fx_dmix', TOUR_MAX_DELAY_MIX);
-      if (api.values()[P.fx_dfb] > TOUR_MAX_DELAY_FB) set('fx_dfb', TOUR_MAX_DELAY_FB);
-      // version 1.0.4: the piece (every note at velocity 1, 16 voices) must not reach the output stage: some presets of the tour play a few dB lower (tools/demo_trim.js)
-      const trim = (WS_SPEC.DEMO_TRIM || {})[sc.preset];
-      if (trim) set('master', Math.max(PARAMS[P.master].min, api.values()[P.master] - trim));
+      // version 1.0.6: the preset and the demo's rules (polyphonic, short attack, little delay, and from 1.0.4 the trim that keeps the piece under the output stage: tools/demo_trim.js) reach the
+      // audio thread together, in one message (app.js applyKeyed): changing them one by one made a burst of noise at every change of preset
+      api.applyPreset(sc.preset, sceneRules(sc));
       st.scene = k;
+      // the next preset's tables are built ahead, in a Worker, a second after this one is in place
+      clearTimeout(st.pre);
+      const nx = st.scenes[k + 1];
+      if (nx && nx.tour) st.pre = setTimeout(() => api.prebuildPreset(nx.preset, sceneRules(nx)), 1000);
       api.setPresetLabel(sc.preset, false);
       const engine = engineLabel();
       win.sec.textContent = `Preset tour · ${sc.pos + 1}/${sc.of} · ${engine}`;
@@ -190,21 +200,24 @@ function WSDemo(api) {
     if (!win) buildWindow();
     const song = SONG;
     const scenes = tourScenes(song.notes, song.duration, TOUR_STEP, song.origin || 0);
-    st = { song, scenes, saved: api.snapshot(), scene: -1, t0: api.ctxTime() + LEAD_IN, raf: 0, sync: null };
+    st = { song, scenes, saved: api.snapshot(), scene: -1, t0: 0, raf: 0, sync: null, pre: 0 };
     api.post({ t: 'alloff' });
-    api.post({ t: 'seq', notes: song.notes, delay: LEAD_IN });
     win.title.textContent = 'DEMO · ' + song.composer + ' — ' + (song.short || song.title);
     win.title.title = song.title;
     win.src.textContent = 'MIDI: ' + song.source.replace(/ \(mutopiaproject\.org\)/, '') + ' · public domain';
     win.el.style.display = 'block';
     api.ui.setDemoRunning(true);
+    // version 1.0.6: the first preset is in place BEFORE the piece starts: building its tables takes 60 to 190 ms here (more on a slow machine), and the first notes, started by the audio thread
+    // 0.25 s after the click, sounded with the sound that was loaded before the demo, then changed under the player's ears
     enterScene(0);
+    st.t0 = api.ctxTime() + LEAD_IN;
+    api.post({ t: 'seq', notes: song.notes, delay: LEAD_IN });
     st.raf = requestAnimationFrame(tick);
   }
 
   function stop() {
     if (!st) return;
-    cancelAnimationFrame(st.raf);
+    cancelAnimationFrame(st.raf); clearTimeout(st.pre);
     api.post({ t: 'seqstop' });
     const saved = st.saved;
     st = null;
