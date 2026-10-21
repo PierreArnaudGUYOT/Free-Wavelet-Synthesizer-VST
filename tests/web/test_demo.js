@@ -142,7 +142,7 @@ function planChecks(plan, song, first) {
 function tourChecks(name, song, samples, plan, full, intro = true, start = plan[0].preset) {
   const run = samples.filter((x) => x.s.running && x.s.time >= 0);
   const N = plan.length;
-  const seen = [], badOrder = [], badVals = [], badText = [], badLbl = [], badIntro = [], introSeen = new Set();
+  const seen = [], badOrder = [], badVals = [], badText = [], badLbl = [], badIntro = [], introSeen = new Set(), sceneSeen = new Set();
   let summarySeen = 0;
   for (const x of run) {
     const t = x.s.time;
@@ -150,6 +150,7 @@ function tourChecks(name, song, samples, plan, full, intro = true, start = plan[
     for (let i = 0; i < N; i++) if (plan[i].t <= t) k = i;
     if ((k > 0 && Math.abs(t - plan[k].t) < TOL_T) || (k + 1 < N && Math.abs(t - plan[k + 1].t) < TOL_T)) continue;
     const want = plan[k].preset, next = k + 1 < N ? plan[k + 1].preset : null;
+    sceneSeen.add(k);
     if (!seen.length || seen[seen.length - 1] !== x.s.preset) seen.push(x.s.preset);
     if (x.s.preset !== want) { badOrder.push(`t=${t.toFixed(1)} '${x.s.preset}' expected '${want}'`); continue; }
     const pv = presetValues(want);
@@ -177,7 +178,7 @@ function tourChecks(name, song, samples, plan, full, intro = true, start = plan[
   check(badVals.length === 0, `${name}: each preset's spec values with Voices 16, Octave 0, Glide 0 forced and Amp Attack <= 0.08 s, Delay Mix <= 0.1, Delay Feedback <= 0.3, and the demo trim of the master`, short(badVals));
   check(badText.length === 0, `${name}: window shows 'Preset tour · n/${N}', 'Now playing: <preset>' and the next preset`, short(badText));
   if (intro) {
-    const nIntro = Math.min(STORY.length, N);
+    const nIntro = full ? Math.min(STORY.length, N) : sceneSeen.size;   // the smoke run plays only the first presets of the tour: one sentence for each scene it went through
     check(badIntro.length === 0 && introSeen.size === nIntro && summarySeen > 0,
       `${name}: the window presents the synth, one sentence (with its chapter) per preset of the tour, in order`,
       `${short(badIntro, 4)}${badIntro.length ? '; ' : ''}sentences seen ${introSeen.size} of ${nIntro}, ${summarySeen} samples`);
