@@ -39,6 +39,10 @@ function WSDemo(api) {
   // worklet.js starts the dip so that it ends at the chord); the panel, the window and the label follow at TOUR_LEAD before the chord, as before. A page that was late (a busy main thread) made the
   // change late, 100 ms after the chord for a delay of 100 ms: the audio thread's clock does not wait for the page.
   const SEND_LEAD = 0.6;
+  // Web update 2026-10-22 (the owner: the presets did not change while the page was not on the screen): a hidden page gets no animation frame, while the audio thread goes on playing the
+  // notes. A timer then keeps the demo going (HIDDEN_STEP_MS; a tab that plays sound keeps its timers), and the change is sent earlier, SEND_LEAD_HIDDEN seconds ahead of its chord (a timer of a
+  // hidden page may still come late): the audio thread makes it at the chord all the same.
+  const SEND_LEAD_HIDDEN = 1.5, HIDDEN_STEP_MS = 100;
   function chordOnsets(notes) {   // notes: flat [time, duration, note, velocity] * n, sorted by time
     const ev = [];
     for (let i = 0; i < notes.length; i += 4) {
@@ -163,13 +167,13 @@ function WSDemo(api) {
     return st.offset ? st.offset + Math.max(0, t) : t;   // (after a seek the lead-in waits at the time asked: the scene before it must not come back)
   }
 
-  function tick() {
-    if (!st) return;
+  // one look at the clock: the scene, the change sent ahead, the window (false: the demo has ended). tick() calls it at every frame, the timer of start() while the page is hidden
+  function step() {
     const t = now();
     let k = 0;
     for (let i = 0; i < st.scenes.length; i++) if (t >= st.scenes[i].t) k = i;
-    const nx = st.scenes[st.scene + 1];
-    if (nx && nx.tour && !nx.sent && st.paused === null && t >= nx.chord - SEND_LEAD && t < nx.t) { nx.sent = true; api.sendPreset(nx.preset, sceneRules(nx), nx.chord - st.offset); }   // (1.0.8: ahead of the chord, for the audio thread; its time in the sequence, which starts at st.offset)
+    const nx = st.scenes[st.scene + 1], lead = document.hidden ? SEND_LEAD_HIDDEN : SEND_LEAD;
+    if (nx && nx.tour && !nx.sent && st.paused === null && t >= nx.chord - lead && t < nx.t) { nx.sent = true; api.sendPreset(nx.preset, sceneRules(nx), nx.chord - st.offset); }   // (1.0.8: ahead of the chord, for the audio thread; its time in the sequence, which starts at st.offset)
     if (t >= 0 && k !== st.scene) enterScene(k);
     const sc = st.scenes[st.scene];
     if (sc && sc.tour && t >= 0) {
@@ -179,8 +183,11 @@ function WSDemo(api) {
     const total = st.song.duration;
     win.prog.style.width = (100 * Math.min(1, Math.max(0, t / total))) + '%';
     win.time.textContent = `${mmss(Math.max(0, Math.min(total, t)))} / ${mmss(Math.round(total))}`;   // total rounded like the menu
-    if (t > total + 2.5) { stop(); return; }
-    st.raf = requestAnimationFrame(tick);
+    if (t > total + 2.5) { stop(); return false; }
+    return true;
+  }
+  function tick() {
+    if (st && step()) st.raf = requestAnimationFrame(tick);
   }
 
   // the scenes of a plan given with the piece (opts.song / opts.scenes: the rating build plays each phrase several times)
@@ -196,7 +203,7 @@ function WSDemo(api) {
     const song = (opts && opts.song) || SONG;   // (version 1.0.13: the rating build gives the piece with each phrase played several times, and its scenes)
     const scenes = opts && opts.scenes ? scenesFrom(opts.scenes) : tourScenes(song, (opts && opts.tour) || WS_SPEC.TOUR);   // (opts.tour: another list of presets, the vote build's)
     const TUNING_KEYS = ['mt_mode', 'mt_scale', 'mt_tonic', 'vel_amt'], v0 = api.values();   // (version 1.0.13: VELOCITY too, a performance setting the demo's rules set to 0)
-    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), scene: -1, t0: 0, raf: 0, sync: null, pre: 0, offset: 0, paused: null };   // (the tuning is a performance setting: a snapshot leaves it out, the demo gives it back)
+    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), scene: -1, t0: 0, raf: 0, hid: 0, sync: null, pre: 0, offset: 0, paused: null };   // (the tuning is a performance setting: a snapshot leaves it out, the demo gives it back)
     api.post({ t: 'alloff' });
     win.title.textContent = 'DEMO · ' + song.composer + ' — ' + (song.short || song.title);
     win.title.title = song.title;
@@ -210,11 +217,12 @@ function WSDemo(api) {
     st.t0 = api.ctxTime() + LEAD_IN;
     api.post({ t: 'seq', notes: song.notes, delay: LEAD_IN });
     st.raf = requestAnimationFrame(tick);
+    st.hid = setInterval(() => { if (st && document.hidden) step(); }, HIDDEN_STEP_MS);   // (web update 2026-10-22: the demo goes on while the page is hidden)
   }
 
   function stop() {
     if (!st) return;
-    cancelAnimationFrame(st.raf); clearTimeout(st.pre);
+    cancelAnimationFrame(st.raf); clearTimeout(st.pre); clearInterval(st.hid);
     api.post({ t: 'seqstop' });
     const saved = st.saved, tuning = st.tuning;
     st = null;
