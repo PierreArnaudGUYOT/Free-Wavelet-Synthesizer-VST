@@ -5,7 +5,7 @@
 //   cpu_ab <cases.txt> [--out f.csv] [--chords 3,6,8] [--vel 0.9] [--reps 6] [--shard i/n] [--pin cpu]
 // Output lines: index, chord, velocity, old %, new %, old hash, new hash. Build: see tools/cpu_ab.bat (cpu_ab_engine.cpp twice, with -Dws=ws_old / -Dws=ws_new).
 #include "cpu_ab.h"
-#include "generated/spec.h"
+#include "../src/generated/spec.h"   // (relative: the Mac workflow builds this file without -Ivst/src)
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
