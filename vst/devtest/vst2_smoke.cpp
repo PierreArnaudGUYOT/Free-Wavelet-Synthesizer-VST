@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
   check(D(fx, 51, 0, 0, (void*)"receiveVstMidiEvent") == 1, "canDo receiveVstMidiEvent");
   std::memset(buf, 0, sizeof buf); D(fx, 8, P_F_CUTOFF, 0, buf); check(buf[0] != 0 && std::strlen(buf) < 24, "parameter name (cutoff)", buf);
   std::memset(buf, 0, sizeof buf); D(fx, 7, P_F_CUTOFF, 0, buf); check(buf[0] != 0 && std::strlen(buf) < 24, "parameter display (cutoff)", buf);
-  std::memset(buf, 0, sizeof buf); D(fx, 5, 0, 0, buf); check(!std::strcmp(buf, asciiName(kPresets[kDefaultPreset].name).c_str()), "starts on the default program (the first TOP Sound)", buf);
+  std::memset(buf, 0, sizeof buf); D(fx, 5, 0, 0, buf); check(asciiName(kPresets[kDefaultPreset].name).substr(0, 23) == buf, "starts on the default program (the first TOP Sound; a VST2 program name holds 23 characters)", buf);   // (version 1.0.14: AA - Flint Ripple Haze LGT is 26)
   std::memset(buf, 0, sizeof buf); D(fx, 29, 0, 0, buf); check(!std::strcmp(buf, asciiName(kPresets[0].name).c_str()), "program 0 name (the first TOP Sound)", buf);
   check(D(fx, 29, kNumPresets, 0, buf) == 0, "program name out of range is refused");
 

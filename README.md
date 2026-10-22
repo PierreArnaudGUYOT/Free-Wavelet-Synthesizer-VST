@@ -2,8 +2,8 @@
 
 # ⬇ DOWNLOAD THE PLUG-IN (Windows VST3 / VST2, macOS VST3)
 
-1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.13**).
-2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.13-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.13-mac.zip** (macOS).
+1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.14**).
+2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.14-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.14-mac.zip** (macOS).
 3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (Windows, VST3; needs administrator rights) or into your VST2 plug-in folder; on a Mac into `~/Library/Audio/Plug-Ins/VST3`. `INSTALL.txt` (`INSTALL-mac.txt`) in the zip says more.
 4. In your DAW, rescan the plug-ins (Ableton Live: *Preferences → Plug-ins → Rescan*), then open *Plug-ins → OktoPierre → Okto MultiWave Synth*.
 
@@ -13,7 +13,7 @@
 
 ---
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.13, 2026-10-22), see
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.14, 2026-10-22), see
 [RELEASE_HISTORY.md](RELEASE_HISTORY.md). Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 Okto MultiWave Synth is the [Wavelet Synthesizer](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v0.7.1-beta)
@@ -30,6 +30,15 @@ the preset list (see the notes of the betas below), and the demo is one piece, B
 The web app also works offline: download the repository and open `web/index.html`. The same web app is at https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/ too (the development repository).
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
+
+## What version 1.0.14 changes (OktoWave 1.0)
+
+- **LGT presets, lighter on the computer**: on a slow or power-saving computer (Windows *Efficiency mode*) the heaviest sounds made the audio crackle or go silent, in the demo too. 20 presets now have an **LGT** version (less modulation of the wavelet tables, fewer unison voices, a shorter release where it helped). For the 17 favourites among them, the LGT version takes their place (TOP Sounds, section, stars) and the full version is in **Other**, marked **HIGH_CPU**. The demo plays the LGT versions; the sound you open on is *AA · Flint Ripple Haze LGT*.
+- **The sections hold the favourites**: every preset without stars is in **Other**; the sections list the author's favourites.
+- **▲ UP / ▼ DOWN** in the plug-in's preset browser move the sound you play in the list (labelled now).
+- **Welcome window** (web app): **Run the demo** is in the middle and stands out, with *and play the Synth* under it.
+- **Demo**: *A · Spiccato Strings* plays its phrase in ARAB (maqam Rast); a preset changes only at its place in the piece (while the page is hidden the demo waits for the next phrase).
+- **PLAY card**: the VELOCITY knob is left of its menu, captioned TARGET.
 
 ## What version 1.0.13 changes (OktoWave 1.0)
 

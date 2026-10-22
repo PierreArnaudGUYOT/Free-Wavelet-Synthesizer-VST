@@ -7,9 +7,10 @@ module.exports = {
   "A · Wave Atom Choir Shift": 3,
   "A · Wave Pulse Lead": 10,
   "A · Wavelet Lead": 2,
-  "AA · Knock Sweep": 1,
-  "AA · Orbit Drum": 1,
+  "AA · Drum Bloom LGT": 1,
+  "AA · Knock Sweep LGT": 1,
   "AAB · Sweep Call": 4,
+  "AB · Rust Aurora LGT": 1,
   "AB · Silk Strings": 3,
   "AB · Step Sub": 7,
   "B · Flute Lead": 6

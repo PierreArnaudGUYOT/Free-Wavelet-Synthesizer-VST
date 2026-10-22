@@ -36,7 +36,7 @@ const APP = {
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
   version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
-  versionNum: '1.0.13',
+  versionNum: '1.0.14',
   date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -337,7 +337,7 @@ add('vf_r', 'Filter Env Release', 'RELEASE', { curve: 'exp', fmt: 'sec', min: 0.
 // three MIDI triggers (whose ids are not saved anywhere), so that the VST2 host, which sees the parameters up to the triggers, has them.
 add('vel_amt', 'Velocity Sensitivity', 'VELOCITY', { min: 0, max: 1, def: 0.5, perf: true });
 add('vel_target', 'Velocity Target', 'VEL TO', { curve: 'choice', fmt: 'choice', min: 0, max: 2, def: 0, perf: true,
-  choices: ['Volume', 'Filter cutoff', 'Volume + filter'], choiceShort: ['VOLUME', 'FILTER', 'VOL + FILTER'] });
+  choices: ['Volume', 'Filter cutoff', 'Volume + filter'], choiceShort: ['VOLUME', 'FILTER', 'VOL+FLT'] });
 // Version 1.0.12: the MIDI "panic" messages. A host sends them as controllers (CC 120 all sound off, CC 121 reset all controllers, CC 123 all notes off: their value is 0), which a VST3 plug-in
 // only receives through IMidiMapping, as parameters: three hidden parameters at the end of the list (the ids of every other parameter, and so every saved project, stay as they were).
 // The processor acts on a point of one of these queues whose value is NOT the default: the data byte of these messages is 0, a point at 0 is the trigger. The default is 0.5 so that a
@@ -544,7 +544,7 @@ section('play', 'PLAY · CHORD MODE · TUNING', 512, 792, 576, 128, -1, [
   { type: 'label', text: 'TONIC', x: 340, y: 70, w: 100, h: 14, vis: 'mt_mode', visOn: true },
   { type: 'step', param: 'mt_tonic', x: 340, y: 86, w: 110, h: 26, vis: 'mt_mode', visOn: true },
   kn('vel_amt', 486, 36),   // version 1.0.13: VELOCITY and where it goes (placed at the right of the card below)
-  { type: 'menu', param: 'vel_target', x: 470, y: 100, w: 84, h: 22 },
+  { type: 'menu', param: 'vel_target', text: 'TARGET', x: 470, y: 100, w: 84, h: 22 },
 ]);
 // the keyboard row: the wheels and the keyboard (C2-C7, 36 white keys)
 section('keys', '', 0, 928, 1100, 112, -1, [
@@ -623,8 +623,9 @@ section('chord', 'CHORD KEYBOARD', 12, 1054, 1076, 104, -1, [
   }
   const play = find('play'); box(play, 516, 726, 572, 98); play.vtitle = true; play.title = 'PLAY'; play.accentTitle = true;
   widget(play, 0, 26, 8, 100, 34); widget(play, 1, 26, 48, 100, 26); widget(play, 2, 158, 8, 150, 24); widget(play, 3, 158, 62, 176, 24);
-  widget(play, 4, 360, 44, 100, 14); widget(play, 5, 360, 62, 110, 26);
-  widget(play, 6, 498, 6, 52, 60); widget(play, 7, 482, 70, 84, 22);   // version 1.0.13: VELOCITY over its target, in the free column at the right
+  widget(play, 4, 340, 44, 88, 14); widget(play, 5, 340, 62, 88, 26);   // (version 1.0.14: TONIC 20 px to the left and 88 wide, for VELOCITY: a note name needs little room)
+  // version 1.0.13: VELOCITY and its target; version 1.0.14 (the owner): the knob at the LEFT of the menu, the menu with its caption TARGET above it, as in LFO 2/3 (80 wide, as there: VOLUME fits)
+  widget(play, 6, 432, 14, 52, 60); widget(play, 7, 486, 34, 80, 22);
   const keys = find('keys'); box(keys, 0, 830, 1100, 98);
   widget(keys, 0, 12, 0, 60, 82); widget(keys, 1, 82, 0, 1006, 82); widget(keys, 2, 14, 83, 170, 15);
   find('chord').y = DEVICE.h + 4;
@@ -757,6 +758,83 @@ PRESETS.map((p, i) => i).sort(before3).forEach((i, rank) => { PRESETS[i].rank = 
 // Version 1.0.11: the owner's edits of factory presets (the parameters named, by preset name). A · Shimmering Strings: LFO 1 RATE 6.5 Hz (it was 2.1; he wrote 65, a slip of the comma: the knob stops at 20 Hz).
 const PRESET_EDITS = { 'A · Shimmering Strings': { lfo_rate: 6.5 } };
 for (const [name, edit] of Object.entries(PRESET_EDITS)) { const p = PRESETS.find(x => x.name === name); if (!p) throw new Error('PRESET_EDITS: no preset ' + name); Object.assign(p.v, edit); }
+// Version 1.0.14: LGT (light) versions of the presets that ask too much of the computer. The owner heard the web demo crackle and go silent on his laptop: measured in Edge with the browser's
+// own count of audio dropouts (AudioContext.playbackStats), in Windows' Efficiency mode as on his laptop, the audio thread had no time left on the heaviest presets (the whole phrase of
+// AAB · Rust Aurora). His requests: "diminue le nombre de modulations dans les presets qui craquent, crée un nouveau preset avec le même nom" (the demo's six), then "regarde dans tous les
+// presets avec plus de 2 étoiles s'ils consomment beaucoup; si oui : déplacer le preset dans la partie Other, indiquer HIGH_CPU et régler le preset pour qu'il soit moins gourmand; pour les
+// nouveaux presets, qui sont plus light, écris LGT à la fin du nom; ne traite que les favoris". Every preset with more than two stars of five (5 of 10 and more) played the densest phrase of the
+// Appassionata as the demo plays it (16 voices); 17 of the 27 needed more than 0.30 ms per render quantum of 128 samples in the JS engine (the cost above which the demo broke up in Efficiency
+// mode). For each, its LGT version takes its place (its section, its stars, its place in TOP Sounds) and the original goes to Other as "... HIGH_CPU" (the same sound, unchanged). The three
+// presets of the demo without stars keep their place and their LGT version comes right after them. The steps, as few as the measure allowed (each LGT at about 0.30 ms or less there):
+//   table   the modulation that moves the wavelet tables is gone (LFO 1 TO SPARSITY, LFO 2 / LFO 3 on SPARSITY, SOURCE PHASE or SOURCE WIDTH: each oscillator reads one set of tables, not two)
+//   unison  one unison voice less (unison1: one voice)       release  half the release (fewer voices sound together; release1: 1 s at most)
+//   morph   no WAVELET MORPH (the morph renders each oscillator twice)       window  no position window (its depth at 0)       a2off  A2 off
+// Every other setting and modulation stays. The name's letters follow the oscillators that play (AAB · Rust Aurora's LGT version is AB · Rust Aurora LGT: A2 is off).
+const LGT = [
+  ['AA · Flint Ripple Haze', ['table', 'unison1', 'morph']],
+  ['AA · Knock Sweep', ['table', 'unison']],
+  ['AAB · Drift Pick', ['table', 'unison']],
+  ['AB · Kalimba Lung Machine', ['table', 'unison']],
+  ['AB · Pearl Wash', ['table', 'unison1', 'window']],
+  ['AB · Velvet Cloud', ['unison', 'morph']],
+  ['AA · Morph of Brass', ['table', 'unison1', 'morph']],
+  ['AA · Sweep of Pixel', ['table', 'unison', 'release', 'window']],
+  ['AAB · Rust Aurora', ['table', 'a2off', 'unison1', 'release1']],
+  ['AA · Opal Rise Chords', ['table', 'unison', 'release']],
+  ['AB · Bloom of Timber', ['table', 'unison', 'release']],
+  ['AA · Analog Cloud', ['unison', 'release']],
+  ['AA · Salt Beam Strings', ['table', 'unison1', 'release']],
+  ['AB · Step Spiral', ['table', 'unison']],
+  ['AA · Wind Surge Horns', ['table', 'unison', 'release']],
+  ['AB · Knock Wah', ['table', 'unison', 'release']],
+  ['AA · Rise of Slate', ['table']],
+  // the demo's presets without stars
+  ['AA · Moon & Breath', ['table', 'unison']],
+  ['AA · Drum Bloom', ['table', 'unison', 'release']],
+  ['AB · Beam Lung Keys', ['unison', 'release']],
+];
+const LGT_OF = {};   // the original name of a favourite -> the name of its LGT version (the lists below that name presets follow it)
+{
+  const TABLE_ROLES = ['sparsity', 'phase', 'width'];
+  const STEP = {
+    table: (v, g) => { v.lfo_sp = 0; for (const n of [2, 3]) if (TABLE_ROLES.includes(LFO2_ROLE[Math.round(g(`lfo${n}_target`))])) v[`lfo${n}_amt`] = 0; },   // (LFO2_ROLE: the role of each target, by name)
+    unison: (v, g) => { v.v_unison = Math.max(1, g('v_unison') - 1); },
+    unison1: (v) => { v.v_unison = 1; },
+    release: (v, g) => { v.amp_r = g('amp_r') * 0.5; },
+    release1: (v, g) => { v.amp_r = Math.min(g('amp_r'), 1); },
+    morph: (v, g) => { v.wmorph = 0; v.lfo_wav = 0; v.env_wav = 0; v.lfo_ew = 0; for (const n of [2, 3]) if (LFO2_ROLE[Math.round(g(`lfo${n}_target`))] === 'morph') v[`lfo${n}_amt`] = 0; },
+    window: (v) => { for (const sl of SLOTS) v[sl.k.pdep] = 0; v.lfo_pos = 0; },
+    a2off: (v) => { v.a2_lvl = 0; },
+  };
+  const ranks = new Map(PRESETS.map(p => [p, p.rank]));
+  for (const [from, steps] of LGT) {
+    const i = PRESETS.findIndex(x => x.name === from);
+    if (i < 0) throw new Error('LGT: no preset ' + from);
+    const p = PRESETS[i], v = Object.assign({}, p.v), g = k => (v[k] !== undefined ? v[k] : P[idx[k]].def);
+    for (const st of steps) { if (!STEP[st]) throw new Error('LGT: no step ' + st); STEP[st](v, g); }
+    const type = SLOTS.slice(0, 2).filter(sl => g(sl.k.lvl) > 0).map(() => 'A').join('') + (g(SLOTS[2].k.lvl) > 0 ? 'B' : '');
+    const name = type + ' · ' + from.split(' · ').slice(1).join(' · ') + ' LGT';
+    const fav = (p.vote || 0) >= 5;
+    const q = { name, id: name, cat: p.cat, v, light: from };
+    const desc = DESCRIPTIONS[from];
+    DESCRIPTIONS[name] = (desc ? desc + ' ' : '') + 'The light version of ' + from + ': lighter on the computer.';
+    PRESETS.push(q);
+    if (fav) {   // the LGT version takes its place; the original goes to Other, HIGH_CPU
+      q.vote = p.vote; if (p.stars) q.stars = p.stars; ranks.set(q, ranks.get(p));
+      const t = TOP_LIST.indexOf(i); if (t >= 0) TOP_LIST[t] = PRESETS.length - 1;
+      const e = TOP_EXTRA.indexOf(i); if (e >= 0) TOP_EXTRA[e] = PRESETS.length - 1;   // (the favourites rated above 7 that TOP Sounds holds: the LGT version too)
+      p.name = from + ' HIGH_CPU'; p.cat = 'Other'; delete p.vote; delete p.stars; ranks.set(p, ranks.get(p) + 0.5);   // (no stars of either listening: the favourite is its LGT version now)
+      if (desc) delete DESCRIPTIONS[from];
+      DESCRIPTIONS[p.name] = (desc ? desc + ' ' : '') + 'The full version, heavy on the computer (HIGH_CPU): ' + name + ' is lighter.';
+      LGT_OF[from] = name;
+    } else ranks.set(q, ranks.get(p) + 0.5);   // right after it
+  }
+  PRESETS.map((p, i) => i).sort((a, b) => ranks.get(PRESETS[a]) - ranks.get(PRESETS[b])).forEach((i, r) => { PRESETS[i].rank = r; });
+}
+// Version 1.0.14 (the owner: "déplacer les sons qui ont 0 étoiles dans OTHER"): every preset without stars is in Other; the sections keep his favourites (and their LGT versions). A section
+// left empty is not listed (TOP Sounds is a list of its own: it does not change).
+for (const p of PRESETS) if (!p.vote) p.cat = 'Other';
+for (let i = CATEGORIES.length - 1; i >= 0; i--) if (CATEGORIES[i] !== 'Other' && !PRESETS.some(p => p.cat === CATEGORIES[i])) CATEGORIES.splice(i, 1);
 for (const p of PRESETS) if (!CATEGORIES.includes(p.cat)) throw new Error(`preset ${p.name}: no category`);
 if (new Set(PRESETS.map(p => p.name)).size !== PRESETS.length) throw new Error('preset names must be unique');
 // version 1.0.3: KeyAttac, a folder of the USER BANK of the plug-in (filled when the presets file has none yet): the factory presets that have stars, retouched to be very percussive: the attacks at their
@@ -772,7 +850,7 @@ const percussive = (v0) => {
   return v;
 };
 const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).map(i => {
-  const p = PRESETS[i], v = percussive(p.v), down = KA_ADJ[p.name] || 0;
+  const p = PRESETS[i], v = percussive(p.v), down = KA_ADJ[p.name] || (p.light && KA_ADJ[p.light]) || 0;   // (version 1.0.14: an LGT version takes its original's)
   if (down) v.master = Math.max(-36, (v.master !== undefined ? v.master : P[idx.master].def) - down);
   return { name: p.name, from: p.name, stars: p.vote, v };
 });
@@ -781,6 +859,7 @@ const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, 
 // browsers list the TOP Sounds in their category as well).
 {
   const FIXED = { 2: 'AA · Sweep of Pixel', 3: 'A · Shimmering Strings', 5: 'AB · Kalimba Lung Machine', 6: 'A · Noise Wash Pad' };
+  for (const k of Object.keys(FIXED)) FIXED[k] = LGT_OF[FIXED[k]] || FIXED[k];   // (version 1.0.14: a favourite replaced by its LGT version)
   const fixedNames = Object.values(FIXED), idxOf = n => { const i = TOP_LIST.findIndex(k => PRESETS[k].name === n); if (i < 0) throw new Error('TOP_LIST: ' + n + ' is not in the TOP Sounds'); return TOP_LIST[i]; };
   const rest = TOP_LIST.filter(k => !fixedNames.includes(PRESETS[k].name)), out = [];
   for (let pos = 1; out.length < TOP_LIST.length; pos++) out.push(FIXED[pos] ? idxOf(FIXED[pos]) : rest.shift());
@@ -799,37 +878,38 @@ const DEMO_PRESETS = DEMO_RAW.presets.map(r => ({ name: r.name, v: convertLegacy
 // Version 1.0.13: the order of his rating while the demo played (the rate test version, report of 2026-10-22): in parts 1-15 a preset he rated under 5 changed places with one of parts
 // 16-30 rated above 5, the best first: Orbit Drum (9) to 5, Ice Rise Clav (9) to 6, Salt Beam Strings (9) to 8, Swing of Odd (8) to 11; Drum Bloom, Wave Pulse Lead, Knock Sweep and Wood
 // Rise Bows went to their places. The plug-in's demo (PLAY DEMO) plays the same list.
+// Version 1.0.14: the heaviest presets of the tour play their LGT versions (see LGT above: the audio of the web demo broke up on the owner's laptop).
 const TOUR = [
   "A · Wavelet Lead",
   "AA · Tide Lute",
-  "AB · Kalimba Lung Machine",
+  "AB · Kalimba Lung Machine LGT",
   "AA · Hollow Bass",
   "AA · Orbit Drum",
   "AAB · Ice Rise Clav",
   "A · Wave Atom Choir Shift",
-  "AA · Salt Beam Strings",
+  "AA · Salt Beam Strings LGT",
   "A · Spiccato Strings",
   "AAB · Sweep Call",
   "AB · Swing of Odd",
   "AB · Pure Fog",
-  "AA · Moon & Breath",
+  "AA · Moon & Breath LGT",
   "AB · Ripple Reeds",
   "B · Flute Lead",
   "AB · Silk Strings",
   "AA · Wood Rise Bows",
   "AB · Sweep of Trumpet",
-  "AA · Drum Bloom",
-  "AAB · Rust Aurora",
+  "AA · Drum Bloom LGT",
+  "AB · Rust Aurora LGT",
   "A · Cello Section",
   "AB · Step Sub",
   "A · Wave Pulse Lead",
-  "AA · Opal Rise Chords",
-  "AB · Bloom of Timber",
+  "AA · Opal Rise Chords LGT",
+  "AB · Bloom of Timber LGT",
   "AB · Orbit Cloud",
   "AB · Open Mallets",
-  "AA · Analog Cloud",
-  "AA · Knock Sweep",
-  "AB · Beam Lung Keys"
+  "AA · Analog Cloud LGT",
+  "AA · Knock Sweep LGT",
+  "AB · Beam Lung Keys LGT"
 ];
 let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }   // version 1.0.4: the whole dB each preset of the tour goes down while the piece plays (tools/demo_level.js --write-trim)
 for (const n of TOUR) if (!DEMO_PRESETS.some(p => p.name === n) && !PRESETS.some(p => p.name === n)) throw new Error('TOUR: preset not found: ' + n);

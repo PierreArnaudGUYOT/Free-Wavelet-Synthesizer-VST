@@ -43,6 +43,7 @@ if (process.argv.includes('--worker')) {
     const base = Float64Array.from(pr.values);
     // as demo.js enterScene: polyphonic, normal octave, no glide, short attack, little delay
     base[P.v_voices] = 16; base[P.v_oct] = 0; base[P.v_glide] = 0;
+    base[P.vel_amt] = 0;   // version 1.0.14: the demo plays with the PLAY card's VELOCITY off (TOUR_SAFE); the default of 50 % made the notes softer here and the peaks too low
     if (base[P.amp_a] > 0.08) base[P.amp_a] = 0.08;
     if (base[P.fx_dmix] > 0.1) base[P.fx_dmix] = 0.1;
     if (base[P.fx_dfb] > 0.3) base[P.fx_dfb] = 0.3;

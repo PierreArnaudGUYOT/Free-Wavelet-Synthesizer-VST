@@ -1754,7 +1754,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (ns != bScroll) { bScroll = ns; invalidateLogical(bList()); invalidateLogical(bScrollR()); }
   }
   R bListHead() const { const R c = bCard(); return R{c.x + 136, c.y + 72, c.w - 148, 20}; }   // its name, ▲ ▼
-  R bMoveR(int dir) const { const R h = bListHead(); return R{h.x + h.w - (dir < 0 ? 52 : 26), h.y, 24, 20}; }
+  R bMoveR(int dir) const { const R h = bListHead(); return R{h.x + h.w - (dir < 0 ? 118.f : 58.f), h.y, dir < 0 ? 56.f : 58.f, 20}; }   // version 1.0.14 (the owner: a button to move the preset up or down in the list): labelled ▲ UP and ▼ DOWN (they were a bare ▲ ▼, 24 wide)
   static constexpr float kRowH = 22;
   int bVisibleRows() const { return (int)(bList().h / kRowH); }
   R bRowR(int j) const { const R l = bList(); return R{l.x, l.y + j * kRowH, l.w, kRowH - 1}; }
@@ -2063,13 +2063,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       const R hd = bListHead();
       const std::wstring nm = bTab == 0 ? (bCat < (int)fCats.size() ? fCats[bCat].label : L"") : toW(kBankSections[bCat]);
       std::wstring up = nm; for (auto& ch : up) ch = (wchar_t)towupper(ch);
-      text(g, up + L"  \u00B7  " + std::to_wstring(rows.size()), R{hd.x + 2, hd.y, hd.w - 60, hd.h}, 9.5f, true, rgb(kDim), 0);
+      text(g, up + L"  \u00B7  " + std::to_wstring(rows.size()), R{hd.x + 2, hd.y, hd.w - 124, hd.h}, 9.5f, true, rgb(kDim), 0);
       const bool en = bMoveEnabled();
       for (int d : {-1, 1}) {
         const R b = bMoveR(d);
         const bool hot = en && bHover == (d < 0 ? 20 : 21);
         inset(g, b, 7, hot);
-        text(g, d < 0 ? L"\u25B2" : L"\u25BC", b, 9, false, en ? rgb(hot ? kText : kDim) : rgb(kFaint));
+        text(g, d < 0 ? L"\u25B2  UP" : L"\u25BC  DOWN", b, 9, true, en ? rgb(hot ? kText : kDim) : rgb(kFaint));
       }
     }
     inset(g, R{l.x - 4, l.y - 4, l.w + 22, l.h + 8}, 10);   // the list and its scroll bar
