@@ -26,7 +26,6 @@ const ORIENT = {
   turk: { a: '#ff5468', b: '#ffb347', c1: '#d6334a', c2: '#ffb347', c3: '#ffe9ea', c4: '#33101a', c5: '#5a1a2a', pl: ['#401522', '#2c0e17'], dim: '#d1aab1',
     g: ['#33101a', '#5a1a2a', '#8f2a3c', '#c23a4a', '#e0603c'], glow: ['#ff5468', '#ffb347', '#a0183a'], page: '#12060a' },
   tile: 34, opacity: 0.7,
-  plate: '#0a0e1b',   // version 1.0.9: the OPAQUE dark plate under the PLAY card's captions and selectors (TUNING, MAQAM, TONIC) on the pattern
   pageTile: 64, pageOpacity: 0.55,   // version 1.0.9 (web): the same pattern, larger, in the page's margins
 };
 const APP = {
@@ -36,8 +35,8 @@ const APP = {
   panelCredit: 'By OktoPierre',      // beta 0.7: the panel's credit (bottom left, small and discreet)
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
-  version: '1.0.10',
-  versionNum: '1.0.10',
+  version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
+  versionNum: '1.0.11',
   date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -737,6 +736,9 @@ TOP_LIST.sort(before3);
 }
 // the factory order is each category's order too: every section lists its presets from the best to the least rated
 PRESETS.map((p, i) => i).sort(before3).forEach((i, rank) => { PRESETS[i].rank = rank; });
+// Version 1.0.11: the owner's edits of factory presets (the parameters named, by preset name). A · Shimmering Strings: LFO 1 RATE 6.5 Hz (it was 2.1; he wrote 65, a slip of the comma: the knob stops at 20 Hz).
+const PRESET_EDITS = { 'A · Shimmering Strings': { lfo_rate: 6.5 } };
+for (const [name, edit] of Object.entries(PRESET_EDITS)) { const p = PRESETS.find(x => x.name === name); if (!p) throw new Error('PRESET_EDITS: no preset ' + name); Object.assign(p.v, edit); }
 for (const p of PRESETS) if (!CATEGORIES.includes(p.cat)) throw new Error(`preset ${p.name}: no category`);
 if (new Set(PRESETS.map(p => p.name)).size !== PRESETS.length) throw new Error('preset names must be unique');
 // version 1.0.3: KeyAttac, a folder of the USER BANK of the plug-in (filled when the presets file has none yet): the factory presets that have stars, retouched to be very percussive: the attacks at their
@@ -756,6 +758,16 @@ const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, 
   if (down) v.master = Math.max(-36, (v.master !== undefined ? v.master : P[idx.master].def) - down);
   return { name: p.name, from: p.name, stars: p.vote, v };
 });
+// Version 1.0.11 (the owner's request, web app and plug-in): places of the TOP Sounds: AA · Sweep of Pixel the 2nd, A · Shimmering Strings the 3rd, AB · Kalimba Lung Machine the 5th and A · Noise Wash Pad
+// the 6th (he asked for the 5th for both, the later request, Kalimba, took the place and Noise Wash Pad follows it); the others keep their order around them. Each stays in its category too (the
+// browsers list the TOP Sounds in their category as well).
+{
+  const FIXED = { 2: 'AA · Sweep of Pixel', 3: 'A · Shimmering Strings', 5: 'AB · Kalimba Lung Machine', 6: 'A · Noise Wash Pad' };
+  const fixedNames = Object.values(FIXED), idxOf = n => { const i = TOP_LIST.findIndex(k => PRESETS[k].name === n); if (i < 0) throw new Error('TOP_LIST: ' + n + ' is not in the TOP Sounds'); return TOP_LIST[i]; };
+  const rest = TOP_LIST.filter(k => !fixedNames.includes(PRESETS[k].name)), out = [];
+  for (let pos = 1; out.length < TOP_LIST.length; pos++) out.push(FIXED[pos] ? idxOf(FIXED[pos]) : rest.shift());
+  TOP_LIST.splice(0, TOP_LIST.length, ...out);
+}
 const DEFAULT_PRESET = PRESETS[TOP_LIST[0]].name;   // sound loaded when the app / a new plugin instance opens: the first of TOP Sounds (beta 1.0)
 // The preset tour of the demo (the default piece, Beethoven's Appassionata; version 1.0.10: one preset per phrase of 8 beats, 3.6 s, from the low F that starts the theme; before, about one every 4 s from 7.8 s, so the first two entries of the old list were not heard). Version 1.0: it is the tour of the
 // Wavelet Synthesizer's web app (beta 0.7.1): the same piece, the same presets in the same order, at the same level. Those presets are not all in the factory list (the 237 the owner kept), so
@@ -855,5 +867,5 @@ for (const s of S) {
   }
 }
 
-module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_COUNT, TOP_EXTRA, TOP_LIST, DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, CATEGORIES,
+module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_COUNT, TOP_EXTRA, TOP_LIST, PRESET_EDITS, DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, CATEGORIES,
   LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, CHORDS, CHORD_KEYS, MICRO_TABLES, NEW_FIRST: TOP_COUNT, NEW_COUNT: NEW_RAW.length, DESCRIPTIONS, TOUR };

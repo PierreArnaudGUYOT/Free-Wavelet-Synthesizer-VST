@@ -25,6 +25,10 @@ function WSDemo(api) {
   const TOUR_MAX_ATTACK = 0.08;
   const TOUR_MAX_DELAY_MIX = 0.1, TOUR_MAX_DELAY_FB = 0.3;   // long echoes on a fast piece sound like a canon
   const TOUR_LEAD = 0.08, TOUR_MIN_LAST = 3;
+  // Web update 2026-10-22 (the owner's request): in the phrase of AA · Hollow Bass the keyboard is in the oriental tuning, ARAB, maqam SABA on B flat (the pedal of that phrase: the C is a quarter tone
+  // lower, the other notes of the phrase stay where they are); the next preset puts it back to WEST (every scene sets mt_mode: 0 unless it has an entry here). The tuning is a performance setting, not
+  // in a preset: it goes with the preset change (the rules below), at the chord, and the panel takes the oriental colours for that phrase. mt_scale 3 = Saba, mt_tonic 10 = B flat.
+  const TOUR_TUNING = { 'AA · Hollow Bass': { mt_mode: 1, mt_scale: 3, mt_tonic: 10, label: 'ARAB · SABA' } };
   // version 1.0.8: the change of preset is made by the audio thread, at the chord. The page sends it SEND_LEAD seconds ahead (the new sound's values and tables, with the song time of the chord:
   // worklet.js starts the dip so that it ends at the chord); the panel, the window and the label follow at TOUR_LEAD before the chord, as before. A page that was late (a busy main thread) made the
   // change late, 100 ms after the chord for a delay of 100 ms: the audio thread's clock does not wait for the page.
@@ -111,6 +115,8 @@ function WSDemo(api) {
     if (get('amp_a') > TOUR_MAX_ATTACK) setk('amp_a', TOUR_MAX_ATTACK);
     if (get('fx_dmix') > TOUR_MAX_DELAY_MIX) setk('fx_dmix', TOUR_MAX_DELAY_MIX);
     if (get('fx_dfb') > TOUR_MAX_DELAY_FB) setk('fx_dfb', TOUR_MAX_DELAY_FB);
+    const tun = TOUR_TUNING[sc.preset] || { mt_mode: 0 };   // (web update 2026-10-22: the oriental tuning of one phrase, else WEST)
+    for (const key in tun) if (key !== 'label') setk(key, tun[key]);
     const trim = (WS_SPEC.DEMO_TRIM || {})[sc.preset];
     if (trim) setk('master', Math.max(PARAMS[P.master].min, get('master') - trim));
   };
@@ -129,7 +135,7 @@ function WSDemo(api) {
       if (nx && nx.tour) st.pre = setTimeout(() => api.prebuildPreset(nx.preset, sceneRules(nx)), 1000);
       api.setPresetLabel(sc.preset, false);
       const engine = engineLabel();
-      win.sec.textContent = `Preset tour · ${sc.pos + 1}/${sc.of} · ${engine}`;
+      win.sec.textContent = `Preset tour · ${sc.pos + 1}/${sc.of} · ${engine}${TOUR_TUNING[sc.preset] ? ' · tuning ' + TOUR_TUNING[sc.preset].label : ''}`;
       win.param.textContent = 'Now playing: ' + sc.preset;
       const line = STORY[Math.min(sc.pos, STORY.length - 1)];
       win.chap.textContent = line[0];
@@ -173,7 +179,8 @@ function WSDemo(api) {
     if (!win) buildWindow();
     const song = SONG;
     const scenes = tourScenes(song, (opts && opts.tour) || WS_SPEC.TOUR);   // (opts.tour: another list of presets, the vote build's)
-    st = { song, scenes, saved: api.snapshot(), scene: -1, t0: 0, raf: 0, sync: null, pre: 0 };
+    const TUNING_KEYS = ['mt_mode', 'mt_scale', 'mt_tonic'], v0 = api.values();
+    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), scene: -1, t0: 0, raf: 0, sync: null, pre: 0 };   // (the tuning is a performance setting: a snapshot leaves it out, the demo gives it back)
     api.post({ t: 'alloff' });
     win.title.textContent = 'DEMO · ' + song.composer + ' — ' + (song.short || song.title);
     win.title.title = song.title;
@@ -193,11 +200,12 @@ function WSDemo(api) {
     if (!st) return;
     cancelAnimationFrame(st.raf); clearTimeout(st.pre);
     api.post({ t: 'seqstop' });
-    const saved = st.saved;
+    const saved = st.saved, tuning = st.tuning;
     st = null;
     api.ui.setDemoRunning(false);
     if (win) win.el.style.display = 'none';
     api.restore(saved);
+    for (const [k, v] of tuning) set(k, v);   // the player's own tuning, which the oriental phrase of the demo may have changed
   }
 
   function onSeqTime(seqTime) {

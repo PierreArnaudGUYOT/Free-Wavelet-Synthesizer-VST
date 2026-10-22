@@ -28,7 +28,7 @@
   --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--page); color: var(--text); font-family: var(--font); overflow: hidden; }
+html, body { margin: 0; height: 100%; background: hsl(312, 28%, 7%) url("../img/fond-fractal.svg") 0 0 repeat; color: var(--text); font-family: var(--font); overflow: hidden; }
 body { display: flex; flex-direction: column; }
 button { font-family: inherit; }
 
@@ -39,6 +39,8 @@ button { font-family: inherit; }
   border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,0.7);
   user-select: none; -webkit-user-select: none; touch-action: none;
 }
+/* web update 2026-10-22: the page's dark margins, when the tuning is not oriental: the fractal pattern of the owner's choice (img/fond-fractal.svg: a Koch snowflake on a hexagonal lattice, 260 x 450 px tile, dark, from the
+   background study oriental-09); with ARAB or TURK the margins show the oriental tiles instead (html.orient, below) */
 /* the blurred blobs: a layer 20 % larger than the panel on every side, clipped back to the panel's rectangle (inset 20 / 140 = 14.2857 %) with its rounded corners */
 #device::before, #browser::before { content: ""; position: absolute; inset: -20%; z-index: 0; pointer-events: none; opacity: 0.45; filter: blur(60px); clip-path: inset(14.2857% round 18px);
   background: radial-gradient(40% 30% at 20% 25%, var(--glow-1) 0%, transparent 60%), radial-gradient(35% 30% at 75% 20%, var(--glow-2) 0%, transparent 60%), radial-gradient(45% 35% at 55% 90%, var(--glow-3) 0%, transparent 60%); }
@@ -187,20 +189,11 @@ svg.oscframe path { stroke: var(--accent); stroke-width: 2.5; fill: color-mix(in
 .menu .mpop .it:hover { background: rgba(255,255,255,0.06); }
 .menu .mpop .it.cur { color: var(--accent); }
 /* beta 0.3.4: the ORIENTAL colour code, on while the TUNING switch is ARAB or TURK (ui.js: class "orient", the palette of ORIENT in tools/spec.js as the variables --or-*): the
-   accent is terracotta (the oscillators A) or turquoise (B), the cards stay grey, the PLAY card has a pattern and a terracotta / turquoise dress */
+   accent is terracotta (the oscillators A) or turquoise (B), the cards stay as they are. Web update 2026-10-22: the PLAY card has no pattern and no dress any more (a card like the others); the pattern is in the page's margins only */
 #device.orient { --accent-a: var(--or-a); --accent-b: var(--or-b); --accent: var(--or-a); --accent-soft: var(--or-a-soft); --accent-tint: var(--or-a-tint); --accent-line: var(--or-a-line); }
 #device.orient.mode-b { --accent: var(--or-b); --accent-soft: var(--or-b-soft); --accent-tint: var(--or-b-tint); --accent-line: var(--or-b-line); }
 #browser.orient { --accent-a: var(--or-a); --accent-b: var(--or-b); --accent: var(--or-a); --accent-soft: var(--or-a-soft); }
 #browser.orient.mode-b { --accent: var(--or-b); --accent-soft: var(--or-b-soft); }
-.orientbg { display: none; position: absolute; left: 1px; top: 1px; border-radius: 9px; pointer-events: none; }
-#device.orient .orientbg { display: block; }
-#device.orient .section[data-sid="play"] { background: linear-gradient(180deg, var(--or-pl0), var(--or-pl1)); border-color: var(--or-c2); box-shadow: inset 0 0 0 1px var(--or-c2-line), 0 0 18px var(--or-glow); }
-#device.orient .section[data-sid="play"] .title { background: linear-gradient(90deg, var(--or-c4), var(--or-c4-86)); border-right-color: var(--or-c2); color: var(--or-c2); }
-#device.orient .section[data-sid="play"] .title b { color: var(--or-c2); }
-#device.orient .section[data-sid="play"] .wlabel, #device.orient .section[data-sid="play"] .menu .mcap { color: var(--or-dim); }
-#device.orient .section[data-sid="play"] .wlabel span, #device.orient .section[data-sid="play"] .menu .mcap span { background: var(--or-plate); border-radius: 4px; padding: 1px 7px; }
-/* version 1.0.9: on the pattern the selectors (TUNING WEST | ARAB | TURK, the MAQAM menu, the TONIC step) sit on an OPAQUE dark plate: their text was hard to read over the tiles; the pattern stays on the rest of the card */
-#device.orient .section[data-sid="play"] .seg, #device.orient .section[data-sid="play"] .menu button, #device.orient .section[data-sid="play"] .step { background: var(--or-plate); border-color: var(--or-c2-line); }
 /* version 1.0.9: the colour code reaches the panel and the page. The panel's gradient and blobs take the colours of the pattern; the page's dark margins show the same pattern (larger) over the palette's ground */
 #device.orient, #browser.orient { --grad: linear-gradient(135deg, var(--or-g0) 0%, var(--or-g1) 25%, var(--or-g2) 55%, var(--or-g3) 85%, var(--or-g4) 100%);
   --glow-1: var(--or-glow1); --glow-2: var(--or-glow2); --glow-3: var(--or-glow3); }

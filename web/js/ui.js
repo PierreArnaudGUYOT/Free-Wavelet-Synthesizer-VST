@@ -100,7 +100,6 @@ class SynthUI {
         t.innerHTML = parts.length > 1 ? `<b>${parts[0]}</b> · ${parts.slice(1).join(' · ')}` : s.accentTitle ? `<b>${s.title}</b>` : s.title;   // beta 0.3.3: vtitle = a vertical strip at the left
       }
       se.dataset.sid = s.id;   // beta 0.3: addressable by the layout mock-ups (tools of the owner's review)
-      if (s.id === 'play') { this.playSec = { se, s }; this.orientPattern(se, s); }   // beta 0.3.4: the PLAY card's oriental pattern (shown while TUNING is ARAB or TURK)
       this.sections.push({ spec: s, el: se });
       for (const w of s.widgets) this.makeWidget(w, se, s);
       this.sections[this.sections.length - 1].canvases = this.canvases.filter(c => c.sec === s);
@@ -833,7 +832,7 @@ class SynthUI {
   orientVars(e) {
     const O = this.orientPal(), set = (k, v) => e.style.setProperty(k, v);
     set('--or-a', O.a); set('--or-b', O.b); set('--or-c1', O.c1); set('--or-c2', O.c2); set('--or-c3', O.c3); set('--or-c4', O.c4); set('--or-c5', O.c5);
-    set('--or-pl0', O.pl[0]); set('--or-pl1', O.pl[1]); set('--or-dim', O.dim); set('--or-plate', this.SPEC.ORIENT.plate);
+    set('--or-pl0', O.pl[0]); set('--or-pl1', O.pl[1]); set('--or-dim', O.dim);
     O.g.forEach((c, i) => set('--or-g' + i, c)); O.glow.forEach((c, i) => set('--or-glow' + (i + 1), c)); set('--or-page', O.page);   // version 1.0.9: the panel in the colours of the pattern
     for (const k of ['a', 'b']) { const c = hexRGB(O[k]); set('--or-' + k + '-soft', `rgba(${c},0.16)`); set('--or-' + k + '-tint', `rgba(${c},0.07)`); set('--or-' + k + '-line', `rgba(${c},0.26)`); }
     set('--or-c2-line', `rgba(${hexRGB(O.c2)},0.25)`); set('--or-glow', `rgba(${hexRGB(O.a)},0.16)`); set('--or-c4-86', `rgba(${hexRGB(O.c4)},0.86)`);
@@ -848,7 +847,6 @@ class SynthUI {
     if (on) {   // version 1.0.5: ARAB and TURK have their own colours: the variables and the pattern follow the mode
       this.orientVars(this.dev); if (this.browser) this.orientVars(this.browser);
       this.orientVars(document.documentElement); this.orientPage();
-      if (this.playSec) { const old = this.playSec.se.querySelector('.orientbg'); if (old) old.remove(); this.orientPattern(this.playSec.se, this.playSec.s); }
     }
     if (this.outlinePaint) this.outlinePaint();
     for (const c of this.canvases) c.dirty = true;
@@ -873,16 +871,7 @@ class SynthUI {
     for (const [x, y] of [[0, 0], [T, 0], [0, T], [T, T]]) tile += `<polygon points="${dia(x, y, dq)}" fill="${O.c5}" stroke="${O.c1}" stroke-width="1" stroke-linejoin="round"/><polygon points="${dia(x, y, dq * 0.45)}" fill="${O.c3}"/>`;
     return tile;
   }
-  // the PLAY card's pattern as an SVG layer behind the controls (see orientTile)
-  orientPattern(se, s) {
-    const O = this.orientPal(), T = O.tile, W = s.w - 2, H = s.h - 2, c = T / 2, tile = this.orientTile(O, T);
-    const svgEl = document.createElementNS(SVGNS, 'svg');
-    svgEl.setAttribute('class', 'orientbg'); svgEl.setAttribute('width', W); svgEl.setAttribute('height', H); svgEl.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-    svgEl.style.opacity = O.opacity;
-    svgEl.innerHTML = `<defs><pattern id="orientTile" x="${-c}" y="${-c}" width="${T}" height="${T}" patternUnits="userSpaceOnUse">${tile}</pattern></defs>` +
-      `<rect width="${W}" height="${H}" fill="${O.c4}"/><rect width="${W}" height="${H}" fill="url(#orientTile)"/>`;
-    se.insertBefore(svgEl, se.firstChild);
-  }
+  // (web update 2026-10-22: the PLAY card has no pattern any more, a card like the others; the tile's markup, orientTile, still serves the page's margins)
 
   currentGains() {
     const C = this.C, live = this.live;

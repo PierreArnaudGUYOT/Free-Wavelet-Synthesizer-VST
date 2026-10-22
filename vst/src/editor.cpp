@@ -359,12 +359,6 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void inset(Canvas& g, R r, float rad = 9, bool hot = false) {
     g.fillRR(r, rad, Brush(hot ? hotC() : insetC())); g.strokeRR(R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, Pen(edgeC(hot), 1));
   }
-  // version 1.0.9: on the oriental pattern the PLAY card's selectors (TUNING, MAQAM, TONIC) and captions sit on an OPAQUE dark plate (kOrientPlate, the web's --or-plate): over the
-  // tiles their text was hard to read; the pattern stays on the rest of the card. The edge is the palette's second colour at 25 % (40 % hovered)
-  bool onPattern(const Item& it) const { return orient && it.section >= 0 && std::strcmp(kSections[it.section].id, "play") == 0; }
-  void plateInset(Canvas& g, R r, float rad = 9, bool hot = false) {
-    g.fillRR(r, rad, rgb(kOrientPlate)); g.strokeRR(R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, rad, Pen(rgb(opal().c2, hot ? 102 : 64), 1));
-  }
   // a glass card: translucent white fading downwards, a 1 px white 20 % edge, a lit top edge
   void glass(Canvas& g, R r, float rad = 14) {
     g.fillRR(r, rad, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, argb(26, 255, 255, 255), argb(12, 255, 255, 255)));
@@ -452,7 +446,6 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       R r{sd.x, sd.y, sd.w, sd.h};
       if (!r.hits(dirty)) continue;
       if (sd.title[0] == 0) { if (std::strcmp(sd.id, "oscframe") == 0) drawOscFrame(g, r); continue; }   // beta 0.3: the frame round the oscillator cards
-      if (orient && std::strcmp(sd.id, "play") == 0) { drawOrientCard(g, r, dirty); continue; }   // beta 0.3.4: the PLAY card in its oriental dress
       glass(g, r);
       if (sd.tabbed) continue;   // beta 0.3.4: the LFO 2/3 card has a tab bar instead of a title (its lfotabs item draws it)
       if (sd.vtitle) {   // beta 0.3.3: the title is a vertical strip at the left of the card
@@ -521,11 +514,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       case W_TOGGLE: drawToggle(g, idx); break;
       case W_LABEL: {   // beta 0.6: SCALOGRAM
         const std::wstring s = toW(it.w->text ? it.w->text : "");
-        if (orient && it.section >= 0 && std::strcmp(kSections[it.section].id, "play") == 0) {   // beta 0.3.4: on the oriental pattern, a caption sits on a dark plate
-          const float tw = g.textWidth(s, 10.5f, true);
-          g.fillRR(R{it.r.x, it.r.y - 0.5f, tw + 14, 15}, 4, rgb(kOrientPlate));   // (version 1.0.9: opaque, was 78 %)
-          text(g, s, R{it.r.x + 7, it.r.y, tw + 7, it.r.h}, 10.5f, true, rgb(opal().dim), 0);
-        } else text(g, s, it.r, 10.5f, true, rgb(kDim), 0);
+        text(g, s, it.r, 10.5f, true, rgb(kDim), 0);
         break;
       }
       case W_CHORDPADS: drawChordPads(g, idx); break;
@@ -594,7 +583,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       }
       return;
     }
-    if (onPattern(it)) plateInset(g, it.r, 9.f); else inset(g, it.r, 9.f);   // (version 1.0.9: the TUNING switch on its plate over the oriental pattern)
+    inset(g, it.r, 9.f);
     float pad = engine ? 3.f : 2.f, gap = 2, bw = (it.r.w - 2 * pad - gap * (n - 1)) / n;
     for (int k = 0; k < n; k++) {
       R b{it.r.x + pad + k * (bw + gap), it.r.y + pad, bw, it.r.h - 2 * pad};
@@ -703,60 +692,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     }
   }
 
-  // beta 0.3.4: the PLAY card while the TUNING switch is ARAB or TURK (the owner's mock-up P6, ARAB): its own colours (kOrient*), a pattern of octagons and squares (4.8.8, an
-  // eight-pointed star in each octagon; the tile is kOrientTile px, the octagons are centred on the card's inner top-left corner and on every tile from it, as in the web
-  // app's SVG pattern), the strip with the title in turquoise. The pattern is polygons, only the tiles that meet the area to paint (`dirty`), cut to the card's rounded
-  // inner rectangle by the canvas. The web app lays the whole pattern over the card's gradient at kOrientOpacity: here each colour is mixed with the gradient once.
-  static uint32_t mixRGB(uint32_t a, uint32_t b, float t) {   // t of a + (1 - t) of b
-    auto ch = [&](int sh) { return (uint32_t)std::lround(((a >> sh) & 255) * t + ((b >> sh) & 255) * (1 - t)); };
-    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-  }
-  static void regPts(std::vector<Pt>& o, float cx, float cy, int n, float r, float rot) {
-    o.clear(); for (int k = 0; k < n; k++) { const float a = rot + 2 * (float)PI * k / n; o.push_back(Pt{cx + r * std::cos(a), cy + r * std::sin(a)}); }
-  }
-  static void starPts(std::vector<Pt>& o, float cx, float cy, int n, float R1, float r1, float rot) {
-    o.clear(); for (int k = 0; k < 2 * n; k++) { const float a = rot + (float)PI * k / n, rr = k % 2 ? r1 : R1; o.push_back(Pt{cx + rr * std::cos(a), cy + rr * std::sin(a)}); }
-  }
-  void drawOrientCard(Canvas& g, R r, R dirty) {
-    const float T = kOrientTile, Ro = 0.5412f * T, dq = 0.2929f * T, op = kOrientOpacity, pi8 = (float)PI / 8;
-    fillRR(g, r, 14, Brush(Pt{0, r.y}, Pt{0, r.y + r.h}, rgb(opal().pl0), rgb(opal().pl1)));
-    const R in{r.x + 1, r.y + 1, r.w - 2, r.h - 2};
-    const uint32_t mid = mixRGB(opal().pl0, opal().pl1, 0.5f);
-    auto pc = [&](uint32_t c) { return rgb(mixRGB(c, mid, op)); };
-    const Col c1 = pc(opal().c1), c2 = pc(opal().c2), c3 = pc(opal().c3), c4 = pc(opal().c4), c5 = pc(opal().c5);
-    g.pushClipRR(in, 13);
-    g.fillRect(in, Brush(Pt{0, in.y}, Pt{0, in.y + in.h}, rgb(mixRGB(opal().c4, opal().pl0, op)), rgb(mixRGB(opal().c4, opal().pl1, op))));
-    std::vector<Pt> pts;
-    const int i0 = std::max(-1, (int)std::floor((dirty.x - in.x - T) / T)), i1 = std::min((int)std::ceil(in.w / T) + 1, (int)std::ceil((dirty.x + dirty.w - in.x + Ro) / T));
-    const int j0 = std::max(-1, (int)std::floor((dirty.y - in.y - T) / T)), j1 = std::min((int)std::ceil(in.h / T) + 1, (int)std::ceil((dirty.y + dirty.h - in.y + Ro) / T));
-    for (int j = j0; j <= j1; j++) for (int i = i0; i <= i1; i++) {
-      const float cx = in.x + i * T, cy = in.y + j * T, sx = cx + T / 2, sy = cy + T / 2;
-      if (!R{cx - Ro - 1, cy - Ro - 1, Ro + T / 2 + dq + 2, Ro + T / 2 + dq + 2}.hits(dirty)) continue;
-      regPts(pts, cx, cy, 8, Ro, pi8);
-      g.fillPolygon(pts.data(), (int)pts.size(), c4);
-      pts.push_back(pts.front()); g.lines(pts.data(), (int)pts.size(), Pen(c1, 1.1f).join());
-      starPts(pts, cx, cy, 8, Ro * 0.86f, Ro * 0.58f, pi8); g.fillPolygon(pts.data(), (int)pts.size(), c1);
-      starPts(pts, cx, cy, 8, Ro * 0.5f, Ro * 0.27f, 0); g.fillPolygon(pts.data(), (int)pts.size(), c2);
-      g.fillEllipse(R{cx - Ro * 0.12f, cy - Ro * 0.12f, Ro * 0.24f, Ro * 0.24f}, c4);
-      const Pt sq[4] = {{sx, sy - dq}, {sx + dq, sy}, {sx, sy + dq}, {sx - dq, sy}};
-      g.fillPolygon(sq, 4, c5);
-      const Pt sc[5] = {sq[0], sq[1], sq[2], sq[3], sq[0]}; g.lines(sc, 5, Pen(c1, 1.f).join());
-      const float d2 = dq * 0.45f;
-      const Pt si[4] = {{sx, sy - d2}, {sx + d2, sy}, {sx, sy + d2}, {sx - d2, sy}};
-      g.fillPolygon(si, 4, c3);
-    }
-    // the strip: the title turned, in turquoise, on the dark of the pattern
-    g.fillRect(R{in.x, in.y, 22, in.h}, Brush(Pt{in.x, 0}, Pt{in.x + 22, 0}, rgb(opal().c4, 255), rgb(opal().c4, 219)));
-    g.line(Pt{r.x + 22.5f, in.y}, Pt{r.x + 22.5f, in.y + in.h}, Pen(rgb(opal().c2), 1));
-    g.popClip();
-    strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 14, rgb(opal().c2));
-    strokeRR(g, R{r.x + 1.5f, r.y + 1.5f, r.w - 3, r.h - 3}, 13, rgb(opal().c2, 64));
-    g.textVertical(L"PLAY", R{r.x + 1, r.y + 1, 22, r.h - 2}, 9.5f, true, rgb(opal().c2));
-  }
+  // (version 1.0.11: the PLAY card has no oriental dress any more, a card like the others in ARAB and TURK: the pattern and its drawing are gone; the colours of the tuning stay on the panel)
 
   void drawStep(Canvas& g, const Item& it) {
     const ParamDef& p = kParams[it.w->param];
-    if (onPattern(it)) plateInset(g, it.r, 9); else inset(g, it.r, 9);   // (version 1.0.9: the TONIC step on its plate over the oriental pattern)
+    inset(g, it.r, 9);
     text(g, L"◀", R{it.r.x, it.r.y, 30, it.r.h}, 11, false, rgb(kDim));
     text(g, L"▶", R{it.r.x + it.r.w - 30, it.r.y, 30, it.r.h}, 11, false, rgb(kDim));
     int v = (int)jsRound(plainOf(it.w->param));
@@ -2237,20 +2177,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     const ParamDef& p = kParams[it.w->param];
     const int v = (int)jsRound(plainOf(it.w->param));
     const bool hot = hover == idx;
-    if (onPattern(it)) plateInset(g, it.r, 9, hot);   // version 1.0.9: the MAQAM menu on its plate over the oriental pattern
-    else {
-      fillRR(g, it.r, 9, Brush(insetC()));
-      strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 9, edgeC(hot));
-    }
+    fillRR(g, it.r, 9, Brush(insetC()));
+    strokeRR(g, R{it.r.x + 0.5f, it.r.y + 0.5f, it.r.w - 1, it.r.h - 1}, 9, edgeC(hot));
     g.textEllipsis(toW(p.choiceShort[v]), R{it.r.x + (kSections[it.section].tabbed ? 5.f : 6.f), it.r.y, it.r.w - 19, it.r.h}, 9.5f, true, rgb(accent()), true);   // (beta 0.3.4: the TARGET menu is 80 px wide: a long name ends with \u2026)
     text(g, L"\u25BE", R{it.r.x + it.r.w - 14, it.r.y, 12, it.r.h}, 9, false, rgb(kDim));
     if (it.w->text) {   // beta 0.6: its caption
       const std::wstring cap = toW(it.w->text);
-      if (orient && std::strcmp(kSections[it.section].id, "play") == 0) {   // beta 0.3.4: on the oriental pattern, a dark plate under it
-        const float tw = g.textWidth(cap, 9.5f, true) + 14;
-        g.fillRR(R{it.r.x + (it.r.w - tw) / 2, it.r.y - 17.5f, tw, 15}, 4, rgb(kOrientPlate));   // (version 1.0.9: opaque, was 78 %)
-        text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(opal().dim));
-      } else text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(kDim));
+      text(g, cap, R{it.r.x, it.r.y - 17, it.r.w, 14}, 9.5f, true, rgb(kDim));
     }
   }
   void choiceMenu(const Item& it) {

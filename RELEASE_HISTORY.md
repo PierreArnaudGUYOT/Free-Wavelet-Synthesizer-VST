@@ -3,6 +3,16 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.11 — 2026-10-22 (shown as OktoWave 1.0)
+
+- **The synthesizer now says "1.0"**: OktoWave 1.0 is the first stable release (the number inside the files stays 1.0.11).
+- **Web app**: a fractal pattern fills the dark margins of the page when the tuning is not oriental. **Web app and plug-in**: the PLAY card is a card like the others when the tuning is ARAB or TURK (no oriental background).
+- **Demo**: the phrase of *AA · Hollow Bass* is played in the oriental tuning ARAB, maqam Saba, and the next preset brings WEST back.
+- **TOP Sounds** (web app and plug-in): AA · Sweep of Pixel is the 2nd, A · Shimmering Strings the 3rd, AB · Kalimba Lung Machine the 5th and A · Noise Wash Pad the 6th; **A · Shimmering Strings** has its LFO 1 rate at 6.5 Hz.
+- No change of the sound engine.
+
+**Checked** (simple tests): build, the quick suite with the C++/JS cross-check (323 cases), the TOP Sounds against beta 0.7, the plug-in window in a host, the VST2 entry point, the presets file, the web smoke test, the manual, the demo test, the preset change and demo sync tests.
+
 ## Okto MultiWave Synth 1.0.10 — 2026-10-21 (the demo in phrases of 8 beats, the tour chosen by vote)
 
 - **The demo changes preset with the music**: it starts on the low F that begins the theme of the right hand and a new preset comes every 8 beats (3.58 s), at the start of each phrase (30 phrases for the 30 presets), instead of on a chord near every 4 s. The levels of the presets were measured again on their own phrase.

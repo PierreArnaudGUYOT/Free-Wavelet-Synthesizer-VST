@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <winver.h>
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,0,10,0
-PRODUCTVERSION 1,0,10,0
+FILEVERSION 1,0,11,0
+PRODUCTVERSION 1,0,11,0
 FILEOS VOS_NT_WINDOWS32
 FILETYPE VFT_DLL
 BEGIN
@@ -15,9 +15,9 @@ BEGIN
       VALUE "Comments", "Created by Pierre Arnaud GUYOT. Release 1.0. Free software under the GNU GPL v3 or later, without any warranty."
       VALUE "FileDescription", "Okto MultiWave Synth (VST3 / VST2 instrument) - created by OktoPierre"
       VALUE "LegalCopyright", "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). GPL-3.0-or-later"
-      VALUE "FileVersion", "1.0.10"
+      VALUE "FileVersion", "1.0.11"
       VALUE "ProductName", "Okto MultiWave Synth"
-      VALUE "ProductVersion", "1.0.10"
+      VALUE "ProductVersion", "1.0.11"
       VALUE "OriginalFilename", "OktoMultiWaveSynth.vst3"
     END
   END

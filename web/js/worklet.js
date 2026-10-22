@@ -110,7 +110,7 @@ function WSWorkletMain() {
       ev.sort((a, b) => a[0] - b[0] || a[1] - b[1]);   // note-offs before note-ons on the same frame
       this.seq = { ev, i: 0, start, count: new Uint8Array(128) };
       this.seqDone = false;
-      this.eng.noMicro = true;   // the demo plays in equal temperament (whatever the oriental tuning says), tails included
+      // (web update 2026-10-22: the demo no longer forces equal temperament: every scene of the tour sets the tuning it wants, WEST except the oriental phrase of AA · Hollow Bass: demo.js TOUR_TUNING)
     }
 
     process(inputs, outputs) {

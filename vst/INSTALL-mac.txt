@@ -1,4 +1,4 @@
-OktoWave (Okto MultiWave Synth) 1.0.10 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+OktoWave (Okto MultiWave Synth) 1.0.11 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in OktoMultiWaveSynth.vst3/Contents/Resources/LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST

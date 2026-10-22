@@ -25,7 +25,7 @@ function render(Core, values) {
 }
 let fails = 0, worst = 0;
 // beta 1.0: the TOP Sounds are sorted by the owner's stars and one was left out (unrated); the three he adjusted (SAVE PRESET) are no longer beta 0.7's sounds: they are not compared
-const ADJ = require('../tools/ratings_final.js').adjusted;
+const ADJ = require('../tools/ratings_final.js').adjusted, EDITS = require('../tools/spec.js').PRESET_EDITS || {};   // (version 1.0.11: a factory preset edited on purpose, tools/spec.js PRESET_EDITS, is no longer beta 0.7's sound either)
 let compared = 0;
 // version 1.0.1: the master volume of the TOP Sounds went down by whole dB where a big chord struck hard reached the output stage (tools/master_adjust.js, by name): beta 0.7's sound is compared at that master
 const MA = require('../tools/master_adjust.js'), oldMaster = OLD_SPEC.PARAMS.findIndex(x => x.key === 'master');
@@ -33,6 +33,7 @@ for (let q = 0; q < OLD_SPEC.TOP; q++) {
   const p = OLD_SPEC.PRESETS[q], o = SPEC.PRESETS.slice(0, SPEC.TOP).find(x => x.name === p.name);
   if (!o) { console.log(`skip ${p.name.padEnd(26)} (left out of the final list)`); continue; }
   if (ADJ[p.name]) { console.log(`skip ${p.name.padEnd(26)} (adjusted by the owner)`); continue; }
+  if (EDITS[p.name]) { console.log(`skip ${p.name.padEnd(26)} (edited at the owner's request, version 1.0.11: ${Object.keys(EDITS[p.name]).join(', ')})`); continue; }
   compared++;
   const pv = Array.from(p.values); if (MA[p.name]) pv[oldMaster] = Math.max(-36, pv[oldMaster] - MA[p.name]);
   const a = render(OLD, pv), b = render(C, o.values);

@@ -52,6 +52,8 @@ const STORY = SPEC.DEMO_STORY;
 const storyAt = (k) => STORY[Math.min(k, STORY.length - 1)];
 const FORCED = { v_voices: 16, v_oct: 0, v_glide: 0 }; // + caps: amp_a <= 0.08, fx_dmix <= 0.1, fx_dfb <= 0.3
 const CAPS = { amp_a: 0.08, fx_dmix: 0.1, fx_dfb: 0.3 };
+// web update 2026-10-22: the phrase of AA · Hollow Bass is played in the oriental tuning ARAB, maqam Saba (mt_scale 3) on B flat (mt_tonic 10); every other scene is WEST (mt_mode 0)
+const TUNING_SCENES = { 'AA · Hollow Bass': { mt_mode: 1, mt_scale: 3, mt_tonic: 10 } };
 
 // ------------------------------------------------------------------ report
 const lines = [], results = [];
@@ -157,7 +159,9 @@ function tourChecks(name, song, samples, plan, full, intro = true, start = plan[
     if (pv && x.all) {
       for (const [key, v] of Object.entries(pv)) {
         if (SPEC_BY_KEY[key].hidden) continue;
-        let e = key in FORCED ? FORCED[key] : v;
+        const tun = TUNING_SCENES[want];
+        if ((key === 'mt_scale' || key === 'mt_tonic') && !tun) continue;   // (the maqam and the tonic stay as the last oriental phrase left them: WEST ignores them)
+        let e = tun && key in tun ? tun[key] : key in FORCED ? FORCED[key] : v;
         if (key in CAPS) e = Math.min(v, CAPS[key]);
         if (key === 'master' && (SPEC.DEMO_TRIM || {})[want]) e = Math.max(SPEC_BY_KEY.master.min, v - SPEC.DEMO_TRIM[want]);   // (version 1.0.4: the master of a few presets of the tour goes down in the demo)
         if (!(Math.abs(x.all[key] - e) <= 1e-6 * Math.max(1, Math.abs(SPEC_BY_KEY[key].max - SPEC_BY_KEY[key].min)))) { badVals.push(`t=${t.toFixed(1)} ${want}: ${key}=${x.all[key]} expected ${e}`); break; }
