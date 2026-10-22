@@ -3423,7 +3423,7 @@ var WS_SPEC = {
    "choiceShort": [
     "VOLUME",
     "FILTER",
-    "VOL + FILTER"
+    "VOL+FLT"
    ]
   },
   {
@@ -5440,9 +5440,9 @@ var WS_SPEC = {
     {
      "type": "label",
      "text": "TONIC",
-     "x": 360,
+     "x": 340,
      "y": 44,
-     "w": 100,
+     "w": 88,
      "h": 14,
      "vis": "mt_mode",
      "visOn": true
@@ -5450,9 +5450,9 @@ var WS_SPEC = {
     {
      "type": "step",
      "param": "mt_tonic",
-     "x": 360,
+     "x": 340,
      "y": 62,
-     "w": 110,
+     "w": 88,
      "h": 26,
      "vis": "mt_mode",
      "visOn": true
@@ -5460,17 +5460,18 @@ var WS_SPEC = {
     {
      "type": "knobM",
      "param": "vel_amt",
-     "x": 498,
-     "y": 6,
+     "x": 432,
+     "y": 14,
      "w": 52,
      "h": 60
     },
     {
      "type": "menu",
      "param": "vel_target",
-     "x": 482,
-     "y": 70,
-     "w": 84,
+     "text": "TARGET",
+     "x": 486,
+     "y": 34,
+     "w": 80,
      "h": 22
     }
    ],
@@ -51249,8 +51250,7 @@ var WS_SPEC = {
   "A · Wave Atom Choir Shift": 3,
   "A · Wave Pulse Lead": 10,
   "A · Wavelet Lead": 2,
-  "AA · Knock Sweep": 1,
-  "AA · Orbit Drum": 1,
+  "AA · Knock Sweep": 3,
   "AAB · Sweep Call": 4,
   "AB · Silk Strings": 3,
   "AB · Step Sub": 7,

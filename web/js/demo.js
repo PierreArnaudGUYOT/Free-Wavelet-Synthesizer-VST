@@ -28,7 +28,13 @@ function WSDemo(api) {
   // Web update 2026-10-22 (the owner's request): in the phrase of AA · Hollow Bass the keyboard is in the oriental tuning, ARAB, maqam SABA on B flat (the pedal of that phrase: the C is a quarter tone
   // lower, the other notes of the phrase stay where they are); the next preset puts it back to WEST (every scene sets mt_mode: 0 unless it has an entry here). The tuning is a performance setting, not
   // in a preset: it goes with the preset change (the rules below), at the chord, and the panel takes the oriental colours for that phrase. mt_scale 3 = Saba, mt_tonic 10 = B flat.
-  const TOUR_TUNING = { 'AA · Hollow Bass': { mt_mode: 1, mt_scale: 3, mt_tonic: 10, label: 'ARAB · SABA' } };
+  // Version 1.0.14 (the owner: "passer en mode ARAB sur le Spiccato Strings de la démo"): its phrase (around C: C E G B B-flat A-flat F) in maqam RAST on G: the B goes a quarter tone down
+  // (3 notes), the rest stays where it is. mt_scale 0 = Rast, mt_tonic 7 = G.
+  const TOUR_TUNING = { 'AA · Hollow Bass': { mt_mode: 1, mt_scale: 3, mt_tonic: 10, label: 'ARAB · SABA' }, 'A · Spiccato Strings': { mt_mode: 1, mt_scale: 0, mt_tonic: 7, label: 'ARAB · RAST' } };
+  // Version 1.0.14 (the owner: crackles in the phrase before AAB · Rust Aurora and in the one before AB · Open Mallets, "diminue la modulation si nécessaire"): these presets play the demo with their
+  // modulation scaled by the factor given here, every amount of LFO 1 and the amounts of LFO 2 and LFO 3 (the rates, shapes and targets stay). The presets themselves are not changed.
+  const TOUR_CALM = { 'AA · Drum Bloom': 0.5, 'AB · Orbit Cloud': 0.5 };
+  const CALM_KEYS = ['lfo_pitch', 'lfo_cut', 'lfo_pos', 'lfo_wav', 'lfo_sp', 'lfo_res', 'lfo_ew', 'lfo2_amt', 'lfo3_amt'];
   // version 1.0.8: the change of preset is made by the audio thread, at the chord. The page sends it SEND_LEAD seconds ahead (the new sound's values and tables, with the song time of the chord:
   // worklet.js starts the dip so that it ends at the chord); the panel, the window and the label follow at TOUR_LEAD before the chord, as before. A page that was late (a busy main thread) made the
   // change late, 100 ms after the chord for a delay of 100 ms: the audio thread's clock does not wait for the page.
@@ -117,6 +123,8 @@ function WSDemo(api) {
     if (get('fx_dfb') > TOUR_MAX_DELAY_FB) setk('fx_dfb', TOUR_MAX_DELAY_FB);
     const tun = TOUR_TUNING[sc.preset] || { mt_mode: 0 };   // (web update 2026-10-22: the oriental tuning of one phrase, else WEST)
     for (const key in tun) if (key !== 'label') setk(key, tun[key]);
+    const calm = TOUR_CALM[sc.preset];   // (version 1.0.14: less modulation)
+    if (calm !== undefined) for (const key of CALM_KEYS) setk(key, get(key) * calm);
     const trim = (WS_SPEC.DEMO_TRIM || {})[sc.preset];
     if (trim) setk('master', Math.max(PARAMS[P.master].min, get('master') - trim));
   };

@@ -333,6 +333,15 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
 .welcome .choice:hover { border-color: var(--brand); background: rgba(0,0,0,0.4); }
 .welcome .choice.main { border-color: var(--brand); box-shadow: 0 0 30px rgba(255,209,102,0.18); }
 .welcome .choice svg { width: 30px; height: 30px; flex: none; color: var(--brand); }
+/* version 1.0.14 (the owner: "Run the demo" in the middle, well in view, "je veux que les gens cliquent sur Run demo"): the middle box, filled with the accent colour, a slow glow */
+.welcome .choice.demo { background: linear-gradient(160deg, var(--brand), #ff9f4a); border-color: var(--brand); color: var(--on-accent); transform: scale(1.06); z-index: 1;
+  animation: demo-glow 2.4s ease-in-out infinite; }
+.welcome .choice.demo:hover { background: linear-gradient(160deg, #ffe08f, #ffb067); color: var(--on-accent); }
+.welcome .choice.demo svg { color: var(--on-accent); width: 36px; height: 36px; }
+.welcome .choice.demo b { font-size: 18px; }
+.welcome .choice.demo small { color: var(--on-accent); opacity: 0.85; }
+@keyframes demo-glow { 0%, 100% { box-shadow: 0 0 18px rgba(255,209,102,0.35); } 50% { box-shadow: 0 0 42px rgba(255,209,102,0.75); } }
+@media (prefers-reduced-motion: reduce) { .welcome .choice.demo { animation: none; box-shadow: 0 0 30px rgba(255,209,102,0.5); } }
 .welcome .choice.dl svg { color: var(--accent-a); }
 /* the fourth box, a whole row under the three choices (the introduction to wavelets) */
 .welcome .choice.learn { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 14px; padding: 12px 16px; }
@@ -349,6 +358,7 @@ a.hbtn { display: flex; flex-direction: column; align-items: center; justify-con
   .welcome h1 { font-size: 19px; }
   .welcome .choices { grid-template-columns: 1fr; gap: 8px; }
   .welcome .choice { padding: 12px 14px; }
+  .welcome .choice.demo { order: -1; transform: none; }   /* (on a phone the demo comes first) */
 }
 #manual-overlay { position: fixed; inset: 0; background: rgba(5, 6, 8, 0.72); z-index: 90; display: flex; align-items: center; justify-content: center; }
 #manual-overlay[hidden] { display: none; }
