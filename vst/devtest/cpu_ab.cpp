@@ -21,7 +21,7 @@
 #if defined(__SSE__)
 #include <xmmintrin.h>
 #endif
-constexpr int kNumParamsAb = 175;   // checked against the cases at run time (the number of values on a line)
+constexpr int kNumParamsAb = 178;   // checked against the cases at run time (the number of values on a line; version 1.0.12: 178 with the three hidden MIDI trigger parameters)
 AbRunner* makeOld();
 AbRunner* makeNew();
 static uint64_t fnv(const float* p, int n, uint64_t h) { const uint32_t* u = (const uint32_t*)p; for (int i = 0; i < n; i++) { h ^= u[i]; h *= 1099511628211ull; } return h; }
