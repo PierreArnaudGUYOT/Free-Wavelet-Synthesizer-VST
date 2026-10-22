@@ -36,7 +36,7 @@ const APP = {
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
   version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
-  versionNum: '1.0.11',
+  versionNum: '1.0.12',
   date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -330,6 +330,13 @@ add('vf_a', 'Filter Env Attack', 'ATTACK', { curve: 'exp', fmt: 'sec', min: 0.00
 add('vf_d', 'Filter Env Decay', 'DECAY', { curve: 'exp', fmt: 'sec', min: 0.001, max: 10, def: 0.3 });
 add('vf_s', 'Filter Env Sustain', 'SUSTAIN', { min: 0, max: 1, def: 0.5 });
 add('vf_r', 'Filter Env Release', 'RELEASE', { curve: 'exp', fmt: 'sec', min: 0.001, max: 10, def: 0.3 });
+// Version 1.0.12: the MIDI "panic" messages. A host sends them as controllers (CC 120 all sound off, CC 121 reset all controllers, CC 123 all notes off: their value is 0), which a VST3 plug-in
+// only receives through IMidiMapping, as parameters: three hidden parameters, APPENDED at the end of the list (the ids of every other parameter, and so every saved project, stay as they were).
+// The processor acts on a point of one of these queues whose value is NOT the default: the data byte of these messages is 0, a point at 0 is the trigger. The default is 0.5 so that a
+// host that "resets every hidden parameter to its default" (some do, with the pedal, the bend and the wheel) does not fire a panic. They are never in a preset or a state. vst/src/plugin.cpp.
+add('midi_asoff', 'All Sound Off (MIDI CC 120)', 'SND OFF', { min: 0, max: 1, def: 0.5, hidden: true });
+add('midi_rstctl', 'Reset All Controllers (MIDI CC 121)', 'RST CTL', { min: 0, max: 1, def: 0.5, hidden: true });
+add('midi_anoff', 'All Notes Off (MIDI CC 123)', 'NOTES OFF', { min: 0, max: 1, def: 0.5, hidden: true });
 
 const DELAY_BEATS = DELAY_NOTES.map(noteBeats), LFO_BEATS = LFO_NOTES.map(noteBeats);
 for (const b of [DELAY_BEATS, LFO_BEATS]) for (let i = 1; i < b.length; i++)

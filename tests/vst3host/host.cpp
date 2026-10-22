@@ -267,6 +267,8 @@ struct Instance
 	EventList inEvents, outEvents;
 	ProcessContext ctx {};
 	double hostTempo = 120.0; // beta 0.6: the tempo the "host" gives (the tempo sync test changes it)
+	bool hostPlaying = true;  // version 1.0.12: the transport state the "host" gives (the hang test stops it)
+	bool hostContext = true;  // version 1.0.12: false = a host that gives no ProcessContext at all
 	int64 pos = 0; // project position in samples
 	std::mutex outMx;
 	std::map<ParamID, double> outParamLast; // last values reported by the processor
@@ -453,7 +455,7 @@ struct Instance
 	void fillContext ()
 	{
 		ctx = ProcessContext {};
-		ctx.state = ProcessContext::kPlaying | ProcessContext::kTempoValid | ProcessContext::kTimeSigValid |
+		ctx.state = (hostPlaying ? ProcessContext::kPlaying : 0) | ProcessContext::kTempoValid | ProcessContext::kTimeSigValid |
 		            ProcessContext::kProjectTimeMusicValid | ProcessContext::kBarPositionValid |
 		            ProcessContext::kSystemTimeValid | ProcessContext::kContTimeValid;
 		ctx.sampleRate = sr;
@@ -496,7 +498,7 @@ struct Instance
 		d.inputEvents = &inEvents;
 		d.outputEvents = &outEvents;
 		fillContext ();
-		d.processContext = &ctx;
+		d.processContext = hostContext ? &ctx : nullptr;
 		double t0 = nowUs ();
 		const unsigned csr0 = _mm_getcsr ();
 		o.crash = tryCall ([&] { o.r = proc->process (d); });
@@ -3977,6 +3979,244 @@ static void testStress (Instance& in, AudioCtx& ac)
 }
 
 //==============================================================================
+// Hanging sound (version 1.0.12): a sustain pedal left down, the MIDI panic messages, the transport stop
+// The owner's report: playing a MIDI sequence in Ableton Live, the sound does not stop at "stop" (three presses). What a DAW can leave behind: the pedal still down (it holds
+// every note that is released), the note offs of a stopped sequence that never come, a "panic" (CC 120 / 121 / 123) that a VST3 plug-in only receives when it maps it.
+//==============================================================================
+static void testHang (Instance& in, AudioCtx& ac)
+{
+	beginSection ("Hanging sound: sustain pedal, MIDI panic (CC 120 / 121 / 123), transport stop, sample-accurate pedal");
+	ParamID hold = kNoParamId, asoff = kNoParamId, rst = kNoParamId, anoff = kNoParamId;
+	if (IMidiMapping* mm = nullptr; in.ctrl->queryInterface (IMidiMapping::iid, (void**)&mm) == kResultOk && mm)
+	{
+		guarded ("IMidiMapping (hang)", [&] {
+			mm->getMidiControllerAssignment (0, 0, kCtrlSustainOnOff, hold);
+			mm->getMidiControllerAssignment (0, 0, kCtrlAllSoundsOff, asoff);
+			mm->getMidiControllerAssignment (0, 0, kCtrlResetAllCtrlers, rst);
+			mm->getMidiControllerAssignment (0, 0, kCtrlAllNotesOff, anoff);
+		});
+		mm->release ();
+	}
+	LOG ("  MIDI mapping: sustain CC64 %s | all sound off CC120 %s | reset all controllers CC121 %s | all notes off CC123 %s",
+	     hold != kNoParamId ? "mapped" : "-", asoff != kNoParamId ? "mapped" : "-", rst != kNoParamId ? "mapped" : "-",
+	     anoff != kNoParamId ? "mapped" : "-");
+	check (asoff != kNoParamId && rst != kNoParamId && anoff != kNoParamId,
+	       "all sound off / reset all controllers / all notes off are mapped by IMidiMapping (a VST3 host gives them only to a plug-in that maps them)");
+	if (hold == kNoParamId)
+	{
+		warn ("sustain pedal (CC64) mapped: the hang tests are skipped");
+		return;
+	}
+	restoreDefault (in, ac);
+
+	const int32 B = std::min (g_opt.block, in.maxBlock);
+	const double kSilent = 3.2e-4;   // -70 dBFS
+	struct NoteAt { int32 off; int pitch; };   // pitch > 0: note on, pitch < 0: note off
+	struct ParAt { ParamID id; int32 off; double v; };
+	auto block = [&] (const std::vector<NoteAt>& notes, const std::vector<ParAt>& pars) -> double {
+		in.inEvents.clear ();
+		in.inParams.clear ();
+		in.outParams.clear ();
+		in.outEvents.clear ();
+		for (auto& n : notes)
+			in.addNoteEvent (NoteEv {0, n.pitch > 0, (int16)std::abs (n.pitch), 0.8f, -1}, n.off);
+		for (auto& p : pars)
+			in.inParams.add (p.id, p.off, p.v);
+		Instance::BlockOutcome o = in.processBlock (B);
+		if (!o.crash.empty ())
+		{
+			fail ("process() crashed in the hang test", o.crash);
+			return 1e9;
+		}
+		double pk = 0;
+		for (int32 i = 0; i < B; i++)
+			pk = std::max ({pk, (double)std::fabs (in.bufL[(size_t)i]), (double)std::fabs (in.bufR[(size_t)i])});
+		return pk;
+	};
+	// seconds of silence in, the peak of the last 100 ms out
+	auto runFor = [&] (double seconds) -> double {
+		const int nb = std::max (1, (int)std::ceil (seconds * in.sr / B)), tb = std::max (1, (int)std::ceil (0.1 * in.sr / B));
+		double tail = 0;
+		for (int i = 0; i < nb; i++)
+		{
+			const double p = block ({}, {});
+			if (i >= nb - tb)
+				tail = std::max (tail, p);
+		}
+		return tail;
+	};
+	auto fresh = [&] {
+		in.hostPlaying = true;
+		in.hostContext = true;
+		in.resetProcessing ();
+		block ({}, {});   // (the first block of a run: the transport is "playing")
+	};
+	auto pedal = [&] (double v, int32 off = 0) { return ParAt {hold, off, v}; };
+	auto dB = [] (double x) { return strf ("%.1f dBFS", dbfs (x)); };
+
+	// 0. baseline: a plain note sounds and dies
+	fresh ();
+	block ({{0, 60}}, {});
+	double on = runFor (0.3);
+	block ({{0, -60}}, {});
+	double off0 = runFor (1.5);
+	check (on > 1e-3 && off0 < kSilent, "a plain note sounds, then is silent 1.5 s after its note off (the reference of the tests below)",
+	       strf ("sounding %s, after the release %s", dB (on).c_str (), dB (off0).c_str ()));
+
+	// 1. the sustain pedal holds a released note, and its release lets it go
+	fresh ();
+	block ({{0, 60}}, {pedal (1.0)});
+	runFor (0.3);
+	block ({{0, -60}}, {});
+	double held = runFor (0.8);
+	check (held > 1e-3, "sustain pedal down: a released note is held", dB (held));
+	block ({}, {pedal (0.0)});
+	double freed = runFor (1.5);
+	check (freed < kSilent, "sustain pedal up: the held note is released", dB (freed));
+
+	// 2. the owner's case: the pedal still down when the transport stops (a host does not send its release)
+	fresh ();
+	block ({{0, 60}}, {pedal (1.0)});
+	runFor (0.3);
+	block ({{0, -60}}, {});
+	held = runFor (0.5);
+	in.hostPlaying = false;   // STOP
+	double afterStop = runFor (1.5);
+	check (held > 1e-3 && afterStop < kSilent, "transport stop with the pedal still down: the held notes are released",
+	       strf ("held %s, 1.5 s after the stop %s", dB (held).c_str (), dB (afterStop).c_str ()));
+	block ({{0, 64}}, {});
+	runFor (0.3);
+	block ({{0, -64}}, {});
+	double next = runFor (1.5);
+	check (next < kSilent, "after the stop the pedal is up: the next note is not held", dB (next));
+
+	// 3. notes of a sequence that stops without their note offs
+	fresh ();
+	block ({{0, 60}, {0, 64}, {0, 67}}, {});
+	held = runFor (0.4);
+	in.hostPlaying = false;
+	afterStop = runFor (1.5);
+	check (held > 1e-3 && afterStop < kSilent, "transport stop with notes held and no note off: they are released",
+	       strf ("sounding %s, 1.5 s after the stop %s", dB (held).c_str (), dB (afterStop).c_str ()));
+
+	// 4. the transport stopped from the start (the player plays live): left alone, and no ProcessContext at all: left alone
+	fresh ();
+	in.hostPlaying = false;
+	block ({}, {});
+	block ({{0, 60}}, {});
+	double live = runFor (0.6);
+	check (live > 1e-3, "playing live with the transport stopped: the note keeps sounding (only a change to stopped counts)", dB (live));
+	block ({{0, -60}}, {});
+	runFor (1.5);
+	fresh ();
+	block ({{0, 60}}, {});
+	in.hostContext = false;
+	double noCtx = runFor (0.6);
+	check (noCtx > 1e-3, "a host that gives no ProcessContext: the note keeps sounding", dB (noCtx));
+	in.hostContext = true;
+	block ({{0, -60}}, {});
+	runFor (1.5);
+
+	// 5. MIDI all notes off (CC123): released although the pedal holds them, and the pedal is up
+	if (anoff != kNoParamId)
+	{
+		fresh ();
+		block ({{0, 60}}, {pedal (1.0)});
+		runFor (0.3);
+		block ({{0, -60}}, {});
+		held = runFor (0.4);
+		block ({}, {ParAt {anoff, 0, 0.0}});
+		afterStop = runFor (1.5);
+		check (held > 1e-3 && afterStop < kSilent, "MIDI all notes off (CC123) releases the notes the pedal holds",
+		       strf ("held %s, 1.5 s after %s", dB (held).c_str (), dB (afterStop).c_str ()));
+		block ({{0, 64}}, {});
+		runFor (0.3);
+		block ({{0, -64}}, {});
+		next = runFor (1.5);
+		check (next < kSilent, "after all notes off the pedal is up: the next note is not held", dB (next));
+		// the value a host sends when it resets its hidden parameters to their default is not a panic
+		fresh ();
+		block ({{0, 60}}, {});
+		runFor (0.2);
+		block ({}, {ParAt {anoff, 0, 0.5}, ParAt {asoff, 0, 0.5}, ParAt {rst, 0, 0.5}});
+		double kept = runFor (0.3);
+		check (kept > 1e-3, "the default value of the three panic parameters (a host's reset to default) does not stop the sound", dB (kept));
+		block ({{0, -60}}, {});
+		runFor (1.5);
+	}
+	// 6. MIDI all sound off (CC120): silence at once
+	if (asoff != kNoParamId)
+	{
+		fresh ();
+		block ({{0, 60}, {0, 64}}, {});
+		held = runFor (0.4);
+		const double pk = block ({}, {ParAt {asoff, 0, 0.0}});   // (what is left in that block is the memory of the output's DC filter, a few ms of it)
+		const double rest = runFor (0.5);
+		check (held > 1e-3 && pk < held * 0.03 && rest < kSilent, "MIDI all sound off (CC120): the voices and tails are gone in the block of the message, silence after it",
+		       strf ("sounding %s, block of the message %s, 0.5 s later %s", dB (held).c_str (), dB (pk).c_str (), dB (rest).c_str ()));
+		block ({{0, -60}, {0, -64}}, {});
+		runFor (0.5);
+	}
+	// 7. MIDI reset all controllers (CC121): the pedal up, the held notes go
+	if (rst != kNoParamId)
+	{
+		fresh ();
+		block ({{0, 60}}, {pedal (1.0)});
+		runFor (0.3);
+		block ({{0, -60}}, {});
+		held = runFor (0.4);
+		block ({}, {ParAt {rst, 0, 0.0}});
+		afterStop = runFor (1.5);
+		check (held > 1e-3 && afterStop < kSilent, "MIDI reset all controllers (CC121) lifts the pedal: the held notes are released",
+		       strf ("held %s, 1.5 s after %s", dB (held).c_str (), dB (afterStop).c_str ()));
+	}
+
+	// 8. the pedal in step with the notes (it used to be the last change of the block, applied at its start)
+	fresh ();
+	block ({{0, 60}}, {});
+	runFor (0.3);
+	block ({{5, -60}}, {pedal (1.0, 100)});   // the note ends, THEN the pedal goes down: the note is not held
+	double notHeld = runFor (1.5);
+	check (notHeld < kSilent, "note off at sample 5, pedal down at sample 100 of the same block: the note is not held", dB (notHeld));
+	block ({}, {pedal (0.0)});
+	runFor (0.3);
+	fresh ();
+	block ({{0, 60}}, {});
+	runFor (0.3);
+	block ({{100, -60}}, {pedal (1.0, 5)});   // the pedal goes down, THEN the note ends: held
+	held = runFor (0.8);
+	check (held > 1e-3, "pedal down at sample 5, note off at sample 100 of the same block: the note is held", dB (held));
+	block ({}, {pedal (0.0)});
+	afterStop = runFor (1.5);
+	check (afterStop < kSilent, "pedal up: it is released", dB (afterStop));
+	fresh ();
+	block ({{0, 60}}, {});
+	runFor (0.3);
+	block ({{50, -60}}, {pedal (1.0, 50)});   // at the same sample the pedal comes first
+	held = runFor (0.8);
+	check (held > 1e-3, "pedal down and note off at the same sample: the pedal comes first (the note is held)", dB (held));
+	block ({}, {pedal (0.0)});
+	runFor (1.5);
+
+	// 9. processing switched off with a note held by the pedal (a host suspends the plug-in): nothing keeps sounding
+	fresh ();
+	block ({{0, 60}}, {pedal (1.0)});
+	runFor (0.3);
+	block ({{0, -60}}, {});
+	held = runFor (0.4);
+	in.setProcessingState (false);
+	in.setProcessingState (true);
+	afterStop = runFor (1.5);
+	check (held > 1e-3 && afterStop < kSilent, "setProcessing(false) then (true) with a note held by the pedal: it is released",
+	       strf ("held %s, after %s", dB (held).c_str (), dB (afterStop).c_str ()));
+
+	in.hostPlaying = true;
+	in.hostContext = true;
+	in.resetProcessing ();
+	restoreDefault (in, ac);
+}
+
+//==============================================================================
 // Editor
 //==============================================================================
 static ULONG_PTR g_gdiplusToken = 0;
@@ -5892,6 +6132,8 @@ int main ()
 			testSubOsc (in, ac);
 		if (want ("sync"))
 			testTempoSync (in, ac);
+		if (want ("hang"))
+			testHang (in, ac);
 		if (want ("porta"))
 		{
 			testPortamento (in, ac);

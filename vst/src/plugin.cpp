@@ -328,6 +328,8 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
       stateDirty.store(true);
     } else {
       engine.reset();
+      liftPedal();   // version 1.0.12: a sustain pedal still down when the plug-in is switched off does not hold the notes of the next run
+      wasPlaying = false;
     }
     return kResultOk;
   }
@@ -374,10 +376,11 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     if (setup.maxSamplesPerBlock > 0 && setup.maxSamplesPerBlock <= 1 << 20) scratch.resize((size_t)setup.maxSamplesPerBlock);   // (version 1.0.7: the right channel of a mono host layout is not allocated on the audio thread)
     return kResultOk;
   }
-  tresult PLUGIN_API setProcessing(TBool) override { return kResultOk; }
+  // version 1.0.12: a host that switches the processing off (a suspended track, a stop) leaves nothing sounding, or held by the sustain pedal, behind it
+  tresult PLUGIN_API setProcessing(TBool state) override { if (!state) { releaseAll(); wasPlaying = false; } return kResultOk; }
   uint32 PLUGIN_API getTailSamples() override { return kInfiniteTail; }
-  // beta 0.6: the tempo, for the tempo sync of the delay and the LFOs
-  uint32 PLUGIN_API getProcessContextRequirements() override { return IProcessContextRequirements::kNeedTempo; }
+  // beta 0.6: the tempo, for the tempo sync of the delay and the LFOs; version 1.0.12: the transport state (a stop releases every note, see process)
+  uint32 PLUGIN_API getProcessContextRequirements() override { return IProcessContextRequirements::kNeedTempo | IProcessContextRequirements::kNeedTransportState; }
 
   tresult PLUGIN_API process(ProcessData& data) override {
     // flush denormals to zero on this thread while we process (restored on return)
@@ -393,6 +396,12 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     // beta 0.6: the host's tempo for the tempo sync (120 BPM when the host gives none, so that SYNC always plays)
     const ProcessContext* pc = data.processContext;
     engine.setTempo(pc && (pc->state & ProcessContext::kTempoValid) && pc->tempo > 0 ? pc->tempo : 120.0);
+    // version 1.0.12: the transport going from playing to stopped releases every note and lifts the sustain pedal: a host that does not send the pedal's release (or the
+    // note offs of the notes it stops) must not leave a sound behind. Only the change counts (a host that plays no transport while the player plays live is left alone).
+    bool stopped = false;
+    if (pc) { const bool playing = (pc->state & ProcessContext::kPlaying) != 0; stopped = wasPlaying && !playing; wasPlaying = playing; }
+    bool panicSound = false, panicNotes = false, panicControllers = false;
+    nPedal = 0;
     // 1. parameter changes (last value of each queue, applied at block start)
     if (data.inputParameterChanges) {
       int32 nq = data.inputParameterChanges->getParameterCount();
@@ -401,6 +410,27 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
         if (!queue) continue;
         ParamID id = queue->getParameterId();
         int32 np = queue->getPointCount();
+        // version 1.0.12: MIDI CC 120 / 121 / 123 reach a VST3 plug-in as parameters (IMidiMapping) and are triggers: a point at any value but the default (0.5) fires
+        // (the data byte of these messages is 0; a host that resets its hidden parameters to their default sends 0.5, which must not fire a panic)
+        if (id == (ParamID)P_MIDI_ASOFF || id == (ParamID)P_MIDI_RSTCTL || id == (ParamID)P_MIDI_ANOFF) {
+          bool fired = false;
+          for (int32 k = 0; k < np && !fired; k++) {
+            int32 poff = 0; ParamValue pvn = 0;
+            fired = queue->getPoint(k, poff, pvn) == kResultOk && std::fabs(pvn - toNorm(kParams[id], kParams[id].def)) > 1e-6;
+          }
+          if (fired) { if (id == (ParamID)P_MIDI_ASOFF) panicSound = true; else if (id == (ParamID)P_MIDI_ANOFF) panicNotes = true; else panicControllers = true; }
+          continue;
+        }
+        // the sustain pedal: every point lands at its own sample offset, in step with the notes (4.), not all at the start of the block
+        if (id == (ParamID)P_HOLD) {
+          for (int32 k = 0; k < np; k++) {
+            int32 poff = 0; ParamValue pvn = 0;
+            if (queue->getPoint(k, poff, pvn) != kResultOk) continue;
+            const PedalPt pt{std::max<int32>(0, std::min<int32>(data.numSamples, poff)), toPlain(kParams[P_HOLD], pvn)};
+            if (nPedal < kMaxPedal) pedal[nPedal++] = pt; else pedal[kMaxPedal - 1] = pt;   // (a block has never so many: the last point always counts)
+          }
+          continue;
+        }
         int32 off = 0; ParamValue v = 0;
         if (id < (ParamID)kNumParams && np > 0 && queue->getPoint(np - 1, off, v) == kResultOk) {
           double pv = toPlain(kParams[id], v);
@@ -420,6 +450,11 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
           }
         }
       }
+    }
+    for (int a = 1; a < nPedal; a++) {   // (the points of one queue come in order; two queues of the same parameter, as the VST2 wrapper may give, are merged here)
+      const PedalPt t = pedal[a]; int b = a - 1;
+      while (b >= 0 && pedal[b].off > t.off) { pedal[b + 1] = pedal[b]; b--; }
+      pedal[b + 1] = t;
     }
     if (stateDirty.exchange(false)) {
       for (int i = 0; i < kNumParams; i++) engine.setParam(i, plain[i].load());
@@ -451,6 +486,11 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
       }
     }
 
+    // version 1.0.12: the MIDI panic messages (CC 120 all sound off, CC 123 all notes off, CC 121 reset all controllers) and the transport stop, before this block's notes
+    if (panicSound) { engine.allSoundOff(); liftPedal(); }
+    else if (panicNotes || stopped) releaseAll();
+    if (panicControllers) resetControllers();
+
     // 3. notes from the on-screen keyboard
     if (shared) {
       SharedState::Ev e;
@@ -475,17 +515,28 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     }
     IEventList* events = data.inputEvents;
     int32 ne = events ? events->getEventCount() : 0;
-    int32 pos = 0, hi = 0;
+    int32 pos = 0, hi = 0, pdi = 0;
+    // version 1.0.12: the sustain pedal changes (collected in 1.) go in step with the notes, each at its own sample offset and before a note of the same offset (it used to
+    // be the last change of the block applied at its start: a note off that came before the pedal went down was held, and the pedal's release was early or late)
+    auto pedalUpTo = [&](int32 upTo) {
+      while (pdi < nPedal && pedal[pdi].off <= upTo) {
+        const int32 at = pedal[pdi].off;
+        if (L && at > pos) { engine.process(L + pos, R + pos, at - pos); pos = at; }
+        setPedal(pedal[pdi].v); pdi++;
+      }
+    };
     for (;;) {
       Event e{};
       while (hi < ne && events->getEvent(hi, e) != kResultOk) hi++;
       if (hi >= ne) break;
       const int32 off = std::max(0, std::min(ns, e.sampleOffset));
+      pedalUpTo(off);
       if (L && off > pos) { engine.process(L + pos, R + pos, off - pos); pos = off; }
       if (e.type == Event::kNoteOnEvent) engine.keyOn(e.noteOn.pitch, e.noteOn.velocity);   // Okto MultiWave Synth: the chord layer
       else if (e.type == Event::kNoteOffEvent) engine.keyOff(e.noteOff.pitch);
       hi++;
     }
+    pedalUpTo(ns);
     if (L && pos < ns) engine.process(L + pos, R + pos, ns - pos);
     if (L) data.outputs[0].silenceFlags = 0;
     // Okto MultiWave Synth: a key of the selector octave chose a chord type: the parameter follows, the host and its controller are
@@ -573,6 +624,19 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
   std::thread worker;
   std::atomic<bool> quit{false};
   std::vector<float> scratch;
+  // version 1.0.12: the sustain pedal, the MIDI panic messages and the transport state (see process). A pedal left down, or a stop whose note offs never came, used to
+  // leave the notes sounding (the pedal holds the notes that are released, the engine's all-notes-off was not reachable from a VST3 host)
+  struct PedalPt { int32 off; double v; };
+  static constexpr int kMaxPedal = 64;
+  PedalPt pedal[kMaxPedal]; int nPedal = 0;   // the pedal changes of the block, by sample offset (audio thread)
+  bool wasPlaying = false;                    // the transport was playing at the last block that told (audio thread)
+  void setPedal(double v) { if (plain[P_HOLD].load() != v) { plain[P_HOLD].store(v); engine.setParam(P_HOLD, v); } }   // (the engine lets go of the held notes when it goes up)
+  void liftPedal() { setPedal(kParams[P_HOLD].def); }
+  void releaseAll() { engine.allNotesOff(); liftPedal(); }   // every note released, held ones too, and the pedal up
+  void resetControllers() {   // MIDI "reset all controllers": the pedal up, the pitch bend and the mod wheel at rest (the notes sounding are not touched)
+    liftPedal();
+    for (const int id : {P_BEND, P_MODWHEEL}) { const double d = kParams[id].def; if (plain[id].load() != d) { plain[id].store(d); engine.setParam(id, d); } }
+  }
   FUnknown* hostContext = nullptr;
   IConnectionPoint* peer = nullptr;
   std::shared_ptr<SharedState> shared;
@@ -761,10 +825,14 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
     return nullptr;
   }
 
-  // IMidiMapping: pitch bend, mod wheel and sustain pedal arrive as parameters in VST3
+  // IMidiMapping: pitch bend, mod wheel and sustain pedal arrive as parameters in VST3; version 1.0.12: so do the three MIDI panic messages (all sound off, reset all
+  // controllers, all notes off), which a VST3 host only gives to a plug-in that maps them (the processor treats these three parameters as triggers)
   tresult PLUGIN_API getMidiControllerAssignment(int32 busIndex, int16, CtrlNumber ctrl, ParamID& id) override {
     if (busIndex != 0) return kResultFalse;
     switch (ctrl) {
+      case kCtrlAllSoundsOff: id = P_MIDI_ASOFF; return kResultTrue;
+      case kCtrlResetAllCtrlers: id = P_MIDI_RSTCTL; return kResultTrue;
+      case kCtrlAllNotesOff: id = P_MIDI_ANOFF; return kResultTrue;
       case kPitchBend: id = P_BEND; return kResultTrue;
       case kCtrlModWheel: id = P_MODWHEEL; return kResultTrue;
       case kCtrlSustainOnOff: id = P_HOLD; return kResultTrue;

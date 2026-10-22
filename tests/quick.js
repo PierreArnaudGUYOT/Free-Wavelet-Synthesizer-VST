@@ -156,7 +156,7 @@ function vst3() {
   fs.mkdirSync(out, { recursive: true });
   const presets = path.join(out, 'presets_spec.txt');
   cp.spawnSync(process.execPath, [R('tests', 'vst3host', 'make_presets.js'), presets], { encoding: 'utf8' });
-  const sections = 'params,audio,offline,attrlist';
+  const sections = 'params,audio,offline,attrlist,hang';   // (version 1.0.12: hang = the sustain pedal, the MIDI panic messages and the transport stop)
   return new Promise((resolve) => {
     const p = cp.spawn(R('tests', 'vst3host', 'vst3host.exe'),
       [R('build', 'OktoMultiWaveSynth.vst3'), out, '--quick', '--skip-editor', '--no-reload', '--only', sections, '--presets', presets, '--timeout', '60'],

@@ -35,6 +35,13 @@ struct AEffect {
 struct MidiEvent { int32_t type, byteSize, deltaFrames, flags, noteLength, noteOffset; unsigned char midiData[4]; char detune, noteOffVelocity, r1, r2; };
 struct Events { int32_t numEvents; intptr_t reserved; void* events[8]; };
 struct Rect { int16_t top, left, bottom, right; };
+// the host's time info (audioMasterGetTime): version 1.0.12, the transport state reaches the plug-in as it does a VST3 one
+struct TimeInfo {
+  double samplePos, sampleRate, nanoSeconds, ppqPos, tempo, barStartPos, cycleStartPos, cycleEndPos;
+  int32_t timeSigNumerator, timeSigDenominator, smpteOffset, smpteFrameRate, samplesToNextClock, flags;
+};
+constexpr int32_t kTransportPlaying = 1 << 1;
+TimeInfo gTime{}; bool gTimeOn = false;
 
 int fails = 0, passes = 0;
 // the program names of the VST2 host: the middle dot of a name is written as a hyphen
@@ -48,6 +55,7 @@ intptr_t hostCb(AEffect*, int32_t op, int32_t index, intptr_t value, void*, floa
   switch (op) {
     case 0: automateCalls++; return 0;    // audioMasterAutomate
     case 1: return 2400;                  // audioMasterVersion
+    case 7: return gTimeOn ? (intptr_t)&gTime : 0;   // audioMasterGetTime
     case 15: return 1;                    // audioMasterSizeWindow
     case 23: return processLevel;         // audioMasterGetCurrentProcessLevel
     default: return 0;
@@ -93,7 +101,8 @@ int main(int argc, char** argv) {
   check(fx && fx->magic == 0x56737450, "VSTPluginMain returns an AEffect ('VstP')");
   if (!fx) return 1;
   char buf[256];
-  check(fx->numParams == kNumParams && fx->numPrograms == kNumPresets && fx->numInputs == 0 && fx->numOutputs == 2, "69 parameters, 32 programs, 0 in / 2 out");
+  // (version 1.0.12: the host sees the parameters but the three triggers of the MIDI panic messages, which are the last ones)
+  check(fx->numParams == P_MIDI_ASOFF && kNumParams == P_MIDI_ASOFF + 3 && fx->numPrograms == kNumPresets && fx->numInputs == 0 && fx->numOutputs == 2, "the parameters (without the 3 MIDI triggers), the programs, 0 in / 2 out");
   check((fx->flags & 1) && (fx->flags & 16) && (fx->flags & 32) && (fx->flags & 256), "flags: editor, replacing, chunks, synth");
   D(fx, 0);
   std::memset(buf, 0, sizeof buf); D(fx, 45, 0, 0, buf); check(!std::strcmp(buf, "Okto MultiWave Synth"), "effect name", buf);
@@ -124,6 +133,64 @@ int main(int argc, char** argv) {
   midi(fx, 0x90, 64, 90); render(fx, 10); midi(fx, 0xB0, 123, 0); render(fx, 400);
   Render r3 = render(fx, 10); std::snprintf(d, sizeof d, "peak %.5f", r3.peak);
   check(r3.peak < 1e-3, "CC123 (all notes off) stops the notes", d);
+
+  // version 1.0.12: the sustain pedal, the transport stop and the MIDI panic messages (a host that stopped used to leave the notes the pedal held sounding for ever)
+  {
+    auto later = [&](int quiet, int look) { render(fx, quiet); return render(fx, look).peak; };   // the peak of `look` blocks after `quiet` blocks
+    auto two = [&](unsigned char a1, unsigned char b1, unsigned char c1, int32_t at1, unsigned char a2, unsigned char b2, unsigned char c2, int32_t at2) {
+      MidiEvent e1{}, e2{};
+      e1.type = e2.type = 1; e1.byteSize = e2.byteSize = sizeof e1;
+      e1.midiData[0] = a1; e1.midiData[1] = b1; e1.midiData[2] = c1; e1.deltaFrames = at1;
+      e2.midiData[0] = a2; e2.midiData[1] = b2; e2.midiData[2] = c2; e2.deltaFrames = at2;
+      Events ev{}; ev.numEvents = 2; ev.events[0] = &e1; ev.events[1] = &e2;
+      D(fx, 25, 0, 0, &ev);
+    };
+    gTimeOn = true; gTime.sampleRate = 48000; gTime.flags = kTransportPlaying; render(fx, 2);
+    midi(fx, 0xB0, 64, 127); midi(fx, 0x90, 60, 100); render(fx, 30); midi(fx, 0x80, 60, 0);
+    float held = later(100, 10); std::snprintf(d, sizeof d, "peak %.4f", held);
+    check(held > 1e-3, "CC64 (sustain pedal) down: a released note is held", d);
+    gTime.flags = 0;   // STOP: the pedal is still down
+    float stopped = later(400, 10); std::snprintf(d, sizeof d, "peak %.5f", stopped);
+    check(stopped < 1e-3, "transport stop with the pedal down: the held note is released", d);
+    midi(fx, 0x90, 64, 100); render(fx, 30); midi(fx, 0x80, 64, 0);
+    float next = later(400, 10); std::snprintf(d, sizeof d, "peak %.5f", next);
+    check(next < 1e-3, "after the stop the pedal is up: the next note is not held", d);
+    gTime.flags = kTransportPlaying; render(fx, 2);
+    midi(fx, 0x90, 60, 100); midi(fx, 0x90, 64, 100); render(fx, 30);
+    gTime.flags = 0;   // STOP without any note off
+    stopped = later(400, 10); std::snprintf(d, sizeof d, "peak %.5f", stopped);
+    check(stopped < 1e-3, "transport stop with notes held and no note off: they are released", d);
+    gTime.flags = kTransportPlaying; render(fx, 2);
+    midi(fx, 0xB0, 64, 127); midi(fx, 0x90, 60, 100); render(fx, 30); midi(fx, 0x80, 60, 0);
+    held = later(60, 10);
+    midi(fx, 0xB0, 123, 0);
+    float cc123 = later(400, 10); std::snprintf(d, sizeof d, "held %.4f, then %.5f", held, cc123);
+    check(held > 1e-3 && cc123 < 1e-3, "CC123 releases the notes the pedal holds", d);
+    midi(fx, 0x90, 64, 100); render(fx, 30); midi(fx, 0x80, 64, 0);
+    next = later(400, 10); std::snprintf(d, sizeof d, "peak %.5f", next);
+    check(next < 1e-3, "after CC123 the pedal is up: the next note is not held", d);
+    midi(fx, 0xB0, 64, 127); midi(fx, 0x90, 60, 100); render(fx, 30); midi(fx, 0x80, 60, 0);
+    held = later(60, 10);
+    midi(fx, 0xB0, 121, 0);
+    float cc121 = later(400, 10); std::snprintf(d, sizeof d, "held %.4f, then %.5f", held, cc121);
+    check(held > 1e-3 && cc121 < 1e-3, "CC121 (reset all controllers) lifts the pedal: the held notes are released", d);
+    midi(fx, 0x90, 60, 100); midi(fx, 0x90, 64, 100); float sounding = render(fx, 30).peak;
+    midi(fx, 0xB0, 120, 0);
+    float pk = render(fx, 1).peak, rest = later(40, 10); std::snprintf(d, sizeof d, "sounding %.4f, block of the message %.5f, later %.6f", sounding, pk, rest);
+    check(sounding > 1e-3 && pk < sounding * 0.1f && rest < 1e-4, "CC120 (all sound off) silences the voices and the tails at once", d);
+    // the pedal keeps its place in the block: the note off (frame 5) comes before the pedal goes down (frame 100)
+    midi(fx, 0x90, 60, 100); render(fx, 30);
+    two(0x80, 60, 0, 5, 0xB0, 64, 127, 100);
+    float order = later(400, 10); std::snprintf(d, sizeof d, "peak %.5f", order);
+    check(order < 1e-3, "note off at frame 5, pedal down at frame 100 of the same block: the note is not held", d);
+    midi(fx, 0xB0, 64, 0); render(fx, 2);
+    midi(fx, 0x90, 60, 100); render(fx, 30);
+    two(0xB0, 64, 127, 5, 0x80, 60, 0, 100);
+    float orderB = later(100, 10); std::snprintf(d, sizeof d, "peak %.4f", orderB);
+    check(orderB > 1e-3, "pedal down at frame 5, note off at frame 100 of the same block: the note is held", d);
+    midi(fx, 0xB0, 64, 0); render(fx, 400);
+    gTimeOn = false;
+  }
 
   // Okto MultiWave Synth: the chord keyboard through the VST2 entry point (MIDI in, the processor's chord type out to the host)
   {

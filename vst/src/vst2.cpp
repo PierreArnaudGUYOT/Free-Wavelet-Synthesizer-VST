@@ -62,6 +62,7 @@ struct TimeInfo {
   int32_t timeSigNumerator, timeSigDenominator, smpteOffset, smpteFrameRate, samplesToNextClock, flags;
 };
 constexpr int32_t kTempoValid = 1 << 10;
+constexpr int32_t kTransportPlaying = 1 << 1;   // version 1.0.12: the transport runs (a host always fills the transport flags of its time info)
 
 constexpr int32_t kMagic = 0x56737450;   // 'VstP'
 constexpr int32_t kMidiType = 1;
@@ -159,14 +160,39 @@ class ParamQueue : public IParamValueQueue {
   tresult PLUGIN_API addPoint(int32, ParamValue v, int32& index) override { value = v; index = 0; return kResultOk; }
 };
 
+// version 1.0.12: the sustain pedal's changes (CC 64) of a block with their sample offsets, as a VST3 host gives them (the processor puts them in step with the notes)
+class PedalQueue : public IParamValueQueue {
+ public:
+  WS2_UNKNOWN(IParamValueQueue)
+  static constexpr int32 kMax = 64;
+  ParamID id = 0;
+  int32 n = 0; int32 off[kMax] = {}; ParamValue val[kMax] = {};
+  ParamID PLUGIN_API getParameterId() override { return id; }
+  int32 PLUGIN_API getPointCount() override { return n; }
+  tresult PLUGIN_API getPoint(int32 index, int32& offset, ParamValue& v) override {
+    if (index < 0 || index >= n) return kInvalidArgument;
+    offset = off[index]; v = val[index]; return kResultOk;
+  }
+  tresult PLUGIN_API addPoint(int32 offset, ParamValue v, int32& index) override {
+    index = std::min(n, kMax - 1);   // (a block never has so many: the newest change takes the last place, so that the final state is right)
+    off[index] = offset; val[index] = v;
+    if (n < kMax) n++;
+    return kResultOk;
+  }
+};
+
 class ParamChanges : public IParameterChanges {
  public:
   WS2_UNKNOWN(IParameterChanges)
   ParamQueue queues[kNumParams];
+  PedalQueue pedal;   // the pedal's own queue (filled by the MIDI events, emptied after each block), after the single-point ones
   int32 count = 0;
   void add(int id, double v) { if (count < kNumParams) { queues[count].id = (ParamID)id; queues[count].value = v; count++; } }
-  int32 PLUGIN_API getParameterCount() override { return count; }
-  IParamValueQueue* PLUGIN_API getParameterData(int32 index) override { return index >= 0 && index < count ? &queues[index] : nullptr; }
+  int32 PLUGIN_API getParameterCount() override { return count + (pedal.n > 0 ? 1 : 0); }
+  IParamValueQueue* PLUGIN_API getParameterData(int32 index) override {
+    if (index >= 0 && index < count) return &queues[index];
+    return index == count && pedal.n > 0 ? &pedal : nullptr;
+  }
   IParamValueQueue* PLUGIN_API addParameterData(const ParamID& id, int32& index) override {
     if (count >= kNumParams) return nullptr;
     queues[count].id = id; index = count; return &queues[count++];
@@ -220,7 +246,7 @@ class Instance {
     fx.magic = vst2::kMagic;
     fx.dispatcher = &sDispatch; fx.process = &sProcessAdd; fx.processReplacing = &sProcessReplacing;
     fx.setParameter = &sSetParameter; fx.getParameter = &sGetParameter;
-    fx.numPrograms = kNumPresets; fx.numParams = kNumParams; fx.numInputs = 0; fx.numOutputs = 2;
+    fx.numPrograms = kNumPresets; fx.numParams = P_MIDI_ASOFF; fx.numInputs = 0; fx.numOutputs = 2;   // (version 1.0.12: the host sees the 175 parameters of before, not the three triggers of the MIDI panic messages, which are the last ones)
     fx.flags = vst2::effFlagsHasEditor | vst2::effFlagsCanReplacing | vst2::effFlagsProgramChunks | vst2::effFlagsIsSynth;
     fx.ioRatio = 1.0f; fx.object = this;
     fx.uniqueID = ('O' << 24) | ('k' << 16) | ('M' << 8) | 'W';   // Okto MultiWave Synth (the Wavelet Synthesizer is 'OkWv')
@@ -316,14 +342,13 @@ class Instance {
       setParameter(bendId, (float)(((d2 << 7) | d1) / 16383.0));
     } else if (status == 0xB0) {
       if (d1 == 1 && modId >= 0) setParameter(modId, d2 / 127.0f);
-      else if (d1 == 64 && holdId >= 0) setParameter(holdId, d2 / 127.0f);
-      else if (d1 == 120 || d1 == 123) {   // all sound off / all notes off
-        for (int n = 0; n < 128; n++) {
-          e.type = Steinberg::Vst::Event::kNoteOffEvent;
-          e.noteOff.channel = (int16)ch; e.noteOff.pitch = (int16)n; e.noteOff.velocity = 0; e.noteOff.noteId = -1;
-          events.addEvent(e);
-        }
-      }
+      // version 1.0.12: the sustain pedal keeps its place in the block (the processor puts it in step with the notes: a note off before the pedal went down is not held)
+      else if (d1 == 64 && holdId >= 0) { int32 at = 0; changes.pedal.id = (ParamID)holdId; changes.pedal.addPoint(std::max(0, m.deltaFrames), d2 / 127.0f, at); }
+      // version 1.0.12: the MIDI panic messages are the processor's triggers (they used to be 128 note offs, which a sustain pedal still down holds, and CC 121 was ignored):
+      // all sound off silences everything, all notes off releases every note, reset all controllers lets the pedal, the pitch bend and the mod wheel go
+      else if (d1 == 120) setParameter(P_MIDI_ASOFF, 0.0f);
+      else if (d1 == 123) setParameter(P_MIDI_ANOFF, 0.0f);
+      else if (d1 == 121) setParameter(P_MIDI_RSTCTL, 0.0f);
     }
   }
 
@@ -342,9 +367,14 @@ class Instance {
     // beta 0.6: the host's tempo, as a VST3 host gives it (the tempo sync of the delay and the LFOs)
     ProcessContext pc{};
     const auto* ti = (const vst2::TimeInfo*)host(&fx, vst2::audioMasterGetTime, 0, vst2::kTempoValid, nullptr, 0);
-    if (ti && (ti->flags & vst2::kTempoValid) && ti->tempo > 0) { pc.state = ProcessContext::kTempoValid; pc.tempo = ti->tempo; d.processContext = &pc; }
+    if (ti) {
+      // version 1.0.12: the transport state too, as a VST3 host gives it (a stop releases every note); the tempo only when the host has one (120 BPM otherwise, as before)
+      pc.state = (ti->flags & vst2::kTransportPlaying) ? (uint32)ProcessContext::kPlaying : 0u;
+      if ((ti->flags & vst2::kTempoValid) && ti->tempo > 0) { pc.state |= ProcessContext::kTempoValid; pc.tempo = ti->tempo; }
+      d.processContext = &pc;
+    }
     proc->process(d);
-    events.count = 0;
+    events.count = 0; changes.pedal.n = 0;
     // Okto MultiWave Synth: a parameter the processor changed itself (the chord type from a selector key): the host's value, the
     // controller (on the UI thread, syncController) and the host's automation follow
     for (int32_t i = 0; i < outChanges.count; i++) {

@@ -3,6 +3,13 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.12 — 2026-10-22 (shown as OktoWave 1.0)
+
+- **The sound stops when the host stops** (Windows and Mac plug-in). In a DAW such as Ableton Live a sound could stay on after STOP: a sustain pedal still down in the MIDI sequence held the released notes, notes of a stopped sequence got no note off, a note released at the moment the pedal goes down was held. The plug-in now releases every note and lifts the pedal when the host stops, understands the MIDI messages *all notes off*, *all sound off* and *reset all controllers*, and puts the pedal at its exact place among the notes (VST3 and VST2).
+- No change of the sound engine: presets, stars, saved projects and the user bank are kept.
+
+**Checked** (simple tests): build, the quick suite with the C++/JS cross-check (323 cases) and its new *hang* section (77 checks: the 1.0.11 build fails 6 of them), the VST2 entry point with the transport, the pedal and the panic messages, the TOP Sounds against beta 0.7, the plug-in window in a host, the presets file, the web smoke test, the manual and the demo test.
+
 ## Okto MultiWave Synth 1.0.11 — 2026-10-22 (shown as OktoWave 1.0)
 
 - **The synthesizer now says "1.0"**: OktoWave 1.0 is the first stable release (the number inside the files stays 1.0.11).
