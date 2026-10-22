@@ -5,6 +5,7 @@
 //   cpu_ab <cases.txt> [--out f.csv] [--chords 3,6,8] [--vel 0.9] [--reps 6] [--shard i/n] [--pin cpu]
 // Output lines: index, chord, velocity, old %, new %, old hash, new hash. Build: see tools/cpu_ab.bat (cpu_ab_engine.cpp twice, with -Dws=ws_old / -Dws=ws_new).
 #include "cpu_ab.h"
+#include "generated/spec.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -21,7 +22,7 @@
 #if defined(__SSE__)
 #include <xmmintrin.h>
 #endif
-constexpr int kNumParamsAb = 178;   // checked against the cases at run time (the number of values on a line; version 1.0.12: 178 with the three hidden MIDI trigger parameters)
+constexpr int kNumParamsAb = ws::kNumParams;   // checked against the cases at run time (the number of values on a line; version 1.0.13: from the generated spec, a written-out count fell behind)
 AbRunner* makeOld();
 AbRunner* makeNew();
 static uint64_t fnv(const float* p, int n, uint64_t h) { const uint32_t* u = (const uint32_t*)p; for (int i = 0; i < n; i++) { h ^= u[i]; h *= 1099511628211ull; } return h; }

@@ -327,6 +327,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
       }
       stateDirty.store(true);
     } else {
+      demoStop();   // version 1.0.13
       engine.reset();
       liftPedal();   // version 1.0.12: a sustain pedal still down when the plug-in is switched off does not hold the notes of the next run
       wasPlaying = false;
@@ -377,7 +378,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     return kResultOk;
   }
   // version 1.0.12: a host that switches the processing off (a suspended track, a stop) leaves nothing sounding, or held by the sustain pedal, behind it
-  tresult PLUGIN_API setProcessing(TBool state) override { if (!state) { releaseAll(); wasPlaying = false; } return kResultOk; }
+  tresult PLUGIN_API setProcessing(TBool state) override { if (!state) { demoStop(); releaseAll(); wasPlaying = false; } return kResultOk; }
   uint32 PLUGIN_API getTailSamples() override { return kInfiniteTail; }
   // beta 0.6: the tempo, for the tempo sync of the delay and the LFOs; version 1.0.12: the transport state (a stop releases every note, see process)
   uint32 PLUGIN_API getProcessContextRequirements() override { return IProcessContextRequirements::kNeedTempo | IProcessContextRequirements::kNeedTransportState; }
@@ -437,6 +438,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
           if (plain[id].load() != pv) {
             const double old = plain[id].load();
             plain[id].store(pv);
+            if (demo.phase != 0 && !kParams[id].hidden) continue;   // version 1.0.13: the demo plays its own values; the player's come back when it stops (demoStop)
             engine.setParam((int)id, pv);
             // an oscillator's level rebuilds the tables only when it reaches or leaves 0 (the oscillator plays or not)
             bool levelEnds = false;
@@ -456,20 +458,31 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
       while (b >= 0 && pedal[b].off > t.off) { pedal[b + 1] = pedal[b]; b--; }
       pedal[b + 1] = t;
     }
-    if (stateDirty.exchange(false)) {
+    if (stateDirty.exchange(false) && demo.phase == 0) {   // (during the demo the loaded state waits: demoStop gives the engine the player's values)
       for (int i = 0; i < kNumParams; i++) engine.setParam(i, plain[i].load());
       lastMorph = morphNeeded(engine.p); lastVarSig = variantSig(engine.p);   // (a loaded state rebuilds the tables itself)
     }
 
-    // 2. new tables from the builder thread
-    int pend = pendingIdx.exchange(-1);
+    // version 1.0.13: the demo's commands from the editor (PLAY DEMO / STOP DEMO), the first preset of the tour once its tables are built, the end of the piece
+    if (shared) {
+      const int c = shared->demoCmd.exchange(0);
+      if (c == 1 && !offline) demoStart(); else if (c == 2) demoStop();
+    }
+    if (demo.phase == 1 && demoReady.load() == demoTag(0)) {
+      demoApply(0);
+      demo.phase = 2; demo.t0 = demo.clock + (int64_t)std::llround(kDemoLeadIn * engine.sr);
+    }
+    if (demo.phase == 2 && demo.clock >= demo.t0 + (int64_t)std::llround((kDemoDuration + kDemoTail) * engine.sr)) demoStop();
+
+    // 2. new tables from the builder thread (version 1.0.13: not during the demo, which has its own; demoStop asks for the player's again)
+    int pend = demo.phase == 0 ? pendingIdx.exchange(-1) : -1;
     if (pend >= 0) {
       setState_[pend].store(kActive);
       engine.setTables(tableRef(sets[pend]));
     }
     // Offline rendering (export / freeze) must not depend on the builder thread's timing:
     // rebuild structural changes synchronously, which is allowed when not running in real time.
-    if (offline && structVersion.load() != builtVersion.load()) {
+    if (offline && demo.phase == 0 && structVersion.load() != builtVersion.load()) {
       std::lock_guard<std::mutex> lk(buildMutex);
       uint32_t v = structVersion.load();
       if (v != builtVersion.load()) {
@@ -487,7 +500,7 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     }
 
     // version 1.0.12: the MIDI panic messages (CC 120 all sound off, CC 123 all notes off, CC 121 reset all controllers) and the transport stop, before this block's notes
-    if (panicSound) { engine.allSoundOff(); liftPedal(); }
+    if (panicSound) { engine.allSoundOff(); std::memset(demo.count, 0, sizeof demo.count); liftPedal(); }
     else if (panicNotes || stopped) releaseAll();
     if (panicControllers) resetControllers();
 
@@ -495,14 +508,14 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     if (shared) {
       SharedState::Ev e;
       while (shared->pop(e)) {   // Okto MultiWave Synth: keys go through the chord layer, the strum plate's notes play as themselves
-        if (e.vel < 0) engine.allNotesOff();
+        if (e.vel < 0) { engine.allNotesOff(); std::memset(demo.count, 0, sizeof demo.count); }
         else if (e.kind == 1) { if (e.vel == 0) engine.plateOff(e.note); else engine.plateOn(e.note, e.vel / 127.0); }
         else if (e.vel == 0) engine.keyOff(e.note);
         else engine.keyOn(e.note, e.vel / 127.0);
       }
     }
 
-    // 4. audio with sample-accurate note events (from the host)
+    // 4. audio with sample-accurate note events (from the host, and version 1.0.13: the demo's notes and its change of preset)
     const int32 ns = data.numSamples;
     float* L = nullptr; float* R = nullptr;
     if (data.numOutputs > 0 && data.outputs && data.outputs[0].numChannels > 0 && ns > 0) {
@@ -525,19 +538,61 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
         setPedal(pedal[pdi].v); pdi++;
       }
     };
+    // version 1.0.13: the demo's dip for the next preset of the tour starts when its tables are ready and the time has come (it ends at the note the change goes with)
+    if (demo.phase == 2 && demo.dip < 0 && demo.scene + 1 < kNumDemoScenes && demoReady.load() == demoTag(demo.scene + 1)) {
+      const int64_t start = demoChordAt(demo.scene + 1) - demoDipLen();
+      if (start < demo.clock + ns) { demo.dip = std::max(start, demo.clock); demo.changed = false; }
+    }
+    const int64_t kNever = INT64_MAX;
+    // offsets in this block of the demo's next note and of its change of preset (kNever: none in this block)
+    auto demoNoteAt = [&]() -> int64_t {
+      if (demo.phase != 2 || demo.ev >= kNumDemoEvents) return kNever;
+      const int64_t at = demo.t0 + (int64_t)std::llround(kDemoEvents[demo.ev].t * engine.sr) - demo.clock;
+      return at < ns ? std::max<int64_t>(0, at) : kNever;
+    };
+    auto demoChangeAt = [&]() -> int64_t {
+      if (demo.phase != 2 || demo.dip < 0 || demo.changed) return kNever;
+      const int64_t at = demo.dip + demoDipDown() - demo.clock;
+      return at < ns ? std::max<int64_t>(0, at) : kNever;
+    };
     for (;;) {
       Event e{};
       while (hi < ne && events->getEvent(hi, e) != kResultOk) hi++;
-      if (hi >= ne) break;
-      const int32 off = std::max(0, std::min(ns, e.sampleOffset));
+      const int64_t hostAt = hi < ne ? std::max(0, std::min(ns, e.sampleOffset)) : kNever;
+      const int64_t noteAt = demoNoteAt(), changeAt = demoChangeAt();
+      const int64_t at = std::min(hostAt, std::min(noteAt, changeAt));
+      if (at == kNever) break;
+      const int32 off = (int32)at;
       pedalUpTo(off);
       if (L && off > pos) { engine.process(L + pos, R + pos, off - pos); pos = off; }
+      if (changeAt == at) { demoApply(demo.scene + 1); demo.changed = true; continue; }   // (at the same sample: the preset first, then the notes)
+      if (noteAt == at) {   // the same pitch can be held by two voices of the score: counted, released at its last note off (as the web app's sequencer)
+        const DemoEvent& d = kDemoEvents[demo.ev++];
+        if (d.on) { demo.count[d.note]++; engine.noteOn(d.note, d.vel); }
+        else if (demo.count[d.note] > 0 && --demo.count[d.note] == 0) engine.noteOff(d.note);
+        continue;
+      }
       if (e.type == Event::kNoteOnEvent) engine.keyOn(e.noteOn.pitch, e.noteOn.velocity);   // Okto MultiWave Synth: the chord layer
       else if (e.type == Event::kNoteOffEvent) engine.keyOff(e.noteOff.pitch);
       hi++;
     }
     pedalUpTo(ns);
     if (L && pos < ns) engine.process(L + pos, R + pos, ns - pos);
+    if (demo.phase != 0) {
+      // the dip: down in demoDipDown() samples, silent while the change is made (demoDipHold()), up again in demoDipUp() (version 1.0.8 of the web app: a preset change under sounding notes
+      // was a burst of noise)
+      if (L && demo.dip >= 0) {
+        const int64_t D = demoDipDown(), H = demoDipHold(), U = demoDipUp();
+        for (int32 i = 0; i < ns; i++) {
+          const int64_t t = demo.clock + i - demo.dip;
+          const float g = t < 0 ? 1.0f : t < D ? 1.0f - (float)t / (float)D : t < D + H ? 0.0f : t < D + H + U ? (float)(t - D - H) / (float)U : 1.0f;
+          L[i] *= g; R[i] *= g;
+        }
+      }
+      demo.clock += ns;
+      if (demo.dip >= 0 && demo.clock >= demo.dip + demoDipLen()) demo.dip = -1;
+    }
+    if (shared) shared->demoScene.store(demo.phase == 0 ? -1 : demo.phase == 1 ? -2 : demo.scene);
     if (L) data.outputs[0].silenceFlags = 0;
     // Okto MultiWave Synth: a key of the selector octave chose a chord type: the parameter follows, the host and its controller are
     // told through the output parameter changes (and the editor through the shared state, for hosts that do not forward)
@@ -632,7 +687,78 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
   bool wasPlaying = false;                    // the transport was playing at the last block that told (audio thread)
   void setPedal(double v) { if (plain[P_HOLD].load() != v) { plain[P_HOLD].store(v); engine.setParam(P_HOLD, v); } }   // (the engine lets go of the held notes when it goes up)
   void liftPedal() { setPedal(kParams[P_HOLD].def); }
-  void releaseAll() { engine.allNotesOff(); liftPedal(); }   // every note released, held ones too, and the pedal up
+  void releaseAll() { engine.allNotesOff(); std::memset(demo.count, 0, sizeof demo.count); liftPedal(); }   // every note released, held ones too, and the pedal up (and the demo's count of its notes)
+
+  // version 1.0.13: the demo (PLAY DEMO in the editor): the web app's demo, Beethoven's Appassionata (III) as a tour of the presets (kDemoEvents / kDemoScenes, written by tools/gen_spec.js from
+  // web/js/demo.js), played by the audio thread. The notes of the piece go to the engine through noteOn / noteOff (as the web app's sequencer: not the chord layer), every phrase the engine takes
+  // the next preset of the tour with the demo's rules, its tables built ahead by the builder thread (the scene after the one playing, 3.6 s ahead). The host's parameters are not touched: the
+  // demo plays its own values and the player's come back when it stops. A change of preset is made in a short dip of the output that ends at the note it goes with (the web app's worklet does so
+  // since version 1.0.8: a change under sounding notes was a burst of noise).
+  struct DemoRun {
+    int phase = 0;          // 0 off, 1 waiting for the tables of the first preset, 2 playing
+    int64_t clock = 0;      // samples rendered since the start
+    int64_t t0 = 0;         // the clock at the piece's time 0
+    int ev = 0;             // the next event of kDemoEvents
+    int scene = -1;         // the preset of the tour in place
+    int64_t dip = -1;       // the clock at which the dip of the next change starts (-1: none)
+    bool changed = false;   // the change of that dip is made
+    uint8_t count[128] = {};
+  } demo;
+  int demoGen = 0;   // a new number at every start (audio thread): a set built for an older run is never used
+  std::atomic<int> demoWant{-1}, demoReady{-1}, demoIdx{-1};   // the tag (run, scene) whose tables the audio thread wants; the tag of the set built; that set (kPending)
+  int demoTag(int scene) const { return ((demoGen & 0x7fffff) << 8) | scene; }
+  int64_t demoChordAt(int k) const { return demo.t0 + (int64_t)std::llround(kDemoScenes[k].chord * engine.sr); }
+  int64_t demoDipDown() const { return std::max<int64_t>(1, std::llround(0.0053 * engine.sr)); }   // (the web app's 2 + 4 + 8 render quanta of 128 samples at 48 kHz)
+  int64_t demoDipHold() const { return std::max<int64_t>(1, std::llround(0.0107 * engine.sr)); }
+  int64_t demoDipUp() const { return std::max<int64_t>(1, std::llround(0.0213 * engine.sr)); }
+  int64_t demoDipLen() const { return demoDipDown() + demoDipHold() + demoDipUp(); }
+  void demoStart() {   // audio thread (or a deactivation)
+    demoStop();
+    engine.allNotesOff(); liftPedal();
+    demo = DemoRun{}; demo.phase = 1;
+    demoGen++;
+    demoWant.store(demoTag(0)); kick();
+  }
+  void demoStop() {
+    if (demo.phase == 0) return;
+    demo = DemoRun{};
+    demoWant.store(-1);
+    const int s = demoIdx.exchange(-1);
+    if (s >= 0) setState_[s].store(kFree);
+    engine.allNotesOff();
+    for (int i = 0; i < kNumParams; i++) engine.setParam(i, plain[i].load());   // the player's sound again, and its tables
+    lastMorph = morphNeeded(engine.p); lastVarSig = variantSig(engine.p);
+    structVersion.fetch_add(1); kick();
+  }
+  void demoApply(int k) {   // the preset of scene k (its tables if they are built), and the next scene's tables wanted
+    int idx = -1;
+    if (demoReady.load() == demoTag(k)) idx = demoIdx.exchange(-1);
+    for (int i = 0; i < kNumParams; i++) if (kDemoScenes[k].v[i] != kDemoKeep) engine.setParam(i, kDemoScenes[k].v[i]);
+    if (idx >= 0) { setState_[idx].store(kActive); engine.setTables(tableRef(sets[idx])); }
+    demo.scene = k;
+    demoWant.store(k + 1 < kNumDemoScenes ? demoTag(k + 1) : -1); kick();
+  }
+  // builder thread: the tables of a scene of the demo (the player's values where the scene keeps them)
+  void demoBuild(int tag) {
+    std::unique_lock<std::mutex> lk(buildMutex);
+    const int idx = claimFree();
+    if (idx < 0) { lk.unlock(); std::this_thread::sleep_for(std::chrono::milliseconds(2)); return; }
+    double v[kNumParams];
+    const DemoScene& sc = kDemoScenes[tag & 0xff];
+    for (int i = 0; i < kNumParams; i++) v[i] = sc.v[i] != kDemoKeep ? sc.v[i] : plain[i].load();
+    try {
+      buildTables(v, true, sets[idx], buildThreads());
+    } catch (...) {   // out of memory: the scene plays on the tables in use
+      setState_[idx].store(kFree);
+      demoReady.store(tag);
+      return;
+    }
+    setState_[idx].store(kPending);
+    const int old = demoIdx.exchange(idx);
+    if (old >= 0) setState_[old].store(kFree);
+    demoReady.store(tag);
+    if (demoWant.load() < 0) { const int s = demoIdx.exchange(-1); if (s >= 0) setState_[s].store(kFree); }   // the demo stopped meanwhile
+  }
   void resetControllers() {   // MIDI "reset all controllers": the pedal up, the pitch bend and the mod wheel at rest (the notes sounding are not touched)
     liftPedal();
     for (const int id : {P_BEND, P_MODWHEEL}) { const double d = kParams[id].def; if (plain[id].load() != d) { plain[id].store(d); engine.setParam(id, d); } }
@@ -650,6 +776,8 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     quit.store(false);
     worker = std::thread([this] {
       while (!quit.load()) {
+        const int dw = demoWant.load();   // version 1.0.13: a scene of the demo first (it has a time to meet)
+        if (dw >= 0 && dw != demoReady.load()) { demoBuild(dw); continue; }
         uint32_t v = structVersion.load();
         if (v != builtVersion.load()) {
           std::unique_lock<std::mutex> lk(buildMutex);
@@ -673,7 +801,10 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
           if (old >= 0) setState_[old].store(kFree);
         } else {
           std::unique_lock<std::mutex> wl(wakeMutex);
-          wake.wait_for(wl, std::chrono::milliseconds(50), [this] { return quit.load() || structVersion.load() != builtVersion.load(); });
+          wake.wait_for(wl, std::chrono::milliseconds(50), [this] {
+            const int dw = demoWant.load();
+            return quit.load() || structVersion.load() != builtVersion.load() || (dw >= 0 && dw != demoReady.load());
+          });
         }
       }
     });

@@ -139,7 +139,7 @@ class SynthUI {
     switch (w.type) {
       case 'knobL': case 'knobM': case 'knobS': case 'knobT': return this.knob(w, box);
       case 'seg': return this.seg(w, box);
-      case 'osctabs': return this.oscTabs(w, box, parent);   // beta 0.3: the folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 and the frame of the oscillator cards
+      case 'osctabs': return this.oscTabs(w, box, parent);   // beta 0.3: the folder tabs OSC1 | OSC2 | OSC3 and the frame of the oscillator cards
       case 'lfotabs': return this.lfoTabs(w, box);   // beta 0.3.4: the LFO 2 | LFO 3 tabs along the top of the LFO 2/3 card
       case 'step': return this.step(w, box);
       case 'menu': return this.menu(w, box);
@@ -307,7 +307,7 @@ class SynthUI {
 
   showOsc(v) { const i = this.P.osc_view; this.host.begin(i); this.host.set(i, v); this.host.end(i); }
 
-  // beta 0.3: the three folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 above the cards of the oscillator shown, and the frame round those cards in the colour of its
+  // beta 0.3: the three folder tabs OSC1 | OSC2 | OSC3 above the cards of the oscillator shown, and the frame round those cards in the colour of its
   // engine. The frame is an L: OSC MIX and the SCOPE are common to every oscillator and sit outside it, at the top right. A lit dot says the oscillator is
   // heard (its level is above 0).
   oscTabs(w, box, sec) {
@@ -336,7 +336,7 @@ class SynthUI {
       const b = el('button', 'otab ' + (sl.mode === 0 ? 'ea' : 'eb'), box);
       b.style.left = (s * 182) + 'px';
       el('span', 'dot', b);
-      el('span', 'tx', b).innerHTML = '<span class="t1">OSC' + (s + 1) + ' ' + sl.name + '</span><span class="t2">' + (sl.mode === 0 ? 'SUBTRACTIVE' : 'ADDITIVE') + '</span>';
+      el('span', 'tx', b).innerHTML = '<span class="t1">OSC' + (s + 1) + '</span><span class="t2">' + (sl.mode === 0 ? 'SUBTRACTIVE' : 'ADDITIVE') + '</span>';   // version 1.0.12: "OSC1" (it read "OSC1 A1")
       b.title = 'Show the oscillator ' + sl.name + ' (a lit dot: it is heard, its level in OSC MIX is above 0)';
       b.onclick = () => this.showOsc(s);
       return { b, s, sl };
@@ -1045,11 +1045,12 @@ class SynthUI {
 
   // the effects in the order of the sound, over their knobs (12 + 52 per knob); the plug-in puts its delay SYNC button at
   // the right of the delay's header, the web app has none and uses the whole width
+  // (version 1.0.13: the owner could not read them, grey at 42 % and 9 px: in the accent colour of the card titles, 10 px)
   draw_fxheads(ctx) {
-    ctx.font = '700 9px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.font = '700 10px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
     const groups = [['SATURATION', 8, 60], ['CHORUS', 64, 156], ['PING-PONG DELAY', 214, 162], ['REVERB', 376, 104]];
     for (const [t, x, w] of groups) {
-      ctx.fillStyle = 'rgba(200,210,225,0.42)'; ctx.fillText(t, x + w / 2, 12);
+      ctx.fillStyle = this.accent(); ctx.fillText(t, x + w / 2, 12);
       ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.moveTo(x + 4, 17.5); ctx.lineTo(x + w - 4, 17.5); ctx.stroke();
     }
     ctx.textAlign = 'left';

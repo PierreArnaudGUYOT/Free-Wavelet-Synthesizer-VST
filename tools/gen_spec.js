@@ -27,7 +27,7 @@ const presetValues = PRESETS.map(pr => ({
 }));
 // version 1.0.3: KeyAttac, the retouched favourites (the user bank of the plug-in; the tools read them here)
 const keyAttac = KEYATTAC.map(k => ({ name: k.name, from: k.from, stars: k.stars, values: PARAMS.map(p => (k.v[p.key] !== undefined ? k.v[p.key] : p.def)) }));
-// version 1.0: the presets of the demo's tour (web only: the plug-in has no demo)
+// version 1.0: the presets of the demo's tour (version 1.0.13: the plug-in plays the demo too, from the scenes written below)
 const demoPresets = DEMO_PRESETS.map(pr => ({ name: pr.name, values: PARAMS.map(p => (pr.v[p.key] !== undefined ? pr.v[p.key] : p.def)) }));
 const wavelets = wav.order.map((n, i) => ({ id: n, name: PARAMS[INDEX.wavelet].choices[i], h: wav.h[n] }));
 
@@ -190,9 +190,54 @@ h += `inline constexpr int kNumWavelets = ${wavelets.length};\ninline constexpr 
 h += `inline constexpr int kWaveletLen[kNumWavelets] = { ${wavelets.map(w => w.h.length).join(', ')} };\n`;
 h += 'inline constexpr double kWaveletH[kNumWavelets][kMaxWaveletLen] = {\n';
 for (const w of wavelets) h += `  { ${w.h.map(v => v.toPrecision(17)).join(', ')} },\n`;
-h += '};\n\n} // namespace ws\n';
+h += '};\n\n';
+
+// version 1.0.13: the plug-in's demo (the PLAY DEMO button). The web app's demo is run here on the generated spec (web/js/demo.js and its piece, web/js/demo_data.js): the same tour, the
+// same rules and the same piece, written out as the notes of the piece and one preset per scene, the demo's rules applied (app.js finalValues: a hidden or performance parameter the rules
+// leave alone keeps the player's value)
+let demoInfo = '';
+{
+  const vm = require('vm');
+  const ctx = {};
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'web', 'js', 'demo_data.js'), 'utf8') + '\n' + webOut + '\n' +
+    fs.readFileSync(path.join(root, 'web', 'js', 'demo.js'), 'utf8') + '\nthis.SONG = WS_DEMO_SONGS[0]; this.WSDemo = WSDemo;', ctx);
+  const PI = Object.fromEntries(PARAMS.map((p, i) => [p.key, i]));
+  const demo = ctx.WSDemo({ C: null, P: PI, PARAMS, ui: {} });
+  const song = ctx.SONG, plan = demo.tourPlan();
+  const fit = (i, x) => { const p = PARAMS[i]; x = Math.min(p.max, Math.max(p.min, x)); return p.curve === 'int' || p.curve === 'choice' ? Math.round(x) : x; };
+  const scenes = plan.map((sc) => {
+    const src = demoPresets.find(p => p.name === sc.preset) || presetValues.find(p => p.name === sc.preset);
+    if (!src) throw new Error('demo: preset not found: ' + sc.preset);
+    const v = PARAMS.map(() => null);
+    PARAMS.forEach((p, i) => { if (!p.hidden && !p.perf) v[i] = fit(i, src.values[i]); });
+    demo.rules(sc.preset)((key, x) => { if (key in PI) v[PI[key]] = fit(PI[key], x); }, key => v[PI[key]]);
+    return { name: sc.preset, chord: sc.chord, v };
+  });
+  const ev = [];
+  for (let i = 0; i < song.notes.length; i += 4) {
+    const t = song.notes[i], d = song.notes[i + 1], n = song.notes[i + 2], vel = song.notes[i + 3];
+    ev.push([t, 1, n, vel], [t + d, 0, n, 0]);
+  }
+  ev.sort((a, b) => Math.round(a[0] * 1e4) - Math.round(b[0] * 1e4) || a[1] - b[1]);   // (the note offs first at the same time, as the web app's sequencer has them)
+  h += `// version 1.0.13: the demo of the plug-in (PLAY DEMO): ${song.composer}, ${song.title.replace(/"/g, "'")}; MIDI from the ${song.source} (public domain: this data is not covered\n`;
+  h += `// by the GPL licence of the program, see tools/demo/SOURCE.md), played as the web app's tour of the presets (web/js/demo.js, run by tools/gen_spec.js).\n`;
+  h += `// kDemoEvents: song time (s), 1 note on / 0 note off, note, velocity; sorted, the note offs first at the same time.\n`;
+  h += `struct DemoEvent { double t; int on; int note; double vel; };\n`;
+  h += 'inline constexpr DemoEvent kDemoEvents[] = {\n' + ev.map(e => `  { ${e[0].toPrecision(10)}, ${e[1]}, ${e[2]}, ${num(+e[3].toFixed(6))} },`).join('\n') + '\n};\n';
+  h += `inline constexpr int kNumDemoEvents = ${ev.length};\n`;
+  h += `// kDemoScenes: a preset of the tour per phrase of the piece, from the song time \`chord\` (the first from the start), with the demo's rules (polyphonic, short attack, little delay, level trim,\n`;
+  h += `// the tuning of the phrase); kDemoKeep: the player's own value stays (the hidden and the performance parameters the rules leave alone)\n`;
+  h += `inline constexpr double kDemoKeep = -1.0e300;\n`;
+  h += `struct DemoScene { const char* name; double chord; double v[kNumParams]; };\n`;
+  h += 'inline constexpr DemoScene kDemoScenes[] = {\n' + scenes.map(s => `  { ${q(s.name)}, ${s.chord.toPrecision(10)}, { ${s.v.map(x => (x === null ? 'kDemoKeep' : num(x))).join(', ')} } },`).join('\n') + '\n};\n';
+  h += `inline constexpr int kNumDemoScenes = ${scenes.length};\n`;
+  h += `inline constexpr double kDemoDuration = ${song.duration}, kDemoLeadIn = 0.25, kDemoTail = 2.5;   // the piece (s); the first note comes kDemoLeadIn after the click; the demo stops kDemoTail after the end\n`;
+  h += `inline constexpr const char* kDemoTitle = ${q(song.composer + ' — ' + (song.short || song.title))};\n\n`;
+  demoInfo = `, demo: ${ev.length} events, ${scenes.length} scenes`;
+}
+h += '} // namespace ws\n';
 
 fs.mkdirSync(path.join(root, 'vst', 'src', 'generated'), { recursive: true });
 fs.writeFileSync(path.join(root, 'vst', 'src', 'generated', 'spec.h'), h);
 
-console.log(`generated: ${PARAMS.length} params, ${widgets.length} widgets, ${sections.length} sections, ${presetValues.length} presets, ${wavelets.length} wavelets`);
+console.log(`generated: ${PARAMS.length} params, ${widgets.length} widgets, ${sections.length} sections, ${presetValues.length} presets, ${wavelets.length} wavelets${demoInfo}`);

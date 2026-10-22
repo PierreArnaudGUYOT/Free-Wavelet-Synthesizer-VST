@@ -1374,7 +1374,8 @@ class Engine {
     const bool l2on = p[P_LFO2_AMT] != 0;
     const bool c2 = l2on && role2 == ROLE_VFCUT, r2 = l2on && role2 == ROLE_VFRES, c3 = role3 == ROLE_VFCUT, r3 = role3 == ROLE_VFRES;
     dFltOct = (c2 ? d2 : 0) + (c3 ? d3 : 0); dFltRes = (r2 ? d2 : 0) + (r3 ? d3 : 0);
-    fltOn = !(p[P_VF_CUT] >= 20000 && p[P_VF_RES] == 0 && p[P_VF_DRIVE] == 0 && p[P_VF_ENV] == 0 && !c2 && !r2 && !c3 && !r3);
+    const bool velF = p[P_VEL_AMT] > 0 && (int)jsRound(p[P_VEL_TARGET]) != 0;   // version 1.0.13: the PLAY card's VELOCITY moves the cutoff
+    fltOn = !(p[P_VF_CUT] >= 20000 && p[P_VF_RES] == 0 && p[P_VF_DRIVE] == 0 && p[P_VF_ENV] == 0 && !c2 && !r2 && !c3 && !r3 && !velF);
     // unison copies (detune and pan are the same for every oscillator)
     const int Un = (int)jsRound(p[P_V_UNISON]); const double det = p[P_V_DETUNE], width = p[P_V_WIDTH];
     U = std::max(1, std::min(4, Un));
@@ -1524,7 +1525,7 @@ class Engine {
     const double aInc = 1 / (p[P_AMP_A] * sr), dC = mAmpD.get(-LN1000 / (p[P_AMP_D] * sr)), rC = mAmpR.get(-LN1000 / (p[P_AMP_R] * sr));
     // beta 0.2: the chord's bass note plays louder (vc.gain; exactly the old value when it is 1), and a note dropped by a live chord
     // change fades out in QUICK_REL at most
-    const double velGain = VOICE_GAIN * (1 - p[P_AMP_VEL] * (1 - vc.vel)) * vc.gain;
+    const double velGain = VOICE_GAIN * (1 - p[P_AMP_VEL] * (1 - vc.vel)) * vc.gain * velVolume(vc);
     const double rQ = vc.quick && p[P_AMP_R] > QUICK_REL ? mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : rC;
     for (int i = 0; i < n; i++) {
       if (st == 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
@@ -1769,9 +1770,19 @@ class Engine {
   }
 
   // The filter's coefficients for this voice and block (feLev: the level of its envelope at the end of the block)
+  // version 1.0.13: the PLAY card's VELOCITY (tools/spec.js vel_amt, vel_target): the voice's gain (Volume) and the octaves its FILTER cutoff goes down (Filter); 1 and 0 when it is off
+  // (core.js velVolume / velFilterOct, the same operations)
+  double velVolume(const Voice& vc) const {
+    const double amt = p[P_VEL_AMT]; const int t = (int)jsRound(p[P_VEL_TARGET]);
+    return amt > 0 && t != 1 ? std::pow(std::max(vc.vel, 1e-3), 2 * amt) : 1;
+  }
+  double velFilterOct(const Voice& vc) const {
+    const double amt = p[P_VEL_AMT]; const int t = (int)jsRound(p[P_VEL_TARGET]);
+    return amt > 0 && t != 0 ? -amt * 4 * (1 - vc.vel) : 0;
+  }
   void fltPrep(Voice& vc, int n, double feLev) {
     (void)n;
-    const double octs = p[P_VF_ENV] * 8 * feLev + p[P_VF_KEY] * (vc.pitch - 60) / 12 + dFltOct;
+    const double octs = p[P_VF_ENV] * 8 * feLev + p[P_VF_KEY] * (vc.pitch - 60) / 12 + dFltOct + velFilterOct(vc);
     double fc = p[P_VF_CUT] * std::pow(2.0, octs);
     const double fmax = 0.45 * sr;
     if (fc > fmax) fc = fmax; else if (fc < 8) fc = 8;

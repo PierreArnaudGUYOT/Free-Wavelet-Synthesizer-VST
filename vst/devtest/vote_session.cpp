@@ -272,7 +272,7 @@ int wmain(int argc, wchar_t** argv) {
   check(h.ed != nullptr, "editor window found");
   h.run(0.5);
 
-  // beta 0.3: the three folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 choose the oscillator shown (and leave the sound alone)
+  // beta 0.3: the three folder tabs OSC1 | OSC2 | OSC3 choose the oscillator shown (and leave the sound alone)
   std::printf("0. the folder tabs choose the oscillator shown\n");
   {
     float ob[4] = {};
@@ -282,13 +282,13 @@ int wmain(int argc, wchar_t** argv) {
     check(h.plain(P_OSC_VIEW) == 0, "a new instance shows A1", fmt("osc_view %.0f", h.plain(P_OSC_VIEW)));
     h.shot(out + L"\\0_view_A1.png");
     h.click(tab(1), fy); h.run(0.15);
-    check(h.plain(P_OSC_VIEW) == 1, "the folder tab OSC2 A2 shows A2", fmt("osc_view %.0f", h.plain(P_OSC_VIEW)));
+    check(h.plain(P_OSC_VIEW) == 1, "the folder tab OSC2 shows A2", fmt("osc_view %.0f", h.plain(P_OSC_VIEW)));
     h.shot(out + L"\\0_view_A2.png");
     h.click(tab(2), fy); h.run(0.15);
-    check(h.plain(P_OSC_VIEW) == 2, "the folder tab OSC3 B1 shows B1", fmt("osc_view %.0f", h.plain(P_OSC_VIEW)));
+    check(h.plain(P_OSC_VIEW) == 2, "the folder tab OSC3 shows B1", fmt("osc_view %.0f", h.plain(P_OSC_VIEW)));
     h.shot(out + L"\\0_view_B1.png");
     h.click(tab(0), fy); h.run(0.15);
-    check(h.plain(P_OSC_VIEW) == 0, "the folder tab OSC1 A1 shows A1", fmt("osc_view %.0f", h.plain(P_OSC_VIEW)));
+    check(h.plain(P_OSC_VIEW) == 0, "the folder tab OSC1 shows A1", fmt("osc_view %.0f", h.plain(P_OSC_VIEW)));
   }
   std::printf("1. CHORD MODE: the panel grows, the chord card shows, keys and pads play chords, off again\n");
   {
@@ -449,6 +449,28 @@ int wmain(int argc, wchar_t** argv) {
       check(cnt(readFile(presetsFile), "Stars: 10\r\n") == tens + 1, "the right half of the fifth star gives 10 / 10 (one more Stars: 10 in the file)");
     }
     h.shot(out + L"\\12_browser_followed.png");
+  }
+  // version 1.0.13: PLAY DEMO (left of SAVE PRESET, 68 x 30 at x 788): the piece plays as a tour of the presets with the host's parameters untouched; STOP DEMO ends it
+  std::printf("4. version 1.0.13: PLAY DEMO plays the tour of the presets, STOP DEMO ends it, the player's sound is left as it was\n");
+  {
+    const float bx = 788 + 34, by = 9 + 15;
+    const double cut0 = h.plain(P_F_CUTOFF), voices0 = h.plain(P_V_VOICES), master0 = h.plain(P_MASTER);
+    const int edits0 = h.handler.edits;
+    h.run(1.0); h.resetPeak(); h.run(0.5);
+    check(h.peak < 1e-4, "silent before the demo", fmt("peak %.5f", h.peak));
+    h.click(bx, by);
+    h.run(1.2);
+    check(h.peak > 0.02, "PLAY DEMO: the piece plays", fmt("peak %.3f", h.peak));
+    h.shot(out + L"\\14_demo_playing.png");
+    h.resetPeak(); h.run(4.0);   // past the first change of preset (3.6 s into the piece)
+    check(h.peak > 0.02, "the piece goes on through the change of preset", fmt("peak %.3f", h.peak));
+    check(h.plain(P_F_CUTOFF) == cut0 && h.plain(P_V_VOICES) == voices0 && h.plain(P_MASTER) == master0 && h.handler.edits == edits0,
+          "the demo leaves the host's parameters alone (no edit, the same values)", fmt("%d edits", h.handler.edits - edits0));
+    h.shot(out + L"\\15_demo_second_preset.png");
+    h.click(bx, by);   // STOP DEMO
+    h.run(6.0); h.resetPeak(); h.run(1.0);
+    check(h.peak < 3e-3, "STOP DEMO: the notes are released and the sound dies", fmt("peak %.5f", h.peak));
+    h.shot(out + L"\\16_demo_stopped.png");
   }
   check(!h.badSample, "no NaN or infinite sample");
   check(h.handler.badNesting == 0, "every performEdit inside beginEdit/endEdit", std::to_string(h.handler.edits) + " edits");

@@ -140,7 +140,7 @@ svg.oscframe path { stroke: var(--accent); stroke-width: 2.5; fill: color-mix(in
 .otab.eb.on { background: var(--accent-b); border-color: var(--accent-b); }
 .otab .tx { display: flex; flex-direction: column; gap: 1px; text-align: left; }
 .otab .t1 { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; line-height: 1.1; }
-.otab .t2 { font-size: 8.5px; font-weight: 600; letter-spacing: 0.12em; opacity: 0.75; line-height: 1.1; }
+.otab .t2 { font-size: 10.2px; font-weight: 600; letter-spacing: 0.12em; opacity: 0.75; line-height: 1.1; }
 .otab .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: rgba(255,255,255,0.3); }
 .otab.ea.heard .dot { background: var(--accent-a); }
 .otab.eb.heard .dot { background: var(--accent-b); }

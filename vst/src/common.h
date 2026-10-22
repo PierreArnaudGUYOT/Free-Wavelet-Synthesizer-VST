@@ -18,7 +18,7 @@ namespace ws {
 
 #define WS_VENDOR "OktoPierre"
 #define WS_NAME "Okto MultiWave Synth"
-#define WS_VERSION "1.0.12"   // Okto MultiWave Synth 1.0.12; also in vst/src/version.rc and tools/spec.js APP
+#define WS_VERSION "1.0.13"   // Okto MultiWave Synth 1.0.13; also in vst/src/version.rc and tools/spec.js APP
 
 // beta 0.6 (security review): the sample rates a host may set; others are ignored (the engine keeps its rate)
 inline constexpr double kMinRate = 8000, kMaxRate = 1536000;
@@ -40,6 +40,8 @@ struct SharedState {
   // the engine plays with, and a count of the times a selector key changed it (the editor then tells the controller)
   std::atomic<int> chordRoot{-1}, chordLast{60}, chordType{-1};
   std::atomic<uint32_t> chordBits[4], chordTypeEdits{0};
+  // version 1.0.13: the demo (PLAY DEMO): the editor's command (1 start, 2 stop; the audio thread takes it) and what plays (-1 off, -2 starting, else the scene of the tour, kDemoScenes)
+  std::atomic<int> demoCmd{0}, demoScene{-1};
 
   struct Ev { int16_t note; int16_t vel; int16_t kind; };  // vel 1..127 = on, 0 = off, -1 = all notes off; kind 0 = a key (the chord layer), 1 = the strum plate
   static constexpr uint32_t QN = 256;

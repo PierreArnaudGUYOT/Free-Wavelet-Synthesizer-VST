@@ -36,7 +36,8 @@ for (let q = 0; q < OLD_SPEC.TOP; q++) {
   if (EDITS[p.name]) { console.log(`skip ${p.name.padEnd(26)} (edited at the owner's request, version 1.0.11: ${Object.keys(EDITS[p.name]).join(', ')})`); continue; }
   compared++;
   const pv = Array.from(p.values); if (MA[p.name]) pv[oldMaster] = Math.max(-36, pv[oldMaster] - MA[p.name]);
-  const a = render(OLD, pv), b = render(C, o.values);
+  const nv = Array.from(o.values); nv[C.P.vel_amt] = 0;   // (version 1.0.13: the PLAY card's VELOCITY off, as beta 0.7 had none; its default plays the notes at 0.8 softer)
+  const a = render(OLD, pv), b = render(C, nv);
   let peak = 0, maxd = 0;
   for (let k = 0; k < 2; k++) for (let j = 0; j < n; j++) { peak = Math.max(peak, Math.abs(a[k][j])); maxd = Math.max(maxd, Math.abs(a[k][j] - b[k][j])); }
   const rel = maxd / Math.max(peak, 1e-9), ok = rel <= tol && peak > 0.01;

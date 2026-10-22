@@ -1,0 +1,48 @@
+/* Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre) - SPDX-License-Identifier: GPL-3.0-or-later
+   RATE THE DEMO (test build): tools/rate/rate.js. The look of the vote build (tools/vote/vote.css). */
+.rate-btn { position: absolute; left: 318px; top: 12px; width: 58px; height: 24px; white-space: nowrap; padding: 0; color: var(--accent-b); border-color: var(--accent-b); font-size: 10px; letter-spacing: 0.08em; z-index: 5; }
+.rate-btn:hover { color: var(--on-accent); background: var(--accent-b); }
+.rate-btn:disabled { opacity: 0.4; cursor: default; }
+.rate-win { position: absolute; top: 120px; left: 690px; width: 400px; display: none; z-index: 45; background: rgba(28, 10, 32, 0.96); color: var(--text); font-size: 12.5px; line-height: 1.4;
+  border: 1px solid var(--accent-b); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(122, 231, 255, 0.16); }
+.rate-bar1 { padding: 6px 12px; border-bottom: 1px solid var(--card-edge); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent-b); }
+.rate-body { padding: 10px 14px 12px; }
+.rate-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.rate-title.ok { color: var(--accent-b); }
+.rate-line { color: var(--dim); margin: 4px 0 6px; }
+.rate-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.rate-b { border: 1px solid var(--card-edge); background: var(--inset); color: var(--text); border-radius: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+.rate-b:hover { border-color: var(--accent-b); color: var(--accent-b); }
+.rate-b.main { background: var(--accent-b); color: var(--on-accent); border-color: var(--accent-b); }
+.rate-b.main:hover { filter: brightness(1.1); color: var(--on-accent); }
+.rate-stars { display: inline-flex; gap: 1px; }
+.rate-star { font-size: 13px; line-height: 1; padding: 1px 1px; border: 0; background: transparent; color: rgba(255,255,255,0.28); cursor: pointer; }
+.rate-star.big { font-size: 24px; padding: 2px 2px; }
+.rate-star.on { color: var(--accent-a); }
+.rate-stars:hover .rate-star { color: var(--accent-a); }
+.rate-stars .rate-star:hover ~ .rate-star { color: rgba(255,255,255,0.28); }
+.rate-val { display: inline-block; min-width: 44px; margin-left: 6px; font-size: 11px; color: var(--dim); }
+.rate-dots { display: inline-flex; gap: 2px; width: 210px; }
+.rate-dots i { flex: 1; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.14); }
+.rate-dots i.half { margin-left: 4px; }
+.rate-dots i.mid { background: rgba(255,255,255,0.45); }
+.rate-dots i.good { background: var(--accent-a); }
+.rate-dots i.low { background: var(--danger); }
+.rate-dots i.cur { outline: 1px solid var(--text); outline-offset: 1px; }
+.rate-scroll { max-height: 330px; overflow-y: auto; border: 1px solid var(--card-edge); border-radius: 8px; padding: 4px 8px; background: var(--inset); }
+.rate-tab { width: 100%; border-collapse: collapse; font-size: 11px; }
+.rate-tab th { text-align: left; color: var(--faint); font-weight: 600; padding: 2px 4px; }
+.rate-tab td { padding: 1px 4px; border-top: 1px solid rgba(255,255,255,0.08); }
+.rate-tab td.st { white-space: nowrap; }
+.rate-tab tr.half td { border-top: 2px solid var(--accent-b); }
+.rate-tab tr.g td:nth-child(2) { color: var(--accent-a); }
+.rate-tab tr.l td:nth-child(2) { color: var(--danger); }
+.rate-sub { margin: 8px 0 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--dim); }
+.rate-fin { margin: 0; padding-left: 22px; font-size: 11px; }
+.rate-fin li.mv { color: var(--accent-b); }
+.rate-status { margin-top: 6px; font-size: 11px; color: var(--accent-b); min-height: 15px; }
+.rate-bar { position: fixed; left: 50%; bottom: 52px; transform: translateX(-50%); z-index: 90; display: none; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; max-width: calc(100vw - 24px);
+  background: rgba(28, 10, 32, 0.96); border: 1px solid var(--accent-b); color: var(--text); font-weight: 700; box-shadow: 0 12px 40px rgba(0,0,0,0.6); white-space: nowrap; }
+.rate-lab { display: flex; flex-direction: column; font-size: 10px; letter-spacing: 0.08em; color: var(--dim); min-width: 180px; }
+.rate-lab b { font-size: 14px; letter-spacing: 0; color: var(--text); }
+.welcome .choice.rate svg { color: var(--accent-b); }

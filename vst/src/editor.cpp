@@ -177,7 +177,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   int liveChordRoot = -1, liveChordLast = 60; uint32_t liveChordBits[4] = {}; uint32_t liveChordEdits = 0;
   int padHover = -1, plateTouch = -1;
   // interaction
-  int hover = -1, drag = -1; float dragY = 0; double dragNorm = 0; bool dragShift = false, dragMoved = false;   // hover -2 = SAVE PRESET
+  int hover = -1, drag = -1; float dragY = 0; double dragNorm = 0; bool dragShift = false, dragMoved = false;   // hover -2 = SAVE PRESET, -3 = PLAY DEMO
+  int demoShown = -1;   // version 1.0.13: what the demo plays, as the audio thread said (SharedState::demoScene)
   int mouseNote = -1; int wheelDrag = -1;  // 0 bend, 1 mod
 
   double effZoom() const { const double z = host->zoom(); return z > 0 ? z : autoZ; }
@@ -343,6 +344,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         const int ct = sh->chordType.load();
         if (ct >= 0 && ct < kNumChords && ct != (int)jsRound(host->getPlain(P_CHORD_TYPE))) { host->setPlainGesture(P_CHORD_TYPE, ct); }
       }
+      const int ds = sh->demoScene.load();   // version 1.0.13: the demo started, moved to the next preset of the tour, or stopped
+      if (ds != demoShown) { demoShown = ds; invalidateLogical(kDemoBtn); invalidateType(W_PRESETS); }
       float pl = sh->peakL.exchange(0), pr = sh->peakR.exchange(0);
       float nl = std::max(pl, meterL * 0.86f), nr = std::max(pr, meterR * 0.86f);
       if (std::fabs(nl - meterL) > 1e-5f || std::fabs(nr - meterR) > 1e-5f) { meterL = nl; meterR = nr; invalidateType(W_METER); }
@@ -472,6 +475,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     int b = drag >= 0 ? drag : hover;
     if (b >= 0 && visible(items[b]) && (items[b].w->type == W_KNOBS || items[b].w->type == W_DRAWBAR)) drawBubble(g, items[b]);
     drawSaveBtn(g);
+    drawDemoBtn(g);
     if (host->browserOpen() && bCard().hits(dirty)) { drawBrowser(g); if (chordSide) drawChordInBrowser(g, dirty); }   // the browser (a copy of the library, hundreds of reads) only when its part is drawn again
   }
 
@@ -632,13 +636,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     g.lines(poly.data(), (int)poly.size(), Pen(rgb(ac), 2.5f).join());
   }
 
-  // beta 0.3: the three folder tabs OSC1 A1 · SUBTRACTIVE | OSC2 A2 · SUBTRACTIVE | OSC3 B1 · ADDITIVE (176 x 40 px every 182): the colour of the engine (A1 A2 yellow,
+  // beta 0.3: the three folder tabs OSC1 · SUBTRACTIVE | OSC2 · SUBTRACTIVE | OSC3 · ADDITIVE (176 x 40 px every 182): the colour of the engine (A1 A2 yellow,
   // B1 blue); the tab of the oscillator shown is filled and joins the plate. A lit dot says the oscillator is heard (its level is above 0).
   void drawOscTabs(Canvas& g, const Item& it) {
-    int nA = 0, nB = 0;
     for (int s = 0; s < NS; s++) {
       const R t{it.r.x + s * 182.f, it.r.y, 176.f, 40.f};
-      const int mode_s = kSlots[s].mode, ord = mode_s == 0 ? ++nA : ++nB;
+      const int mode_s = kSlots[s].mode;
       const bool on = s == view, heard = plainOf(kSlots[s].lvl) > 0;
       const float rad = 14;
       const Col ac = rgb(accentOf(mode_s)), dark = rgb(kOnAccent);   // (beta 0.3.4: terracotta / turquoise while the TUNING switch is ARAB or TURK)
@@ -657,8 +660,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       }
       g.fillEllipse(R{t.x + 14, t.y + 15, 8.f, 8.f}, heard ? (on ? dark : ac) : (on ? rgb(kOnAccent, 90) : argb(77, 255, 255, 255)));
       const Col c1 = on ? dark : rgb(kDim), c2 = on ? rgb(kOnAccent, 190) : rgb(kFaint);
-      text(g, std::wstring(L"OSC") + std::to_wstring(s + 1) + L" " + (mode_s == 0 ? L"A" : L"B") + std::to_wstring(ord), R{t.x + 32, t.y + 5, t.w - 38, 16}, 12.f, true, c1, 0);
-      text(g, mode_s == 0 ? L"SUBTRACTIVE" : L"ADDITIVE", R{t.x + 32, t.y + 21, t.w - 38, 13}, 8.5f, true, c2, 0);
+      // version 1.0.12: "OSC1" (it read "OSC1 A1"), and SUBTRACTIVE / ADDITIVE 20 % bigger (8.5 -> 10.2 px)
+      text(g, std::wstring(L"OSC") + std::to_wstring(s + 1), R{t.x + 32, t.y + 4, t.w - 38, 16}, 12.f, true, c1, 0);
+      text(g, mode_s == 0 ? L"SUBTRACTIVE" : L"ADDITIVE", R{t.x + 32, t.y + 20, t.w - 38, 16}, 10.2f, true, c2, 0);
     }
   }
 
@@ -880,12 +884,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
 
   // beta 0.6: the effects in the order of the sound; the delay's title leaves room for its SYNC button
+  // version 1.0.13 (the owner could not read them: grey at 42 %, 9 px): in the accent colour of the card titles, 10 px
   void drawFxHeads(Canvas& g, R r) {
     struct H { const wchar_t* t; float x, w, lw; } hs[] = {
         {L"SATURATION", 8, 60, 60}, {L"CHORUS", 64, 156, 156}, {L"PING-PONG DELAY", 214, 118, 162}, {L"REVERB", 376, 104, 104}};
     const Pen ln(argb(20, 255, 255, 255), 1);
     for (auto& h : hs) {
-      text(g, h.t, R{r.x + h.x, r.y, h.w, 16}, 9, true, argb(107, 200, 210, 225));
+      text(g, h.t, R{r.x + h.x, r.y, h.w, 16}, 10, true, rgb(accent()));
       g.line(Pt{r.x + h.x + 4, r.y + 17.5f}, Pt{r.x + h.x + h.lw - 4, r.y + 17.5f}, ln);
     }
   }
@@ -1071,6 +1076,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     std::wstring name = toW(shownName());
     if (host->presetDirty()) name += L"  •";
     if (!host->browserOpen()) name += L"  ▸";   // a click opens the preset browser
+    // version 1.0.13: while the demo plays, the box says which preset of the tour plays (the player's own sound comes back when it stops)
+    if (demoShown == -2) name = L"DEMO · starting…";
+    else if (demoShown >= 0 && demoShown < kNumDemoScenes) name = L"DEMO " + std::to_wstring(demoShown + 1) + L"/" + std::to_wstring(kNumDemoScenes) + L" · " + toW(kDemoScenes[demoShown].name);
     // a long name gets a smaller font rather than overflowing the arrows
     float px = 12.5f;
     for (; px > 9.5f; px -= 0.5f) if (g.textWidth(name, px, true) <= r.w - 64) break;
@@ -1130,6 +1138,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
 
   void mouseDown(float x, float y, bool dbl) override {
     if (kSaveBtn.has(x, y)) { if (!dbl) savePreset(); onTimer(); invalidateAll(); return; }
+    if (kDemoBtn.has(x, y)) { if (!dbl) toggleDemo(); invalidateLogical(kDemoBtn); return; }   // version 1.0.13 (a double click is one click)
     if (host->browserOpen() && x >= kDeviceW) { browserClick(x, y); return; }
     int idx = hit(x, y);
     if (idx < 0) return;
@@ -1271,12 +1280,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       if (v != plainOf(it.w->param)) { setPlain(it.w->param, v); onTimer(); }
       return false;
     }
-    int h = kSaveBtn.has(x, y) ? -2 : hit(x, y);
+    int h = kSaveBtn.has(x, y) ? -2 : kDemoBtn.has(x, y) ? -3 : hit(x, y);
     if (h != hover) {
       int old = hover; hover = h;
       padHover = -1;
       invalidateItem(old); invalidateItem(hover);
       if (old == -2 || h == -2) invalidateLogical(kSaveBtn);
+      if (old == -3 || h == -3) invalidateLogical(kDemoBtn);
     }
     if (hover >= 0 && items[hover].w->type == W_CHORDPADS) {   // Okto MultiWave Synth: the pad under the pointer
       const int pk = padAt(items[hover].r, x, y);
@@ -1324,6 +1334,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void mouseLeave() override {
     if (drag < 0 && hover >= 0) { int o = hover; hover = -1; invalidateItem(o); }
     if (hover == -2) { hover = -1; invalidateLogical(kSaveBtn); }
+    if (hover == -3) { hover = -1; invalidateLogical(kDemoBtn); }
     if (bHover >= 0) { bHover = -1; invalidateLogical(bCard()); }
   }
 
@@ -1392,6 +1403,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
                        kCmdMoveTo = 7000, kCmdTopAdd = 7100, kCmdTopRemove = 7101;   // beta 0.5: the sound menu (ctxRow)
   static constexpr float kBrowserW = 420;                  // logical width added at the right while the browser is open
   static constexpr R kSaveBtn{862, 9, 68, 30};             // SAVE PRESET, before MANUAL
+  static constexpr R kDemoBtn{788, 9, 68, 30};             // version 1.0.13: PLAY DEMO, before SAVE PRESET (where the web app has DOWNLOAD VST)
   std::vector<BankPreset> menuBank;                        // the bank as listed by the last menu / browser (commands index it)
   struct BCat { std::wstring label; std::vector<int> presets; };   // a factory category of the browser
   std::vector<BCat> fCats;                                 // TOP Sounds, then the categories in factory order
@@ -2171,6 +2183,18 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     inset(g, r, 9, hot);
     text(g, L"SAVE", R{r.x, r.y + 3, r.w, 12}, 9.5f, true, rgb(kDim));
     text(g, L"PRESET", R{r.x, r.y + 14, r.w, 14}, 10.5f, true, rgb(accent()));
+  }
+  // version 1.0.13: PLAY DEMO, left of SAVE PRESET: the web app's demo (the piece as a tour of the presets); while it plays, STOP DEMO
+  void drawDemoBtn(Canvas& g) {
+    const R r = kDemoBtn;
+    const bool hot = hover == -3, on = demoShown != -1;
+    inset(g, r, 9, hot || on);
+    text(g, on ? L"■ STOP" : L"▶ PLAY", R{r.x, r.y + 3, r.w, 12}, 9.5f, true, rgb(on ? accent() : kDim));
+    text(g, L"DEMO", R{r.x, r.y + 14, r.w, 14}, 10.5f, true, rgb(accent()));
+  }
+  void toggleDemo() {
+    auto sh = host->sharedState();
+    if (sh) sh->demoCmd.store(sh->demoScene.load() != -1 ? 2 : 1);
   }
   void drawMenu(Canvas& g, int idx) {   // a choice parameter as a drop-down (LFO 2 TARGET)
     const Item& it = items[idx];

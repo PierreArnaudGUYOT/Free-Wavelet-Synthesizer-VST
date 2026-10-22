@@ -51,7 +51,7 @@ presets' masters are calibrated per preset (`tools/master_adjust.js`, from `node
 on GDI+, `vst/src/editor.cpp`), both from the widget list of `tools/spec.js`:
 - Header (48 px): logo (OKTOWAVE / FRACTAL WAVELET SYNTHESIZER), zoom FIT (plug-in) or DEMO (web), the preset box (name with its type letters coloured, arrows, a click opens
   the browser), SAVE PRESET / DOWNLOAD VST, MANUAL, master knob and meter.
-- Under it the **folder tabs** OSC1 A1 / OSC2 A2 / OSC3 B1: only one oscillator's cards are shown (WAVELET, SCALE FILTER, POSITION, TUNE / OWN ENVELOPE / PITCH ENVELOPE) on a plate in
+- Under it the **folder tabs** OSC1 / OSC2 / OSC3: only one oscillator's cards are shown (WAVELET, SCALE FILTER, POSITION, TUNE / OWN ENVELOPE / PITCH ENVELOPE) on a plate in
   its colour; OSC MIX, SUB OSC, SCOPE and SCALOGRAM are common and sit at the top right.
 - Rows of common cards: FILTER, AMP ENVELOPE, MOD ENVELOPE; LFO 1 (wave selector underlined beside its title), LFO 2 | LFO 3 (two tabs, a stepped SHAPE knob with the name
   of the wave under it, TARGET menu, SYNC in the plug-in), VOICE; EFFECTS and PLAY (CHORD MODE, TUNING WEST / ARAB / TURK, maqam, tonic) with their titles written vertically; the keyboard and the wheels.

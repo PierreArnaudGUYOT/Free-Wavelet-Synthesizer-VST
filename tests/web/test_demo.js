@@ -50,7 +50,7 @@ const TOUR_START = TOUR[0];   // first preset heard on the default song
 // version 1.0.6: the demo window presents the synth while the piece plays: one sentence per preset of the tour (web/js/demo.js, the spec's DEMO_STORY: [chapter, sentence]; the last one stays if the tour is longer)
 const STORY = SPEC.DEMO_STORY;
 const storyAt = (k) => STORY[Math.min(k, STORY.length - 1)];
-const FORCED = { v_voices: 16, v_oct: 0, v_glide: 0 }; // + caps: amp_a <= 0.08, fx_dmix <= 0.1, fx_dfb <= 0.3
+const FORCED = { v_voices: 16, v_oct: 0, v_glide: 0, vel_amt: 0 }; // + caps: amp_a <= 0.08, fx_dmix <= 0.1, fx_dfb <= 0.3 (version 1.0.13: the PLAY card's VELOCITY off during the demo)
 const CAPS = { amp_a: 0.08, fx_dmix: 0.1, fx_dfb: 0.3 };
 // web update 2026-10-22: the phrase of AA · Hollow Bass is played in the oriental tuning ARAB, maqam Saba (mt_scale 3) on B flat (mt_tonic 10); every other scene is WEST (mt_mode 0)
 const TUNING_SCENES = { 'AA · Hollow Bass': { mt_mode: 1, mt_scale: 3, mt_tonic: 10 } };

@@ -21,7 +21,7 @@ function WSDemo(api) {
   // that grid). Before, a change went to the chord with the most notes near every 4-second mark of the whole piece. The preset is loaded TOUR_LEAD before the note, so the new sound starts
   // with it. The last scene is at least TOUR_MIN_LAST seconds long (30 phrases for the 30 presets, the last one 6 s: the end of the piece).
   // Every preset is made playable on the piece: polyphonic, normal octave, no glide, short attack.
-  const TOUR_SAFE = { v_voices: 16, v_oct: 0, v_glide: 0 };
+  const TOUR_SAFE = { v_voices: 16, v_oct: 0, v_glide: 0, vel_amt: 0 };   // (version 1.0.13: the PLAY card's VELOCITY off: the levels of the tour were set without it)
   const TOUR_MAX_ATTACK = 0.08;
   const TOUR_MAX_DELAY_MIX = 0.1, TOUR_MAX_DELAY_FB = 0.3;   // long echoes on a fast piece sound like a canon
   const TOUR_LEAD = 0.08, TOUR_MIN_LAST = 3;
@@ -147,9 +147,12 @@ function WSDemo(api) {
   // Scene clock: the audio thread reports the sequencer position about 30 times per second;
   // between reports it is extrapolated (at most 120 ms). Before the first note and after the
   // last one, the AudioContext clock is used.
+  // version 1.0.13: the piece can start from a time (seek: the rating build's "5 s back", and its pause); st.offset is the song time of the sequence's start
   function now() {
-    if (st.sync) return st.sync.seq + Math.min(0.12, (performance.now() - st.sync.at) / 1000);
-    return api.ctxTime() - st.t0;
+    if (st.paused !== null) return st.paused;
+    if (st.sync) return st.offset + st.sync.seq + Math.min(0.12, (performance.now() - st.sync.at) / 1000);
+    const t = api.ctxTime() - st.t0;
+    return st.offset ? st.offset + Math.max(0, t) : t;   // (after a seek the lead-in waits at the time asked: the scene before it must not come back)
   }
 
   function tick() {
@@ -158,7 +161,7 @@ function WSDemo(api) {
     let k = 0;
     for (let i = 0; i < st.scenes.length; i++) if (t >= st.scenes[i].t) k = i;
     const nx = st.scenes[st.scene + 1];
-    if (nx && nx.tour && !nx.sent && t >= nx.chord - SEND_LEAD && t < nx.t) { nx.sent = true; api.sendPreset(nx.preset, sceneRules(nx), nx.chord); }   // (1.0.8: ahead of the chord, for the audio thread)
+    if (nx && nx.tour && !nx.sent && st.paused === null && t >= nx.chord - SEND_LEAD && t < nx.t) { nx.sent = true; api.sendPreset(nx.preset, sceneRules(nx), nx.chord - st.offset); }   // (1.0.8: ahead of the chord, for the audio thread; its time in the sequence, which starts at st.offset)
     if (t >= 0 && k !== st.scene) enterScene(k);
     const sc = st.scenes[st.scene];
     if (sc && sc.tour && t >= 0) {
@@ -172,15 +175,20 @@ function WSDemo(api) {
     st.raf = requestAnimationFrame(tick);
   }
 
+  // the scenes of a plan given with the piece (opts.song / opts.scenes: the rating build plays each phrase several times)
+  function scenesFrom(list) {
+    return list.map((s, k) => ({ t: k ? s.chord - TOUR_LEAD : 0, chord: s.chord, tour: true, preset: s.preset, pos: k, of: list.length }));
+  }
+
   // Plays Beethoven's Appassionata (III) as a tour of the presets.
   async function start(opts) {
     if (st) stop();
     await api.startAudio();
     if (!win) buildWindow();
-    const song = SONG;
-    const scenes = tourScenes(song, (opts && opts.tour) || WS_SPEC.TOUR);   // (opts.tour: another list of presets, the vote build's)
-    const TUNING_KEYS = ['mt_mode', 'mt_scale', 'mt_tonic'], v0 = api.values();
-    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), scene: -1, t0: 0, raf: 0, sync: null, pre: 0 };   // (the tuning is a performance setting: a snapshot leaves it out, the demo gives it back)
+    const song = (opts && opts.song) || SONG;   // (version 1.0.13: the rating build gives the piece with each phrase played several times, and its scenes)
+    const scenes = opts && opts.scenes ? scenesFrom(opts.scenes) : tourScenes(song, (opts && opts.tour) || WS_SPEC.TOUR);   // (opts.tour: another list of presets, the vote build's)
+    const TUNING_KEYS = ['mt_mode', 'mt_scale', 'mt_tonic', 'vel_amt'], v0 = api.values();   // (version 1.0.13: VELOCITY too, a performance setting the demo's rules set to 0)
+    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), scene: -1, t0: 0, raf: 0, sync: null, pre: 0, offset: 0, paused: null };   // (the tuning is a performance setting: a snapshot leaves it out, the demo gives it back)
     api.post({ t: 'alloff' });
     win.title.textContent = 'DEMO · ' + song.composer + ' — ' + (song.short || song.title);
     win.title.title = song.title;
@@ -208,6 +216,28 @@ function WSDemo(api) {
     for (const [k, v] of tuning) set(k, v);   // the player's own tuning, which the oriental phrase of the demo may have changed
   }
 
+  // version 1.0.13 (the rating build: "revenir 5 s en arrière", "un bouton pause"): the piece from song time T, with the preset of that moment in place; pause and resume
+  function seekTo(T) {
+    if (!st) return;
+    T = Math.max(0, Math.min(st.song.duration - 0.5, T));
+    api.post({ t: 'seqstop' }); api.post({ t: 'alloff' });
+    let k = 0;
+    for (let i = 0; i < st.scenes.length; i++) if (T >= st.scenes[i].t) k = i;
+    st.scenes.forEach(sc => { sc.sent = false; });
+    st.scene = -1; enterScene(k);
+    st.offset = T; st.sync = null; st.paused = null; st.t0 = api.ctxTime() + LEAD_IN;
+    const n = st.song.notes, notes = [];
+    for (let i = 0; i < n.length; i += 4) if (n[i] >= T - 1e-6) notes.push(n[i] - T, n[i + 1], n[i + 2], n[i + 3]);
+    api.post({ t: 'seq', notes, delay: LEAD_IN });
+  }
+  function pause() {
+    if (!st || st.paused !== null) return;
+    const T = Math.max(0, now());
+    api.post({ t: 'seqstop' }); api.post({ t: 'alloff' });
+    st.paused = T; st.sync = null;
+  }
+  function resume() { if (st && st.paused !== null) seekTo(st.paused); }
+
   function onSeqTime(seqTime) {
     if (!st) return;
     if (seqTime >= 0) st.sync = { seq: seqTime, at: performance.now() };
@@ -219,6 +249,7 @@ function WSDemo(api) {
 
   return {
     start, stop, onSeqTime,
+    seek: seekTo, back: (s) => { if (st) seekTo((st.paused !== null ? st.paused : now()) - s); }, pause, resume, paused: () => !!st && st.paused !== null,   // version 1.0.13 (the rating build)
     running: () => !!st,
     // the preset tour ([{ t, preset }]): for the tests and the manual
     tourPlan: (names) => tourScenes(SONG, names || WS_SPEC.TOUR).map(x => ({ t: x.t, chord: x.chord, preset: x.preset })),

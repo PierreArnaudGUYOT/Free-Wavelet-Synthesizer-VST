@@ -27,13 +27,13 @@ const check = (ok, name, detail = '') => { if (!ok) fails++; console.log(`${ok ?
     check(await B.evaluate('typeof WS_TEST === "object"'), 'the test hook is there');
     const noOverlap = async (what) => { const l = JSON.parse(await B.evaluate(OVERLAP)); check(l.length === 0, `${what}: nothing overlaps (knob rings, labels, pictures) and nothing leaves its card`, l.slice(0, 4).join(' | ')); };
     const shown = () => B.evaluate(`[...document.querySelectorAll('#device .section')].filter(s => !s.classList.contains('hidden')).map(s => s.querySelector('.title') ? s.querySelector('.title').textContent : '(' + s.style.top + ')')`);
-    // beta 0.3: the three folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 (no engine tabs), the cards of the oscillator shown, OSC MIX and the SCOPE common to all
+    // beta 0.3: the three folder tabs OSC1 | OSC2 | OSC3 (no engine tabs), the cards of the oscillator shown, OSC MIX and the SCOPE common to all
     const tabs = () => B.evaluate(`[...document.querySelectorAll('#device .otab')].map(b => b.querySelector('.t1').textContent.trim() + (b.classList.contains('on') ? '*' : ''))`);
     check((await B.evaluate(`document.querySelectorAll('#device .engtabs').length`)) === 0, 'no ENGINE tabs any more');
     for (const [v, name] of [[0, 'A1'], [1, 'A2'], [2, 'B1']]) {
       await B.evaluate(`WS_TEST.setParam('osc_view', ${v})`);
       await sleep(250);
-      const want = ['OSC1 A1' + (v === 0 ? '*' : ''), 'OSC2 A2' + (v === 1 ? '*' : ''), 'OSC3 B1' + (v === 2 ? '*' : '')];
+      const want = ['OSC1' + (v === 0 ? '*' : ''), 'OSC2' + (v === 1 ? '*' : ''), 'OSC3' + (v === 2 ? '*' : '')];
       const tb = await tabs();
       check(JSON.stringify(tb) === JSON.stringify(want), `view ${name}: the folder tabs are ${want.join(' | ')}`, JSON.stringify(tb));
       const t = await shown(), n = (s) => t.filter(x => x === s).length;

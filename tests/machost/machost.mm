@@ -472,11 +472,11 @@ int main(int argc, char** argv) {
     click(pv, eng.x + 2 * 182.f + 88, eng.y + 16);
     pump(0.3);
     ParamValue e1 = p.ctl->getParamNormalized(ws::P_OSC_VIEW);
-    check(e1 > 0.9 && p.handler->edits.count(ws::P_OSC_VIEW), "folder tab OSC3 B1: the parameter changes and the host hears it", fmt("%.2f -> %.2f", e0, e1));
+    check(e1 > 0.9 && p.handler->edits.count(ws::P_OSC_VIEW), "folder tab OSC3: the parameter changes and the host hears it", fmt("%.2f -> %.2f", e0, e1));
     shot(pv, out + "/mac_engine_b.png");
     click(pv, eng.x + 88, eng.y + 16);
     pump(0.2);
-    check(p.ctl->getParamNormalized(ws::P_OSC_VIEW) < 0.1, "folder tab OSC1 A1 again");
+    check(p.ctl->getParamNormalized(ws::P_OSC_VIEW) < 0.1, "folder tab OSC1 again");
     // beta 0.6: the delay's SYNC button (plug-in only): a click turns it on (the host hears it), a second one off
     {
       const Spot sy = find(ws::W_TOGGLE, ws::P_FX_DSYNC);

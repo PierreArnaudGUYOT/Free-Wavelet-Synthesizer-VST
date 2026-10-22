@@ -3,6 +3,17 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## Okto MultiWave Synth 1.0.13 — 2026-10-22 (shown as OktoWave 1.0)
+
+- **PLAY DEMO in the plug-in**: a button left of SAVE PRESET plays the demo of the web app (Beethoven's *Appassionata* as a tour of 30 presets); the preset box says which preset of the tour plays, a second click (STOP DEMO) ends it. Your own sound and the host's parameters are left as they were.
+- **VELOCITY in the PLAY card** (web app and plug-in): the velocity of your MIDI keyboard now shapes the sound clearly. A knob sets how much (default 50 %: a note played at half velocity is about 8 dB softer), a menu where it goes: the volume (default), the cutoff of the FILTER card, or both. It is a playing setting, like the tuning: it stays when you change preset. At 0 % the sound is exactly the one of 1.0.12.
+- **The demo starts with the best sounds**: the author rated the 30 presets while the demo played, and in its first half the ones he rated under 5 changed places with the best of the second half (web app and plug-in).
+- **The titles of the effects** (SATURATION, CHORUS, PING-PONG DELAY, REVERB) are written in the accent colour and bigger: they were grey and hard to read.
+- **The oscillator tabs are named OSC1, OSC2 and OSC3** (they were OSC1 A1, OSC2 A2, OSC3 B1), with SUBTRACTIVE / ADDITIVE written 20 % bigger under the name (web app and plug-in).
+- Presets, stars, saved projects and the user bank are kept.
+
+**Checked**: build, the quick suite with the C++/JS cross-check (323 cases) and the *hang* section, the plug-in window in a host with the demo (it plays, goes on through a change of preset, touches no parameter of the host, stops), the VST2 entry point, the TOP Sounds against beta 0.7, the presets file, the web smoke test, the manual and the demo test.
+
 ## Okto MultiWave Synth 1.0.12 — 2026-10-22 (shown as OktoWave 1.0)
 
 - **The sound stops when the host stops** (Windows and Mac plug-in). In a DAW such as Ableton Live a sound could stay on after STOP: a sustain pedal still down in the MIDI sequence held the released notes, notes of a stopped sequence got no note off, a note released at the moment the pedal goes down was held. The plug-in now releases every note and lifts the pedal when the host stops, understands the MIDI messages *all notes off*, *all sound off* and *reset all controllers*, and puts the pedal at its exact place among the notes (VST3 and VST2).

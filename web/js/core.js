@@ -1080,7 +1080,8 @@ function WSCoreFactory(SPEC) {
     const l2on = p[P.lfo2_amt] !== 0;
     const c2 = l2on && role2 === ROLE_VFCUT, r2 = l2on && role2 === ROLE_VFRES, c3 = role3 === ROLE_VFCUT, r3 = role3 === ROLE_VFRES;
     this.dFltOct = (c2 ? d2 : 0) + (c3 ? d3 : 0); this.dFltRes = (r2 ? d2 : 0) + (r3 ? d3 : 0);
-    this.fltOn = !(p[P.vf_cut] >= 20000 && p[P.vf_res] === 0 && p[P.vf_drive] === 0 && p[P.vf_env] === 0 && !c2 && !r2 && !c3 && !r3);
+    const velF = p[P.vel_amt] > 0 && Math.round(p[P.vel_target]) !== 0;   // version 1.0.13: the PLAY card's VELOCITY moves the cutoff
+    this.fltOn = !(p[P.vf_cut] >= 20000 && p[P.vf_res] === 0 && p[P.vf_drive] === 0 && p[P.vf_env] === 0 && !c2 && !r2 && !c3 && !r3 && !velF);
     // unison copies (detune and pan are the same for every oscillator)
     const U = Math.round(p[P.v_unison]), det = p[P.v_detune], width = p[P.v_width];
     this.U = U;
@@ -1130,9 +1131,18 @@ function WSCoreFactory(SPEC) {
   };
 
   // The filter's coefficients for this voice and block (feLev: the level of its envelope at the end of the block)
+  // version 1.0.13: the PLAY card's VELOCITY (tools/spec.js vel_amt, vel_target): the voice's gain (Volume) and the octaves its FILTER cutoff goes down (Filter); 1 and 0 when it is off
+  E.velVolume = function (vc) {
+    const p = this.p, amt = p[P.vel_amt], t = Math.round(p[P.vel_target]);
+    return amt > 0 && t !== 1 ? Math.pow(Math.max(vc.vel, 1e-3), 2 * amt) : 1;
+  };
+  E.velFilterOct = function (vc) {
+    const p = this.p, amt = p[P.vel_amt], t = Math.round(p[P.vel_target]);
+    return amt > 0 && t !== 0 ? -amt * 4 * (1 - vc.vel) : 0;
+  };
   E.fltPrep = function (vc, n, feLev) {
     const p = this.p, sr = this.sr;
-    const octs = p[P.vf_env] * 8 * feLev + p[P.vf_key] * (vc.pitch - 60) / 12 + this.dFltOct;
+    const octs = p[P.vf_env] * 8 * feLev + p[P.vf_key] * (vc.pitch - 60) / 12 + this.dFltOct + this.velFilterOct(vc);
     let fc = p[P.vf_cut] * Math.pow(2, octs);
     const fmax = 0.45 * sr;
     if (fc > fmax) fc = fmax; else if (fc < 8) fc = 8;
@@ -1263,7 +1273,7 @@ function WSCoreFactory(SPEC) {
     const aInc = 1 / (p[P.amp_a] * sr), dC = this.mAmpD.get(-LN1000 / (p[P.amp_d] * sr)), rC = this.mAmpR.get(-LN1000 / (p[P.amp_r] * sr));
     // beta 0.2: the chord's bass note plays louder (vc.gain; exactly the old value when it is 1), and a note dropped by a live chord
     // change fades out in QUICK_REL at most
-    const velGain = VOICE_GAIN * (1 - p[P.amp_vel] * (1 - vc.vel)) * vc.gain;
+    const velGain = VOICE_GAIN * (1 - p[P.amp_vel] * (1 - vc.vel)) * vc.gain * this.velVolume(vc);
     const rQ = vc.quick && p[P.amp_r] > QUICK_REL ? this.mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : rC;
     for (let i = 0; i < n; i++) {
       if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }

@@ -36,7 +36,7 @@ const APP = {
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
   version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
-  versionNum: '1.0.12',
+  versionNum: '1.0.13',
   date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -49,7 +49,7 @@ const P = [];
 function add(key, name, short, o) { P.push(Object.assign({ key, name, short, curve: 'lin', fmt: 'pct', hidden: false, structural: false, perf: false }, o)); }
 
 // the oscillator shown on the panel (A1 A2 | B1); not a sound: switching it never marks a preset as modified
-// (beta 0.3: B2 is gone; the three folder tabs OSC1 A1 | OSC2 A2 | OSC3 B1 above the cards choose it)
+// (beta 0.3: B2 is gone; the three folder tabs above the cards choose it: OSC1 | OSC2 | OSC3 since version 1.0.13, OSC1 A1 | OSC2 A2 | OSC3 B1 before)
 add('osc_view', 'Oscillator Shown', 'OSC', { curve: 'choice', fmt: 'choice', min: 0, max: 2, def: 0, structural: true,
   choices: ['A1 · Subtractive', 'A2 · Subtractive', 'B1 · Additive'], choiceShort: ['A1', 'A2', 'B1'] });
 add('wavelet', 'Wavelet', 'WAVELET', { curve: 'choice', fmt: 'choice', min: 0, max: 6, def: 2, structural: true,
@@ -330,8 +330,16 @@ add('vf_a', 'Filter Env Attack', 'ATTACK', { curve: 'exp', fmt: 'sec', min: 0.00
 add('vf_d', 'Filter Env Decay', 'DECAY', { curve: 'exp', fmt: 'sec', min: 0.001, max: 10, def: 0.3 });
 add('vf_s', 'Filter Env Sustain', 'SUSTAIN', { min: 0, max: 1, def: 0.5 });
 add('vf_r', 'Filter Env Release', 'RELEASE', { curve: 'exp', fmt: 'sec', min: 0.001, max: 10, def: 0.3 });
+// Version 1.0.13 (the owner: "la vélocité de mon clavier MIDI n'a aucun impact, toutes les notes sont jouées au max"): VELOCITY, a performance setting of the PLAY card (not in a preset,
+// as the tuning). The presets' own AMP VELOCITY is linear and stops at -6 dB (0.5 in most of them: -2.5 dB for a velocity of 64, hardly heard); this one adds a curve on top of it:
+// Volume: the voice's gain times velocity ^ (2 x VELOCITY) (the default 50 %: -6 dB at a velocity of 64, -12 dB at 32, so -8.5 dB and -16 dB with a preset's 0.5); Filter: the cutoff
+// of the FILTER card goes down by VELOCITY x 4 octaves x (1 - velocity) (the default: an octave at 64); Volume + filter: both. 0 % = as before 1.0.13, bit for bit. They come before the
+// three MIDI triggers (whose ids are not saved anywhere), so that the VST2 host, which sees the parameters up to the triggers, has them.
+add('vel_amt', 'Velocity Sensitivity', 'VELOCITY', { min: 0, max: 1, def: 0.5, perf: true });
+add('vel_target', 'Velocity Target', 'VEL TO', { curve: 'choice', fmt: 'choice', min: 0, max: 2, def: 0, perf: true,
+  choices: ['Volume', 'Filter cutoff', 'Volume + filter'], choiceShort: ['VOLUME', 'FILTER', 'VOL + FILTER'] });
 // Version 1.0.12: the MIDI "panic" messages. A host sends them as controllers (CC 120 all sound off, CC 121 reset all controllers, CC 123 all notes off: their value is 0), which a VST3 plug-in
-// only receives through IMidiMapping, as parameters: three hidden parameters, APPENDED at the end of the list (the ids of every other parameter, and so every saved project, stay as they were).
+// only receives through IMidiMapping, as parameters: three hidden parameters at the end of the list (the ids of every other parameter, and so every saved project, stay as they were).
 // The processor acts on a point of one of these queues whose value is NOT the default: the data byte of these messages is 0, a point at 0 is the trigger. The default is 0.5 so that a
 // host that "resets every hidden parameter to its default" (some do, with the pedal, the bend and the wheel) does not fire a panic. They are never in a preset or a state. vst/src/plugin.cpp.
 add('midi_asoff', 'All Sound Off (MIDI CC 120)', 'SND OFF', { min: 0, max: 1, def: 0.5, hidden: true });
@@ -406,7 +414,7 @@ section('header', '', 0, 0, 1100, 48, -1, [
   { type: 'meter', x: 1072, y: 9, w: 14, h: 30 },
 ]);
 
-// ---- the folder tabs of the oscillators (OSC1 A1 · SUBTRACTIVE | OSC2 A2 · SUBTRACTIVE | OSC3 B1 · ADDITIVE: 176 x 40 px every 182) and the plate behind the cards of
+// ---- the folder tabs of the oscillators (OSC1 · SUBTRACTIVE | OSC2 · SUBTRACTIVE | OSC3 · ADDITIVE: 176 x 40 px every 182) and the plate behind the cards of
 // the one shown, in its colour (A1 A2 yellow, B1 blue). OSC MIX and the SCOPE are common to every oscillator: they sit outside the plate, at the top right, so the plate
 // is an L (the section draws it itself: x 6 to 1094, from y 88 to y 511, with the notch from x 564 down to y 360, half way between the cards)
 section('oscframe', '', 6, 50, 1088, 462, -1, [
@@ -535,6 +543,8 @@ section('play', 'PLAY · CHORD MODE · TUNING', 512, 792, 576, 128, -1, [
   { type: 'menu', param: 'mt_scale', text: 'MAQAM', x: 146, y: 88, w: 176, h: 24, vis: 'mt_mode', visOn: true },
   { type: 'label', text: 'TONIC', x: 340, y: 70, w: 100, h: 14, vis: 'mt_mode', visOn: true },
   { type: 'step', param: 'mt_tonic', x: 340, y: 86, w: 110, h: 26, vis: 'mt_mode', visOn: true },
+  kn('vel_amt', 486, 36),   // version 1.0.13: VELOCITY and where it goes (placed at the right of the card below)
+  { type: 'menu', param: 'vel_target', x: 470, y: 100, w: 84, h: 22 },
 ]);
 // the keyboard row: the wheels and the keyboard (C2-C7, 36 white keys)
 section('keys', '', 0, 928, 1100, 112, -1, [
@@ -614,6 +624,7 @@ section('chord', 'CHORD KEYBOARD', 12, 1054, 1076, 104, -1, [
   const play = find('play'); box(play, 516, 726, 572, 98); play.vtitle = true; play.title = 'PLAY'; play.accentTitle = true;
   widget(play, 0, 26, 8, 100, 34); widget(play, 1, 26, 48, 100, 26); widget(play, 2, 158, 8, 150, 24); widget(play, 3, 158, 62, 176, 24);
   widget(play, 4, 360, 44, 100, 14); widget(play, 5, 360, 62, 110, 26);
+  widget(play, 6, 498, 6, 52, 60); widget(play, 7, 482, 70, 84, 22);   // version 1.0.13: VELOCITY over its target, in the free column at the right
   const keys = find('keys'); box(keys, 0, 830, 1100, 98);
   widget(keys, 0, 12, 0, 60, 82); widget(keys, 1, 82, 0, 1006, 82); widget(keys, 2, 14, 83, 170, 15);
   find('chord').y = DEVICE.h + 4;
@@ -785,36 +796,39 @@ const DEMO_PRESETS = DEMO_RAW.presets.map(r => ({ name: r.name, v: convertLegacy
 // Version 1.0.10: the tour is the owner's own list, from his vote on the demo (the demo vote test version, 2026-10-21): he rated the 30 presets of the previous tour one phrase at a time, kept the
 // ones he liked, replaced the poor ones by presets of the factory list he picked among five proposed (and the 10-star favourite stays first), and this is the order he sent. One preset per
 // phrase of 8 beats (web/js/demo.js), scene k plays TOUR[k]. The names are found in DEMO_PRESETS (the copies the old tour carried) or in the factory list, in that order (app.js demoPreset).
+// Version 1.0.13: the order of his rating while the demo played (the rate test version, report of 2026-10-22): in parts 1-15 a preset he rated under 5 changed places with one of parts
+// 16-30 rated above 5, the best first: Orbit Drum (9) to 5, Ice Rise Clav (9) to 6, Salt Beam Strings (9) to 8, Swing of Odd (8) to 11; Drum Bloom, Wave Pulse Lead, Knock Sweep and Wood
+// Rise Bows went to their places. The plug-in's demo (PLAY DEMO) plays the same list.
 const TOUR = [
   "A · Wavelet Lead",
   "AA · Tide Lute",
   "AB · Kalimba Lung Machine",
   "AA · Hollow Bass",
-  "AA · Drum Bloom",
-  "A · Wave Pulse Lead",
+  "AA · Orbit Drum",
+  "AAB · Ice Rise Clav",
   "A · Wave Atom Choir Shift",
-  "AA · Knock Sweep",
+  "AA · Salt Beam Strings",
   "A · Spiccato Strings",
   "AAB · Sweep Call",
-  "AA · Wood Rise Bows",
+  "AB · Swing of Odd",
   "AB · Pure Fog",
   "AA · Moon & Breath",
   "AB · Ripple Reeds",
   "B · Flute Lead",
   "AB · Silk Strings",
-  "AB · Swing of Odd",
+  "AA · Wood Rise Bows",
   "AB · Sweep of Trumpet",
-  "AA · Orbit Drum",
+  "AA · Drum Bloom",
   "AAB · Rust Aurora",
   "A · Cello Section",
   "AB · Step Sub",
-  "AAB · Ice Rise Clav",
+  "A · Wave Pulse Lead",
   "AA · Opal Rise Chords",
   "AB · Bloom of Timber",
   "AB · Orbit Cloud",
   "AB · Open Mallets",
   "AA · Analog Cloud",
-  "AA · Salt Beam Strings",
+  "AA · Knock Sweep",
   "AB · Beam Lung Keys"
 ];
 let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }   // version 1.0.4: the whole dB each preset of the tour goes down while the piece plays (tools/demo_level.js --write-trim)
