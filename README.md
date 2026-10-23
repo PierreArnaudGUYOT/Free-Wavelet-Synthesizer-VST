@@ -31,6 +31,12 @@ The web app also works offline: download the repository and open `web/index.html
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
 
+## Web update of 2026-10-23: the preset list (web app only; the plug-in stays 1.0.16)
+
+- **The author's new preset list**: 197 presets (11 removed); every section is ordered by his stars, the most starred first, TOP Sounds too (the sound the synth opens on stays first); **Bass is the third section**, after TOP Sounds and Pad, and holds the basses he gathered there; the sounds he rated that were in Other are back in their sections.
+- **6 presets take his settings**: *A · Warm Pad*, *AB · Beam Lung Keys*, *AAB · Clang Tide Signal*, *AA · Knock Sweep LGT*, *AAB · Drift Pick LGT*, *AA · Salt Beam Strings LGT* (the last two play in the demo, which follows them).
+- The sound engine does not change.
+
 ## What version 1.0.16 changes (OktoWave 1.0)
 
 - **A more professional reverb** (web app and plug-in): the Classic reverb keeps its algorithm and its character, with four improvements around it, at the same reverb level (measured over the whole demo: -22.35 LUFS against -22.22): a **stereo input** (wide sounds keep part of their image in the reverb), a **20 ms pre-delay** (the direct sound stays clear, the reverb sits just behind it), **more damping** (the tail loses its highs sooner: less metallic) and a **150 Hz low cut** (no low end in the reverb: basses stay clean). Every sound with reverb plays it, the demo too.
@@ -236,7 +242,7 @@ Beta 0.3.1 applies the first ratings of OktoPierre (80 of the new presets rated 
   the original's.
 - **OSC MIX** (the card next to the scope): three level knobs, one per oscillator, replace the A/B MIX knob. A1 plays at 100 %
   on a new patch, the others at 0. The sub oscillator is in the same card.
-- **208 presets** in version 1.0.15 (see above); version 1.0 had **237** (the ones OktoPierre kept; earlier betas had 930 and then 1182): **21 TOP Sounds** (unchanged: they sound exactly as in beta 0.7) and 216 numbered ones
+- **197 presets** since the web update of 2026-10-23 (the author's new list; 208 in the plug-in 1.0.15 and 1.0.16, see above); version 1.0 had **237** (the ones OktoPierre kept; earlier betas had 930 and then 1182): **21 TOP Sounds** (unchanged: they sound exactly as in beta 0.7) and 216 numbered ones
   (`020`–`1374`, from the betas 0.1 to 0.3.4), in 11 sections (Pad, SuperModulation, Bass, Lead, Keyboard, Organ, Strings, Brass & Wind, Bells & Mallets, FX, Drums & Perc). Every new preset uses at least two
   oscillators; the letters of its name say which (`A1A2`, `A1B1`, `A1A2B1` …); an oscillator is often the attack (a click, a
   breath, a pluck) of another.

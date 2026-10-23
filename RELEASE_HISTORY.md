@@ -3,6 +3,14 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## OktoWave web update — 2026-10-23: the preset list (web app only; the plug-in stays 1.0.16)
+
+- **The author's new preset list**: 197 presets (11 removed); every section is ordered by his stars, the most starred first, TOP Sounds too (the sound the synth opens on stays first); **Bass is the third section**, after TOP Sounds and Pad, and holds the basses he gathered there; the sounds he rated that were in Other are back in their sections.
+- **6 presets take his settings**: *A · Warm Pad*, *AB · Beam Lung Keys*, *AAB · Clang Tide Signal*, *AA · Knock Sweep LGT*, *AAB · Drift Pick LGT*, *AA · Salt Beam Strings LGT* (the last two play in the demo, which follows them).
+- The sound engine does not change.
+
+**Checked**: the quick suite with the C++/JS cross-check (300 cases, worst 4.2e-7) and the VST3 host checks (118); the web app loads without errors with its preset order and starts the demo; the 197 presets sound in the JavaScript engine (finite, under 0 dBFS); the demo's 30 scenes through the output stage (`tools/outstage_check.js`): no distortion, highest sample 0.84 (the two adjusted presets of the demo: peaks 0.51 and 0.25).
+
 ## Okto MultiWave Synth 1.0.16 — 2026-10-23 (shown as OktoWave 1.0)
 
 - **A more professional reverb** (web app and plug-in). The Classic reverb (the Freeverb of every earlier version) keeps its algorithm and its character, with four improvements around it: a **stereo input** (60 %: the combs of each side hear more of their own side, so wide sounds keep part of their image in the reverb, without leaning to one side), a **20 ms pre-delay** (the direct sound stays clear, the reverb sits just behind it), **more damping** (0.40 instead of the fixed 0.25: the tail loses its highs sooner, less metallic) and a **150 Hz low cut** on its input (no low end in the reverb: the basses stay clean). Every sound with reverb plays it, the demo too.

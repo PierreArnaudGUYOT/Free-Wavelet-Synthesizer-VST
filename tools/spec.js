@@ -746,6 +746,7 @@ const TOP_EXTRA = PRESETS.map((p, i) => i).filter(i => i >= TOP_COUNT && (PRESET
 // the TOP Sounds list of the plug-in (and the sound the synth opens on): the TOP Sounds of beta 0.7 and the presets rated above 7, the best rated first (a tie: the earlier one)
 const TOP_LIST = [...PRESETS.slice(0, TOP_COUNT).map((p, i) => i), ...TOP_EXTRA].sort((a, b) => (PRESETS[b].stars || 0) - (PRESETS[a].stars || 0) || a - b);
 for (const p of PRESETS) if (SECTION_OF[p.cat]) p.cat = SECTION_OF[p.cat];
+for (const p of PRESETS) p.cat0 = p.cat;   // (web update of 1.0.16: the preset's own section, kept when a rule below moves it to Other)
 // version 1.0: the numbers are gone from the names and the oscillators are written as in the Wavelet Synthesizer, by type: A (one subtractive oscillator), AA (two), AB (one subtractive +
 // the additive one), AAB (two + the additive one), B (the additive one alone): "1129 A1A2B1 · Dive Texture" -> "AAB · Dive Texture" (the browsers colour the A and the B). `id` keeps the old
 // name, with its number: the tools that read it (the web spec carries it); the plug-in knows the new name only.
@@ -838,7 +839,7 @@ const LGT_OF = {};   // the original name of a favourite -> the name of its LGT 
     const type = SLOTS.slice(0, 2).filter(sl => g(sl.k.lvl) > 0).map(() => 'A').join('') + (g(SLOTS[2].k.lvl) > 0 ? 'B' : '');
     const name = type + ' · ' + from.split(' · ').slice(1).join(' · ') + ' LGT';
     const fav = (p.vote || 0) >= 5;
-    const q = { name, id: name, cat: p.cat, v, light: from };
+    const q = { name, id: name, cat: p.cat, cat0: p.cat0, v, light: from };
     const desc = DESCRIPTIONS[from];
     DESCRIPTIONS[name] = (desc ? desc + ' ' : '') + 'The light version of ' + from + ': lighter on the computer.';
     PRESETS.push(q);
@@ -946,16 +947,55 @@ for (const [name, edit] of Object.entries(OWNER.adjusted)) {
   p.v = Object.assign({}, p.v, edit); OWNER_EDITS[name] = edit;
 }
 let TOP_N = TOP_COUNT, NEW_N = NEW_RAW.length;   // the TOP Sounds of beta 0.7 and the new presets of the listening tests, in the array: the counts after the deletions
-{
-  const gone = new Set(OWNER.deleted.filter(n => !DEMO_NAMES.has(n)));
-  for (const n of gone) { if (!PRESETS.some(p => p.name === n)) throw new Error('owner_presets: no preset ' + n); if (n === DEFAULT_PRESET) throw new Error('owner_presets: the opening sound cannot go: ' + n); }
+// the presets named leave the factory list (and TOP Sounds), the order of the others stays (version 1.0.15; a function since the web update of 1.0.16, which deletes more)
+function dropPresets(names, from) {
+  const gone = new Set(names), topEnd = TOP_N, newEnd = TOP_N + NEW_N;   // (the two groups at the start of the array, before this call)
+  for (const n of gone) { if (!PRESETS.some(p => p.name === n)) throw new Error(from + ': no preset ' + n); if (n === DEFAULT_PRESET) throw new Error(from + ': the opening sound cannot go: ' + n); }
   const newIdx = [], kept = [];
-  PRESETS.forEach((p, i) => { if (gone.has(p.name)) { newIdx.push(-1); if (i < TOP_COUNT) TOP_N--; else if (i < TOP_COUNT + NEW_RAW.length) NEW_N--; return; } newIdx.push(kept.length); kept.push(p); });
+  PRESETS.forEach((p, i) => { if (gone.has(p.name)) { newIdx.push(-1); if (i < topEnd) TOP_N--; else if (i < newEnd) NEW_N--; return; } newIdx.push(kept.length); kept.push(p); });
   PRESETS.splice(0, PRESETS.length, ...kept);
   for (const L of [TOP_LIST, TOP_EXTRA]) L.splice(0, L.length, ...L.map(i => newIdx[i]).filter(i => i >= 0));
   PRESETS.map((p, i) => i).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).forEach((i, r) => { PRESETS[i].rank = r; });   // the same order, without the gaps
   for (const n of gone) delete DESCRIPTIONS[n];
   for (let i = CATEGORIES.length - 1; i >= 0; i--) if (CATEGORIES[i] !== 'Other' && !PRESETS.some(p => p.cat === CATEGORIES[i])) CATEGORIES.splice(i, 1);
+}
+dropPresets(OWNER.deleted.filter(n => !DEMO_NAMES.has(n)), 'owner_presets');
+// Web update of 1.0.16 (the owner: "je souhaite améliorer la liste des presets, voici ma proposition", his presets file of 2026-10-23, tools/owner_presets2.js written by tools/owner_import.js
+// --out owner_presets2.js; "trier par étoile les sons dans les banques; déplacer la banque Bass en troisième position après Pad; trie chaque section par ordre des étoiles"). His answers:
+// the presets he adjusted take his values, the demo's too ("la démo prend aussi tes réglages"); the ones he deleted leave the list; his stars are the stars of the factory presets now; a
+// preset he rated that sits in Other goes back to its own section (a HIGH_CPU original to the section of its LGT version); a preset he has not rated stays in its section, after the rated
+// ones; every list is ordered by his stars (most first; a tie keeps the order of before), TOP Sounds too, AA · Flint Ripple Haze LGT staying first (the sound the synth opens on).
+const OWNER2 = require('./owner_presets2.js');
+for (const [name, edit] of Object.entries(OWNER2.adjusted)) {
+  const p = PRESETS.find(x => x.name === name); if (!p) throw new Error('owner_presets2: no preset ' + name);
+  p.v = Object.assign({}, p.v, edit); OWNER_EDITS[name] = Object.assign({}, OWNER_EDITS[name] || {}, edit);
+}
+dropPresets(OWNER2.deleted, 'owner_presets2');
+for (const n of Object.keys(OWNER2.stars)) if (!PRESETS.some(p => p.name === n)) throw new Error('owner_presets2: no preset ' + n);
+// his sections, as he arranged them in his browser (the LIST ORDER of his file: Bass holds the basses he moved there, Lead is empty, Orbit Drum is in FX...), and his TOP Sounds
+for (const [sec, names] of Object.entries(OWNER2.lists)) {
+  if (sec === 'TOP Sounds') continue;
+  for (const n of names) { const p = PRESETS.find(x => x.name === n); if (!p) throw new Error('owner_presets2 lists: no preset ' + n); p.cat = sec; }
+}
+{
+  const top = OWNER2.lists['TOP Sounds'].map(n => { const i = PRESETS.findIndex(x => x.name === n); if (i < 0) throw new Error('owner_presets2 TOP Sounds: no preset ' + n); return i; });
+  TOP_LIST.splice(0, TOP_LIST.length, ...top);
+  TOP_EXTRA.splice(0, TOP_EXTRA.length, ...TOP_EXTRA.filter(i => top.includes(i)));
+  if (!TOP_LIST.some(i => PRESETS[i].name === DEFAULT_PRESET)) throw new Error('owner_presets2: the opening sound must stay in TOP Sounds');
+}
+for (const p of PRESETS) {
+  const s = OWNER2.stars[p.name] || 0;
+  if (s && p.cat === 'Other' && p.cat0 && p.cat0 !== 'Other') p.cat = p.cat0;
+  if (s) p.vote = s; else delete p.vote;
+}
+{
+  const ORDER = ['Pad', 'Bass', 'SuperModulation', 'Lead', 'Keyboard', 'Organ', 'Strings', 'Brass & Wind', 'Bells & Mallets', 'FX', 'Drums & Perc', 'Other'];   // Bass third, after TOP Sounds and Pad
+  CATEGORIES.splice(0, CATEGORIES.length, ...ORDER.filter(c => c === 'Other' || PRESETS.some(p => p.cat === c)));
+  for (const p of PRESETS) if (!CATEGORIES.includes(p.cat)) throw new Error(`preset ${p.name}: no category`);
+  const st = i => PRESETS[i].vote || 0;
+  PRESETS.map((p, i) => i).sort((a, b) => st(b) - st(a) || PRESETS[a].rank - PRESETS[b].rank).forEach((i, r) => { PRESETS[i].rank = r; });
+  const pos = new Map(TOP_LIST.map((i, k) => [i, k]));
+  TOP_LIST.sort((a, b) => (PRESETS[a].name === DEFAULT_PRESET ? -1 : PRESETS[b].name === DEFAULT_PRESET ? 1 : 0) || st(b) - st(a) || pos.get(a) - pos.get(b));
 }
 const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).map(i => {
   const p = PRESETS[i], v = percussive(p.v), down = KA_ADJ[p.name] || (p.light && KA_ADJ[p.light]) || 0;   // (version 1.0.14: an LGT version takes its original's)
