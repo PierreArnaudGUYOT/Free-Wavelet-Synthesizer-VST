@@ -3,13 +3,24 @@
 Created by **Pierre Arnaud GUYOT** ("OktoPierre"). Okto MultiWave Synth is built on his Wavelet Synthesizer (beta 0.7) and on
 the chord keyboard of his WaveChord work; their histories follow its own first release below.
 
+## OktoWave web update — 2026-10-23 (web app only; the plug-in stays 1.0.15)
+
+- **The web app runs the plug-in's own engine.** The C++ sound engine (`vst/src/dsp.h`), compiled to WebAssembly (`wasm/build.sh`, wasi-sdk), replaces the JavaScript engine (`web/js/core.js`) in the browser's audio thread. The author tried it on his computer ("ça marche bien") and asked for it on the official page.
+- **Same sound**: the two engines agree within 4.2e-7 of full scale on the 299 cases of the cross-check (`wasm/parity.js`: every preset, the LFOs, phase, morph, chords, filter, unison, loud chords, the limiter's hard case), the scalar and the SIMD builds alike.
+- **About twice as light on the processor** (16-voice dense chord, per render quantum): 2.4x on the 30 presets of the demo, 1.8x on the 20 heaviest presets, the slowest quanta 2 to 4 times faster. The whole demo in real time, Windows' power-saving (Efficiency) mode, headless browser, two runs: 2362 and 926 audio dropouts with the JavaScript engine, 12 and 0 with WebAssembly (none for either in normal mode). Three very heavy presets played as 16-voice chords stay a little above the real-time budget even so.
+- **Safe fallback**: a browser that cannot compile the module (an old Safari, a memory refusal) plays with the JavaScript engine by itself; `#engine=js` in the address forces it. The status bar shows "· WASM" while the WebAssembly engine plays. The module (188 KB, base64 in `web/js/engine_wasm_data.js`, loaded on demand) works from `file://` too.
+- **Credits**: Jérémie Palmigiani (Soul Machine), the author's spelling (1.0.15 had "Paligrini").
+- The plug-in, the presets, the reverb and the demo do not change. Two additions to `vst/src/dsp.h` leave the native build identical: a no-threads guard for WebAssembly and a WebAssembly SIMD branch of the `v2d` layer.
+
+**Checked**: the quick suite with the C++/JS cross-check, the web smoke test, the manual, the demo test and the full web run on every preset, with the WebAssembly engine as the default (see the release notes of the commit); the native build and the VST3 host checks (unchanged engine).
+
 ## Okto MultiWave Synth 1.0.15 — 2026-10-23 (shown as OktoWave 1.0)
 
 - **A cleaner output stage** (web app and plug-in): a **look-ahead limiter** replaces the peak guard and the tanh soft limiter of 1.0.14. The old stage bent every peak above -3 dBFS (the tanh starts at 0.7), which gave a slight buzz on loud, dense chords. The new one delays the sound by 1.5 ms, sees each peak coming and turns the volume down smoothly just before it: no sample goes above -1 dBFS (0.89) and nothing is bent. Below -3 dBFS, where the old stage did nothing (every scene of the demo), the sound is exactly the one of 1.0.14, only 1.5 ms later.
 - **A fixed latency of 1.5 ms** (plug-in), reported to the DAW, which compensates it (Ableton Live does it by itself): the synth stays in time with the other tracks.
 - **The author's own sounds**: the 9 factory presets he adjusted with SAVE PRESET and that the demo does not play take his values: *A · Shimmering Strings* (LFO 1 rate 0.71 Hz), *A · Warm Pad* (attack 5 ms), *AA · Chalk Edge Call*, *AB · Resonance Storm* (delay feedback and reverb off), *AAB · Static & Fibre* (percussive, no delay or reverb), *AA · Tide Horns* (percussive, three octaves down), *AAB · Stair & Tap* (an octave lower), *AA · Sweep of Pixel LGT* (attack 75 ms), *AB · Step Spiral LGT* (percussive). The 5 he adjusted that the demo plays keep their sound (his rule: the demo does not change): *AB · Step Sub*, *AB · Orbit Cloud*, *AA · Knock Sweep LGT*, *AB · Rust Aurora LGT*, *AA · Salt Beam Strings LGT*.
 - **208 factory presets** (257 before): the 54 presets he deleted in his browser leave the factory list, except the 5 the demo plays (*A · Wavelet Lead*, *AAB · Sweep Call*, *AB · Swing of Odd*, *AA · Wood Rise Bows*, *AB · Open Mallets*): 49 fewer, 19 LGT versions and 14 HIGH_CPU originals now. The order of the lists does not change (his stars were not used to sort them again). A Live Set or a presets file that names a removed preset keeps its sound (the plug-in stores the values).
-- **The credits spell the name right**: Jérémie Paligrini (Soul Machine) (it was misspelt in the manual, the README and these notes).
+- **The credits spell the name right**: Jérémie Palmigiani (Soul Machine) (it was misspelt in the manual, the README and these notes).
 - Your presets file, stars, saved projects and user bank are kept.
 
 **Details**
@@ -78,7 +89,7 @@ the chord keyboard of his WaveChord work; their histories follow its own first r
 **In short**
 - **A "Send feedback" button in the web app.** In the header, between **DOWNLOAD VST** and **USER MANUAL**, **SEND FEEDBACK** opens a short form (Google Forms: two optional questions, one for your feedback, one for a bug with your OS and setup) in a new tab; no Google account is needed. The welcome window has the same door: a fifth box, **Send your feedback**, under "Learn more about the sound engine". The web page itself sends nothing: the buttons are plain links, and no referrer is sent to Google.
 - **A clearer oriental look (TUNING ARAB / TURK).** On the PLAY card the pattern stays, but the **TUNING switch, the MAQAM menu, the TONIC step and their captions now sit on an opaque dark plate**: their text was hard to read over the tiles (web app and plug-in). **The synthesizer takes the colours of the pattern**: the panel and the preset browser are bronze with ARAB and carmine with TURK (WEST keeps its violet and orange), in the web app and in the plug-in. **In the web app the pattern also fills the dark margins of the page** around the panel, with the status bar in the colour of its ground.
-- **The credits are back in the manual**: its contents page has its "Credits and thanks" again (Jérémie Paligrini / Soul Machine, Flo / Go Tiger, Arnaud Grignard; the demo music from the Mutopia Project; PyWavelets; the Steinberg headers), which the new manuals had dropped.
+- **The credits are back in the manual**: its contents page has its "Credits and thanks" again (Jérémie Palmigiani / Soul Machine, Flo / Go Tiger, Arnaud Grignard; the demo music from the Mutopia Project; PyWavelets; the Steinberg headers), which the new manuals had dropped.
 - No sound, no preset and no layout changed: the sound engine is the 1.0.8 one (the plug-in's editor draws the panel in new colours in ARAB and TURK).
 
 **Checked** (a short validation: the sound engine did not change)
@@ -596,7 +607,7 @@ the plug-in and 77 ms in the web app instead of 3 and 8 ms (68 / 159 ms with the
 Nothing of this when LFO 2 does not move the phase.
 
 **Acknowledgments**
-- Thanks to Jérémie Paligrini (aka Soul Machine) and Flo (aka Go Tiger) for testing the synth and providing valuable
+- Thanks to Jérémie Palmigiani (aka Soul Machine) and Flo (aka Go Tiger) for testing the synth and providing valuable
   feedback and improvement suggestions.
 - Thanks to Arnaud Grignard for the technical review of the concept.
 

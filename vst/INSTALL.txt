@@ -16,7 +16,7 @@ NEW IN 1.0.15
   The presets of the demo keep their sound.
 - 49 presets removed (the ones the author deleted, except those the demo plays): 208 presets now (19 LGT). The order of the lists does not change;
   a Live Set that names a removed preset keeps its sound.
-- The credits spell the name right: Jérémie Paligrini (Soul Machine).
+- The credits spell the name right: Jérémie Palmigiani (Soul Machine).
   Your presets file, stars and user bank are kept.
 
 NEW IN 1.0.14

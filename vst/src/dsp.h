@@ -11,11 +11,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
+// WebAssembly prototype (wasm/engine_wasm.cpp, wasm32-wasip1: no threads, no exceptions): the tables are built one set after the other (buildTables' threads = 1 path, the same bits).
+// Native builds do not define WS_NO_THREADS: for them this file is unchanged.
+#if defined(__wasi__) && !defined(_REENTRANT)
+#define WS_NO_THREADS 1
+#endif
+#if !defined(WS_NO_THREADS)
 #include <exception>
 #include <mutex>
-#include <string>
 #include <thread>
-#include <vector>
+#endif
 #include "generated/spec.h"
 // CPU optimisations (CLAUDE.md "CPU optimisations", Revue_CPU.md): SSE2 (x86) and, since version 1.0.7, NEON (Apple silicon) do the same double-precision operations as the scalar code,
 // lane by lane, so the output is bit-identical; without either (other platforms, or -DWS_NO_NEON, which the macOS workflow uses to prove it) the scalar form is used.
@@ -28,6 +35,9 @@
 #define WS_V2 1
 #elif defined(__aarch64__) && defined(__ARM_NEON) && !defined(WS_NO_NEON)
 #include <arm_neon.h>
+#define WS_V2 1
+#elif defined(__wasm_simd128__)
+#include <wasm_simd128.h>
 #define WS_V2 1
 #endif
 // The kernels that use the layer. On Apple silicon each can be left out (-DWS_NO_NEON_BAND, -DWS_NO_NEON_FILTER, -DWS_NO_NEON_REVERB) to measure what it is worth there.
@@ -66,6 +76,25 @@ inline v2d v2_cvt(const float* p) { return _mm_cvtps_pd(_mm_castsi128_ps(_mm_loa
 inline void v2_f32(v2d v, float& lo, float& hi) { const __m128 r = _mm_cvtpd_ps(v); lo = _mm_cvtss_f32(r); hi = _mm_cvtss_f32(_mm_shuffle_ps(r, r, 1)); }   // each lane rounded to a float
 inline double v2_lo(v2d v) { return _mm_cvtsd_f64(v); }
 inline double v2_hi(v2d v) { return _mm_cvtsd_f64(_mm_unpackhi_pd(v, v)); }
+#elif defined(__wasm_simd128__)
+// WebAssembly SIMD (the prototype's -msimd128 build): the same lane operations. pmin(b, a) = a < b ? a : b and pmax(b, a) = a > b ? a : b are exactly SSE2's minpd / maxpd (a NaN gives b).
+using v2d = v128_t;
+inline v2d v2_set1(double x) { return wasm_f64x2_splat(x); }
+inline v2d v2_set(double hi, double lo) { return wasm_f64x2_make(lo, hi); }
+inline v2d v2_load(const double* p) { return wasm_v128_load(p); }
+inline v2d v2_loadu(const double* p) { return wasm_v128_load(p); }
+inline void v2_store(double* p, v2d v) { wasm_v128_store(p, v); }
+inline void v2_storeu(double* p, v2d v) { wasm_v128_store(p, v); }
+inline v2d v2_add(v2d a, v2d b) { return wasm_f64x2_add(a, b); }
+inline v2d v2_sub(v2d a, v2d b) { return wasm_f64x2_sub(a, b); }
+inline v2d v2_mul(v2d a, v2d b) { return wasm_f64x2_mul(a, b); }
+inline v2d v2_div(v2d a, v2d b) { return wasm_f64x2_div(a, b); }
+inline v2d v2_min(v2d a, v2d b) { return wasm_f64x2_pmin(b, a); }
+inline v2d v2_max(v2d a, v2d b) { return wasm_f64x2_pmax(b, a); }
+inline v2d v2_cvt(const float* p) { return wasm_f64x2_promote_low_f32x4(wasm_v128_load64_zero(p)); }
+inline void v2_f32(v2d v, float& lo, float& hi) { const v128_t r = wasm_f32x4_demote_f64x2_zero(v); lo = wasm_f32x4_extract_lane(r, 0); hi = wasm_f32x4_extract_lane(r, 1); }
+inline double v2_lo(v2d v) { return wasm_f64x2_extract_lane(v, 0); }
+inline double v2_hi(v2d v) { return wasm_f64x2_extract_lane(v, 1); }
 #else
 using v2d = float64x2_t;
 inline v2d v2_set1(double x) { return vdupq_n_f64(x); }
@@ -556,7 +585,9 @@ inline void buildTables(const double* params, bool withMips, Tables& t, int thre
   if (nt <= 1 || jobs.size() < 4) {
     Tables sc;
     for (const BuildJob& j : jobs) run(j, sc);
-  } else {
+  }
+#if !defined(WS_NO_THREADS)
+  else {
     std::atomic<size_t> next{0};
     std::exception_ptr err; std::mutex errMutex;
     auto work = [&](bool helper) {
@@ -572,6 +603,7 @@ inline void buildTables(const double* params, bool withMips, Tables& t, int thre
     for (std::thread& th : helpers) th.join();
     if (err) std::rethrow_exception(err);
   }
+#endif
   for (int s = 0; s < NS; s++) t.slot[s].end();
 }
 

@@ -3,15 +3,17 @@
 // Version 1.0.15: does the web demo overload the audio thread? (the procedure of the 1.0.14 investigation, handover §9.2, written down at last.) The web app runs in a headless browser
 // (tests/web/cdp.js: Edge, or the browser of EDGE_PATH; muted, no window), plays the whole demo in real time, and reads every 250 ms the browser's own count of the render quanta it could not
 // deliver in time (AudioContext.playbackStats.underrunEvents / underrunDuration, Chromium): each one is a gap in the sound, heard as a crackle. The counts are summed per scene of the demo.
-//   node tools/dropouts.js [--root <folder that holds web/>] [--eco] [--label text]
+//   node tools/dropouts.js [--root <folder that holds web/>] [--eco] [--label text] [--engine js|wasm]
 //   --eco: Windows Efficiency mode on the test browser only (EcoQoS + idle priority, what Edge applies to save energy: the hard case of the owner's laptop)
+//   --engine (WebAssembly prototype): the sound engine the page runs (WS_TEST.setEngine before the demo starts; default: the page's own choice, js)
 'use strict';
 const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { Browser, EDGE, sleep } = require('../tests/web/cdp.js');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; };
-const ROOT = path.resolve(arg('root', path.join(__dirname, '..'))), ECO = process.argv.includes('--eco'), LABEL = arg('label', path.basename(ROOT));
+const ROOT = path.resolve(arg('root', path.join(__dirname, '..'))), ECO = process.argv.includes('--eco'), ENGINE = arg('engine', '');
+const LABEL = arg('label', path.basename(ROOT) + (ENGINE ? '_' + ENGINE : ''));
 
 // Efficiency mode for the processes of this browser only (their command line names our temporary profile)
 function efficiency(profileDir) {
@@ -46,8 +48,17 @@ Write-Output $n`;
     await b.navigate('file:///' + path.join(ROOT, 'web', 'index.html').replace(/\\/g, '/'));
     await b.waitFor('!!(window.WS_TEST && WS_TEST.demoStart)', 20000);
     if (ECO) { await sleep(500); console.log(`Efficiency mode on ${efficiency(b.userDataDir)} browser processes`); }
+    if (ENGINE) {
+      if (!(await b.evaluate('!!WS_TEST.setEngine'))) throw new Error('this web app has no engine switch (--engine)');
+      await b.evaluate(`WS_TEST.setEngine(${JSON.stringify(ENGINE)})`);
+    }
     await b.evaluate('WS_TEST.demoStart()');
     await b.waitFor('WS_TEST.demoState().running', 10000);
+    if (ENGINE) {
+      const e = await b.evaluate('WS_TEST.engine()');
+      console.log(`engine running: ${e.running}${e.running === 'wasm' ? (e.simd ? ' (SIMD)' : ' (scalar)') : ''}${e.err ? ', error: ' + e.err : ''}`);
+      if (e.running !== ENGINE) throw new Error(`asked for ${ENGINE}, ${e.running} plays`);
+    }
     const has = await b.evaluate('!!(window.__ctx && window.__ctx.playbackStats)');
     if (!has) throw new Error('this browser has no AudioContext.playbackStats: use Edge or a recent Chrome');
     const per = new Map(); let last = null, t0 = Date.now(), maxScene = -1;

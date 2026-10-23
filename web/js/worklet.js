@@ -21,7 +21,14 @@ function WSWorkletMain() {
     constructor(options) {
       super();
       this.C = WSCoreFactory(options.processorOptions.spec);
-      this.eng = new this.C.Engine(sampleRate);
+      // WebAssembly prototype: processorOptions.wasm (the bytes of the C++ engine, web/js/engine_wasm_data.js) runs that engine instead of core.js's (WSWasmEngine, the same
+      // interface); without it, or if it fails to load, the JavaScript engine as before. 'ready' says which one plays.
+      this.eng = null; this.wasmErr = '';
+      const wb = options.processorOptions.wasm;
+      if (wb && typeof WSWasmEngine === 'function') {
+        try { this.eng = WSWasmEngine(new WebAssembly.Module(wb), sampleRate); } catch (e) { this.eng = null; this.wasmErr = String((e && e.message) || e); }
+      }
+      if (!this.eng) this.eng = new this.C.Engine(sampleRate);
       this.since = 0;
       this.dispEvery = Math.round(sampleRate / 30);
       this.seq = null;       // demo sequencer: sample-accurate note events
@@ -49,8 +56,9 @@ function WSWorkletMain() {
             }
             break;
           case 'all': this.sched = null; this.applyPending(); this.endMorph(); for (let i = 0; i < m.v.length; i++) if (Number.isFinite(m.v[i])) eng.setParam(i, m.v[i]); break;
-          case 'bulk': this.sched = null; if (m.at !== undefined && this.seq) this.sched = { v: m.v, tables: m.tables, at: m.at }; else this.presetChange(m.v, m.tables); break;   // version 1.0.6: a preset change, the parameters and the tables together (1.0.8: at the song time `at`, if there is one)
-          case 'tables': eng.setTables(m.tables); break;   // { needs, slots: [A1, A2, B1] }: per oscillator { mode, mips, rms, ph?, w2? } or null
+          case 'bulk': if (eng.stage) eng.stage(m.tables);   // (WebAssembly engine: the tables' copy into its memory starts now, a few MB per quantum)
+            this.sched = null; if (m.at !== undefined && this.seq) this.sched = { v: m.v, tables: m.tables, at: m.at }; else this.presetChange(m.v, m.tables); break;   // version 1.0.6: a preset change, the parameters and the tables together (1.0.8: at the song time `at`, if there is one)
+          case 'tables': if (eng.setTablesLater) eng.setTablesLater(m.tables); else eng.setTables(m.tables); break;   // { needs, slots: [A1, A2, B1] }: per oscillator { mode, mips, rms, ph?, w2? } or null
           case 'on': eng.keyOn(m.n, m.v); break;      // Okto MultiWave Synth: the player's keys go through the chord layer
           case 'off': eng.keyOff(m.n); break;
           case 'plateon': eng.plateOn(m.n, m.v); break;   // the strum plate
@@ -59,9 +67,10 @@ function WSWorkletMain() {
           case 'soundoff': eng.allSoundOff(); break;
           case 'seq': this.sched = null; this.startSeq(m.notes, m.delay); break;
           case 'seqstop': this.sched = null; if (this.seq) { this.seq = null; eng.allNotesOff(); } break;
+          case 'kill': this.dead = true; break;   // WebAssembly prototype: the engine was switched, this node is left (process returns false: the browser lets it go)
         }
       };
-      this.port.postMessage({ t: 'ready', sr: sampleRate });
+      this.port.postMessage({ t: 'ready', sr: sampleRate, engine: this.eng.wasm ? 'wasm' : 'js', wasmErr: this.wasmErr });
     }
 
     // a preset change (message 'bulk'): under sounding notes the output dips, and the change is made at the bottom of the dip; with nothing sounding (a tail, or silence) it is made at once, and so
@@ -121,7 +130,9 @@ function WSWorkletMain() {
     }
 
     process(inputs, outputs) {
+      if (this.dead) return false;
       const out = outputs[0], eng = this.eng;
+      if (eng.pump) eng.pump();   // (WebAssembly engine: the next part of a tables' copy)
       let g0 = 1, g1 = 1;
       if (this.sched) {   // a change that goes with a chord: its dip starts at the last quantum that lets it end by the chord (or now, if the chord is near or past)
         const sc = this.sched, s0 = this.seq, q = out[0].length;

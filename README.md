@@ -31,13 +31,19 @@ The web app also works offline: download the repository and open `web/index.html
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
 
+## Web update of 2026-10-23 (web app only; the plug-in stays 1.0.15)
+
+- **The web app runs the plug-in's own engine**: the C++ sound engine (`vst/src/dsp.h`) compiled to WebAssembly replaces the JavaScript engine in the browser. Same sound (the two engines agree within 4e-7 on 299 test cases), about **twice as light on the processor** (2.4x on the demo's presets, 1.8x on the heaviest ones): in Windows' power-saving mode the demo went from about a thousand audio dropouts to almost none on the test computer. A browser that cannot run WebAssembly falls back to the JavaScript engine by itself; `#engine=js` at the end of the address forces it.
+- **Credits**: the name is Jérémie Palmigiani (Soul Machine); 1.0.15 still had a wrong spelling.
+- The reverb, the presets and the plug-in do not change.
+
 ## What version 1.0.15 changes (OktoWave 1.0)
 
 - **A cleaner output stage** (web app and plug-in): a look-ahead limiter replaces the peak guard and the tanh soft limiter. Loud, dense chords no longer buzz slightly: the peaks are turned down just before they come, never bent, and no sample goes above -1 dBFS. Quieter sounds (under -3 dBFS, the whole demo) are exactly as before, 1.5 ms later.
 - **A fixed latency of 1.5 ms** in the plug-in, reported to the DAW, which compensates it (Ableton Live does it by itself).
 - **The author's own sounds**: the 9 presets he adjusted that the demo does not play take his values (*A · Shimmering Strings*, *A · Warm Pad*, *AA · Chalk Edge Call*, *AB · Resonance Storm*, *AAB · Static & Fibre*, *AA · Tide Horns*, *AAB · Stair & Tap*, *AA · Sweep of Pixel LGT*, *AB · Step Spiral LGT*); the demo sounds as before.
 - **208 factory presets** (257 before): the 49 he deleted leave the list (the ones the demo plays stay); the order of the lists does not change, and a Live Set that names a removed preset keeps its sound.
-- **Credits**: Jérémie Paligrini (Soul Machine), now spelt right.
+- **Credits**: Jérémie Palmigiani (Soul Machine), now spelt right (the spelling was corrected again by the web update above).
 
 ## What version 1.0.14 changes (OktoWave 1.0)
 
@@ -360,5 +366,5 @@ Created by Pierre Arnaud GUYOT ("OktoPierre"), on the basis of his
 
 ## Acknowledgments
 
-Thanks to Jérémie Paligrini (aka Soul Machine) and Flo (aka Go Tiger) for testing the Wavelet Synthesizer and providing
+Thanks to Jérémie Palmigiani (aka Soul Machine) and Flo (aka Go Tiger) for testing the Wavelet Synthesizer and providing
 valuable feedback and improvement suggestions, and to Arnaud Grignard for the technical review of the concept.

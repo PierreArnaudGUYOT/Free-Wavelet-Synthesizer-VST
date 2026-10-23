@@ -303,34 +303,105 @@
   function allOff() { localKeys.clear(); heldCodes.clear(); post({ t: 'alloff' }); }
 
   // ---------------------------------------------------------------- audio
+  // The engine the worklet runs: 'wasm' (the C++ engine of the plug-in, vst/src/dsp.h, compiled to WebAssembly by wasm/build.sh: the default since the web update of 2026-10-23,
+  // about twice as light on the processor) or 'js' (core.js, the reference). #engine=js in the address forces the JavaScript engine; a browser that cannot run the module falls
+  // back to it by itself (wasmBytes fails, or the worklet reports wasmErr). No choice is remembered: the test pages of the same site used to store one (localStorage 'mw.engine'),
+  // which must not decide the official page's engine. WS_TEST.setEngine switches it while the audio runs (a new worklet node in the same AudioContext: the sound restarts, the
+  // demo starts again from its beginning).
+  let engineWanted = /engine=js/.test(location.hash) ? 'js' : 'wasm';
+  const engineInfo = { running: 'none', simd: false, err: '', switches: 0 };
+  let wasmCache = null;
+  // the module's bytes: web/js/engine_wasm_data.js (base64, loaded on first use: a fetch of a .wasm file is refused from file://), the SIMD build when this browser validates it
+  function wasmBytes() {
+    if (wasmCache) return wasmCache;
+    wasmCache = new Promise((res, rej) => {
+      if (window.WS_WASM) { res(window.WS_WASM); return; }
+      const s = document.createElement('script');
+      s.src = 'js/engine_wasm_data.js';
+      s.onload = () => (window.WS_WASM ? res(window.WS_WASM) : rej(new Error('engine_wasm_data.js: no WS_WASM')));
+      s.onerror = () => rej(new Error('engine_wasm_data.js could not be loaded'));
+      document.head.appendChild(s);
+    }).then((W) => {
+      const dec = (b64) => { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+      const simd = dec(W.simd);
+      if (typeof WebAssembly === 'object' && WebAssembly.validate(simd)) return { bytes: simd, simd: true };
+      return { bytes: dec(W.scalar), simd: false };
+    });
+    wasmCache.catch(() => { wasmCache = null; });
+    return wasmCache;
+  }
+  // a worklet node with the engine wanted, connected; then the parameters and the tables (also when the engine is switched)
+  async function makeNode() {
+    let wasm = null;
+    engineInfo.err = '';
+    if (engineWanted === 'wasm') {
+      try { wasm = await wasmBytes(); } catch (e) { engineInfo.err = String(e.message || e); }
+    }
+    const nd = new AudioWorkletNode(actx, 'wavelet-synth', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+      processorOptions: { spec: SPEC_CORE, wasm: wasm ? wasm.bytes : null } });
+    // the processor threw (a bug, or a broken state): the audio stops for good; say so rather than stay silent
+    nd.onprocessorerror = () => {
+      $('st-audio').classList.remove('on');
+      $('st-audio').lastElementChild.textContent = 'Audio engine stopped by an error: reload the page';
+      try { nd.disconnect(); } catch (e) { /* already gone */ }
+    };
+    const ready = new Promise(res => {
+      nd.port.onmessage = (e) => {
+        if (e.data.t === 'ready') {
+          sampleRate = e.data.sr;
+          engineInfo.running = e.data.engine || 'js'; engineInfo.simd = !!(wasm && wasm.simd && e.data.engine === 'wasm');
+          if (e.data.wasmErr) engineInfo.err = e.data.wasmErr;
+          res();
+        } else onWorklet(e.data);
+      };
+    });
+    nd.connect(actx.destination);
+    await ready;
+    node = nd;
+    node.port.onmessage = (e) => onWorklet(e.data);
+    post({ t: 'all', v: Array.from(values) });
+    if (heldTables) { const tb = heldTables; heldTables = null; deliver(tb); } else build();
+  }
+  // switch the engine: stored; while the audio runs, the old node goes and a new one comes (the demo, if it played, starts again)
+  let switching = null;
+  function setEngine(kind) {
+    engineWanted = kind === 'wasm' ? 'wasm' : 'js';
+    if (!actx || !node) return Promise.resolve(engineInfo);
+    if (switching) return switching.then(() => setEngine(kind));
+    switching = (async () => {
+      const wasDemo = demo && demo.running();
+      if (wasDemo) demo.stop();
+      allOff();
+      const old = node; node = null;
+      try { old.port.onmessage = null; old.disconnect(); old.port.postMessage({ t: 'kill' }); } catch (_) { /* gone */ }
+      await makeNode();
+      engineInfo.switches++;
+      $('st-audio').lastElementChild.textContent = audioLabel();
+      if (wasDemo) playDemo();
+      return engineInfo;
+    })().finally(() => { switching = null; });
+    return switching;
+  }
+  // the status bar's text ('· WASM' only while the WebAssembly engine plays: the default app's text is unchanged)
+  const audioLabel = () => `Audio on · ${(sampleRate / 1000).toFixed(1)} kHz` + (engineInfo.running === 'wasm' ? ' · WASM' : '');
   function startAudio() {
     if (startPromise) return startPromise;
     startPromise = (async () => {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx || !('audioWorklet' in Ctx.prototype)) throw new Error('This browser does not support AudioWorklet (use Chrome, Edge or Firefox).');
       actx = new Ctx({ latencyHint: 'interactive' });
-      const src = 'const WSCoreFactory = ' + WSCoreFactory.toString() + ';\n(' + WSWorkletMain.toString() + ')();\n';
+      const src = 'const WSCoreFactory = ' + WSCoreFactory.toString() + ';\n' +
+        (typeof WSWasmEngine === 'function' ? 'const WSWasmEngine = ' + WSWasmEngine.toString() + ';\n' : '') +
+        '(' + WSWorkletMain.toString() + ')();\n';
       // A data: URL (not blob:) so the worklet also loads when the page is opened from file://
       // (file pages have an opaque origin and blob:null module loads are rejected).
       const url = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(src);
       await actx.audioWorklet.addModule(url);
-      node = new AudioWorkletNode(actx, 'wavelet-synth', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { spec: SPEC_CORE } });
-      // the processor threw (a bug, or a broken state): the audio stops for good; say so rather than stay silent
-      node.onprocessorerror = () => {
-        $('st-audio').classList.remove('on');
-        $('st-audio').lastElementChild.textContent = 'Audio engine stopped by an error: reload the page';
-        try { node.disconnect(); } catch (e) { /* already gone */ }
-      };
-      const ready = new Promise(res => { node.port.onmessage = (e) => { if (e.data.t === 'ready') { sampleRate = e.data.sr; res(); } else onWorklet(e.data); }; });
-      node.connect(actx.destination);
-      await ready;
-      node.port.onmessage = (e) => onWorklet(e.data);
-      post({ t: 'all', v: Array.from(values) });
-      if (heldTables) { const tb = heldTables; heldTables = null; deliver(tb); } else build();
+      await makeNode();
       for (const n of localKeys) post({ t: 'on', n, v: 0.8 });
       if (actx.state !== 'running') await actx.resume();
       $('st-audio').classList.add('on');
-      $('st-audio').lastElementChild.textContent = `Audio on · ${(sampleRate / 1000).toFixed(1)} kHz`;
+      $('st-audio').lastElementChild.textContent = audioLabel();
       hideOverlay();
       claimAudio();
       initMIDI();
@@ -387,7 +458,7 @@
     return startAudio().then(() => {
       if (actx && actx.state !== 'running') actx.resume();
       $('st-audio').classList.add('on');
-      $('st-audio').lastElementChild.textContent = `Audio on · ${(sampleRate / 1000).toFixed(1)} kHz`;
+      $('st-audio').lastElementChild.textContent = audioLabel();
       hideOverlay();
       claimAudio();
     }).catch(() => {});
@@ -645,5 +716,12 @@
     midiMap: () => Object.assign({}, ccMap),
     midiStatus: () => $('st-midi').textContent,
     setMidiChannel: (ch) => { $('midi-ch').value = String(ch); $('midi-ch').onchange(); },
+    // WebAssembly prototype: the engine wanted / running (js | wasm), SIMD or not, the last error; switch it (a promise); the browser's own count of the quanta it could not deliver
+    engine: () => Object.assign({ wanted: engineWanted }, engineInfo),
+    setEngine: (k) => setEngine(k),
+    playbackStats: () => {
+      const p = actx && actx.playbackStats;
+      return p ? { underrunEvents: p.underrunEvents, underrunDuration: p.underrunDuration, totalDuration: p.totalDuration } : null;
+    },
   };
 })();
