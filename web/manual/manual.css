@@ -52,6 +52,10 @@ details { margin: 8px 0; border: 1px solid var(--edge); border-radius: 10px; bac
 summary { padding: 9px 14px; cursor: pointer; font-weight: 600; }
 details p { margin: 0; padding: 0 14px 12px; color: var(--dim); }
 footer { margin-top: 40px; color: var(--dim); font-size: 14px; }
+/* the credits (version 1.0.16, the owner's request): Soul Machine's stage name and Instagram, larger */
+li.thanks-star { margin: 10px 0; font-size: 18px; line-height: 1.5; }
+li.thanks-star .stage { font-size: 1.55em; font-weight: 800; letter-spacing: .02em; color: var(--gold); }
+li.thanks-star .insta { font-size: 1.05em; font-weight: 600; overflow-wrap: anywhere; }   /* the long address breaks on a phone */
 
 @media (max-width: 560px) {
   main { padding: 16px 16px 48px; }

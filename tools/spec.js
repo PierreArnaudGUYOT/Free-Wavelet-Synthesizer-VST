@@ -36,8 +36,8 @@ const APP = {
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
   version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
-  versionNum: '1.0.15',
-  date: '2026-10-21',
+  versionNum: '1.0.16',
+  date: '2026-10-23',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
 };
@@ -350,6 +350,22 @@ add('midi_anoff', 'All Notes Off (MIDI CC 123)', 'NOTES OFF', { min: 0, max: 1, 
 // (polyComp), now switchable to compare by ear. Two hidden performance settings (never in a preset), set by the test page of the web test copy.
 add('out_mode', 'Output Stage', 'OUTPUT', { curve: 'choice', fmt: 'choice', min: 0, max: 1, def: 1, perf: true, hidden: true, choices: ['Classic', 'Limiter'], choiceShort: ['CLASSIC', 'LIMITER'] });
 add('poly_comp', 'Chord Compensation', 'CHORD COMP', { curve: 'choice', fmt: 'choice', min: 0, max: 1, def: 1, perf: true, hidden: true, choices: ['Off', 'On'], choiceShort: ['OFF', 'ON'] });
+// Version 1.0.16: the Classic reverb (the Freeverb) improved around its unchanged core (the owner: "améliorer l'ancienne reverb, avec un algo similaire"; after his listening test of the
+// demo: "applique la reverb classique améliorée avec les réglages que tu m'as proposés"). Global hidden settings, never in a preset: every sound with reverb plays them. Their defaults are
+// the base setting proposed, the same reverb loudness over the demo as 1.0.15 (tools/reverb_demo.js: -22.35 LUFS against -22.22): STEREO 0.6 (the image of wide sounds kept, without leaning
+// to one side), PRE 20 ms (the direct sound stays clear), DAMP 0.4 (the tail loses its highs sooner: less metallic), LOW CUT 150 Hz (no low end in the reverb), WIDTH 1. The reverb of
+// 1.0.15 is STEREO 0, PRE 0, DAMP 0.25, LOW CUT 20 Hz (off), WIDTH 1 (the code takes its exact path then: tools/dsp_cases.js keeps cases of it).
+add('fx_rstereo', 'Reverb Stereo Input', 'STEREO', { min: 0, max: 1, def: 0.6, perf: true, hidden: true });
+add('fx_rpre', 'Reverb Pre-delay', 'PRE', { fmt: 'sec', min: 0, max: 0.1, def: 0.02, perf: true, hidden: true });
+add('fx_rdamp', 'Reverb Damping', 'DAMP', { min: 0, max: 0.6, def: 0.4, perf: true, hidden: true });
+add('fx_rhp', 'Reverb Low Cut', 'LOW CUT', { curve: 'exp', fmt: 'hz', min: 20, max: 300, def: 150, perf: true, hidden: true });
+add('fx_rwidth', 'Reverb Width', 'WIDTH', { min: 0, max: 1, def: 1, perf: true, hidden: true });
+// Version 1.0.16 (the owner: "les presets manquent un peu de percutant dans les basses"; after his listening test of the demo: "j'adore le son avec les 3 propositions"): PUNCH, a knob at the
+// right of EFFECTS, a transient shaper per note: a gain boost of every note's start (not on a legato change) that falls back to nothing, the whole of it on the low notes (up to C3) and a
+// quarter of it from C6 up; it never lowers the level (no compression). 0 = off (the sound of before, bit for bit), 50 % = the default of every preset (+4 dB falling in 40 ms: "punch
+// léger"), 100 % = +8 dB in 50 ms ("punch fort"); in between +8 dB x PUNCH, falling in 30 + 20 x PUNCH ms (core.js / dsp.h ampPass). A sound's own setting (in the presets); a preset or
+// a saved project without it plays 50 %.
+add('fx_punch', 'Punch', 'PUNCH', { min: 0, max: 1, def: 0.5 });
 
 const DELAY_BEATS = DELAY_NOTES.map(noteBeats), LFO_BEATS = LFO_NOTES.map(noteBeats);
 for (const b of [DELAY_BEATS, LFO_BEATS]) for (let i = 1; i < b.length; i++)
@@ -538,6 +554,7 @@ section('fx', 'EFFECTS', 12, 792, 492, 128, -1, [
   ...row(['fx_drive', 'ch_mix', 'ch_rate', 'ch_depth'], 12, 58),
   ...synced('fx_dtime', 'fx_ddiv', 'fx_dsync', 220, 58),
   ...row(['fx_dfb', 'fx_dmix', 'fx_rsize', 'fx_rmix'], 272, 58),
+  kn('fx_punch', 484, 58),   // version 1.0.16: PUNCH at the right of REVERB, under its own header
 ]);
 // beta 0.3: PLAY, the keyboard's settings: CHORD MODE (it switches the chord card on) and BASS (shown with it), the three-position TUNING switch (Western | Arabic |
 // Turkish) and, while it is not Western, the scale (MAQAM) and the TONIC of the oriental tuning
@@ -622,15 +639,16 @@ section('chord', 'CHORD KEYBOARD', 12, 1054, 1076, 104, -1, [
   }
   // EFFECTS and PLAY: the title is a vertical strip at the left (22 px): the content moves right by 12 and up into the title row (mock-up P6: the row under is at y 726,
   // and PLAY ends at x 1088, like the cards above, not at the edge of the panel)
-  const fx = find('fx'); box(fx, 12, 726, 496, 98); fx.vtitle = true;
+  // version 1.0.16 (the owner's mock-up): EFFECTS 56 px wider for PUNCH (552), PLAY 56 px narrower (516), its controls closer together, none removed
+  const fx = find('fx'); box(fx, 12, 726, 552, 98); fx.vtitle = true;
   for (const w of fx.widgets) {
-    if (w.type === 'fxheads') { w.x = 12; w.y = 5; w.w = 484; } else if (w.type === 'toggle') { w.x += 12; w.y = 3; } else { w.x += 12; w.y = 32; }
+    if (w.type === 'fxheads') { w.x = 12; w.y = 5; w.w = 540; } else if (w.type === 'toggle') { w.x += 12; w.y = 3; } else { w.x += 12; w.y = 32; }
   }
-  const play = find('play'); box(play, 516, 726, 572, 98); play.vtitle = true; play.title = 'PLAY'; play.accentTitle = true;
-  widget(play, 0, 26, 8, 100, 34); widget(play, 1, 26, 48, 100, 26); widget(play, 2, 158, 8, 150, 24); widget(play, 3, 158, 62, 176, 24);
-  widget(play, 4, 340, 44, 88, 14); widget(play, 5, 340, 62, 88, 26);   // (version 1.0.14: TONIC 20 px to the left and 88 wide, for VELOCITY: a note name needs little room)
+  const play = find('play'); box(play, 572, 726, 516, 98); play.vtitle = true; play.title = 'PLAY'; play.accentTitle = true;
+  widget(play, 0, 26, 8, 92, 34); widget(play, 1, 26, 48, 92, 26); widget(play, 2, 128, 8, 140, 24); widget(play, 3, 128, 62, 150, 24);
+  widget(play, 4, 286, 44, 80, 14); widget(play, 5, 286, 62, 80, 26);   // (version 1.0.14: TONIC narrow, for VELOCITY: a note name needs little room)
   // version 1.0.13: VELOCITY and its target; version 1.0.14 (the owner): the knob at the LEFT of the menu, the menu with its caption TARGET above it, as in LFO 2/3 (80 wide, as there: VOLUME fits)
-  widget(play, 6, 432, 14, 52, 60); widget(play, 7, 486, 34, 80, 22);
+  widget(play, 6, 372, 14, 52, 60); widget(play, 7, 426, 34, 80, 22);
   const keys = find('keys'); box(keys, 0, 830, 1100, 98);
   widget(keys, 0, 12, 0, 60, 82); widget(keys, 1, 82, 0, 1006, 82); widget(keys, 2, 14, 83, 170, 15);
   find('chord').y = DEVICE.h + 4;

@@ -2,8 +2,8 @@
 
 # ⬇ DOWNLOAD THE PLUG-IN (Windows VST3 / VST2, macOS VST3)
 
-1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.15**).
-2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.15-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.15-mac.zip** (macOS).
+1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.16**).
+2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.16-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.16-mac.zip** (macOS).
 3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (Windows, VST3; needs administrator rights) or into your VST2 plug-in folder; on a Mac into `~/Library/Audio/Plug-Ins/VST3`. `INSTALL.txt` (`INSTALL-mac.txt`) in the zip says more.
 4. In your DAW, rescan the plug-ins (Ableton Live: *Preferences → Plug-ins → Rescan*), then open *Plug-ins → OktoPierre → Okto MultiWave Synth*.
 
@@ -13,7 +13,7 @@
 
 ---
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.15, 2026-10-23), see
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.16, 2026-10-23), see
 [RELEASE_HISTORY.md](RELEASE_HISTORY.md). Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 Okto MultiWave Synth is the [Wavelet Synthesizer](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v0.7.1-beta)
@@ -30,6 +30,12 @@ the preset list (see the notes of the betas below), and the demo is one piece, B
 The web app also works offline: download the repository and open `web/index.html`. The same web app is at https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/ too (the development repository).
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
+
+## What version 1.0.16 changes (OktoWave 1.0)
+
+- **A more professional reverb** (web app and plug-in): the Classic reverb keeps its algorithm and its character, with four improvements around it, at the same reverb level (measured over the whole demo: -22.35 LUFS against -22.22): a **stereo input** (wide sounds keep part of their image in the reverb), a **20 ms pre-delay** (the direct sound stays clear, the reverb sits just behind it), **more damping** (the tail loses its highs sooner: less metallic) and a **150 Hz low cut** (no low end in the reverb: basses stay clean). Every sound with reverb plays it, the demo too.
+- **PUNCH, a new knob at the right of the effects**: every note starts with more impact, most on the low notes (the bass gets its punch back), without ever lowering the level (it is not a compressor). 0 is off (the sound of before), **50 % is the setting of every preset** (a light punch: +4 dB at the start of the note, back to normal in 40 ms), 100 % a strong punch (+8 dB in 50 ms). A preset or a project saved with an earlier version plays 50 % too.
+- The output stage and the latency do not change; your presets file, stars, saved projects and user bank are kept.
 
 ## Web update of 2026-10-23 (web app only; the plug-in stays 1.0.15)
 
@@ -366,5 +372,5 @@ Created by Pierre Arnaud GUYOT ("OktoPierre"), on the basis of his
 
 ## Acknowledgments
 
-Thanks to Jérémie Palmigiani (aka Soul Machine) and Flo (aka Go Tiger) for testing the Wavelet Synthesizer and providing
+Thanks to Jérémie Palmigiani, aka **Soul Machine** ([Instagram](https://www.instagram.com/djsoulmachine)), and Flo (aka Go Tiger) for testing the Wavelet Synthesizer and providing
 valuable feedback and improvement suggestions, and to Arnaud Grignard for the technical review of the concept.

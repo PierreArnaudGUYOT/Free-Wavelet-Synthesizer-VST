@@ -47,8 +47,13 @@ const check = (ok, name, detail = '', sev = 'FAIL') => { if (!ok) { if (sev === 
     await B.navigate(pathToFileURL(path.join(DIR, 'manual.html')).href);
     await sleep(300);
     const credits = await B.evaluate(`(() => { const h = document.getElementById('credits'); if (!h) return null; let t = ''; for (let e = h.nextElementSibling; e && e.tagName !== 'FOOTER' && e.tagName !== 'H2'; e = e.nextElementSibling) t += ' ' + e.textContent; return t; })()`);
-    check(!!credits && /Jérémie Palmigiani \(Soul Machine\)/.test(credits) && /Flo \(Go Tiger\)/.test(credits) && /Arnaud Grignard/.test(credits) && /Mutopia/.test(credits) && /PyWavelets/.test(credits) && /Steinberg/.test(credits),
+    check(!!credits && /Jérémie Palmigiani, aka Soul Machine/.test(credits) && /Flo \(Go Tiger\)/.test(credits) && /Arnaud Grignard/.test(credits) && /Mutopia/.test(credits) && /PyWavelets/.test(credits) && /Steinberg/.test(credits),
       'manual: "Credits and thanks" names Soul Machine, Go Tiger, Arnaud Grignard, the demo music (Mutopia), PyWavelets and the Steinberg headers', String(credits).slice(0, 200));
+    // version 1.0.16 (the owner's request): Soul Machine's stage name larger than the text around it, and his Instagram as a link
+    const star = await B.evaluate(`(() => { const s = document.querySelector('#credits ~ ul li.thanks-star .stage'), a = document.querySelector('#credits ~ ul li.thanks-star a'); if (!s || !a) return null;
+      return { name: s.textContent, big: parseFloat(getComputedStyle(s).fontSize) / parseFloat(getComputedStyle(s.closest('ul')).fontSize), href: a.href }; })()`);
+    check(!!star && star.name === 'Soul Machine' && star.big >= 1.5 && star.href === 'https://www.instagram.com/djsoulmachine',
+      'manual: Soul Machine in large letters, with the link to his Instagram', JSON.stringify(star));
     // one A4 sheet per page of the explanation
     await B.setViewport(1000, 900);
     for (const p of PAGES.slice(1)) {

@@ -557,6 +557,7 @@ function WSCoreFactory(SPEC) {
     this.fresh = true;
     this.wm0 = 0; this.wm1 = 0;   // WAVELET MORPH position
     this.gain = 1; this.quick = false;   // the chord's bass note plays louder; a note dropped by a live chord change fades out quickly
+    this.pu = 0;   // PUNCH (version 1.0.16): the boost's envelope, 1 at the start of a note, falling to 0
     this.mSemis = NaN; this.mPitchF0 = 0;   // memo: the voice's frequency for its last pitch in semitones
   }
   // releases the voice's own envelopes (with the AMP and MOD envelopes)
@@ -613,7 +614,7 @@ function WSCoreFactory(SPEC) {
     this.ownBuf = []; this.endPh = [];
     for (let s = 0; s < NS; s++) { this.ownBuf.push(new Float64Array(CTRL)); this.endPh.push(new Float64Array(4)); }
     this.ownOn = new Uint8Array(NS); this.ownLevel = new Float64Array(NS); this.ownStage = new Int32Array(NS);
-    this.endLevel = 0; this.endStage = 0; this.endSubPhase = 0;
+    this.endLevel = 0; this.endStage = 0; this.endSubPhase = 0; this.endPunch = 0;
     // beta 0.3.1: also the live gains and window of every oscillator that plays in the last voice (sg: NS x NB, swin: NS x [center, width, depth], mask: its bits), for the
     // SCOPE and the SCALOGRAM, which show the whole sound and move with the modulation (the cutoff of the LFOs and the envelopes, the note)
     this.disp = { gains: new Float32Array(NB), mode: 0, view: 0, voices: 0, peakL: 0, peakR: 0, center: 0, width: 1, depth: 0, note: -1, slotLive: false,
@@ -671,6 +672,9 @@ function WSCoreFactory(SPEC) {
     }
     this.kDly = rateCoef(0.0005, sr); this.kLp = rateCoef(0.35, sr); this.kVol = rateCoef(0.002, sr);
     this.damp = sr === 48000 ? 0.25 : Math.pow(0.25, 48000 / sr);
+    // the Classic reverb's input (version 1.0.16): the pre-delay lines (up to 0.1 s) and the low cut's states (x, y left; x, y right)
+    this.rpLen = Math.ceil(0.1 * sr) + 2; this.rpL = new Float32Array(this.rpLen); this.rpR = new Float32Array(this.rpLen); this.rpW = 0;
+    this.rh = new Float64Array(4);
     this.quiet = 0; this.quietNeed = 1 << 30;   // samples of silence so far, and how many an idle skip needs (set by every block)
     this.vol = Math.exp(this.p[P.master] * (Math.LN10 / 20));
     this.guard = { t: GUARD_T, att: GUARD_ATT, hold: GUARD_HOLD, rel: GUARD_REL };   // (a test can change them before the first block)
@@ -746,6 +750,7 @@ function WSCoreFactory(SPEC) {
     if (!legato) {
       vc.amp.gate(true); vc.mod.gate(true); vc.fe.gate(true);
       for (let s = 0; s < NS; s++) { const sl = vc.sl[s]; sl.scaleAtk.fill(1); sl.own.gate(true); sl.pe = 1; }
+      vc.pu = 1;   // PUNCH (version 1.0.16): a new start of the note
     }
     this.lastPitch = note;
   };
@@ -832,11 +837,12 @@ function WSCoreFactory(SPEC) {
   // MIDI CC120: silence immediately (voices and effect tails)
   E.allSoundOff = function () {
     this.stack.length = 0; this.keys.fill(0); this.chordClear();
-    for (const vc of this.voices) { vc.active = false; vc.gate = false; vc.held = false; vc.amp.stage = 0; vc.amp.level = 0; vc.mod.stage = 0; vc.mod.level = 0; vc.fe.stage = 0; vc.fe.level = 0; vc.fs.fill(0); vc.fOn = false; }
+    for (const vc of this.voices) { vc.active = false; vc.gate = false; vc.held = false; vc.pu = 0; vc.amp.stage = 0; vc.amp.level = 0; vc.mod.stage = 0; vc.mod.level = 0; vc.fe.stage = 0; vc.fe.level = 0; vc.fs.fill(0); vc.fOn = false; }
     this.dlyL.fill(0); this.dlyR.fill(0); this.lpL = 0; this.lpR = 0;
     for (const b of this.cB) b.fill(0);
     this.cF.fill(0);
     for (const b of this.aB) b.fill(0);
+    this.rpL.fill(0); this.rpR.fill(0); this.rh.fill(0);
     this.chBuf.fill(0);
     this.quiet = 0;
     this.polyG = 1; this.gd = 1; this.gHold = 0;
@@ -1295,13 +1301,30 @@ function WSCoreFactory(SPEC) {
     // change fades out in QUICK_REL at most
     const velGain = VOICE_GAIN * (1 - p[P.amp_vel] * (1 - vc.vel)) * vc.gain * this.velVolume(vc);
     const rQ = vc.quick && p[P.amp_r] > QUICK_REL ? this.mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : rC;
+    // PUNCH (version 1.0.16): the start of the note boosted by (1 + gP pu), pu falling from 1 in 30 + 20 x PUNCH ms, gP from +8 dB x PUNCH, the whole of it up to C3 and a quarter
+    // of it from C6 up (a transient shaper per note: it never lowers the level). PUNCH 0: the loop of before, bit for bit (and no boost left for later).
+    const pAmt = p[P.fx_punch];
+    if (pAmt > 0) {
+      const lowK = Math.min(1, Math.max(0.25, (84 - vc.note) / 36));
+      const gP = (Math.exp(8 * pAmt * (Math.LN10 / 20)) - 1) * lowK, pd = Math.exp(-1 / ((0.03 + 0.02 * pAmt) * sr));
+      let pu = vc.pu;
+      for (let i = 0; i < n; i++) {
+        if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
+        else if (st === 2) lev = s + (lev - s) * dC;
+        else if (st === 3) { lev *= rQ; if (lev < 1e-5) { lev = 0; st = 0; } }
+        env[i] = lev * velGain * (1 + gP * pu);
+        pu *= pd;
+      }
+      this.endLevel = lev; this.endStage = st; this.endPunch = pu < 1e-6 ? 0 : pu;
+      return;
+    }
     for (let i = 0; i < n; i++) {
       if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
       else if (st === 2) lev = s + (lev - s) * dC;
       else if (st === 3) { lev *= rQ; if (lev < 1e-5) { lev = 0; st = 0; } }
       env[i] = lev * velGain;
     }
-    this.endLevel = lev; this.endStage = st;
+    this.endLevel = lev; this.endStage = st; this.endPunch = 0;
   };
   // Oscillator s's OWN ENVELOPE for the block, per sample (ownBuf[s]); its end state in ownLevel[s] / ownStage[s].
   E.ownPass = function (vc, s, n) {
@@ -1516,7 +1539,7 @@ function WSCoreFactory(SPEC) {
       this.renderSub(vc, n);
       if (realEnv) { this.envA = realEnv; this.bufL = L; this.bufR = R; this.fltProcess(vc, n); }
       // commit end-of-block state
-      vc.amp.level = this.endLevel; vc.amp.stage = this.endStage;
+      vc.amp.level = this.endLevel; vc.amp.stage = this.endStage; vc.pu = this.endPunch;
       vc.subPhase = this.endSubPhase;
       for (let s = 0; s < NS; s++) {
         const sl = vc.sl[s];
@@ -1537,7 +1560,15 @@ function WSCoreFactory(SPEC) {
     const comp = this.mComp;
     const fb = p[P.fx_dfb], dmix = p[P.fx_dmix], rmix = p[P.fx_rmix];
     const dTarget = this.delaySec() * this.sr, dlen = this.dlyLen;
-    const feedback = 0.7 + 0.28 * p[P.fx_rsize], damp = this.damp;
+    // the Classic reverb (version 1.0.16): DAMP (0.25 = the damping of every earlier version, as before at 48 kHz and the same time constant at other rates), the input path (pre-delay,
+    // low cut, stereo input: taken only when one of them is set, else the mono sum of 1.0.15) and WIDTH (1 = each comb bank to its own side, as before)
+    const feedback = 0.7 + 0.28 * p[P.fx_rsize], rDamp = p[P.fx_rdamp], damp = this.sr === 48000 ? rDamp : Math.pow(rDamp, 48000 / this.sr);
+    const rSt = p[P.fx_rstereo], rWid = p[P.fx_rwidth], rW1 = rWid / 2 + 0.5, rW2 = (1 - rWid) / 2;
+    const rpd = p[P.fx_rpre] > 0 ? Math.max(1, Math.min(this.rpLen - 1, Math.round(p[P.fx_rpre] * this.sr))) : 0;
+    const rhA = p[P.fx_rhp] > 20 ? Math.exp(-2 * Math.PI * p[P.fx_rhp] / this.sr) : 0, rIn = rSt > 0 || rpd > 0 || rhA > 0;
+    const rpL = this.rpL, rpR = this.rpR, rpLen = this.rpLen, rh = this.rh;
+    let rpw = this.rpW;
+    if (rhA) for (let q = 0; q < 4; q++) if (Math.abs(rh[q]) < 1e-20) rh[q] = 0;
     const volT = this.mVol.get(p[P.master] * (Math.LN10 / 20));
     const kDly = this.kDly, kLp = this.kLp, kVol = this.kVol;
     const chMix = p[P.ch_mix], chLen = this.chLen, chBuf = this.chBuf;
@@ -1601,12 +1632,20 @@ function WSCoreFactory(SPEC) {
       if (++this.dlyW >= dlen) this.dlyW = 0;
       // reverb (Freeverb topology)
       if (rmix > 0) {
-        const inp = (l + r) * 0.015;
+        // its input: the mono sum (1.0.15), or (version 1.0.16) through the pre-delay and the low cut, the left combs hearing more of the left as STEREO rises
+        let inL, inR;
+        if (rIn) {
+          let xl = l, xr = r;
+          if (rpd) { rpL[rpw] = xl; rpR[rpw] = xr; let ri = rpw - rpd; if (ri < 0) ri += rpLen; xl = rpL[ri]; xr = rpR[ri]; rpw = rpw + 1 >= rpLen ? 0 : rpw + 1; }
+          if (rhA) { let t = rhA * (rh[1] + xl - rh[0]); rh[0] = xl; rh[1] = t; xl = t; t = rhA * (rh[3] + xr - rh[2]); rh[2] = xr; rh[3] = t; xr = t; }
+          const m = (xl + xr) * 0.015, s = rSt * (xl - xr) * 0.015;
+          inL = m + s; inR = m - s;
+        } else inL = inR = (l + r) * 0.015;
         let wl = 0, wr = 0;
         for (let q = 0; q < 16; q++) {
           const buf = cB[q], ci = cI[q], y = buf[ci];
           const f = y * (1 - damp) + cF[q] * damp; cF[q] = f;
-          buf[ci] = inp + f * feedback;
+          buf[ci] = (q < 8 ? inL : inR) + f * feedback;
           cI[q] = ci + 1 >= cLen[q] ? 0 : ci + 1;
           if (q < 8) wl += y; else wr += y;
         }
@@ -1616,7 +1655,8 @@ function WSCoreFactory(SPEC) {
           aI[q] = ai + 1 >= aLen[q] ? 0 : ai + 1;
           if (q < 4) wl = bo - x; else wr = bo - x;
         }
-        l += rmix * wl * 1.5; r += rmix * wr * 1.5;
+        if (rWid === 1) { l += rmix * wl * 1.5; r += rmix * wr * 1.5; }
+        else { l += rmix * (wl * rW1 + wr * rW2) * 1.5; r += rmix * (wr * rW1 + wl * rW2) * 1.5; }   // WIDTH (version 1.0.16): the Freeverb's own wet1 / wet2 mix
       }
       // DC blocker (10 Hz), master volume, soft limiter
       const yl = l - this.dcxL + this.dcR * this.dcyL; this.dcxL = l; this.dcyL = Math.abs(yl) < 1e-20 ? 0 : yl; l = this.dcyL;
@@ -1665,7 +1705,8 @@ function WSCoreFactory(SPEC) {
     this.limW = lw; this.limT = limT; this.limQh = qh; this.limQn = qn; this.limAw = aw; this.limSum = sum; this.limBelow = below; this.limEnv = env; this.limG = g;
     // how long the output stage's input has been silent, and how long it must stay so before the block is skipped
     if (voices === 0 && !fading && bpk < QUIET_PEAK) this.quiet += n; else this.quiet = 0;
-    this.quietNeed = Math.ceil(1.5 * (dmix > 0 || fb > 0 ? Math.max(dTarget, this.dlyT) : 0)) + QUIET_EXTRA + limD;
+    this.rpW = rpw;
+    this.quietNeed = Math.ceil(1.5 * (dmix > 0 || fb > 0 ? Math.max(dTarget, this.dlyT) : 0)) + QUIET_EXTRA + limD + rpd;   // (version 1.0.16: and the reverb's pre-delay)
     this.publish(pkL, pkR, voices);
   };
 

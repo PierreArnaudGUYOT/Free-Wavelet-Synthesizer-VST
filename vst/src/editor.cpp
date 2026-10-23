@@ -887,7 +887,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   // version 1.0.13 (the owner could not read them: grey at 42 %, 9 px): in the accent colour of the card titles, 10 px
   void drawFxHeads(Canvas& g, R r) {
     struct H { const wchar_t* t; float x, w, lw; } hs[] = {
-        {L"SATURATION", 8, 60, 60}, {L"CHORUS", 64, 156, 156}, {L"PING-PONG DELAY", 214, 118, 162}, {L"REVERB", 376, 104, 104}};
+        {L"SATURATION", 8, 60, 60}, {L"CHORUS", 64, 156, 156}, {L"PING-PONG DELAY", 214, 118, 162}, {L"REVERB", 376, 104, 104}, {L"PUNCH", 480, 60, 60}};   // (version 1.0.16: PUNCH)
     const Pen ln(argb(20, 255, 255, 255), 1);
     for (auto& h : hs) {
       text(g, h.t, R{r.x + h.x, r.y, h.w, 16}, 10, true, rgb(accent()));

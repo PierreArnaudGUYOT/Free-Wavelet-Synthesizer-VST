@@ -854,6 +854,7 @@ struct Voice {
   double mSemis = std::nan(""), mPitchF0 = 0;   // memo: the voice's frequency for its last pitch in semitones
   double wm0 = 0, wm1 = 0;   // WAVELET MORPH position at the start / end of the block
   double gain = 1; bool quick = false;   // the chord's bass note plays louder; a note dropped by a live chord change fades out quickly
+  double pu = 0;   // PUNCH (version 1.0.16): the boost's envelope, 1 at the start of a note, falling to 0
 };
 // releases the voice's own envelopes (with the AMP and MOD envelopes)
 inline void relOwn(Voice& v) { for (int s = 0; s < NS; s++) v.sl[s].own.gate(false); }
@@ -987,6 +988,9 @@ class Engine {
     kLr = rateCoef(1 - std::exp(-1 / (LIM_REL * 48000)), sr);
     limReset();
     damp =sr == 48000 ? 0.25 : std::pow(0.25, 48000 / sr);
+    // the Classic reverb's input (version 1.0.16, core.js): the pre-delay lines (up to 0.1 s) and the low cut's states
+    rpLen = (int)std::ceil(0.1 * sr) + 2; rpL.assign(rpLen, 0.0f); rpR.assign(rpLen, 0.0f); rpW = 0;
+    std::fill(rh, rh + 4, 0.0);
     quiet = 0; quietNeed = 1e18;   // samples of silence so far, and how many an idle skip needs (set by every block)
     vol = std::exp(p[P_MASTER] * (LN10 / 20));
     dcR = 1 - 2 * PI * 10 / sr; dcxL = dcyL = dcxR = dcyR = 0;
@@ -999,7 +1003,7 @@ class Engine {
   // never glides in from notes played before it.
   void reset() {
     for (auto& v : voices) {
-      v.active = false; v.gate = false; v.held = false; v.amp = Env(); v.mod = Env(); v.age = 0; v.pitch = v.target = 60;
+      v.active = false; v.gate = false; v.held = false; v.amp = Env(); v.mod = Env(); v.age = 0; v.pitch = v.target = 60; v.pu = 0;
       for (auto& sl : v.sl) { sl.own = Env(); sl.pe = 1; sl.live = false; }
     }
     counter = 0; lastPitch = 60;
@@ -1007,6 +1011,7 @@ class Engine {
     std::fill(dlyL.begin(), dlyL.end(), 0.0f); std::fill(dlyR.begin(), dlyR.end(), 0.0f);
     for (auto& c : combs) { std::fill(c.buf.begin(), c.buf.end(), 0.0f); c.f = 0; }
     for (auto& a : aps) std::fill(a.buf.begin(), a.buf.end(), 0.0f);
+    std::fill(rpL.begin(), rpL.end(), 0.0f); std::fill(rpR.begin(), rpR.end(), 0.0f); std::fill(rh, rh + 4, 0.0);
     std::fill(chBuf.begin(), chBuf.end(), 0.0f);
     dcxL = dcyL = dcxR = dcyR = 0;
     quiet = 0;
@@ -1120,11 +1125,12 @@ class Engine {
 
   // MIDI CC120: silence immediately (voices and effect tails)
   void allSoundOff() {
-    for (auto& vc : voices) { vc.active = vc.gate = vc.held = false; vc.amp = Env(); vc.mod = Env(); vc.fe = Env(); std::memset(vc.fs, 0, sizeof vc.fs); vc.fOn = false; }
+    for (auto& vc : voices) { vc.active = vc.gate = vc.held = false; vc.pu = 0; vc.amp = Env(); vc.mod = Env(); vc.fe = Env(); std::memset(vc.fs, 0, sizeof vc.fs); vc.fOn = false; }
     stackN = 0; std::memset(keys, 0, sizeof keys); chordClear();
     std::fill(dlyL.begin(), dlyL.end(), 0.0f); std::fill(dlyR.begin(), dlyR.end(), 0.0f); lpL = lpR = 0;
     for (auto& c : combs) { std::fill(c.buf.begin(), c.buf.end(), 0.0f); c.f = 0; }
     for (auto& a : aps) std::fill(a.buf.begin(), a.buf.end(), 0.0f);
+    std::fill(rpL.begin(), rpL.end(), 0.0f); std::fill(rpR.begin(), rpR.end(), 0.0f); std::fill(rh, rh + 4, 0.0);
     std::fill(chBuf.begin(), chBuf.end(), 0.0f);
     quiet = 0;
     polyG = 1; gd = 1; gHold = 0;
@@ -1287,6 +1293,7 @@ class Engine {
   Comb combs[16]; AP aps[8];
   double vol = 0.5, dcR = 0.999, dcxL = 0, dcyL = 0, dcxR = 0, dcyR = 0;
   double kDly = 0.0005, kLp = 0.35, kVol = 0.002, damp = 0.25;   // smoothing per sample (setSampleRate)
+  std::vector<float> rpL, rpR; int rpLen = 2, rpW = 0; double rh[4] = {};   // version 1.0.16: the Classic reverb's pre-delay lines and low cut (x, y left; x, y right)
   double polyG = 1, polyDown = 0, polyUp = 0;                    // beta 0.3.2: chord compensation
   double gd = 1, kGa = 0, kGr = 0; int gHold = 0, gHoldN = 0;      // beta 0.3.2: the peak guard (gain, its coefficients, the samples it is still held for)
   // version 1.0.15: the look-ahead limiter (core.js limReset / block): the delay lines, the running minimum's queue (gains, sample numbers), the average's samples
@@ -1323,7 +1330,7 @@ class Engine {
   // per voice and block: the amp envelope (with the velocity gain) per sample, each oscillator's own envelope, end states
   double envAv[MAXV][CTRL], ownBuf[NS][CTRL], endPh[NS][4];   // envAv: each voice's amp envelope for the block (the filtered voices go through the filter first, see filterVoices)
   bool ownOn[NS] = {}, ownZero[NS] = {}; double ownLevel[NS] = {}; int ownStage[NS] = {};   // ownZero: the own envelope is exactly 0 for the whole block
-  double endLevel = 0, endSubPhase = 0; int endStage = 0;
+  double endLevel = 0, endSubPhase = 0, endPunch = 0; int endStage = 0;
 
   void removeFromStack(int note) {
     for (int i = 0; i < stackN; i++) if (stack[i] == note) { std::memmove(stack + i, stack + i + 1, sizeof(int) * (stackN - i - 1)); stackN--; break; }
@@ -1353,6 +1360,7 @@ class Engine {
     if (!legato) {
       vc.amp.gate(true); vc.mod.gate(true); vc.fe.gate(true);
       for (int s = 0; s < NS; s++) { Slot& sl = vc.sl[s]; for (int b = 0; b < NB; b++) sl.scaleAtk[b] = true; sl.own.gate(true); sl.pe = 1; }
+      vc.pu = 1;   // PUNCH (version 1.0.16): a new start of the note
     }
     lastPitch = note;
   }
@@ -1586,13 +1594,30 @@ class Engine {
     // change fades out in QUICK_REL at most
     const double velGain = VOICE_GAIN * (1 - p[P_AMP_VEL] * (1 - vc.vel)) * vc.gain * velVolume(vc);
     const double rQ = vc.quick && p[P_AMP_R] > QUICK_REL ? mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : rC;
+    // PUNCH (version 1.0.16): the start of the note boosted by (1 + gP pu), pu falling from 1 in 30 + 20 x PUNCH ms, gP from +8 dB x PUNCH, the whole of it up to C3 and a quarter
+    // of it from C6 up (a transient shaper per note: it never lowers the level). PUNCH 0: the loop of before, bit for bit (and no boost left for later).
+    const double pAmt = p[P_FX_PUNCH];
+    if (pAmt > 0) {
+      const double lowK = std::min(1.0, std::max(0.25, (84 - vc.note) / 36.0));
+      const double gP = (std::exp(8 * pAmt * (LN10 / 20)) - 1) * lowK, pd = std::exp(-1 / ((0.03 + 0.02 * pAmt) * sr));
+      double pu = vc.pu;
+      for (int i = 0; i < n; i++) {
+        if (st == 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
+        else if (st == 2) lev = s + (lev - s) * dC;
+        else if (st == 3) { lev *= rQ; if (lev < 1e-5) { lev = 0; st = 0; } }
+        envA[i] = lev * velGain * (1 + gP * pu);
+        pu *= pd;
+      }
+      endLevel = lev; endStage = st; endPunch = pu < 1e-6 ? 0 : pu;
+      return;
+    }
     for (int i = 0; i < n; i++) {
       if (st == 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
       else if (st == 2) lev = s + (lev - s) * dC;
       else if (st == 3) { lev *= rQ; if (lev < 1e-5) { lev = 0; st = 0; } }
       envA[i] = lev * velGain;
     }
-    endLevel = lev; endStage = st;
+    endLevel = lev; endStage = st; endPunch = 0;
   }
   // Oscillator s's OWN ENVELOPE for the block, per sample (ownBuf[s]); its end state in ownLevel[s] / ownStage[s].
   void ownPass(const Voice& vc, int s, int n) {
@@ -2088,7 +2113,7 @@ class Engine {
       }
       renderSub(vc, n);
       // commit end-of-block state
-      vc.amp.level = endLevel; vc.amp.stage = endStage;
+      vc.amp.level = endLevel; vc.amp.stage = endStage; vc.pu = endPunch;
       vc.subPhase = endSubPhase;
       for (int s = 0; s < NS; s++) {
         Slot& sl = vc.sl[s];
@@ -2114,7 +2139,15 @@ class Engine {
     const double comp = mComp;
     const double fb = p[P_FX_DFB], dmix = p[P_FX_DMIX], rmix = p[P_FX_RMIX];
     const double dTarget = delaySec() * sr;
-    const double feedback = 0.7 + 0.28 * p[P_FX_RSIZE];
+    // the Classic reverb (version 1.0.16, core.js): DAMP (0.25 = the damping of every earlier version), the input path (pre-delay, low cut, stereo input: taken only when one of them
+    // is set, else the mono sum of 1.0.15) and WIDTH (1 = each comb bank to its own side, as before)
+    const double feedback = 0.7 + 0.28 * p[P_FX_RSIZE], rDamp = p[P_FX_RDAMP], damp = sr == 48000 ? rDamp : std::pow(rDamp, 48000 / sr);
+    const double rSt = p[P_FX_RSTEREO], rWid = p[P_FX_RWIDTH], rW1 = rWid / 2 + 0.5, rW2 = (1 - rWid) / 2;
+    const int rpd = p[P_FX_RPRE] > 0 ? std::max(1, std::min(rpLen - 1, (int)jsRound(p[P_FX_RPRE] * sr))) : 0;
+    const double rhA = p[P_FX_RHP] > 20 ? std::exp(-2 * PI * p[P_FX_RHP] / sr) : 0;
+    const bool rIn = rSt > 0 || rpd > 0 || rhA > 0;
+    int rpw = rpW;
+    if (rhA) for (int q = 0; q < 4; q++) if (std::fabs(rh[q]) < 1e-20) rh[q] = 0;
     const double volT = mVol.get(p[P_MASTER] * (LN10 / 20));
     const double chMix = p[P_CH_MIX], chBase = CH_BASE * sr, chDepth = p[P_CH_DEPTH] * CH_DEPTH * sr;
     const double chInc = p[P_CH_RATE] / sr, chInc2 = chInc * CH_FAST;
@@ -2173,12 +2206,20 @@ class Engine {
       } else { dlyL[dlyW] = 0; dlyR[dlyW] = 0; }
       if (++dlyW >= dlyLen) dlyW = 0;
       if (rmix > 0) {
-        double inp = (l + r) * 0.015, wl = 0, wr = 0;
+        // its input: the mono sum (1.0.15), or (version 1.0.16) through the pre-delay and the low cut, the left combs hearing more of the left as STEREO rises
+        double inL, inR, wl = 0, wr = 0;
+        if (rIn) {
+          double xl = l, xr = r;
+          if (rpd) { rpL[rpw] = (float)xl; rpR[rpw] = (float)xr; int ri = rpw - rpd; if (ri < 0) ri += rpLen; xl = rpL[ri]; xr = rpR[ri]; rpw = rpw + 1 >= rpLen ? 0 : rpw + 1; }
+          if (rhA) { double t = rhA * (rh[1] + xl - rh[0]); rh[0] = xl; rh[1] = t; xl = t; t = rhA * (rh[3] + xr - rh[2]); rh[2] = xr; rh[3] = t; xr = t; }
+          const double m = (xl + xr) * 0.015, s = rSt * (xl - xr) * 0.015;
+          inL = m + s; inR = m - s;
+        } else inL = inR = (l + r) * 0.015;
 #if defined(WS_V2_REVERB)
         // version 1.0.7 (CPU review 2.4): comb k (left) and comb k + 8 (right) are independent chains of the same operations: they run as the two lanes of one register; the sums
         // wl and wr stay scalar and in the order of the loop below. The all-passes k (left chain) and k + 4 (right chain) likewise.
         {
-          const v2d vod = v2_set1(1 - damp), vdp = v2_set1(damp), vfb = v2_set1(feedback), vin = v2_set1(inp), half = v2_set1(0.5);
+          const v2d vod = v2_set1(1 - damp), vdp = v2_set1(damp), vfb = v2_set1(feedback), vin = v2_set(inR, inL), half = v2_set1(0.5);   // (the left combs' input in lane 0)
           for (int k = 0; k < 8; k++) {
             Comb& cl = combs[k]; Comb& cr = combs[k + 8];
             const v2d y = v2_set((double)cr.buf[cr.i], (double)cl.buf[cl.i]);
@@ -2206,7 +2247,7 @@ class Engine {
           Comb& c = combs[k];
           double y = c.buf[c.i];
           c.f = y * (1 - damp) + c.f * damp;
-          c.buf[c.i] = (float)(inp + c.f * feedback);
+          c.buf[c.i] = (float)((k < 8 ? inL : inR) + c.f * feedback);
           if (++c.i >= (int)c.buf.size()) c.i = 0;
           if (k < 8) wl += y; else wr += y;
         }
@@ -2218,7 +2259,8 @@ class Engine {
           if (k < 4) wl = bo - x; else wr = bo - x;
         }
 #endif
-        l += rmix * wl * 1.5; r += rmix * wr * 1.5;
+        if (rWid == 1) { l += rmix * wl * 1.5; r += rmix * wr * 1.5; }
+        else { l += rmix * (wl * rW1 + wr * rW2) * 1.5; r += rmix * (wr * rW1 + wl * rW2) * 1.5; }   // WIDTH (version 1.0.16): the Freeverb's own wet1 / wet2 mix
       }
       // DC blocker (10 Hz), master volume, soft limiter
       double yl = l - dcxL + dcR * dcyL; dcxL = l; dcyL = std::fabs(yl) < 1e-20 ? 0 : yl; l = dcyL;
@@ -2269,7 +2311,8 @@ class Engine {
     limW = lw; limT = lt; limQh = qh; limQn = qn; limAw = aw; limSum = sum; limBelow = below; limEnv = env; limG = g;
     // how long the output stage's input has been silent, and how long it must stay so before the block is skipped
     if (vmask == 0 && !fading && bpk < QUIET_PEAK) quiet += n; else quiet = 0;
-    quietNeed = std::ceil(1.5 * (dmix > 0 || fb > 0 ? std::max(dTarget, dlyT) : 0)) + QUIET_EXTRA + limD;
+    rpW = rpw;
+    quietNeed = std::ceil(1.5 * (dmix > 0 || fb > 0 ? std::max(dTarget, dlyT) : 0)) + QUIET_EXTRA + limD + rpd;   // (version 1.0.16: and the reverb's pre-delay)
     publish(pkL, pkR, vmask);
   }
 };

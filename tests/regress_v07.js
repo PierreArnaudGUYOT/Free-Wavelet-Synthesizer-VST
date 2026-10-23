@@ -10,9 +10,10 @@ const SPEC = require('../web/js/spec.js'), C = require('../web/js/core.js')(SPEC
 const sr = 48000, n = sr * 3, blk = 128, tol = parseFloat(process.argv[2] || '1e-5');
 // version 1.0.15: this version's output comes limD samples late (the look-ahead limiter's delay, the same in both output stages): it is rendered limD samples longer and read from
 // there; OUTPUT is set to Classic (the guard + tanh soft limiter beta 0.7 had: the Limiter has no knee at 0.7, so a sound that reaches it would differ on purpose)
+// version 1.0.16: the reverb takes the settings of beta 0.7 (no stereo input, no pre-delay, damping 0.25, no low cut: the improved reverb of 1.0.16 differs on purpose), PUNCH off
 function render(Core, values) {
   const params = Float64Array.from(values);
-  if (Core === C) params[C.P.out_mode] = 0;
+  if (Core === C) { params[C.P.out_mode] = 0; params[C.P.fx_rstereo] = 0; params[C.P.fx_rpre] = 0; params[C.P.fx_rdamp] = 0.25; params[C.P.fx_rhp] = 20; params[C.P.fx_punch] = 0; }
   const eng = new Core.Engine(sr); params.forEach((v, i) => eng.setParam(i, v));
   if (Core === OLD) eng.mixSm = params[Core.P.ab_mix];   // beta 0.7 smoothed the A/B balance from its default in a new engine; this version starts at the preset's levels
   eng.setTables(Core.buildTables(params, true));

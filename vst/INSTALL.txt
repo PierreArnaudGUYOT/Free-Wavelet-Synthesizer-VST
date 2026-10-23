@@ -1,10 +1,18 @@
-OktoWave 1.0 (Okto MultiWave Synth, version 1.0.15) - VST3 / VST2 instrument for Windows 10/11 (64-bit) (macOS: OktoMultiWaveSynth-1.0.15-mac.zip, same release page)
+OktoWave 1.0 (Okto MultiWave Synth, version 1.0.16) - VST3 / VST2 instrument for Windows 10/11 (64-bit) (macOS: OktoMultiWaveSynth-1.0.16-mac.zip, same release page)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in OktoMultiWaveSynth.vst3\Contents\Resources\LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Okto-MultiWave-Synth
 
 Three oscillators (A1 A2 subtractive, B1 additive), three LFOs, a real filter (LADDER / OTA),
 208 presets (the author's choice), a chord mode with bass, an oriental keyboard.
+
+NEW IN 1.0.16
+- A MORE PROFESSIONAL REVERB: the Classic reverb keeps its algorithm and its character, with four improvements around it, at the same reverb level:
+  a stereo input (wide sounds keep part of their image in the reverb), a 20 ms pre-delay (the direct sound stays clear), more damping (the tail
+  loses its highs sooner: less metallic) and a 150 Hz low cut (no low end in the reverb). Every sound with reverb plays it, PLAY DEMO too.
+- PUNCH, A NEW KNOB AT THE RIGHT OF THE EFFECTS: every note starts with more impact, most on the low notes (the bass gets its punch back), without ever
+  lowering the level (it is not a compressor). 0 = off (the sound of before), 50 % = every preset (a light punch), 100 % = a strong punch.
+  Your presets file, stars and user bank are kept; a Live Set saved with an earlier version plays the new reverb and PUNCH at 50 %.
 
 NEW IN 1.0.15
 - A CLEANER OUTPUT STAGE: a look-ahead limiter replaces the peak guard and the tanh soft limiter. The old stage bent every peak above -3 dBFS (a slight
@@ -110,7 +118,7 @@ INSTALL
 1. Copy the WHOLE folder OktoMultiWaveSynth.vst3 (the manual is inside it) into ONE of these:
    - your VST3 folder:  C:\Program Files\Common Files\VST3   (needs administrator rights), or
    - your VST2 plug-in folder (the one set as "VST2 Plug-in Custom Folder" in Ableton Live; no administrator rights).
-   The same folder works as VST3 and as VST2. Replace the folder of 1.0.14 (or of an older version) if you have it.
+   The same folder works as VST3 and as VST2. Replace the folder of 1.0.15 (or of an older version) if you have it.
 2. In Ableton Live: Preferences > Plug-ins, switch on "Use VST3 Plug-in System Folders" (or "Use VST2 Plug-in Custom Folder")
    and click Rescan.
 3. In Live's browser: Plug-ins > OktoPierre > Okto MultiWave Synth. Drag it onto a MIDI track.

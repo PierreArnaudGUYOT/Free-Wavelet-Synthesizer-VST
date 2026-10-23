@@ -1048,7 +1048,7 @@ class SynthUI {
   // (version 1.0.13: the owner could not read them, grey at 42 % and 9 px: in the accent colour of the card titles, 10 px)
   draw_fxheads(ctx) {
     ctx.font = '700 10px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
-    const groups = [['SATURATION', 8, 60], ['CHORUS', 64, 156], ['PING-PONG DELAY', 214, 162], ['REVERB', 376, 104]];
+    const groups = [['SATURATION', 8, 60], ['CHORUS', 64, 156], ['PING-PONG DELAY', 214, 162], ['REVERB', 376, 104], ['PUNCH', 480, 60]];   // (version 1.0.16: PUNCH)
     for (const [t, x, w] of groups) {
       ctx.fillStyle = this.accent(); ctx.fillText(t, x + w / 2, 12);
       ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.moveTo(x + 4, 17.5); ctx.lineTo(x + w - 4, 17.5); ctx.stroke();
