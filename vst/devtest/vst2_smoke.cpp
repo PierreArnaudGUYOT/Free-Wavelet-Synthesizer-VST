@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
   check(fx->numParams == P_MIDI_ASOFF && P_MIDI_ANOFF == P_MIDI_ASOFF + 2 && kNumParams > P_MIDI_ANOFF && fx->numPrograms == kNumPresets && fx->numInputs == 0 && fx->numOutputs == 2, "the parameters (without the 3 MIDI triggers and the hidden settings after them), the programs, 0 in / 2 out");
   check((fx->flags & 1) && (fx->flags & 16) && (fx->flags & 32) && (fx->flags & 256), "flags: editor, replacing, chunks, synth");
   D(fx, 0);
-  std::memset(buf, 0, sizeof buf); D(fx, 45, 0, 0, buf); check(!std::strcmp(buf, "Okto MultiWave Synth"), "effect name", buf);
+  std::memset(buf, 0, sizeof buf); D(fx, 45, 0, 0, buf); check(!std::strcmp(buf, "Okto Fractal Wavelet"), "effect name", buf);   // (version 1.0.17: the plug-in's name in hosts)
   std::memset(buf, 0, sizeof buf); D(fx, 47, 0, 0, buf); check(!std::strcmp(buf, "OktoPierre"), "vendor", buf);
   check(D(fx, 35) == 2, "category: synth");
   check(D(fx, 51, 0, 0, (void*)"receiveVstMidiEvent") == 1, "canDo receiveVstMidiEvent");

@@ -1,10 +1,26 @@
-OktoWave 1.0 (Okto MultiWave Synth, version 1.0.16) - VST3 / VST2 instrument for Windows 10/11 (64-bit) (macOS: OktoMultiWaveSynth-1.0.16-mac.zip, same release page)
+OktoWave 1.0 (Okto Fractal Wavelet, version 1.0.17) - VST3 / VST2 instrument for Windows 10/11 (64-bit) (macOS: OktoMultiWaveSynth-1.0.17-mac.zip, same release page)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in OktoMultiWaveSynth.vst3\Contents\Resources\LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Okto-MultiWave-Synth
 
 Three oscillators (A1 A2 subtractive, B1 additive), three LFOs, a real filter (LADDER / OTA),
-208 presets (the author's choice), a chord mode with bass, an oriental keyboard.
+229 presets (the author's choice), a chord mode with bass, an oriental keyboard.
+
+NEW IN 1.0.17
+- YOUR SOUNDS ARE NEVER LOST WITH A NEW VERSION: your presets now live in Documents\OktoPierre\Okto Fractal Wavelet, apart from the plug-in, so installing,
+  replacing or deleting the plug-in folder never touches them. Nothing is made there until you keep something (a player who only plays leaves nothing behind).
+  The file of an older version, next to the plug-in, is read where it is; the first thing you keep moves your sounds to Documents and the old file stays as it was.
+  A new version keeps a copy of the file before it writes over it.
+- EXPORT AND IMPORT BY BANK: EXPORT... writes one bank of your user bank, one factory list, your favourites (rated N or more) or everything. IMPORT... reads a bank
+  or the presets file of any version, shows what it holds and adds the banks you tick as banks of your own (nothing of yours is replaced), or merges them into your
+  banks of the same name, or replaces everything. A backup copy of your file is made first.
+- THE PRESET BROWSER: NEW copies the sound playing right under the selected row and you type its name in place (Enter keeps it, Escape takes it back); RENAME;
+  COPY / PASTE a preset as text (Ctrl + C, Ctrl + V: between instances, hosts or through a message); NEW BANK (up to 12 banks of your own).
+- 20 NEW SOURCE WAVES for the subtractive oscillators, after the classic subtractive synthesizers: the 6 buttons and MORE ▾ (Half Sine, Abs Sine, Saw+Square,
+  Shark Fin, Trapezoid, Parabola, Stepped Saw and Sine, Sync Saw 2.5 and 4.3, Sync Square 3.5, Octave Saw, Clipped Sine, FM 1:1, 2:1 and 3:1, Formant, Reso Saw,
+  Organ, Saw Stack). The 6 waves of before sound exactly as they did.
+- 229 PRESETS: the author's list (his favourites as TOP Sounds, in his order; the synth opens on A · Warm Pad), 30 new sounds made with the new waves, 2 new basses.
+- The plug-in is named "Okto Fractal Wavelet" in your DAW (it was "Okto MultiWave Synth"): the same plug-in, a Live Set made with it opens as before.
 
 NEW IN 1.0.16
 - A MORE PROFESSIONAL REVERB: the Classic reverb keeps its algorithm and its character, with four improvements around it, at the same reverb level:
@@ -118,18 +134,20 @@ INSTALL
 1. Copy the WHOLE folder OktoMultiWaveSynth.vst3 (the manual is inside it) into ONE of these:
    - your VST3 folder:  C:\Program Files\Common Files\VST3   (needs administrator rights), or
    - your VST2 plug-in folder (the one set as "VST2 Plug-in Custom Folder" in Ableton Live; no administrator rights).
-   The same folder works as VST3 and as VST2. Replace the folder of 1.0.15 (or of an older version) if you have it.
+   The same folder works as VST3 and as VST2. Replace the folder of 1.0.16 (or of an older version) if you have it.
 2. In Ableton Live: Preferences > Plug-ins, switch on "Use VST3 Plug-in System Folders" (or "Use VST2 Plug-in Custom Folder")
    and click Rescan.
-3. In Live's browser: Plug-ins > OktoPierre > Okto MultiWave Synth. Drag it onto a MIDI track.
+3. In Live's browser: Plug-ins > OktoPierre > Okto Fractal Wavelet (the name of the plug-in since 1.0.17; Okto MultiWave Synth before:
+   a Live Set made with it opens as before). Drag it onto a MIDI track.
 
 It installs next to the Wavelet Synthesizer and the WaveChord Synth (its own name and IDs). A Live Set saved with a beta loads as before
 (the parameters saved in the Live Set are kept as they are).
 
 YOUR PRESETS FILE
 SAVE PRESET, the user bank, deleted presets, the stars you give and the order of the lists are kept in one readable text file,
-"OKTOMULTIWAVE presets.txt", next to the OktoMultiWaveSynth.vst3 folder. That folder must allow writing: the VST3 system
-folder needs administrator rights, so either install into a folder you own, or start Live as administrator once.
+"OKTOMULTIWAVE presets.txt", in Documents\OktoPierre\Okto Fractal Wavelet (version 1.0.17; made the first time you keep something).
+Before 1.0.17 the file was next to the OktoMultiWaveSynth.vst3 folder: it is read there until you keep something new, then left as it was.
+EXPORT... and IMPORT... in the preset browser save and bring back one bank, your favourites or everything (another computer, a friend's bank).
 The file of 1.0 / 1.0.1 is read: your user bank, your stars and the presets you adjusted or deleted are kept; the lists of the browser are rebuilt (sorted, OTHER).
 The file of beta 0.3.3 is read: your user bank is kept; your stars, the lists of the browser and the presets you adjusted or deleted (their
 numbered names are gone) start again from the final list (sorted, TOP Sounds first).

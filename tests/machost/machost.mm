@@ -602,7 +602,10 @@ int main(int argc, char** argv) {
     ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 5000 + 3);   // back in the list
     pump(0.2);
     check(readFile(presets).find(kNl + "Deleted: yes") == std::string::npos, "the deleted preset comes back");
-    ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 901);   // EXPORT (to WS_PRESETS_EXPORT)
+    ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 901);   // EXPORT: its window (version 1.0.17) ...
+    pump(0.2);
+    ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 931 + 3);   // ... "Everything" ...
+    ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 930);       // ... its EXPORT… button (to WS_PRESETS_EXPORT)
     pump(0.2);
     check(readFile(exported).find("CI Bank Sound") != std::string::npos, "EXPORT writes every preset and the user bank");
     shot(pv, out + "/mac_library.png");
@@ -616,7 +619,10 @@ int main(int argc, char** argv) {
       const std::string before = readFile(presets);
       setenv("WS_PRESETS_IMPORT", impPath.c_str(), 1);
       gAnswered = 0;
-      ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 903);
+      ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 903);       // IMPORT: the file, then its window (version 1.0.17) ...
+      pump(0.2);
+      ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 941 + 2);   // ... "Replace everything" ...
+      ((void (*)(id, SEL, NSInteger))objc_msgSend)(pv, testCmd, 930);       // ... its IMPORT button: the question, then the import
       pump(0.3);
       unsetenv("WS_PRESETS_IMPORT");
       lib = readFile(presets);

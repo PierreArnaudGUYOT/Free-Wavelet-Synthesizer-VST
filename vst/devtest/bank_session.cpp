@@ -9,7 +9,7 @@
 //   x86_64-w64-mingw32-clang++ -std=c++17 -O2 -static -municode -DUNICODE -D_UNICODE -DNOMINMAX -I vst/external -I vst/src
 //     vst/devtest/bank_session.cpp vst/src/iids.cpp vst/external/pluginterfaces/base/funknown.cpp -o bank_session.exe
 //     -lgdiplus -lgdi32 -luser32 -lole32 -luuid
-//   bank_session.exe <path\to\OktoMultiWaveSynth.vst3 dll> <outdir>
+//   bank_session.exe <path\to\OktoMultiWaveSynth.vst3 dll> <outdir> [--shots]   (--shots: only the pictures of the browser's two tabs, version 1.0.17)
 #include <windows.h>
 #include <algorithm>
 namespace Gdiplus { using std::min; using std::max; }
@@ -379,6 +379,31 @@ int wmain(int argc, wchar_t** argv) {
           std::strcmp(kCategories[L_ORGAN - 1], "Organ") == 0 && std::strcmp(kCategories[L_SP - 1], "Source Phase") == 0,
           "beta 0.7 browser lists: TOP Sounds, Bass ... Init, Source Phase last (the places this test clicks)");
     h.shot(out + L"\\1_browser.png");
+    if (argc > 3 && std::wstring(argv[3]) == L"--shots") {   // version 1.0.17: the browser's two tabs only (no save window, no message box: nothing shows on the screen)
+      clickAt(h, TAB1_X, TAB_Y);
+      h.run(0.3);
+      h.shot(out + L"\\1b_user.png");
+      // version 1.0.17: the EXPORT and IMPORT windows (the browser card of 1.0.17: x 1104, y 8, 408 x 928; the bottom buttons 72.8 wide, 5 apart, centred at y 899)
+      const float sc = clientW(h) / 1520.f, bx = 1104 + 12 + 36.4f, by = 899;   // (the editor fits the test window: logical points times its scale)
+      clickAt(h, (bx + 3 * 77.8f) * sc, by * sc);   // EXPORT…: its window
+      h.run(0.3);
+      h.shot(out + L"\\1c_export.png");
+      clickAt(h, 1180 * sc, 20 * sc);   // outside the window: closed
+      const std::wstring demo = out + L"\\import demo.txt";
+      const char* demoText = "OKTOMULTIWAVE SYNTH - presets\r\nPlug-in version: 1.0.16\r\n\r\n######## FACTORY PRESETS ########\r\n\r\nPreset: A \xC2\xB7 Warm Pad\r\nFactory: A \xC2\xB7 Warm Pad\r\n"
+                             "Adjusted: no\r\nStars: 8\r\n\r\n######## LIST ORDER v8 ########\r\n\r\n######## USER BANK ########\r\n\r\n== KeyAttac ==\r\n\r\nPreset: Demo key\r\nStars: 9\r\n  f_cutoff: 4\r\n\r\n"
+                             "== Pad ==\r\n\r\nPreset: Demo pad\r\n  f_cutoff: 5\r\n\r\nPreset: Demo pad 2\r\n  f_cutoff: 6\r\n\r\n== My Live Set ==\r\n\r\nPreset: Demo lead\r\n  f_cutoff: 7\r\n";
+      FILE* f = _wfopen(demo.c_str(), L"wb");
+      std::fwrite(demoText, 1, std::strlen(demoText), f); std::fclose(f);
+      SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", demo.c_str());
+      clickAt(h, (bx + 4 * 77.8f) * sc, by * sc);   // IMPORT…: the file (no file window here), then its window
+      h.run(0.3);
+      h.shot(out + L"\\1d_import.png");
+      clickAt(h, 1180 * sc, 20 * sc);
+      SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", nullptr);
+      std::printf("shots written\n");
+      return 0;
+    }
 
     std::printf("1. browsing: Bass, then its 5th sound\n");
     clickAt(h, TAB0_X, TAB_Y);
@@ -413,7 +438,7 @@ int wmain(int argc, wchar_t** argv) {
     std::printf("3. a name already used by another preset is refused\n");
     Responder r2;
     r2.start({{L"Save preset", [&](HWND d) { SetDlgItemTextW(d, 101, L"A · Warm Pad"); press(d, IDOK); }},
-              {L"Okto MultiWave Synth", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+              {L"Okto Fractal Wavelet", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
     clickPosted(h, SAVE_X, SAVE_Y);
     r2.wait(h);
     check(r2.seen.size() == 2 && has(u8(r2.seen[1]), "already called"), "refused with a message", r2.seen.size() > 1 ? u8(r2.seen[1]) : "");
@@ -444,7 +469,7 @@ int wmain(int argc, wchar_t** argv) {
 
     std::printf("6. DELETE (browser, user tab)\n");
     Responder r5;
-    r5.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
+    r5.start({{L"Okto Fractal Wavelet", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(2), BTN_Y);
     r5.wait(h);
     check(!has(readFile(lib), "My Bass Y") && !r5.seen.empty() && has(u8(r5.seen[0]), "Delete"), "deleted after a question");
@@ -456,7 +481,7 @@ int wmain(int argc, wchar_t** argv) {
     h.run(0.2);
     check(h.stateName() == sawX && std::fabs(h.plain(P_F_CUTOFF) - cut) < 1e-9, "the adjusted preset loads with its new sound", h.stateName());
     Responder r6;
-    r6.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
+    r6.start({{L"Okto Fractal Wavelet", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(1), BTN_Y);
     r6.wait(h);
     h.run(0.2);
@@ -487,7 +512,7 @@ int wmain(int argc, wchar_t** argv) {
     const std::string victim = h.stateName();
     const int kVictim = presetIndex(victim.c_str());
     Responder r9;
-    r9.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
+    r9.start({{L"Okto Fractal Wavelet", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(2), BTN_Y);
     r9.wait(h);
     h.run(0.2);
@@ -575,7 +600,7 @@ int wmain(int argc, wchar_t** argv) {
     h.run(0.1);
     SetEnvironmentVariableW(L"WS_PRESETS_FILE", (out + L"\\no such folder\\p.txt").c_str());
     Responder r8;
-    r8.start({{L"Save preset", [&](HWND d) { press(d, IDOK); }}, {L"Okto MultiWave Synth", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+    r8.start({{L"Save preset", [&](HWND d) { press(d, IDOK); }}, {L"Okto Fractal Wavelet", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
     clickPosted(h, SAVE_X, SAVE_Y);
     r8.wait(h);
     check(r8.seen.size() == 2 && has(u8(r8.seen[1]), "Could not save the preset") && has(u8(r8.seen[1]), "no such folder"), "clear message with the path",
@@ -633,7 +658,7 @@ int wmain(int argc, wchar_t** argv) {
     const std::string before = readFile(lib);
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", imp.c_str());
     Responder r11;
-    r11.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
+    r11.start({{L"Okto Fractal Wavelet", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(4), BTN_Y);   // IMPORT (WS_PRESETS_IMPORT: no file window)
     r11.wait(h);
     const std::string after = readFile(lib);
@@ -649,14 +674,14 @@ int wmain(int argc, wchar_t** argv) {
     check(h.stateName() == "USER \xC2\xB7 Imported Pad", "the imported bank sound loads", h.stateName());
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", bad.c_str());
     Responder r12;
-    r12.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}, {L"Okto MultiWave Synth", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
+    r12.start({{L"Okto Fractal Wavelet", [&](HWND d) { press(d, IDYES); }}, {L"Okto Fractal Wavelet", [&](HWND d) { PostMessageW(d, WM_COMMAND, IDCANCEL, 0); }}});
     clickPosted(h, btnX(4), BTN_Y);
     r12.wait(h);
     check(r12.seen.size() == 2 && has(u8(r12.seen[1]), "Could not import") && readFile(lib) == after, "a file without presets is refused, the library unchanged",
           r12.seen.size() > 1 ? u8(r12.seen[1]).substr(0, 100) : "");
     SetEnvironmentVariableW(L"WS_PRESETS_IMPORT", imp.c_str());   // imported again (the same minute): a second backup, the first kept
     Responder r13;
-    r13.start({{L"Okto MultiWave Synth", [&](HWND d) { press(d, IDYES); }}});
+    r13.start({{L"Okto Fractal Wavelet", [&](HWND d) { press(d, IDYES); }}});
     clickPosted(h, btnX(4), BTN_Y);
     r13.wait(h);
     int nb = 0; bool firstKept = false;

@@ -293,14 +293,34 @@ class SynthUI {
     box.classList.add('seg');
     if (w.style === 'engine') box.classList.add('engine');
     if (w.style === 'uline') box.classList.add('uline');   // beta 0.3.4: the LFO 1 wave selector, underlined
-    const btns = p.choiceShort.map((label, k) => {
+    // version 1.0.17 (the 20 new source waves): more than 8 choices show the first SEG_SHOWN and a last button MORE ▾ over a native list of the others
+    const SEG_SHOWN = 6, more = p.choiceShort.length > 8 && !w.style;
+    const btns = p.choiceShort.slice(0, more ? SEG_SHOWN : undefined).map((label, k) => {
       const b = el('button', '', box);
       b.textContent = label;
       b.title = p.name + ': ' + p.choices[k];
       b.onclick = () => { this.host.begin(i); this.host.set(i, k); this.host.end(i); };
       return b;
     });
-    const widget = { w, p, i, el: box, update: () => { const v = Math.round(this.host.get(i)); btns.forEach((b, k) => b.classList.toggle('on', k === v)); } };
+    let moreBtn = null, moreLab = null, moreSel = null;
+    if (more) {
+      moreBtn = el('button', 'segmore', box);
+      moreLab = el('span', '', moreBtn);
+      moreSel = el('select', 'segmore-list', moreBtn);
+      moreSel.title = p.name + ': the other waves';
+      p.choices.forEach((c, k) => { if (k >= SEG_SHOWN) { const o = el('option', '', moreSel); o.value = k; o.textContent = c; } });
+      moreSel.onchange = () => { const k = +moreSel.value; this.host.begin(i); this.host.set(i, k); this.host.end(i); };
+    }
+    const widget = { w, p, i, el: box, update: () => {
+      const v = Math.round(this.host.get(i));
+      btns.forEach((b, k) => b.classList.toggle('on', k === v));
+      if (moreBtn) {
+        const on = v >= SEG_SHOWN;
+        moreBtn.classList.toggle('on', on);
+        moreLab.textContent = (on ? p.choiceShort[v] : 'MORE') + ' ▾';
+        if (on) moreSel.value = v; else moreSel.selectedIndex = -1;
+      }
+    } };
     this.reg(w.param, widget);
     widget.update();
   }

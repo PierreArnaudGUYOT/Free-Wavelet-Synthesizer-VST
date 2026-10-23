@@ -129,5 +129,17 @@ module.exports = function cases(SPEC, C) {
   variant('punch: 25 %, ladder filter, sub', { fx_punch: 0.25, vf_cut: 900, vf_res: 0.5, vf_env: 0.4, sub_level: 0.5 });
   variant('punch: 100 % with the chord keyboard', { fx_punch: 1, chord_mode: 1, chord_bass: 1 }, { kind: 'chord' });
   variant('punch: 100 %, legato line (one voice, glide)', { fx_punch: 1, v_voices: 1, v_porta: 2, v_glide: 0.1 });
+  // version 1.0.17: the 20 new source waves (6 .. 25). Each one on A1 with a spread of wavelets, sparsities, phases and scale filters (dsp.h must
+  // compute the very same source bits: SPARSITY picks atoms by size), then on A2 with sparsity, phase, morph, the LFOs' variants and a chord
+  const WAVES = SPEC.PARAMS[P.a_wave].choices;
+  for (let w = 6; w <= 25; w++) {
+    va(`wave ${w} ${WAVES[w]} on A1`, { a_wave: w, wavelet: w % 7, a_sparsity: (w % 4) * 0.2, a_phase: (w % 3) * 0.17, f_cutoff: 6 + (w % 7), f_res: (w % 5) * 3 });
+  }
+  va('A2 FM 2:1, sparsity 0.7 (DB20) + A1 Organ', { a1_lvl: 0.5, a_wave: 24, a2_lvl: 0.6, a2_wave: 20, a2_wavelet: 6, a2_sparsity: 0.7, a2_oct: 1 });
+  va('A2 Formant, phase 0.41, sparsity 0.3, morph', { a1_lvl: 0.4, a2_lvl: 0.7, a2_wave: 22, a2_phase: 0.41, a2_wavelet: 1, a2_sparsity: 0.3, wav2: 4, wmorph: 0.5 });
+  va('A2 Reso Saw + A1 Sync Saw 2.5, LFO 2 -> phase', { a1_lvl: 0.5, a_wave: 14, a2_lvl: 0.6, a2_wave: 23, a2_wavelet: 2, lfo2_target: PHT, lfo2_amt: 0.6, lfo2_rate: 1.8 });
+  va('A2 Stepped Sine + A1 Abs Sine, LFO 1 -> sparsity', { a1_lvl: 0.4, a_wave: 7, a2_lvl: 0.6, a2_wave: 13, a2_wavelet: 3, a2_sparsity: 0.4, lfo_sp: 0.5, lfo_rate: 2.5 });
+  va('LFO 2 -> source width on Trapezoid (a new wave has no width sets)', { a_wave: 10, wavelet: 2, lfo2_target: T('width'), lfo2_amt: 0.8, lfo2_rate: 1.5 });
+  va('chord: A1 Saw Stack + A2 FM 3:1 (sparsity 0.5, phase 0.25)', { a1_lvl: 0.5, a_wave: 25, a2_lvl: 0.5, a2_wave: 21, a2_wavelet: 4, a2_sparsity: 0.5, a2_phase: 0.25, chord_mode: 1, chord_bass: 1 }, { kind: 'chord' });
   return out;
 };

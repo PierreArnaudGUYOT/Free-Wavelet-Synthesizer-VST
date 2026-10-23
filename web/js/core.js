@@ -201,6 +201,11 @@ function WSCoreFactory(SPEC) {
       y * (-8.22063524662433e-18 + y * (1.957294106339126e-20 + y * -3.868170170630684e-23)))))))))));
     return neg ? -s : s;
   }
+  function fracT(t) { return t - Math.floor(t); }
+  // Version 1.0.17: 20 more source waves, appended after NOISE (indices 6 .. 25) so that every older preset and project keeps its
+  // wave. Only +, -, *, /, Math.floor and sinTurn (never Math.sin / cos / exp / pow / tanh): dsp.h computes the very same bits
+  // with the same operations in the same order (SPARSITY picks atoms by size: a last-bit difference would change the sound).
+  // None of them uses SOURCE WIDTH (only PULSE and TRI do); all follow SOURCE PHASE like the first five.
   function sourceCycle(wave, width, phase) {
     const x = new Float64Array(N);
     const r = rng(12345);
@@ -213,10 +218,51 @@ function WSCoreFactory(SPEC) {
         case 2: x[i] = ph < width ? 1 : -1; break;
         case 3: x[i] = ph < width ? -1 + 2 * ph / width : 1 - 2 * (ph - width) / (1 - width); break;
         case 4: x[i] = sinTurn(ph); break;
-        default: x[i] = r() * 2 - 1; break;
+        // HALF SINE: the sine with its negative half cut (half-wave rectified)
+        case 6: { const s = sinTurn(ph); x[i] = s > 0 ? s : 0; break; }
+        // ABS SINE: |sin| with one arch per cycle (full-wave rectified at half the rate, so its pitch is the note's, not an octave up)
+        case 7: x[i] = sinTurn(0.5 * ph); break;
+        // SAW+SQR: the average of the saw and the square (the Juno mix)
+        case 8: x[i] = 0.5 * ((1 - 2 * ph) + (ph < 0.5 ? 1 : -1)); break;
+        // SHARK: an RC charge over 30 % of the cycle, then the discharge over 70 % (4th-power curves: steep at the start, flat at the end)
+        case 9: {
+          let y;
+          if (ph < 0.3) { const w = 1 - ph / 0.3; y = 1 - w * w * w * w; } else { const w = 1 - (ph - 0.3) / 0.7; y = w * w * w * w; }
+          x[i] = 2 * y - 1; break;
+        }
+        // TRAPEZOID: a triangle clipped at ± 0.5, scaled back to ± 1
+        case 10: { const t = ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph; x[i] = 2 * (t > 0.5 ? 0.5 : t < -0.5 ? -0.5 : t); break; }
+        // PARABOLA: two parabolic arches (+ then -), a rounded near-sine with soft odd harmonics (1/k^3)
+        case 11: { const u = ph < 0.5 ? 4 * ph - 1 : 4 * ph - 3; x[i] = ph < 0.5 ? 1 - u * u : u * u - 1; break; }
+        // STEP SAW: the saw in 4 steps
+        case 12: x[i] = 1 - 2 * Math.floor(ph * 4) / 3; break;
+        // STEP SINE: the sine held over 8 steps (the value at the middle of each step)
+        case 13: x[i] = sinTurn((Math.floor(ph * 8) + 0.5) / 8); break;
+        // SYNC 2.5 / SYNC 4.3: a saw at 2.5 / 4.3 times the note, restarted every cycle (hard sync); SYNC SQR: a square at 3.5 times
+        case 14: x[i] = 1 - 2 * fracT(2.5 * ph); break;
+        case 15: x[i] = 1 - 2 * fracT(4.3 * ph); break;
+        case 16: x[i] = fracT(3.5 * ph) < 0.5 ? 1 : -1; break;
+        // OCT SAW: the saw and the saw an octave up, averaged
+        case 17: x[i] = 0.5 * ((1 - 2 * ph) + (1 - 2 * fracT(2 * ph))); break;
+        // CLIP SINE: the sine driven x 3, clipped at ± 1 and rounded by the cubic soft clip 1.5 c - 0.5 c^3
+        case 18: { let c = 3 * sinTurn(ph); c = c > 1 ? 1 : c < -1 ? -1 : c; x[i] = c * (1.5 - 0.5 * c * c); break; }
+        // FM 1:1 / 2:1 / 3:1: a sine phase-modulated by a sine at 1 / 2 / 3 times the note; the index in turns (0.24 / 0.19 / 0.16 turn = 1.51 / 1.19 / 1.01 rad)
+        case 19: x[i] = sinTurn(fracT(ph + 0.24 * sinTurn(ph))); break;
+        case 20: x[i] = sinTurn(fracT(ph + 0.19 * sinTurn(fracT(2 * ph)))); break;
+        case 21: x[i] = sinTurn(fracT(ph + 0.16 * sinTurn(fracT(3 * ph)))); break;
+        // FORMANT: a sine at 5 times the note under a raised-cosine window over the first half of the cycle, silence after (a vowel-like
+        // formant round harmonic 5, CZ / VOSIM-style)
+        case 22: { if (ph < 0.5) { const w = sinTurn(ph); x[i] = w * w * sinTurn(fracT(5 * ph)); } else x[i] = 0; break; }
+        // RESO SAW: a cosine at 6 times the note under a falling saw window, restarted every cycle (the CZ-101 "resonance" wave)
+        case 23: x[i] = (1 - ph) * sinTurn(fracT(6 * ph + 0.25)); break;
+        // ORGAN: the drawbars 8' + 4' + 2 2/3' (sines 1, 2, 3 at 1, 0.6, 0.4)
+        case 24: x[i] = sinTurn(ph) + 0.6 * sinTurn(fracT(2 * ph)) + 0.4 * sinTurn(fracT(3 * ph)); break;
+        // SAW STACK: saws at harmonics 1, 2, 3 at 1, 1/2, 1/3
+        case 25: x[i] = (1 - 2 * ph) + 0.5 * (1 - 2 * fracT(2 * ph)) + (1 - 2 * fracT(3 * ph)) / 3; break;
+        default: x[i] = r() * 2 - 1; break;   // NOISE (5)
       }
     }
-    if (wave >= 5) {
+    if (wave === 5) {
       const s = ((Math.round(sh * N) % N) + N) % N;
       if (s) { const y = Float64Array.from(x); for (let i = 0; i < N; i++) x[i] = y[(i + s) % N]; }
     }

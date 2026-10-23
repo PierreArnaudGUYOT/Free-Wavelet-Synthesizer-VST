@@ -130,11 +130,13 @@ class WinWindow : public EditorWindow {
       wc.hInstance = thisModule(); wc.hCursor = LoadCursor(nullptr, IDC_ARROW); wc.lpszClassName = kClassName;
       RegisterClassExW(&wc);
     }
-    hwnd = CreateWindowExW(0, kClassName, L"Okto MultiWave Synth", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, w, h, parent, nullptr, thisModule(), this);
+    hwnd = CreateWindowExW(0, kClassName, L"Okto Fractal Wavelet", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0, 0, w, h, parent, nullptr, thisModule(), this);   // (version 1.0.17: CLIPCHILDREN, the name field typed in place)
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     SetTimer(hwnd, 1, 33, nullptr);
   }
   ~WinWindow() override {
+    if (edit) { SetWindowLongPtrW(edit, GWLP_USERDATA, 0); DestroyWindow(edit); edit = nullptr; }
+    if (editFont) { DeleteObject(editFont); editFont = nullptr; }
     KillTimer(hwnd, 1);
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
     DestroyWindow(hwnd); hwnd = nullptr;
@@ -174,12 +176,90 @@ class WinWindow : public EditorWindow {
     return cmd;
   }
   void message(const std::wstring& text, bool warning) override {
-    MessageBoxW(hwnd, text.c_str(), L"Okto MultiWave Synth", MB_OK | (warning ? MB_ICONWARNING : MB_ICONINFORMATION));
+    MessageBoxW(hwnd, text.c_str(), L"Okto Fractal Wavelet", MB_OK | (warning ? MB_ICONWARNING : MB_ICONINFORMATION));
   }
   bool ask(const std::wstring& text) override {
-    return MessageBoxW(hwnd, text.c_str(), L"Okto MultiWave Synth", MB_YESNO | MB_ICONQUESTION) == IDYES;
+    return MessageBoxW(hwnd, text.c_str(), L"Okto Fractal Wavelet", MB_YESNO | MB_ICONQUESTION) == IDYES;
   }
   bool saveDialog(SaveDlg& d, const wchar_t* title, bool withSection, const wchar_t* note) override;
+  // version 1.0.17: the name typed in place (NEW, RENAME): an EDIT control over the row; Enter or a click elsewhere keeps the text, Escape gives up; the end is
+  // posted (WM_APP + 2) so that the control is never destroyed inside its own message
+  HWND edit = nullptr; HFONT editFont = nullptr; WNDPROC editOld = nullptr; bool editEnding = false, editOk = false; std::wstring editResult;
+  bool editText(R r, const std::wstring& text, float px) override {
+    if (edit) return false;
+    const double s = ev->scale();
+    editFont = CreateFontW(-(int)std::lround(px * s), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                           CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+    edit = CreateWindowExW(0, L"EDIT", text.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
+                           (int)std::lround(r.x * s), (int)std::lround(r.y * s), (int)std::lround(r.w * s), (int)std::lround(r.h * s), hwnd, nullptr, thisModule(), nullptr);
+    if (!edit) { if (editFont) DeleteObject(editFont); editFont = nullptr; return false; }
+    SendMessageW(edit, WM_SETFONT, (WPARAM)editFont, TRUE);
+    SendMessageW(edit, EM_LIMITTEXT, (WPARAM)48, 0);
+    SetWindowLongPtrW(edit, GWLP_USERDATA, (LONG_PTR)this);
+    editOld = (WNDPROC)SetWindowLongPtrW(edit, GWLP_WNDPROC, (LONG_PTR)&WinWindow::editProc);
+    editEnding = false;
+    SendMessageW(edit, EM_SETSEL, 0, -1);
+    SetFocus(edit);
+    return true;
+  }
+  void endEdit(bool ok) {
+    if (!edit || editEnding) return;
+    editEnding = true;
+    wchar_t b[64] = {};
+    GetWindowTextW(edit, b, 64);
+    editResult = b; editOk = ok;
+    PostMessageW(hwnd, WM_APP + 2, 0, 0);
+  }
+  void finishEdit() {
+    if (!edit) return;
+    HWND e = edit;
+    edit = nullptr;
+    SetWindowLongPtrW(e, GWLP_USERDATA, 0);
+    DestroyWindow(e);
+    if (editFont) { DeleteObject(editFont); editFont = nullptr; }
+    editEnding = false;
+    std::wstring t = editResult;
+    while (!t.empty() && iswspace(t.back())) t.pop_back();
+    while (!t.empty() && iswspace(t.front())) t.erase(t.begin());
+    ev->textDone(editOk && !t.empty(), t);
+  }
+  static LRESULT CALLBACK editProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
+    WinWindow* w = (WinWindow*)GetWindowLongPtrW(h, GWLP_USERDATA);
+    if (!w) return DefWindowProcW(h, msg, wp, lp);
+    const WNDPROC old = w->editOld;
+    switch (msg) {
+      case WM_GETDLGCODE: return DLGC_WANTALLKEYS | CallWindowProcW(old, h, msg, wp, lp);
+      case WM_KEYDOWN:
+        if (wp == VK_RETURN) { w->endEdit(true); return 0; }
+        if (wp == VK_ESCAPE) { w->endEdit(false); return 0; }
+        break;
+      case WM_CHAR: if (wp == '\r' || wp == 27) return 0; break;   // (no beep)
+      case WM_KILLFOCUS: w->endEdit(true); break;
+      default: break;
+    }
+    return CallWindowProcW(old, h, msg, wp, lp);
+  }
+  // version 1.0.17: the clipboard (COPY / PASTE of a preset as text)
+  bool setClipboard(const std::wstring& text) override {
+    if (!OpenClipboard(hwnd)) return false;
+    EmptyClipboard();
+    const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
+    bool ok = false;
+    if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, bytes)) {
+      if (void* p = GlobalLock(h)) { std::memcpy(p, text.c_str(), bytes); GlobalUnlock(h); ok = SetClipboardData(CF_UNICODETEXT, h) != nullptr; }
+      if (!ok) GlobalFree(h);   // (the system owns it once set)
+    }
+    CloseClipboard();
+    return ok;
+  }
+  std::wstring clipboard() override {
+    std::wstring s;
+    if (!OpenClipboard(hwnd)) return s;
+    if (HANDLE h = GetClipboardData(CF_UNICODETEXT))
+      if (const wchar_t* p = (const wchar_t*)GlobalLock(h)) { s.assign(p, wcsnlen(p, 1u << 20)); GlobalUnlock(h); }   // (1 M characters at most: a preset is a few kilobytes)
+    CloseClipboard();
+    return s;
+  }
   std::wstring saveFileDialog(const wchar_t* title, const wchar_t* defaultName) override {
     wchar_t b[MAX_PATH * 2] = {};
     std::wcsncpy(b, defaultName, MAX_PATH * 2 - 1);
@@ -278,8 +358,9 @@ class WinWindow : public EditorWindow {
       SetWindowLongPtrW(d, DWLP_USER, (LONG_PTR)s);
       SendDlgItemMessageW(d, 101, EM_LIMITTEXT, (WPARAM)48, 0);
       SetDlgItemTextW(d, 101, s->name.c_str());
-      if (s->withSection) {
-        for (int i = 0; i < kNumBankSections; i++) SendDlgItemMessageW(d, 102, CB_ADDSTRING, 0, (LPARAM)toW(kBankSections[i]).c_str());
+      if (s->withSection) {   // (version 1.0.17: the banks the editor gives, the player's own included)
+        if (!s->sections.empty()) for (const std::wstring& n : s->sections) SendDlgItemMessageW(d, 102, CB_ADDSTRING, 0, (LPARAM)n.c_str());
+        else for (int i = 0; i < kNumBankSections; i++) SendDlgItemMessageW(d, 102, CB_ADDSTRING, 0, (LPARAM)toW(kBankSections[i]).c_str());
         SendDlgItemMessageW(d, 102, CB_SETCURSEL, (WPARAM)s->section, 0);
       }
       SetFocus(GetDlgItem(d, 101));
@@ -315,6 +396,7 @@ class WinWindow : public EditorWindow {
       case WM_APP + 1:   // developer test (vst/devtest/bank_session.cpp): a preset-menu command, the bank read again
         e->testCommand((int)wp);
         return 0;
+      case WM_APP + 2: w->finishEdit(); return 0;   // version 1.0.17: the name typed in place is done
       case WM_RBUTTONDOWN: w->logical(lp, x, y); e->rightDown(x, y); return 0;   // right-click on the preset name: the menu
       case WM_LBUTTONDOWN: w->logical(lp, x, y); e->mouseDown(x, y, false); return 0;
       case WM_LBUTTONDBLCLK: w->logical(lp, x, y); e->mouseDown(x, y, true); return 0;
@@ -335,6 +417,9 @@ class WinWindow : public EditorWindow {
       // every other key goes on to the host's window (its computer keyboard, its shortcuts)
       case WM_GETDLGCODE: return DLGC_WANTARROWS;
       case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR: case WM_SYSKEYDOWN: case WM_SYSKEYUP: case WM_SYSCHAR: {
+        // version 1.0.17: Ctrl + C / Ctrl + V copy and paste the preset while the editor has the keyboard
+        if (msg == WM_KEYDOWN && (wp == 'C' || wp == 'V') && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
+            e->key(wp == 'C' ? kKeyCopy : kKeyPaste)) return 0;
         const int k = wp == VK_LEFT ? kKeyLeft : wp == VK_UP ? kKeyUp : wp == VK_RIGHT ? kKeyRight : wp == VK_DOWN ? kKeyDown : 0;
         if (k && (msg == WM_KEYDOWN || msg == WM_KEYUP) && !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)) {
           if (msg == WM_KEYUP || e->key(k)) return 0;

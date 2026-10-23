@@ -1,10 +1,10 @@
-OktoWave (Okto MultiWave Synth) 1.0.16 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
+OktoWave (Okto Fractal Wavelet) 1.0.17 - VST3 instrument for macOS (Apple silicon and Intel Macs, macOS 10.13 or later)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in OktoMultiWaveSynth.vst3/Contents/Resources/LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
 Play it online (nothing to install): https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/
 
-The same instrument as the Windows version (same sound, panel and presets: 208 sounds, a preset browser and a presets file). It is
+The same instrument as the Windows version (same sound, panel and presets: 229 sounds, a preset browser and a presets file). It is
 built and tested automatically on Apple's Macs (GitHub Actions), but not yet in every DAW: please report any problem at
 https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/issues
 
@@ -12,15 +12,15 @@ INSTALL
 1. Quit your DAW. Double-click the zip to unzip it.
 2. Copy the "OktoMultiWaveSynth.vst3" plug-in into YOUR OWN plug-in folder: in the Finder, menu Go > Go to Folder...
    (Shift-Cmd-G), type  ~/Library/Audio/Plug-Ins/VST3  and press Return (create the "VST3" folder if it is missing).
-   Use this folder rather than the system folder /Library/Audio/Plug-Ins/VST3: the presets file is written next to the
-   plug-in, and only your own folder can be written without an administrator password.
+   (Your presets are kept in ~/Documents/OktoPierre/Okto Fractal Wavelet since 1.0.17, apart from the plug-in: replacing the plug-in
+   never touches them.)
 3. FIRST START - macOS security. The plug-in is free and is not signed with a paid Apple developer certificate, so macOS
    blocks it the first time (it may say that it "cannot be opened", that "Apple could not verify" it, or that it "is
    damaged"). To allow it once: open Terminal (Applications > Utilities > Terminal), paste this line and press Return:
        xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/OktoMultiWaveSynth.vst3
    (or, after macOS has blocked it: System Settings > Privacy & Security, scroll down, "Open Anyway").
 4. In Ableton Live: Settings > Plug-ins > switch on "Use VST3 Plug-in System Folders", then click "Rescan".
-   In Live's browser: Plug-ins > OktoPierre > Okto MultiWave Synth. Drag it onto a MIDI track.
+   In Live's browser: Plug-ins > OktoPierre > Okto Fractal Wavelet (named Okto MultiWave Synth before 1.0.17). Drag it onto a MIDI track.
    Other VST3 hosts (Cubase, Bitwig Studio, Reaper, Studio One...) find it after a plug-in rescan. Logic Pro and GarageBand
    only load Audio Units (AU): they cannot use this VST3 version.
 
@@ -29,8 +29,10 @@ ON A MAC
 - Control-click (or right-click) on the preset name: the classic preset menu. A click opens the preset browser.
   Control-click on a sound of the browser: its menu (Move to, Add to / Remove from TOP Sounds).
 - The MANUAL button opens the user manual (one page, included in the plug-in) in your web browser.
-- Your adjusted presets, deleted presets and user bank are kept in "OKTOMULTIWAVE presets.txt", next to OktoMultiWaveSynth.vst3
-  ("Show the presets file" in the preset-name menu shows it in the Finder; IMPORT... reads another one).
+- Your adjusted presets, deleted presets and user bank are kept in "OKTOMULTIWAVE presets.txt", in ~/Documents/OktoPierre/Okto Fractal Wavelet,
+  made the first time you keep something (before 1.0.17 the file was next to OktoMultiWaveSynth.vst3: it is read there until then).
+  "Show the presets file" in the preset-name menu shows it in the Finder; EXPORT... writes one bank, your favourites or everything, and IMPORT...
+  adds the banks you tick of another file (nothing of yours is replaced, unless you choose to). Cmd-C / Cmd-V copy and paste a preset.
 
 THE SAME SOUND AS ON WINDOWS
 The sound engine is the same code as the web app's and the Windows plug-in's, compiled without fused multiply-adds, and

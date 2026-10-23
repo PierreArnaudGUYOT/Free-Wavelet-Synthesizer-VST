@@ -60,7 +60,10 @@ step('plug-in: presets file (library_test)', () => {
   const exe = path.join(SCRATCH, 'library_test.exe');
   let r = cc(['vst/devtest/library_test.cpp'], exe, ['-municode', '-DUNICODE', '-D_UNICODE', '-lshell32', '-lole32']);
   if (r.code !== 0) return { ok: false, detail: 'compile: ' + tail(r.out, 2) };
-  r = run(exe, [path.join(SCRATCH, 'library_out')]); return { ok: ok(r, /ALL PASS/), detail: tail(r.out, 1) };
+  r = run(exe, [path.join(SCRATCH, 'library_out')]);
+  if (!ok(r, /ALL PASS/)) return { ok: false, detail: tail(r.out, 1) };
+  const r2 = run(exe, ['--folders', path.join(SCRATCH, 'library_folders')]);   // version 1.0.17: the Documents library, an older version's file next to the plug-in
+  return { ok: ok(r2, /ALL PASS/), detail: tail(r.out, 1) + ' + folders: ' + tail(r2.out, 1) };
 });
 // version 1.0.7: the tables built by several threads (the plug-in's builder) are the bytes the one-thread build gives, every vector of the sets of the sampled presets
 step('plug-in: parallel table build (tables_equal)', () => {

@@ -292,6 +292,27 @@ class MacWindow : public EditorWindow {
     return k && ev->key(k);
   }
   bool wantsKeys = false;   // the view accepts to be first responder once the preset browser was clicked
+  // version 1.0.17: Cmd + C / Cmd + V (key equivalents: they come before keyDown) copy and paste the preset while the view has the keyboard
+  bool keyEquivalent(NSEvent* e) {
+    if (!wantsKeys || !view.window || view.window.firstResponder != view) return false;
+    const NSEventModifierFlags f = e.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption | NSEventModifierFlagShift);
+    if (f != NSEventModifierFlagCommand) return false;
+    NSString* s = e.charactersIgnoringModifiers.lowercaseString;
+    if ([s isEqualToString:@"c"]) return ev->key(kKeyCopy);
+    if ([s isEqualToString:@"v"]) return ev->key(kKeyPaste);
+    return false;
+  }
+  bool editText(R, const std::wstring&, float) override { return false; }   // version 1.0.17: the editor asks the name with a window on macOS
+  bool setClipboard(const std::wstring& text) override {
+    NSPasteboard* pb = [NSPasteboard generalPasteboard];
+    [pb clearContents];
+    return [pb setString:ns(text) forType:NSPasteboardTypeString];
+  }
+  std::wstring clipboard() override {
+    NSString* s = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
+    if (!s || s.length > (1u << 20)) return std::wstring();
+    return wide(s);
+  }
 
   // EditorWindow
   void invalidate(int left, int top, int right, int bottom) override { [view setNeedsDisplayInRect:NSMakeRect(left, top, right - left, bottom - top)]; }
@@ -312,7 +333,7 @@ class MacWindow : public EditorWindow {
   }
   void message(const std::wstring& text, bool warning) override {
     NSAlert* a = [[NSAlert alloc] init];
-    a.messageText = @"Okto MultiWave Synth";
+    a.messageText = @"Okto Fractal Wavelet";
     a.informativeText = ns(text);
     a.alertStyle = warning ? NSAlertStyleWarning : NSAlertStyleInformational;
     [a addButtonWithTitle:@"OK"];
@@ -320,7 +341,7 @@ class MacWindow : public EditorWindow {
   }
   bool ask(const std::wstring& text) override {
     NSAlert* a = [[NSAlert alloc] init];
-    a.messageText = @"Okto MultiWave Synth";
+    a.messageText = @"Okto Fractal Wavelet";
     a.informativeText = ns(text);
     [a addButtonWithTitle:@"Yes"];
     [a addButtonWithTitle:@"No"];
@@ -342,8 +363,9 @@ class MacWindow : public EditorWindow {
       NSTextField* l2 = [NSTextField labelWithString:@"Section:"];
       l2.frame = NSMakeRect(0, 5, 64, 20);
       sec = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(66, 0, W - 66, 26) pullsDown:NO];
-      for (int i = 0; i < kNumBankSections; i++) [sec addItemWithTitle:ns(toW(kBankSections[i]))];
-      [sec selectItemAtIndex:std::max(0, std::min(kNumBankSections - 1, d.section))];
+      if (!d.sections.empty()) for (const std::wstring& n : d.sections) [sec addItemWithTitle:ns(n)];   // (version 1.0.17: the player's own banks too)
+      else for (int i = 0; i < kNumBankSections; i++) [sec addItemWithTitle:ns(toW(kBankSections[i]))];
+      [sec selectItemAtIndex:std::max(0, std::min((int)sec.numberOfItems - 1, d.section))];
       [acc addSubview:l2];
       [acc addSubview:sec];
     }
@@ -448,6 +470,13 @@ static void viewKeyDown(id self, SEL cmd, NSEvent* e) {
   ((void (*)(struct objc_super*, SEL, NSEvent*))objc_msgSendSuper)(&sup, cmd, e);
 }
 
+static BOOL viewPerformKeyEquivalent(id self, SEL cmd, NSEvent* e) {   // version 1.0.17: Cmd + C / V for the preset browser
+  MacWindow* w = ownerOf(self);
+  if (w && w->keyEquivalent(e)) return YES;
+  struct objc_super sup = {self, [NSView class]};
+  return ((BOOL (*)(struct objc_super*, SEL, NSEvent*))objc_msgSendSuper)(&sup, cmd, e);
+}
+
 static Class viewClass() {
   static Class cls = nil;
   if (cls) return cls;
@@ -470,6 +499,7 @@ static Class viewClass() {
     add(@selector(scrollWheel:), (IMP)viewScrollWheel);
     add(@selector(acceptsFirstResponder), (IMP)viewAcceptsFirstResponder);
     add(@selector(keyDown:), (IMP)viewKeyDown);
+    add(@selector(performKeyEquivalent:), (IMP)viewPerformKeyEquivalent);
     class_addMethod(c, sel_registerName("wsTestCommand:"), (IMP)viewTestCommand, "v@:q");
     objc_registerClassPair(c);
   }

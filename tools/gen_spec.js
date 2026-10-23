@@ -10,7 +10,7 @@ const wav = JSON.parse(fs.readFileSync(path.join(__dirname, 'wavelets.json'), 'u
 
 const root = path.join(__dirname, '..');
 const { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS, INDEX, SECTIONS, PRESETS, TOP, TOP_EXTRA, TOP_LIST, CATEGORIES, LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, MICRO_TABLES,
-  CHORDS, CHORD_KEYS, NEW_FIRST, NEW_COUNT, DESCRIPTIONS, TOUR, DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC } = spec;
+  CHORDS, CHORD_KEYS, NEW_FIRST, NEW_COUNT, DESCRIPTIONS, TOUR, DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, WEB_EDITS } = spec;
 // the fields of an oscillator, in the order of the C++ SlotDef (a field an oscillator lacks is -1: the subtractive ones have no
 // atom pattern, the additive ones no source wave)
 const SLOT_FIELDS = ['lvl', 'wavelet', 'wave', 'width', 'sparsity', 'phase', 'pattern', 'seed', 'tilt', 'bar1', 'atk', 'spread', 'body', 'bright', 'sus',
@@ -32,9 +32,17 @@ const demoPresets = DEMO_PRESETS.map(pr => ({ name: pr.name, values: PARAMS.map(
 const wavelets = wav.order.map((n, i) => ({ id: n, name: PARAMS[INDEX.wavelet].choices[i], h: wav.h[n] }));
 
 // ---------------------------------------------------------------- web
+// version 1.0.17: the values a few presets play in the web app only (tools/spec.js WEB_EDITS; the plug-in's spec.h keeps presetValues)
+const webPresets = presetValues.map(pv => {
+  const e = (WEB_EDITS || {})[pv.name];
+  if (!e) return pv;
+  const values = pv.values.slice();
+  for (const [k, x] of Object.entries(e)) values[INDEX[k]] = x;
+  return Object.assign({}, pv, { values });
+});
 const web = {
   DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET: defaultPresetIndex, TOP, TOP_EXTRA, TOP_LIST, NEW_FIRST, NEW_COUNT, DESCRIPTIONS, TOUR, CATEGORIES, PARAMS, SECTIONS, WAVELETS: wavelets,
-  PRESETS: presetValues,
+  PRESETS: webPresets,
   DEMO_PRESETS: demoPresets,
   DEMO_TRIM,   // version 1.0.4: the whole dB each preset of the tour goes down in the demo
   DEMO_STORY,   // version 1.0.6: [chapter, sentence] the demo window says, one per preset of the tour

@@ -51,7 +51,7 @@ cat > "$BUNDLE/Contents/Info.plist" <<EOF
   <key>CFBundleExecutable</key><string>OktoMultiWaveSynth</string>
   <key>CFBundleIdentifier</key><string>com.oktopierre.oktomultiwavesynth.vst3</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>CFBundleName</key><string>Okto MultiWave Synth</string>
+  <key>CFBundleName</key><string>Okto Fractal Wavelet</string>
   <key>CFBundlePackageType</key><string>BNDL</string>
   <key>CFBundleSignature</key><string>????</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>

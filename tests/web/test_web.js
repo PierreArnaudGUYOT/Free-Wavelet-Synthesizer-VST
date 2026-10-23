@@ -806,8 +806,11 @@ async function stepPanel() {
   const lastCat = SPEC.CATEGORIES[SPEC.CATEGORIES.length - 1];
   const lights = SPEC.PRESETS.filter((p) => / LGT$/.test(p.name)).length, high = SPEC.PRESETS.filter((p) => / HIGH_CPU$/.test(p.name));   // (version 1.0.14: the LGT versions, tools/spec.js LGT; the full versions of the favourites they replace are in Other)
   // (version 1.0.15: the owner deleted AA · Morph of Brass LGT and three HIGH_CPU originals: 19 LGT versions, 14 HIGH_CPU)
-  check(SPEC.PRESETS.length === SPEC.TOP + SPEC.NEW_COUNT + lights && lights === 19 && high.length === 14 && high.every((p) => p.cat === 'Other' && !p.stars) && lastCat === 'Other', `spec: TOP Sounds = ${TOP_N} sounds, then ${SPEC.NEW_COUNT} new presets and ${lights} LGT versions (${high.length} HIGH_CPU originals in Other); ${lastCat} is the last category`,
-    `TOP ${SPEC.TOP}, presets ${SPEC.PRESETS.length}, light ${lights}, last category '${lastCat}'`);
+  // (version 1.0.17: 32 presets appended after them: the 30 New Waves sounds the owner kept, one of them a HIGH_CPU sound, and the 2 basses of his user bank; his stars
+  // rate some HIGH_CPU originals now)
+  const added = SPEC.PRESETS.length - (SPEC.TOP + SPEC.NEW_COUNT + lights);
+  check(added === 32 && lights === 19 && high.length === 15 && high.every((p) => p.cat === 'Other') && lastCat === 'Other', `spec: TOP Sounds = ${TOP_N} sounds, then ${SPEC.NEW_COUNT} new presets, ${lights} LGT versions and ${added} presets of 1.0.17 (${high.length} HIGH_CPU sounds in Other); ${lastCat} is the last category`,
+    `TOP ${SPEC.TOP}, presets ${SPEC.PRESETS.length}, light ${lights}, high ${high.length}, last category '${lastCat}'`);
   const bInfo = await ev(`(() => { const b = document.getElementById('browser'); if (!b) return null;
     const tab = b.querySelector('.btabs button'); if (tab) tab.click();   // FACTORY
     const first = b.querySelector('.bcats .bcat'); if (first) first.click();   // TOP Sounds

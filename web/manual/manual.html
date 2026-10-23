@@ -8,7 +8,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OktoWave — user manual</title>
-<meta name="description" content="User manual of OktoWave (Okto MultiWave Synth): contents, the panel, playing, presets, install; and seven pages on wavelets and on subtractive and additive synthesis with wavelets.">
+<meta name="description" content="User manual of OktoWave (the plug-in Okto Fractal Wavelet): contents, the panel, playing, presets, install; and seven pages on wavelets and on subtractive and additive synthesis with wavelets.">
 <link rel="stylesheet" href="manual.css">
 <script src="manual.js" defer></script>
 </head>
@@ -83,11 +83,12 @@
 <p>In the browser, <b>▶ DEMO</b> plays Beethoven's <i>Appassionata</i> while the sounds change every few seconds; its window presents the synthesizer, one sentence per sound. <b>■ STOP</b> (or <kbd>Esc</kbd>) stops it and puts every control back.</p>
 
 <h2 id="presets">Presets</h2>
-<p>OktoWave has <b>197 presets</b>, all kept by its author after his own listening. Nineteen end with <b>LGT</b>: lighter versions of sounds that ask a lot of the computer (less modulation, fewer unison voices); the full versions are marked <b>HIGH_CPU</b>, most of them in <b>Other</b>. <b>TOP Sounds</b> come first, then the sections of the author's favourites (Pad, Bass, SuperModulation, Lead, Keyboard, Strings, Brass &amp; Wind, Bells &amp; Mallets, FX), each from the most to the least starred, and <b>Other</b>, which holds every other sound. In the plug-in, <b>▲ UP</b> and <b>▼ DOWN</b> above the list move the sound you play up or down in it (your order is kept in your presets file). The letters at the start of a name say which oscillators it uses (<code>A</code>, <code>AA</code>, <code>AB</code>, <code>AAB</code>, <code>B</code>).</p>
+<p>OktoWave has <b>229 presets</b>, all kept by its author after his own listening (30 of them play the new source waves). Nineteen end with <b>LGT</b>: lighter versions of sounds that ask a lot of the computer (less modulation, fewer unison voices); the full versions are marked <b>HIGH_CPU</b>, most of them in <b>Other</b>. <b>TOP Sounds</b> come first (the synth opens on the first one), then the sections of the author's favourites (Pad, Bass, SuperModulation, Lead, Keyboard, Strings, Brass &amp; Wind, Bells &amp; Mallets, FX), in his order, and <b>Other</b>, which holds every other sound. In the plug-in, <b>▲ UP</b> and <b>▼ DOWN</b> above the list move the sound you play up or down in it (your order is kept in your presets file). The letters at the start of a name say which oscillators it uses (<code>A</code>, <code>AA</code>, <code>AB</code>, <code>AAB</code>, <code>B</code>).</p>
 <ul>
   <li><b>Choose a sound</b> with ◀ ▶, or click the preset name to open the <b>preset browser</b>: one click plays a sound, the arrow keys move in the lists. It shows the author's stars (1 to 10).</li>
   <li><b>Browser:</b> <b>Save preset</b> keeps your sound in this browser, <b>Export</b> writes a <code>.json</code> file, <b>Import</b> reads one.</li>
-  <li><b>Plug-in:</b> <b>SAVE PRESET</b> adjusts the sound playing (<b>RESTORE</b> brings the original back) or replaces a sound of your <b>USER BANK</b>, which starts with a <b>KeyAttac</b> folder of percussive favourites. Everything lives in one readable file, <code>OKTOMULTIWAVE presets.txt</code>, next to the <code>.vst3</code> folder.</li>
+  <li><b>Plug-in:</b> <b>SAVE PRESET</b> adjusts the sound playing (<b>RESTORE</b> brings the original back) or replaces a sound of your <b>USER BANK</b>, which starts with a <b>KeyAttac</b> folder of percussive favourites. In the preset browser, <b>NEW</b> copies the sound right under the selected one and you type its name in place; <b>RENAME</b>, <b>COPY</b> / <b>PASTE</b> (<kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + C, V), <b>NEW BANK</b>. <b>EXPORT…</b> writes one bank, one list, your favourites or everything; <b>IMPORT…</b> shows what a file holds and adds the banks you tick (nothing of yours is replaced, unless you choose to).</li>
+  <li><b>Your sounds are safe:</b> they live in <code>Documents\OktoPierre\Okto Fractal Wavelet</code> (macOS: <code>~/Documents/OktoPierre/Okto Fractal Wavelet</code>), made the first time you keep something. Installing, replacing or deleting the plug-in never touches it; the file of an older version is read where it is.</li>
 </ul>
 
 <h2 id="install">Install the plug-in</h2>
@@ -95,13 +96,13 @@
   <div class="card"><h3>Windows (VST3 · VST2)</h3>
     <ol>
       <li>Copy the <b>whole</b> <code>OktoMultiWaveSynth.vst3</code> folder into <code>C:\Program Files\Common Files\VST3</code> (administrator rights), or into your VST2 folder.</li>
-      <li>Rescan in your DAW (Ableton Live: <i>Preferences → Plug-ins → Rescan</i>).</li>
-      <li>The presets file is written next to that folder, so it must allow writing: install in a folder you own if you cannot write there.</li>
+      <li>Rescan in your DAW (Ableton Live: <i>Preferences → Plug-ins → Rescan</i>): it appears as <b>Okto Fractal Wavelet</b> (OktoPierre).</li>
+      <li>Your presets go to your Documents folder, so the plug-in's folder never has to allow writing.</li>
     </ol>
   </div>
   <div class="card"><h3>macOS (VST3, Apple silicon and Intel)</h3>
     <ol>
-      <li>Copy <code>OktoMultiWaveSynth.vst3</code> into <code>~/Library/Audio/Plug-Ins/VST3</code> (your own folder, so the presets file can be written).</li>
+      <li>Copy <code>OktoMultiWaveSynth.vst3</code> into <code>~/Library/Audio/Plug-Ins/VST3</code>.</li>
       <li>The plug-in is free and not signed with a paid Apple certificate: allow it once with <code>xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/OktoMultiWaveSynth.vst3</code> in Terminal, or <i>System Settings → Privacy &amp; Security → Open Anyway</i>.</li>
       <li>Rescan in your DAW. Logic Pro and GarageBand only load Audio Units and cannot use it. On a Mac, <kbd>Cmd</kbd>-click resets a knob and Control-click is a right-click.</li>
     </ol>
@@ -114,7 +115,7 @@
 <details><summary>A knob has no effect</summary><p>Check the level of the oscillator you are editing in OSC MIX (an oscillator at 0 is silent) and whether the control is greyed out. With the FILTER wide open, its cutoff does nothing.</p></details>
 <details><summary>It crackles, or the page slows down</summary><p>The cost grows with VOICES × UNISON × the oscillators that are on. Lower UNISON or VOICES, turn off oscillators you do not hear, open the FILTER, or use the plug-in, which has the whole computer's time. A few sounds with long releases and many unison copies are heavy on a slow computer.</p></details>
 <details><summary>The plug-in does not appear in my DAW</summary><p>Copy the <b>whole</b> bundle folder (not only the file inside), then rescan. On Windows the DAW must see the VST3 (or VST2) folder you used.</p></details>
-<details><summary>SAVE PRESET says it cannot write</summary><p>The presets file sits next to the <code>.vst3</code> folder, which must allow writing. Install the plug-in in a folder you own, or run your DAW as administrator once.</p></details>
+<details><summary>Where are my presets? SAVE PRESET says it cannot write</summary><p>In <code>Documents\OktoPierre\Okto Fractal Wavelet</code> (macOS: <code>~/Documents/OktoPierre/Okto Fractal Wavelet</code>), in one readable file, <code>OKTOMULTIWAVE presets.txt</code>. That folder must allow writing (a security tool may block it). Before 1.0.17 the file was next to the <code>.vst3</code> folder: it is still read there until you keep something new.</p></details>
 
 <h2 id="credits">Credits and thanks</h2>
 <ul>

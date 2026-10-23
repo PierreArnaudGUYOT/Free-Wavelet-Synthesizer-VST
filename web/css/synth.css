@@ -126,6 +126,9 @@ button { font-family: inherit; }
   border-radius: 7px; cursor: pointer; padding: 0; }
 .seg button:hover { color: var(--text); background: rgba(255,255,255,0.08); }
 .seg button.on { color: var(--on-accent); background: var(--accent); box-shadow: 0 0 12px var(--accent-soft); }
+/* version 1.0.17: MORE ▾, the last button of a selector with many choices (the 20 new source waves): a native list lies over it, invisible */
+.seg button.segmore { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+.seg button.segmore select.segmore-list { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 /* beta 0.3: the folder tabs of the oscillators and the L-shaped plate behind the cards of the oscillator shown */
 .osctabs { z-index: 3; }
 /* Crépuscule: the folder tab of the oscillator shown and the plate under its cards are ONE flat outline: the accent colour, solid, 2.5 px, no glow, a flat 10 % tint inside

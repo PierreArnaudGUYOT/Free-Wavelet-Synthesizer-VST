@@ -36,7 +36,7 @@ const APP = {
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
   version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
-  versionNum: '1.0.16',
+  versionNum: '1.0.17',
   date: '2026-10-23',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -55,8 +55,15 @@ add('osc_view', 'Oscillator Shown', 'OSC', { curve: 'choice', fmt: 'choice', min
 add('wavelet', 'Wavelet', 'WAVELET', { curve: 'choice', fmt: 'choice', min: 0, max: 6, def: 2, structural: true,
   choices: ['Haar', 'Daubechies 2', 'Daubechies 4', 'Daubechies 8', 'Symlet 8', 'Coiflet 3', 'Daubechies 20'],
   choiceShort: ['HAAR', 'DB2', 'DB4', 'DB8', 'SYM8', 'COIF3', 'DB20'] });
-add('a_wave', 'Source Wave', 'WAVE', { curve: 'choice', fmt: 'choice', min: 0, max: 5, def: 0, structural: true,
-  choices: ['Saw', 'Square', 'Pulse', 'Triangle', 'Sine', 'Noise'], choiceShort: ['SAW', 'SQUARE', 'PULSE', 'TRI', 'SINE', 'NOISE'] });
+// version 1.0.17: 20 more source waves appended after Noise (6 .. 25: the six first keep their index, so older presets and projects keep
+// their sound); A2's wave is a clone of this parameter (cloneParam below), so it gets them too
+add('a_wave', 'Source Wave', 'WAVE', { curve: 'choice', fmt: 'choice', min: 0, max: 25, def: 0, structural: true,
+  choices: ['Saw', 'Square', 'Pulse', 'Triangle', 'Sine', 'Noise',
+    'Half Sine', 'Abs Sine', 'Saw+Square', 'Shark Fin', 'Trapezoid', 'Parabola', 'Stepped Saw', 'Stepped Sine', 'Sync Saw 2.5', 'Sync Saw 4.3',
+    'Sync Square 3.5', 'Octave Saw', 'Clipped Sine', 'FM 1:1', 'FM 2:1', 'FM 3:1', 'Formant', 'Reso Saw', 'Organ', 'Saw Stack'],
+  choiceShort: ['SAW', 'SQUARE', 'PULSE', 'TRI', 'SINE', 'NOISE',
+    'HALF SINE', 'ABS SINE', 'SAW+SQR', 'SHARK', 'TRAPEZOID', 'PARABOLA', 'STEP SAW', 'STEP SINE', 'SYNC 2.5', 'SYNC 4.3',
+    'SYNC SQR', 'OCT SAW', 'CLIP SINE', 'FM 1:1', 'FM 2:1', 'FM 3:1', 'FORMANT', 'RESO SAW', 'ORGAN', 'SAW STACK'] });
 add('a_width', 'Source Width', 'WIDTH', { min: 0.02, max: 0.98, def: 0.5, structural: true });
 add('a_sparsity', 'Sparsity', 'SPARSITY', { min: 0, max: 1, def: 0, structural: true });
 add('b_pattern', 'Atom Pattern', 'PATTERN', { curve: 'choice', fmt: 'choice', min: 0, max: 5, def: 0, structural: true,
@@ -885,7 +892,7 @@ const percussive = (v0) => {
   for (let pos = 1; out.length < TOP_LIST.length; pos++) out.push(FIXED[pos] ? idxOf(FIXED[pos]) : rest.shift());
   TOP_LIST.splice(0, TOP_LIST.length, ...out);
 }
-const DEFAULT_PRESET = PRESETS[TOP_LIST[0]].name;   // sound loaded when the app / a new plugin instance opens: the first of TOP Sounds (beta 1.0)
+let DEFAULT_PRESET = PRESETS[TOP_LIST[0]].name;   // sound loaded when the app / a new plugin instance opens: the first of TOP Sounds (beta 1.0; version 1.0.17: his list's first, below)
 // The preset tour of the demo (the default piece, Beethoven's Appassionata; version 1.0.10: one preset per phrase of 8 beats, 3.6 s, from the low F that starts the theme; before, about one every 4 s from 7.8 s, so the first two entries of the old list were not heard). Version 1.0: it is the tour of the
 // Wavelet Synthesizer's web app (beta 0.7.1): the same piece, the same presets in the same order, at the same level. Those presets are not all in the factory list (the 237 the owner kept), so
 // the tour carries its own copies, DEMO_PRESETS (tools/demo_presets.js, written by tools/demo_presets_extract.js from that web app and converted as the TOP Sounds are): they play the demo
@@ -899,9 +906,9 @@ const DEMO_PRESETS = DEMO_RAW.presets.map(r => ({ name: r.name, v: convertLegacy
 // 16-30 rated above 5, the best first: Orbit Drum (9) to 5, Ice Rise Clav (9) to 6, Salt Beam Strings (9) to 8, Swing of Odd (8) to 11; Drum Bloom, Wave Pulse Lead, Knock Sweep and Wood
 // Rise Bows went to their places. The plug-in's demo (PLAY DEMO) plays the same list.
 // Version 1.0.14: the heaviest presets of the tour play their LGT versions (see LGT above: the audio of the web demo broke up on the owner's laptop).
-const TOUR = [
+const TOUR = [   // (version 1.0.17, the owner: "remplace le deuxième son de la démo par le son numéro 20", his answer: the two swap places)
   "A · Wavelet Lead",
-  "AA · Tide Lute",
+  "AB · Rust Aurora LGT",
   "AB · Kalimba Lung Machine LGT",
   "AA · Hollow Bass",
   "AA · Orbit Drum",
@@ -919,7 +926,7 @@ const TOUR = [
   "AA · Wood Rise Bows",
   "AB · Sweep of Trumpet",
   "AA · Drum Bloom LGT",
-  "AB · Rust Aurora LGT",
+  "AA · Tide Lute",
   "A · Cello Section",
   "AB · Step Sub",
   "A · Wave Pulse Lead",
@@ -988,8 +995,17 @@ for (const p of PRESETS) {
   if (s && p.cat === 'Other' && p.cat0 && p.cat0 !== 'Other') p.cat = p.cat0;
   if (s) p.vote = s; else delete p.vote;
 }
+// Version 1.0.17: the sounds of the owner's New Waves test bank he kept (the 20 new source waves; tools/new_waves_bank.js made the bank, he rated it in his plug-in,
+// tools/newwaves_import.js -> tools/presets_newwaves.js). His words: "conserve tous ceux qui ont plus d'une étoile; copie-les dans les TOP Sounds s'ils ont plus de 6 étoiles,
+// et répartis-les aussi dans les banques". Each one joins the section of the sound it was made from, with his stars (the lists are ordered by stars just below), TOP Sounds
+// from 7; appended after the other presets (a project keeps the preset it had). Not in the KeyAttac folder, which stays as it was.
+for (const r of require('./presets_newwaves.js')) {
+  if (PRESETS.some(p => p.name === r.name)) throw new Error('presets_newwaves: the name is taken: ' + r.name);
+  PRESETS.push({ name: r.name, id: r.name, cat: r.cat, v: r.v, vote: r.stars, rank: PRESETS.length, newWave: true });
+  if (r.stars >= 7) TOP_LIST.push(PRESETS.length - 1);
+}
 {
-  const ORDER = ['Pad', 'Bass', 'SuperModulation', 'Lead', 'Keyboard', 'Organ', 'Strings', 'Brass & Wind', 'Bells & Mallets', 'FX', 'Drums & Perc', 'Other'];   // Bass third, after TOP Sounds and Pad
+  const ORDER =['Pad', 'Bass', 'SuperModulation', 'Lead', 'Keyboard', 'Organ', 'Strings', 'Brass & Wind', 'Bells & Mallets', 'FX', 'Drums & Perc', 'Other'];   // Bass third, after TOP Sounds and Pad
   CATEGORIES.splice(0, CATEGORIES.length, ...ORDER.filter(c => c === 'Other' || PRESETS.some(p => p.cat === c)));
   for (const p of PRESETS) if (!CATEGORIES.includes(p.cat)) throw new Error(`preset ${p.name}: no category`);
   const st = i => PRESETS[i].vote || 0;
@@ -997,11 +1013,51 @@ for (const p of PRESETS) {
   const pos = new Map(TOP_LIST.map((i, k) => [i, k]));
   TOP_LIST.sort((a, b) => (PRESETS[a].name === DEFAULT_PRESET ? -1 : PRESETS[b].name === DEFAULT_PRESET ? 1 : 0) || st(b) - st(a) || pos.get(a) - pos.get(b));
 }
-const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).map(i => {
+const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote && !PRESETS[i].newWave).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).map(i => {
   const p = PRESETS[i], v = percussive(p.v), down = KA_ADJ[p.name] || (p.light && KA_ADJ[p.light]) || 0;   // (version 1.0.14: an LGT version takes its original's)
   if (down) v.master = Math.max(-36, (v.master !== undefined ? v.master : P[idx.master].def) - down);
   return { name: p.name, from: p.name, stars: p.vote, v };
 });
+// Version 1.0.17 (the owner, with his presets file "Okto Fractal Wavelet - all presets.txt" of 2026-10-23, read by tools/owner_import.js --out owner_presets3.js --add-bank Bass):
+// "implémente ce fichier de presets avec ces sons en favoris" (his TOP Sounds as his browser shows them). His answers: the synth opens on the first of his TOP Sounds (A · Warm
+// Pad, his version); the two sounds of the Bass bank of his user bank become factory presets of Bass. So the presets he adjusted take his values (the demo's too, as in 1.0.16),
+// his sections and his order of every list are the factory lists (no sorting by stars: his order), his stars are the factory stars. Applied after the KeyAttac folder, which
+// keeps the favourites of 1.0.16 as they were.
+{
+  const OWNER3 = require('./owner_presets3.js');
+  for (const [name, edit] of Object.entries(OWNER3.adjusted)) {
+    const p = PRESETS.find(x => x.name === name); if (!p) throw new Error('owner_presets3: no preset ' + name);
+    p.v = Object.assign({}, p.v, edit); OWNER_EDITS[name] = Object.assign({}, OWNER_EDITS[name] || {}, edit);
+  }
+  if (OWNER3.deleted.length) dropPresets(OWNER3.deleted, 'owner_presets3');
+  for (const r of OWNER3.add || []) {   // the sounds of his user bank's Bass: factory presets of Bass, at the end of it
+    if (PRESETS.some(p => p.name === r.name)) throw new Error('owner_presets3: the name is taken: ' + r.name);
+    PRESETS.push({ name: r.name, id: r.name, cat: r.cat, v: r.v, rank: 1e6 + PRESETS.length });
+  }
+  for (const [sec, names] of Object.entries(OWNER3.lists)) {
+    if (sec === 'TOP Sounds') continue;
+    names.forEach((n, i) => { const p = PRESETS.find(x => x.name === n); if (!p) throw new Error('owner_presets3 lists: no preset ' + n); p.cat = sec; p.rank = i; });
+  }
+  const top = OWNER3.lists['TOP Sounds'].map(n => { const i = PRESETS.findIndex(x => x.name === n); if (i < 0) throw new Error('owner_presets3 TOP Sounds: no preset ' + n); return i; });
+  TOP_LIST.splice(0, TOP_LIST.length, ...top);
+  TOP_EXTRA.splice(0, TOP_EXTRA.length, ...TOP_EXTRA.filter(i => top.includes(i)));
+  for (const p of PRESETS) { const s = OWNER3.stars[p.name] || 0; if (s) p.vote = s; else delete p.vote; }
+  for (const n of Object.keys(OWNER3.stars)) if (!PRESETS.some(p => p.name === n)) throw new Error('owner_presets3: no preset ' + n);
+  PRESETS.map((p, i) => i).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).forEach((i, r) => { PRESETS[i].rank = r; });   // his order in each section, without gaps
+  const ORDER = ['Pad', 'Bass', 'SuperModulation', 'Lead', 'Keyboard', 'Organ', 'Strings', 'Brass & Wind', 'Bells & Mallets', 'FX', 'Drums & Perc', 'Other'];
+  CATEGORIES.splice(0, CATEGORIES.length, ...ORDER.filter(c => c === 'Other' || PRESETS.some(p => p.cat === c)));
+  for (const p of PRESETS) if (!CATEGORIES.includes(p.cat)) throw new Error(`preset ${p.name}: no category`);
+  DEFAULT_PRESET = PRESETS[TOP_LIST[0]].name;
+}
+// Version 1.0.17: values a preset plays in the WEB APP ONLY (tools/gen_spec.js writes them in web/js/spec.js; the plug-in keeps the preset as it is). The owner: "je ne souhaite
+// pas changer les paramètres du preset Warm Pad dans la version VST; propose quelque chose pour qu'il ne craque pas dans la version web". His Warm Pad's PUNCH (94 %) made a
+// chord played at the full velocity of the mouse / computer keyboard reach the output limiter (peak 0.89 with four notes); at 50 % (every preset's PUNCH) it stays under it
+// (0.60 with three notes, 0.83 with four). His choice: PUNCH 50 % in the web app.
+const WEB_EDITS = { 'A · Warm Pad': { fx_punch: 0.5 } };
+for (const [name, e] of Object.entries(WEB_EDITS)) {
+  if (!PRESETS.some(p => p.name === name)) throw new Error('WEB_EDITS: no preset ' + name);
+  for (const k of Object.keys(e)) if (!(k in idx)) throw new Error('WEB_EDITS: unknown param ' + k);
+}
 // version 1.0.6: what the demo window says while the piece plays (the owner's request: a short, readable presentation of the synth, the wavelets and the idea of an oscillator made of them, and how it
 // differs from the other synthesizers). One sentence per preset of the tour (every ~4 s, so about 13 words at the most, simple words), [chapter, sentence]; the web app shows them in order, the last one stays
 // if the tour is longer. Only facts of the engine: tools/ and CLAUDE.md section 3.1 (a cycle is split into 11 bands of wavelets; the scale filter works on bands, the position window on a part of the cycle).
@@ -1056,5 +1112,5 @@ for (const s of S) {
 }
 
 module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_N, TOP_EXTRA, TOP_LIST, PRESET_EDITS: Object.assign({}, PRESET_EDITS, OWNER_EDITS),
-  DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, CATEGORIES,
+  DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, CATEGORIES, WEB_EDITS,
   LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, CHORDS, CHORD_KEYS, MICRO_TABLES, NEW_FIRST: TOP_N, NEW_COUNT: NEW_N, DESCRIPTIONS, TOUR };

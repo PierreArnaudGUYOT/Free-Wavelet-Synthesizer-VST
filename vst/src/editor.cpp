@@ -105,7 +105,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     return kResultTrue;
   }
   // beta 0.5: keys the host passes to the editor (VST3, and VST2's effEditKeyDown): the arrow keys
-  tresult PLUGIN_API onKeyDown(char16, int16 keyCode, int16 mods) override {
+  tresult PLUGIN_API onKeyDown(char16 ch, int16 keyCode, int16 mods) override {
+    // version 1.0.17: Ctrl (Windows) / Cmd (macOS) + C or V: COPY / PASTE of the preset (3 and 22: the same keys as control characters)
+    if ((mods & kCommandKey) && !(mods & kAlternateKey)) {
+      const int c = ch == 'c' || ch == 'C' || ch == 3 ? kKeyCopy : ch == 'v' || ch == 'V' || ch == 22 ? kKeyPaste : 0;
+      return c && key(c) ? kResultTrue : kResultFalse;
+    }
     if (mods & (kCommandKey | kAlternateKey | kControlKey)) return kResultFalse;
     const int k = keyCode == KEY_LEFT ? kKeyLeft : keyCode == KEY_UP ? kKeyUp : keyCode == KEY_RIGHT ? kKeyRight : keyCode == KEY_DOWN ? kKeyDown : 0;
     return k && key(k) ? kResultTrue : kResultFalse;
@@ -588,17 +593,24 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       return;
     }
     inset(g, it.r, 9.f);
-    float pad = engine ? 3.f : 2.f, gap = 2, bw = (it.r.w - 2 * pad - gap * (n - 1)) / n;
-    for (int k = 0; k < n; k++) {
+    // version 1.0.17 (the 20 new source waves): more than 8 choices show the first kSegShown and a last button MORE ▾ (the others in a menu; it shows the one chosen)
+    const bool more = segMore(it);
+    const int shown = more ? kSegShown + 1 : n;
+    float pad = engine ? 3.f : 2.f, gap = 2, bw = (it.r.w - 2 * pad - gap * (shown - 1)) / shown;
+    for (int k = 0; k < shown; k++) {
       R b{it.r.x + pad + k * (bw + gap), it.r.y + pad, bw, it.r.h - 2 * pad};
-      bool on = k == cur;
+      const bool last = more && k == kSegShown;
+      bool on = last ? cur >= kSegShown : k == cur;
       if (on) {
         uint32_t c = engine ? (k < 2 ? kAccentA : kAccentB) : accent();   // the old oscillator tabs (beta 0.3: ENGINE A / B and the folder tabs replaced them): teal then orange
         fillRR(g, b, 7, rgb(c));
       }
-      text(g, toW(p.choiceShort[k]), b, engine ? 11.f : 10.f, true, on ? rgb(kOnAccent) : rgb(kDim));
+      const std::wstring label = last ? (cur >= kSegShown ? toW(p.choiceShort[cur]) : std::wstring(L"MORE")) + L" ▾" : toW(p.choiceShort[k]);
+      g.textEllipsis(label, R{b.x + 2, b.y, b.w - 4, b.h}, engine ? 11.f : last ? 9.f : 10.f, true, on ? rgb(kOnAccent) : rgb(kDim), true);
     }
   }
+  static constexpr int kSegShown = 6;
+  bool segMore(const Item& it) const { return kParams[it.w->param].numChoices > 8 && it.w->style != 1 && it.w->style != 3; }
 
   // beta 0.3: the plate behind the cards of the oscillator shown, in its colour: an L (OSC MIX and the SCOPE, common to every oscillator, sit outside it, at the top
   // right). The corners are rounded (a quarter circle is drawn as a short polyline), the top-left one is square: the first folder tab joins it.
@@ -1157,8 +1169,19 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       }
       case W_SEG: {
         const ParamDef& p = kParams[w.param];
-        float pad = w.style == 1 ? 3.f : w.style == 3 ? 0.f : 2.f, bw = (it.r.w - 2 * pad) / p.numChoices;
-        int k = std::max(0, std::min(p.numChoices - 1, (int)((x - it.r.x - pad) / bw)));
+        const bool more = segMore(it);   // version 1.0.17: MORE ▾, the last button, opens the menu of the other choices
+        const int shown = more ? kSegShown + 1 : p.numChoices;
+        float pad = w.style == 1 ? 3.f : w.style == 3 ? 0.f : 2.f, bw = (it.r.w - 2 * pad) / shown;
+        int k = std::max(0, std::min(shown - 1, (int)((x - it.r.x - pad) / bw)));
+        if (more && k == kSegShown) {
+          const int cur = (int)jsRound(plainOf(w.param)) - (int)p.min;
+          std::vector<MenuItem> m;
+          for (int c = kSegShown; c < p.numChoices; c++) m.push_back(MenuItem::item(toW(p.choices[c]), 1 + c, c == cur));
+          const int cmd = win ? win->popupMenu(m, it.r.x + it.r.w - bw, it.r.y + it.r.h) : 0;
+          if (cmd > 0) gesture(w.param, p.min + (cmd - 1));
+          invalidateItem(idx);
+          return;
+        }
         gesture(w.param, p.min + k);
         return;
       }
@@ -1184,9 +1207,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         return;
       }
       case W_PRESETS: {
-        int pi = host->presetIndex();
-        if (x < it.r.x + 30) { const int k = stepPreset(pi, -1); if (k >= 0) host->loadPreset(k); }   // deleted presets skipped
-        else if (x > it.r.x + it.r.w - 30) { const int k = stepPreset(pi, 1); if (k >= 0) host->loadPreset(k); }
+        const int ce = curEntry(), pi = ce >= 0 ? ce : host->presetIndex();   // (version 1.0.17: a preset of the player's own in the lists too)
+        if (x < it.r.x + 30) { const int k = stepPreset(pi, -1); if (k >= 0) loadEntry(k); }   // deleted presets skipped
+        else if (x > it.r.x + it.r.w - 30) { const int k = stepPreset(pi, 1); if (k >= 0) loadEntry(k); }
         else if (!host->browserOpen()) setBrowser(true);   // the name opens the preset browser (right-click: the menu)
         else bReveal();
         onTimer(); invalidateAll();
@@ -1350,13 +1373,22 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   // above / below; browser hidden: the previous / next preset, as ◀ ▶. A key the host also passed on by another way
   // (its window procedure and IPlugView::onKeyDown) within a few milliseconds counts once.
   bool key(int k) override {
+    if (k == kKeyCopy || k == kKeyPaste) {   // version 1.0.17: Ctrl / Cmd + C, V (a key the host also passed on by another way counts once)
+      const auto t = std::chrono::steady_clock::now();
+      if (k == lastKey && t - lastKeyAt < std::chrono::milliseconds(300)) return true;
+      lastKey = k; lastKeyAt = t;
+      if (k == kKeyCopy) copyPreset(); else pastePreset();
+      onTimer(); invalidateAll();
+      return true;
+    }
     if (k < kKeyLeft || k > kKeyDown) return false;
     const auto now = std::chrono::steady_clock::now();
     if (k == lastKey && now - lastKeyAt < std::chrono::milliseconds(12)) return true;
     lastKey = k; lastKeyAt = now;
     if (!host->browserOpen()) {
-      const int to = stepPreset(host->presetIndex(), k == kKeyLeft || k == kKeyUp ? -1 : 1);
-      if (to >= 0) host->loadPreset(to);
+      const int ce = curEntry();
+      const int to = stepPreset(ce >= 0 ? ce : host->presetIndex(), k == kKeyLeft || k == kKeyUp ? -1 : 1);
+      if (to >= 0) loadEntry(to);
       onTimer(); invalidateAll();
       return true;
     }
@@ -1380,7 +1412,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     const int n = (int)rows.size();
     const int to = at < 0 ? (k == kKeyDown ? 0 : n - 1) : std::max(0, std::min(n - 1, at + (k == kKeyDown ? 1 : -1)));
     if (to != at) {
-      if (bTab == 0) host->loadPreset(rows[to]);
+      if (bTab == 0) loadEntry(rows[to]);
       else host->loadUserSound(menuBank[rows[to]].v, kUserPrefix + menuBank[rows[to]].name);
       bStatus.clear();
       const int vis = bVisibleRows();
@@ -1400,7 +1432,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   static constexpr int kCmdBankSave = 900, kCmdBankExport = 901, kCmdBankShow = 902, kCmdSavePreset = 910, kCmdRestore = 911,
                        kCmdBrowser = 912, kCmdDelete = 913, kCmdBankLoad = 1000, kCmdBankDelete = 3000, kCmdUndelete = 5000,
                        kCmdBankImport = 903,   // beta 0.4
-                       kCmdMoveTo = 7000, kCmdTopAdd = 7100, kCmdTopRemove = 7101;   // beta 0.5: the sound menu (ctxRow)
+                       kCmdMoveTo = 7000, kCmdTopAdd = 7100, kCmdTopRemove = 7101,   // beta 0.5: the sound menu (ctxRow)
+                       // version 1.0.17 (the owner: "créer un nouveau preset, copier et coller un preset, créer une nouvelle banque"): NEW, COPY, PASTE, NEW BANK, and in the
+                       // sound / bank menus: rename and duplicate a sound of the user bank, rename and delete a bank of the player's own (ctxRow, ctxBank)
+                       kCmdNewSound = 914, kCmdCopy = 915, kCmdPaste = 916, kCmdNewBank = 917, kCmdRenameBank = 918, kCmdDeleteBank = 919,
+                       kCmdRenameSound = 920, kCmdDuplicate = 921, kCmdRenameShown = 922,
+                       kCmdDlgOk = 930, kCmdDlgWhat = 931, kCmdDlgHow = 941;   // (version 1.0.17, developer tests: the EXPORT / IMPORT window's button, its choice 931 + i, 941 + h)
+  static constexpr const char* kNewSoundName = "New sound";   // the sound NEW makes, until it is saved
   static constexpr float kBrowserW = 420;                  // logical width added at the right while the browser is open
   static constexpr R kSaveBtn{862, 9, 68, 30};             // SAVE PRESET, before MANUAL
   static constexpr R kDemoBtn{788, 9, 68, 30};             // version 1.0.13: PLAY DEMO, before SAVE PRESET (where the web app has DOWNLOAD VST)
@@ -1413,6 +1451,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   // beta 0.5: a sound of the list pressed (a factory preset, or an index into menuBank), dragged onto a category
   int rowDrag = -1, dropCat = -1; bool rowMoving = false; float rowX0 = 0, rowY0 = 0, rowX = 0, rowY = 0;
   int ctxRow = -1, ctxTab = 0;                             // the sound a sound-menu command acts on (-1: the one playing)
+  int ctxBank = -1;                                        // version 1.0.17: the bank a bank-menu command acts on
   int lastKey = 0; std::chrono::steady_clock::time_point lastKeyAt{};
   uint32_t libVer = 0; int libTick = 0;
   std::string lastShownName, lastBrowserKey; bool lastShownDirty = false, lastShownOpen = false, browserWasOpen = false;   // what the preset box / the browser showed at the last timer tick
@@ -1434,14 +1473,28 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     return pi >= 0 && pi < kNumPresets ? Library::get().name(pi) : "User sound";
   }
   bool factoryShown() { return host->userPresetName().empty() && host->formerPresetName().empty(); }   // presetIndex() plays
+  // version 1.0.17: the factory-list entry playing: a factory preset, or a preset of the player's own placed in the factory lists (NEW in the factory tab), else -1
+  int curEntry() {
+    if (factoryShown()) return host->presetIndex();
+    const std::string u = host->userPresetName();
+    if (u.compare(0, std::strlen(kUserPrefix), kUserPrefix) != 0) return -1;
+    return Library::get().findExtra(u.substr(std::strlen(kUserPrefix)));
+  }
+  int currentExtra() { const int k = curEntry(); return k >= kNumPresets ? k : -1; }
+  void loadEntry(int k) {   // a factory-list entry plays (a preset of the player's own as a user sound under its name)
+    if (k < kNumPresets) { host->loadPreset(k); return; }
+    double v[kNumParams];
+    Library::get().values(k, v);
+    host->loadUserSound(v, kUserPrefix + Library::get().name(k));
+  }
 
   // ---------------------------------------------------------------- classic menu (right-click on the preset name)
   void presetMenu(const Item& it) {
     Library& lib = Library::get();
     std::vector<MenuItem> m;
-    const int cur = host->presetIndex();
+    const int cur = curEntry() >= 0 ? curEntry() : host->presetIndex();   // (version 1.0.17: a preset of the player's own in the lists too)
     const std::string user = host->userPresetName();
-    const bool fac = factoryShown();
+    const bool fac = factoryShown() || currentExtra() >= 0;
     // beta 0.5: the browser's lists as the library keeps them (TOP Sounds, then the categories, presets moved included)
     const auto lists = lib.lists();
     m.push_back(MenuItem::item(L"TOP Sounds", 0, false, true));
@@ -1464,7 +1517,8 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     m.push_back(MenuItem::sep());
     std::vector<MenuItem> ub, del;
     bool inBank = false;
-    for (int sec = 0; sec < kNumBankSections; sec++) {
+    const std::vector<std::string> banks = lib.bankNames();   // (version 1.0.17: the player's own banks too)
+    for (int sec = 0; sec < (int)banks.size(); sec++) {
       std::vector<MenuItem> sub, dsub;
       int n = 0; bool here = false;
       for (size_t i = 0; i < menuBank.size(); i++) {
@@ -1475,20 +1529,26 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         n++; here = here || c;
       }
       if (!n) sub.push_back(MenuItem::item(L"(empty)", 0, false, true));
-      const std::wstring label = toW(kBankSections[sec]) + L"\t" + std::to_wstring(n);
+      const std::wstring label = toW(banks[sec]) + L"\t" + std::to_wstring(n);
       ub.push_back(MenuItem::popup(label, std::move(sub), here));
       if (n) del.push_back(MenuItem::popup(label, std::move(dsub)));
       inBank = inBank || here;
     }
     ub.push_back(MenuItem::sep());
     ub.push_back(MenuItem::item(L"Save the current sound…", kCmdBankSave));
+    ub.push_back(MenuItem::item(L"New bank…", kCmdNewBank));
     if (!menuBank.empty()) ub.push_back(MenuItem::popup(L"Delete", std::move(del)));
     m.push_back(MenuItem::popup(L"USER BANK\t" + std::to_wstring(menuBank.size()), std::move(ub), inBank));
     m.push_back(MenuItem::sep());
+    m.push_back(MenuItem::item(L"New sound (from scratch)", kCmdNewSound));
+    m.push_back(MenuItem::item(L"Copy preset\tCtrl+C", kCmdCopy));
+    m.push_back(MenuItem::item(L"Paste preset…\tCtrl+V", kCmdPaste));
+    m.push_back(MenuItem::sep());
     m.push_back(MenuItem::item(L"Save preset (overwrite)…", kCmdSavePreset));
+    m.push_back(MenuItem::item(L"Rename preset…", kCmdRenameShown, false, !renameEnabled()));
     m.push_back(MenuItem::item(L"Save to user bank…", kCmdBankSave));
     if (fac && lib.adjusted(cur)) m.push_back(MenuItem::item(L"Restore the original preset", kCmdRestore));
-    if (fac && !lib.deleted(cur)) m.push_back(MenuItem::item(L"Delete this preset from the list…", kCmdDelete));
+    if (fac && !lib.deleted(cur)) m.push_back(MenuItem::item(Library::isExtra(cur) ? L"Delete this preset of yours…" : L"Delete this preset from the list…", kCmdDelete));
     if (lib.deletedCount() > 0) {   // bring a deleted factory preset back
       std::vector<MenuItem> dm;
       for (int k = 0; k < kNumPresets; k++) if (lib.deleted(k)) dm.push_back(MenuItem::item(toW(lib.name(k)), kCmdUndelete + k));
@@ -1503,15 +1563,18 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   // a command of the menu or the browser (also sent by the developer tests, with the bank read again)
   void menuCommand(int cmd) {
-    if (cmd >= 100 && cmd < 100 + kNumPresets) host->loadPreset(cmd - 100);
+    if (cmd >= 100 && cmd < 100 + kNumPresets + Library::get().extraCount()) loadEntry(cmd - 100);   // (version 1.0.17: the player's own presets of the lists too)
     else if (cmd == kCmdBankSave) bankSave();
-    else if (cmd == kCmdBankExport) bankExport();
+    else if (cmd == kCmdBankExport) exportOpen();
     else if (cmd == kCmdBankShow) bankShow();
-    else if (cmd == kCmdBankImport) bankImport();
+    else if (cmd == kCmdBankImport) importOpen();
+    else if (cmd == kCmdDlgOk && dlg.mode) { if (dlg.mode == 1) exportGo(); else importGo(); }   // (version 1.0.17: the window's EXPORT… / IMPORT, as a click would)
+    else if (cmd >= kCmdDlgWhat && cmd < kCmdDlgWhat + 4 && dlg.mode == 1) dlg.what = cmd - kCmdDlgWhat;
+    else if (cmd >= kCmdDlgHow && cmd < kCmdDlgHow + 3 && dlg.mode == 2) dlg.how = cmd - kCmdDlgHow;
     else if (cmd == kCmdSavePreset) savePreset();
     else if (cmd == kCmdRestore) restorePreset(host->presetIndex());
     else if (cmd == kCmdBrowser) setBrowser(!host->browserOpen());
-    else if (cmd == kCmdDelete) deletePreset(host->presetIndex());
+    else if (cmd == kCmdDelete) deletePreset(ctxRow >= 0 && ctxTab == 0 ? ctxRow : curEntry());
     else if (cmd >= kCmdUndelete && cmd < kCmdUndelete + kNumPresets) {
       if (!libError(Library::get().setDeleted(cmd - kCmdUndelete, false), L"Could not save the presets file:"))
         bStatus = L"“" + toW(Library::get().name(cmd - kCmdUndelete)) + L"” is back in the list.";
@@ -1523,7 +1586,16 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     else if (cmd >= kCmdMoveTo && cmd < kCmdMoveTo + 100) {   // beta 0.5: the sound menu (ctxRow, else the sound playing)
       if (ctxTab == 0) moveFactory(ctxRow >= 0 ? ctxRow : factoryShown() ? host->presetIndex() : -1, cmd - kCmdMoveTo);
       else moveBank(ctxRow >= 0 ? ctxRow : currentBankIndex(), cmd - kCmdMoveTo);
-    } else if (cmd == kCmdTopAdd || cmd == kCmdTopRemove) {
+    } else if (cmd == kCmdNewSound) newSound();   // version 1.0.17
+    else if (cmd == kCmdCopy) copyPreset(ctxRow, ctxTab);
+    else if (cmd == kCmdPaste) pastePreset(ctxBank);
+    else if (cmd == kCmdNewBank) newBank();
+    else if (cmd == kCmdRenameBank) renameBank(ctxBank);
+    else if (cmd == kCmdDeleteBank) deleteBank(ctxBank);
+    else if (cmd == kCmdRenameSound) { if (ctxTab == 0) renameFactory(ctxRow >= 0 ? ctxRow : host->presetIndex()); else renameSound(ctxRow >= 0 ? ctxRow : currentBankIndex()); }
+    else if (cmd == kCmdRenameShown) renameShown();
+    else if (cmd == kCmdDuplicate) duplicateSound(ctxRow >= 0 ? ctxRow : currentBankIndex());
+    else if (cmd == kCmdTopAdd || cmd == kCmdTopRemove) {
       const int k = ctxRow >= 0 ? ctxRow : factoryShown() ? host->presetIndex() : -1;
       if (cmd == kCmdTopAdd) moveFactory(k, 0);
       else if (k >= 0 && !libError(Library::get().setTop(k, false), L"Could not save the presets file:")) {
@@ -1553,6 +1625,17 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     double v[kNumParams];
     currentSound(v);
     const std::string user = host->userPresetName();
+    if (const int ex = currentExtra(); ex >= 0) {   // version 1.0.17: a preset of the player's own in the lists: overwritten in place, name editable
+      SaveDlg d; d.name = toW(lib.name(ex));
+      if (!win || !win->saveDialog(d, L"Save preset", false, L"Overwrites your preset in the list.")) return;
+      const std::string nn = fromW(d.name);
+      if (nn != lib.name(ex) && lib.find(nn) >= 0) { win->message(L"A factory preset is already called “" + d.name + L"”: choose another name.", false); return; }
+      const std::wstring e = lib.putExtra(ex, nn, v);
+      if (!e.empty()) { win->message(L"Could not save the preset: " + e + L".", false); return; }
+      host->loadUserSound(v, kUserPrefix + nn);
+      bStatus = L"Saved “" + d.name + L"”.";
+      return;
+    }
     if (!user.empty()) {   // a sound of the user bank
       const std::string old = user.substr(std::strlen(kUserPrefix));
       BankPreset np;
@@ -1560,7 +1643,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       for (const BankPreset& p : lib.bank()) if (p.name == old) { np = p; found = true; break; }
       if (!found) { bankSave(); return; }   // no longer in the bank (deleted elsewhere): save it again
       SaveDlg d; d.name = toW(old);
-      const std::wstring note = L"Overwrites “" + d.name + L"” in the user bank (" + toW(kBankSections[np.section]) + L").";
+      const std::wstring note = L"Overwrites “" + d.name + L"” in the user bank (" + bankLabel(np.section) + L").";
       if (!win || !win->saveDialog(d, L"Save preset", false, note.c_str())) return;
       np.name = fromW(d.name);
       std::memcpy(np.v, v, sizeof v);
@@ -1601,19 +1684,26 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     Library& lib = Library::get();
     lib.refresh();
     buildCategories();
-    if (k < 0 || k >= kNumPresets || lib.deleted(k)) return;
-    if (!ask(L"Delete “" + toW(lib.name(k)) + L"” from the preset list?\n\nIt stays in the presets file (\"Deleted: yes\"), "
-             L"so that the next version can leave it out; a right-click on the preset name, “Deleted presets”, brings it back.")) return;
+    const bool mine = Library::isExtra(k);   // version 1.0.17: a preset of the player's own in the lists: really deleted
+    if (k < 0 || (!mine && (k >= kNumPresets || lib.deleted(k))) || (mine && k >= kNumPresets + lib.extraCount())) return;
+    const std::wstring nm = toW(lib.name(k));
+    if (mine ? !ask(L"Delete your preset “" + nm + L"”?") :
+               !ask(L"Delete “" + nm + L"” from the preset list?\n\nIt stays in the presets file (\"Deleted: yes\"), "
+                    L"so that the next version can leave it out; a right-click on the preset name, “Deleted presets”, brings it back.")) return;
+    const bool playing = curEntry() == k;
     const std::vector<int> rows = bTab == 0 ? bRows() : std::vector<int>();
     int next = -1;
     for (size_t j = 0; j < rows.size(); j++) if (rows[j] == k) {
       for (size_t i = j + 1; i < rows.size() && next < 0; i++) if (!lib.deleted(rows[i])) next = rows[i];
       for (size_t i = j; i-- > 0 && next < 0;) if (!lib.deleted(rows[i])) next = rows[i];
     }
-    if (libError(lib.setDeleted(k, true), L"Could not save the presets file:")) return;
-    bStatus = L"Deleted “" + toW(lib.name(k)) + L"” from the list.";
     if (next < 0) next = stepPreset(k, 1);
-    if (next >= 0) host->loadPreset(next);
+    if (mine) {
+      if (libError(lib.removeExtra(k), L"Could not save the presets file:")) return;
+      if (next > k && Library::isExtra(next)) next--;   // (the entries after it moved down one)
+    } else if (libError(lib.setDeleted(k, true), L"Could not save the presets file:")) return;
+    bStatus = L"Deleted “" + nm + (mine ? L"”." : L"” from the list.");
+    if (playing && next >= 0) loadEntry(next);
   }
   // the next (dir 1) or previous (dir -1) factory preset that is not deleted
   // The arrows step through the presets in the order of the lists (TOP Sounds, then each category's presets, every preset once; beta 0.2: the
@@ -1621,8 +1711,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   // category lists its presets together), skipping the deleted ones.
   int stepPreset(int from, int dir) {
     Library& lib = Library::get();
-    std::vector<int> order; std::vector<char> seen(kNumPresets, 0);
-    for (const auto& l : lib.lists()) for (int k : l.second) if (k >= 0 && k < kNumPresets && !seen[k]) { seen[k] = 1; order.push_back(k); }
+    const int total = kNumPresets + lib.extraCount();   // (version 1.0.17: the player's own presets of the lists too)
+    std::vector<int> order; std::vector<char> seen(total, 0);
+    for (const auto& l : lib.lists()) for (int k : l.second) if (k >= 0 && k < total && !seen[k]) { seen[k] = 1; order.push_back(k); }
     const int n = (int)order.size();
     if (!n) return -1;
     int at = 0; for (int i = 0; i < n; i++) if (order[i] == from) at = i;
@@ -1636,11 +1727,14 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     Library& lib = Library::get();
     lib.refresh();
     SaveDlg d;
+    d.sections = bankLabels();   // (version 1.0.17: the player's own banks too)
     const std::string user = host->userPresetName(), former = host->formerPresetName();
     const int pi = host->presetIndex();
     if (!user.empty()) {
       d.name = toW(user.substr(std::strlen(kUserPrefix)));
-      for (const BankPreset& p : lib.bank()) if (kUserPrefix + p.name == user) { d.section = p.section; break; }
+      bool inBank = false;
+      for (const BankPreset& p : lib.bank()) if (kUserPrefix + p.name == user) { d.section = p.section; inBank = true; break; }
+      if (!inBank && bTab == 1 && bCat < (int)d.sections.size()) d.section = bCat;   // a NEW sound or a pasted one: the bank shown
     } else if (!former.empty()) {
       d.name = toW(former);   // beta 0.5: a preset of an older version
     } else if (pi >= 0 && pi < kNumPresets) {
@@ -1657,49 +1751,525 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (!np.from.empty() && host->presetDirty()) np.from += " (modified)";
     const std::vector<BankPreset> bank = lib.bank();
     if (std::any_of(bank.begin(), bank.end(), [&](const BankPreset& p) { return p.section == np.section && p.name == np.name; }) &&
-        !ask(L"“" + d.name + L"” already exists in " + toW(kBankSections[np.section]) + L". Replace it?")) return;
+        !ask(L"“" + d.name + L"” already exists in " + bankLabel(np.section) + L". Replace it?")) return;
     if (libError(lib.putUser(np), L"Could not save the user bank:")) return;
     host->loadUserSound(np.v, kUserPrefix + np.name);   // the sound is now this bank entry
     bTab = 1; bCat = np.section; bScroll = 0;
-    bStatus = L"Saved “" + d.name + L"” in " + toW(kBankSections[np.section]) + L".";
+    bStatus = L"Saved “" + d.name + L"” in " + bankLabel(np.section) + L".";
   }
   void bankDelete(const BankPreset& p) {
-    if (!ask(L"Delete “" + toW(p.name) + L"” from the user bank (" + toW(kBankSections[p.section]) + L")?")) return;
+    if (!ask(L"Delete “" + toW(p.name) + L"” from the user bank (" + bankLabel(p.section) + L")?")) return;
     if (libError(Library::get().removeUser(p.section, p.name), L"Could not save the user bank:")) return;
     bStatus = L"Deleted “" + toW(p.name) + L"”.";
   }
-  void bankExport() {
-    std::wstring path = envPath(L"WS_PRESETS_EXPORT");   // developer test: no dialog
+
+  // ---------------------------------------------------------------- version 1.0.17: new sound, copy & paste, banks of the player's own
+  // (the owner: "créer un nouveau preset, copier et coller un preset, créer une nouvelle banque; une méthode astucieuse comme les VST commerciaux")
+  std::vector<std::wstring> bankLabels() { std::vector<std::wstring> v; for (const std::string& n : Library::get().bankNames()) v.push_back(toW(n)); return v; }
+  std::wstring bankLabel(int sec) { const std::vector<std::string> b = Library::get().bankNames(); return sec >= 0 && sec < (int)b.size() ? toW(b[sec]) : L"?"; }
+  // a name not taken in bank `sec`: `base`, else "base 2", "base 3"...
+  std::string freeName(const std::string& base, int sec) {
+    const std::vector<BankPreset> bank = Library::get().bank();
+    auto taken = [&](const std::string& n) { return std::any_of(bank.begin(), bank.end(), [&](const BankPreset& p) { return p.section == sec && p.name == n; }); };
+    if (!taken(base)) return base;
+    for (int k = 2; k < 1000; k++) { const std::string n = clipName(base + " " + std::to_string(k)); if (!taken(n)) return n; }
+    return base;
+  }
+  // NEW (the owner: "un nouveau preset apparaît dans la liste juste après le preset sélectionné, l'utilisateur renseigne le nouveau nom, Entrée pour approuver"):
+  // a copy of the sound playing (as the knobs are now) is saved at once right under the selected row of the list shown — in a factory list as a preset of the
+  // player's own (marked MY), in a bank of the user tab as a bank sound — and plays; its name is typed in place (Enter keeps it, Escape takes the new preset back)
+  struct PendingName { int kind = 0; int tab = 0; int entry = -1; int section = -1; std::string name; int prevPreset = -1; std::string prevUser; };   // kind 1 NEW, 2 RENAME
+  PendingName pend;
+  std::string freeEntryName(const std::string& base) {   // a name that no factory preset and no preset of the player's own has
+    Library& lib = Library::get();
+    auto taken = [&](const std::string& n) { return lib.find(n) >= 0 || lib.findExtra(n) >= 0; };
+    if (!taken(base)) return base;
+    for (int k = 2; k < 1000; k++) { const std::string n = clipName(base + " " + std::to_string(k)); if (!taken(n)) return n; }
+    return base;
+  }
+  void newSound() {
+    Library& lib = Library::get();
+    lib.refresh();
+    buildCategories();
+    menuBank = lib.bank();
+    if (pend.kind) return;   // a name is being typed already
+    if (!host->browserOpen()) setBrowser(true);
+    double v[kNumParams];
+    currentSound(v);
+    std::string base = shownName();
+    if (base.compare(0, std::strlen(kUserPrefix), kUserPrefix) == 0) base = base.substr(std::strlen(kUserPrefix));
+    if (base.empty() || base == kNewSoundName) base = "New preset";
+    PendingName p;
+    p.kind = 1; p.tab = bTab; p.prevPreset = host->presetIndex(); p.prevUser = host->userPresetName();
+    int after = -1;
+    for (int r : bRows()) if (bRowIsCurrent(r)) after = r;
+    if (bTab == 0) {
+      BankPreset np; np.name = freeEntryName(base); np.from = base;
+      std::memcpy(np.v, v, sizeof v);
+      int entry = -1;
+      const std::wstring e = lib.addExtra(np, std::max(0, bCat), after, entry);
+      if (!e.empty()) { if (win) win->message(L"Could not make the new preset: " + e + L".", false); return; }
+      p.entry = entry; p.name = np.name;
+      loadEntry(entry);
+    } else {
+      BankPreset np; np.section = bCat; np.name = freeName(base, bCat); np.from = base;
+      std::memcpy(np.v, v, sizeof v);
+      const std::string afterName = after >= 0 && after < (int)menuBank.size() ? menuBank[after].name : "";
+      if (libError(lib.putUser(np, "", afterName), L"Could not save the user bank:")) return;
+      p.section = bCat; p.name = np.name;
+      host->loadUserSound(np.v, kUserPrefix + np.name);
+      menuBank = lib.bank();
+    }
+    pend = p;
+    buildCategories();
+    startNameEdit();
+  }
+  // the name of the pending sound typed in place, on its row of the list (scrolled into view); without a text field (macOS) a small window asks it
+  void startNameEdit() {
+    const std::vector<int> rows = bRows();
+    int at = -1;
+    for (int j = 0; j < (int)rows.size(); j++) if (bRowIsCurrent(rows[j])) at = j;
+    const int vis = bVisibleRows();
+    if (at >= 0) { if (at < bScroll) bScroll = at; else if (at >= bScroll + vis) bScroll = at - vis + 1; }
+    bStatus = pend.kind == 1 ? L"Type the name of the new preset, then Enter (Escape: no new preset)." : L"Type the new name, then Enter (Escape: the name stays).";
+    onTimer(); invalidateAll();
+    bool inPlace = false;
+    if (at >= 0 && win) {
+      const R r = bRowR(at - bScroll), st = bStarsR(at - bScroll);
+      inPlace = win->editText(R{r.x + 4, r.y + 1, st.x - r.x - 10, r.h - 2}, toW(pend.name), 11.5f);
+    }
+    if (!inPlace) {
+      SaveDlg d; d.name = toW(pend.name);
+      const bool ok = win && win->saveDialog(d, pend.kind == 1 ? L"New preset" : L"Rename", false, nullptr);
+      textDone(ok, d.name);
+    }
+  }
+  // the name typed (EditorEvents): kept, or (Escape) the new preset taken back / the name left as it was
+  void textDone(bool ok, const std::wstring& text) override {
+    const PendingName p = pend;
+    pend = PendingName();
+    if (!p.kind) return;
+    Library& lib = Library::get();
+    lib.refresh();
+    menuBank = lib.bank();
+    const std::string nn = clipName(fromW(text));
+    if (!ok && p.kind == 1) {   // no new preset: it goes, the sound of before plays again
+      if (p.tab == 0) { const int k = lib.findExtra(p.name); if (k >= 0) libError(lib.removeExtra(k), L"Could not save the presets file:"); }
+      else libError(lib.removeUser(p.section, p.name), L"Could not save the user bank:");
+      menuBank = lib.bank();
+      bool back = false;
+      if (!p.prevUser.empty()) {
+        const std::string pn = p.prevUser.substr(std::min(p.prevUser.size(), std::strlen(kUserPrefix)));
+        const int ex = lib.findExtra(pn);
+        if (ex >= 0) { loadEntry(ex); back = true; }
+        else for (const BankPreset& q : menuBank) if (q.name == pn) { host->loadUserSound(q.v, p.prevUser); back = true; break; }
+      }
+      if (!back && p.prevPreset >= 0 && p.prevPreset < kNumPresets) host->loadPreset(p.prevPreset);
+      bStatus = L"No new preset.";
+    } else if (ok && nn != p.name && !nn.empty()) {
+      std::wstring e;
+      if (p.tab == 0) {
+        const int k = p.kind == 1 ? lib.findExtra(p.name) : p.entry;
+        if (k >= kNumPresets) {
+          if (lib.find(nn) >= 0) e = L"a factory preset is already called so";
+          else e = lib.putExtra(k, nn, nullptr);
+          if (e.empty() && curEntry() < 0 && host->userPresetName() == kUserPrefix + p.name) loadEntry(k);   // (the sound playing takes its new name)
+        } else if (k >= 0) {
+          const int other = lib.find(nn);
+          if (other >= 0 && other != k) e = L"another preset is already called so";
+          else { double v[kNumParams]; lib.values(k, v); e = lib.adjust(k, nn, v); }
+        }
+      } else {
+        const std::vector<BankPreset> bank = lib.bank();
+        const auto it = std::find_if(bank.begin(), bank.end(), [&](const BankPreset& q) { return q.section == p.section && q.name == p.name; });
+        if (it == bank.end()) e = L"the sound is no longer in the bank";
+        else if (std::any_of(bank.begin(), bank.end(), [&](const BankPreset& q) { return q.section == p.section && q.name == nn; })) e = L"a sound of this bank is already called so";
+        else {
+          BankPreset np = *it; np.name = nn;
+          e = lib.putUser(np, p.name);
+          if (e.empty() && host->userPresetName() == kUserPrefix + p.name) host->loadUserSound(np.v, kUserPrefix + nn);
+        }
+      }
+      if (!e.empty()) { if (win) win->message(L"The name was not changed: " + e + L".", false); bStatus.clear(); }
+      else bStatus = (p.kind == 1 ? L"New preset “" : L"Renamed “") + toW(nn) + L"”.";
+    } else bStatus = p.kind == 1 ? L"New preset “" + toW(p.name) + L"”." : L"";
+    menuBank = lib.bank();
+    buildCategories();
+    onTimer(); invalidateAll();
+  }
+  // COPY: a sound as text in the clipboard (the presets file's block: readable, and PASTE reads it in this plug-in, another instance or another host);
+  // row >= 0: a row of the browser (tab 0 a factory preset, 1 a user-bank sound), else the sound shown, as it plays now
+  void copyPreset(int row = -1, int tab = 0) {
+    Library& lib = Library::get();
+    double v[kNumParams];
+    std::string name, from;
+    if (row >= 0 && tab == 0 && row < kNumPresets) { lib.values(row, v); name = from = lib.name(row); }
+    else if (row >= 0 && tab == 1 && row < (int)menuBank.size()) { std::memcpy(v, menuBank[row].v, sizeof v); name = menuBank[row].name; from = menuBank[row].from; }
+    else {
+      currentSound(v);
+      name = shownName();
+      if (name.compare(0, std::strlen(kUserPrefix), kUserPrefix) == 0) name = name.substr(std::strlen(kUserPrefix));
+      from = name + (host->presetDirty() ? " (modified)" : "");
+    }
+    for (int i = 0; i < kNumParams; i++) if (kParams[i].hidden) v[i] = kParams[i].def;
+    if (!win || !win->setClipboard(toW(Library::presetText(name, from, v)))) { bStatus = L"Could not copy: the clipboard is busy, try again."; return; }
+    bStatus = L"Copied “" + toW(name) + L"”: PASTE puts it in a bank (here, in another instance, or from a message).";
+  }
+  // PASTE: the preset of the clipboard into the user bank (the bank shown, or `toSection`), under a name not taken there; it then plays
+  void pastePreset(int toSection = -1) {
+    Library& lib = Library::get();
+    lib.refresh();
+    BankPreset np;
+    const std::wstring w = win ? win->clipboard() : L"";
+    if (w.empty() || !Library::parsePreset(fromW(w), np)) {
+      if (win) win->message(L"The clipboard holds no OktoWave preset.\n\nCOPY (or Ctrl+C) in the preset browser copies the sound shown; a preset sent as text "
+                            L"(from \"Preset:\" to its last parameter line) can be pasted too.", false);
+      return;
+    }
+    SaveDlg d;
+    d.sections = bankLabels();
+    d.section = toSection >= 0 && toSection < (int)d.sections.size() ? toSection : bTab == 1 && bCat < (int)d.sections.size() ? bCat : 0;
+    d.name = toW(freeName(np.name, d.section));
+    if (!win || !win->saveDialog(d, L"Paste preset", true, L"Puts the copied sound in your user bank.")) return;
+    np.section = d.section; np.name = fromW(d.name); np.stars = 0;
+    if (np.from.empty()) np.from = "pasted";
+    const std::vector<BankPreset> bank = lib.bank();
+    if (std::any_of(bank.begin(), bank.end(), [&](const BankPreset& p) { return p.section == np.section && p.name == np.name; }) &&
+        !ask(L"“" + d.name + L"” already exists in " + bankLabel(np.section) + L". Replace it?")) return;
+    if (libError(lib.putUser(np), L"Could not save the user bank:")) return;
+    host->loadUserSound(np.v, kUserPrefix + np.name);
+    bTab = 1; bCat = np.section;
+    bReveal();
+    bStatus = L"Pasted “" + d.name + L"” in " + bankLabel(np.section) + L".";
+  }
+  // NEW BANK: an empty bank of the player's own, shown at once
+  void newBank() {
+    SaveDlg d; d.name = L"My bank";
+    if (!win || !win->saveDialog(d, L"New bank", false, L"A bank of your own in the user bank (12 at most).")) return;
+    const std::string nm = fromW(d.name);
+    const std::wstring e = Library::get().addBank(nm);
+    if (!e.empty()) { if (win) win->message(L"Could not create the bank: " + e + L".", false); return; }
+    const std::vector<std::string> b = Library::get().bankNames();
+    bTab = 1; bCat = (int)(std::find(b.begin(), b.end(), clipName(nm)) - b.begin()); bScroll = 0;
+    if (bCat >= (int)b.size()) bCat = 0;
+    menuBank = Library::get().bank();
+    bStatus = L"Bank “" + d.name + L"” created: TO BANK…, PASTE or a drag puts sounds in it.";
+  }
+  void renameBank(int sec) {
+    if (sec < kNumBankSections) { bStatus = L"The built-in banks keep their names."; return; }
+    SaveDlg d; d.name = bankLabel(sec);
+    if (!win || !win->saveDialog(d, L"Rename bank", false, nullptr)) return;
+    const std::wstring e = Library::get().renameBank(sec, fromW(d.name));
+    if (!e.empty()) { if (win) win->message(L"Could not rename the bank: " + e + L".", false); return; }
+    bStatus = L"Bank renamed “" + d.name + L"”.";
+  }
+  void deleteBank(int sec) {
+    if (sec < kNumBankSections) { bStatus = L"The built-in banks cannot be deleted."; return; }
+    int n = 0; for (const BankPreset& p : Library::get().bank()) n += p.section == sec;
+    if (!ask(L"Delete the bank “" + bankLabel(sec) + L"”" + (n ? L" and its " + std::to_wstring(n) + (n > 1 ? L" sounds" : L" sound") : std::wstring()) + L"?")) return;
+    const std::wstring name = bankLabel(sec);
+    const std::wstring e = Library::get().removeBank(sec);
+    if (!e.empty()) { if (win) win->message(L"Could not delete the bank: " + e + L".", false); return; }
+    if (bTab == 1 && bCat >= sec) bCat = std::max(0, bCat == sec ? 0 : bCat - 1);
+    menuBank = Library::get().bank(); bScroll = 0;
+    bStatus = L"Bank “" + name + L"” deleted.";
+  }
+  // a sound of the user bank (menuBank index) under a new name, in its bank
+  void renameSound(int idx) {
+    menuBank = Library::get().bank();
+    if (idx < 0 || idx >= (int)menuBank.size()) return;
+    const BankPreset p = menuBank[idx];
+    const bool playing = host->userPresetName() == kUserPrefix + p.name;
+    if (playing && host->presetDirty()) { if (win) win->message(L"The sound you hear has changes: save them (SAVE PRESET) or load the sound again before renaming it.", false); return; }
+    SaveDlg d; d.name = toW(p.name);
+    if (!win || !win->saveDialog(d, L"Rename sound", false, nullptr)) return;
+    BankPreset np = p; np.name = fromW(d.name);
+    if (np.name == p.name) return;
+    for (const BankPreset& q : menuBank) if (q.section == p.section && q.name == np.name) { if (win) win->message(L"“" + d.name + L"” is already in " + bankLabel(p.section) + L".", false); return; }
+    if (libError(Library::get().putUser(np, p.name), L"Could not save the user bank:")) return;
+    if (playing) host->loadUserSound(np.v, kUserPrefix + np.name);
+    menuBank = Library::get().bank();
+    bStatus = L"Renamed “" + d.name + L"”.";
+  }
+  // RENAME (the owner: "ajoute un bouton rename pour les presets"): the sound shown, a sound of the user bank or a factory preset (renamed as an adjustment of its own
+  // sound, as SAVE PRESET does with a new name: RESTORE brings the built-in name back); not a NEW or pasted sound that is not saved yet
+  bool renameEnabled() { return curEntry() >= 0 || currentBankIndex() >= 0; }
+  // version 1.0.17: the name typed in place on the row of the sound playing (a factory preset, a preset of the player's own, a bank sound); the windows below
+  // when the row is not in the list shown
+  void renameShown() {
+    Library& lib = Library::get();
+    lib.refresh();
+    menuBank = lib.bank();
+    buildCategories();
+    if (pend.kind) return;
+    const int ce = curEntry(), bi = currentBankIndex();
+    bool inList = false;
+    for (int r : bRows()) if (bRowIsCurrent(r)) inList = true;
+    if (inList && (bTab == 0 ? ce >= 0 : bi >= 0)) {
+      if ((bTab == 1 || Library::isExtra(ce)) && host->presetDirty()) { if (win) win->message(L"The sound you hear has changes: save them (SAVE PRESET) or load the sound again before renaming it.", false); return; }
+      PendingName p; p.kind = 2; p.tab = bTab;
+      if (bTab == 0) { p.entry = ce; p.name = lib.name(ce); } else { p.section = menuBank[bi].section; p.name = menuBank[bi].name; }
+      pend = p;
+      startNameEdit();
+      return;
+    }
+    if (ce >= 0) renameFactory(ce);
+    else if (bi >= 0) renameSound(bi);
+    else bStatus = L"Save the sound first (TO BANK…), then RENAME.";
+  }
+  void renameFactory(int k) {
+    Library& lib = Library::get();
+    lib.refresh();
+    if (Library::isExtra(k)) {   // version 1.0.17: a preset of the player's own in the lists
+      if (k >= kNumPresets + lib.extraCount()) return;
+      SaveDlg d; d.name = toW(lib.name(k));
+      if (!win || !win->saveDialog(d, L"Rename preset", false, nullptr)) return;
+      const std::string nn = fromW(d.name), old = lib.name(k);
+      if (nn == old) return;
+      if (lib.find(nn) >= 0) { win->message(L"A factory preset is already called “" + d.name + L"”: choose another name.", false); return; }
+      const std::wstring e = lib.putExtra(k, nn, nullptr);
+      if (!e.empty()) { win->message(L"Could not rename the preset: " + e + L".", false); return; }
+      if (host->userPresetName() == kUserPrefix + old) loadEntry(k);
+      bStatus = L"Renamed “" + d.name + L"”.";
+      return;
+    }
+    if (k < 0 || k >= kNumPresets) return;
+    SaveDlg d; d.name = toW(lib.name(k));
+    if (!win || !win->saveDialog(d, L"Rename preset", false, L"A new name for this factory preset (RESTORE in the preset browser brings the original back).")) return;
+    const std::string nn = fromW(d.name);
+    if (nn == lib.name(k)) return;
+    const int other = lib.find(nn);
+    if (other >= 0 && other != k) { win->message(L"Another preset is already called “" + d.name + L"”: choose another name.", false); return; }
+    double v[kNumParams];
+    lib.values(k, v);   // its own sound as the library keeps it, not what the knobs play now
+    if (libError(lib.adjust(k, nn, v), L"Could not save the preset:")) return;
+    bStatus = L"Renamed “" + d.name + L"”.";
+  }
+  // a copy of a sound of the user bank in the same bank ("name copy")
+  void duplicateSound(int idx) {
+    menuBank = Library::get().bank();
+    if (idx < 0 || idx >= (int)menuBank.size()) return;
+    BankPreset np = menuBank[idx];
+    np.name = freeName(clipName(np.name + " copy"), np.section); np.from = menuBank[idx].name; np.stars = 0;
+    if (libError(Library::get().putUser(np), L"Could not save the user bank:")) return;
+    menuBank = Library::get().bank();
+    bStatus = L"Duplicated as “" + toW(np.name) + L"”.";
+  }
+  // ---------------------------------------------------------------- EXPORT / IMPORT windows (version 1.0.17)
+  // The owner: "exporter soit une banque particulière, utilisateur ou banque de factory", "à l'import, on demande si l'utilisateur préfère tout écraser ou importer
+  // uniquement une ou des banques particulières", "je ne veux pas que, quand un utilisateur installe une nouvelle version, il perde ses anciens sons". Two small
+  // windows drawn over the preset browser (the same on Windows and macOS): EXPORT chooses a bank of the user bank, a factory list, the favourites (rated N or
+  // more) or everything; IMPORT shows what the file holds (its banks, adjusted presets, presets of the lists, stars), each one ticked, and how it comes in: ADD
+  // as banks of his own (the default: nothing of his is replaced), MERGE into his banks of the same name, or REPLACE EVERYTHING (the IMPORT of before).
+  struct BankDlg {
+    int mode = 0;                                  // 0 none, 1 EXPORT, 2 IMPORT
+    int what = 0, userSec = 0, list = 0, minStars = 6;   // EXPORT: 0 a bank of the user bank, 1 a factory list, 2 the favourites, 3 everything
+    std::wstring file;                             // IMPORT: the file, what it holds, what is ticked, how (0 add, 1 merge, 2 replace everything)
+    std::string savedBy;
+    std::vector<Library::ImportItem> items;
+    std::vector<char> on;
+    int how = 0;
+  } dlg;
+  static std::wstring fileName(const std::wstring& p) { return p.substr(p.find_last_of(L"\\/") + 1); }
+  static std::wstring fileSafe(std::wstring s) { for (auto& ch : s) if (std::wcschr(L"\\/:*?\"<>|", ch)) ch = L'-'; return s; }
+  // the window, centred over the browser; its rows
+  R dlgR() const {
+    const R c = bCard();
+    const float h = dlg.mode == 1 ? 50 + 4 * 34 + 34 + 48 : std::min(c.h - 40, 78 + (float)dlg.items.size() * 24 + 30 + 3 * 26 + 30 + 48);
+    return R{c.x + 18, c.y + std::max(40.f, (c.h - h) / 2 - 30), c.w - 36, h};
+  }
+  R dlgRowR(int i) const { const R d = dlgR(); return R{d.x + 12, d.y + 48 + i * 34, d.w - 24, 30}; }   // EXPORT: the four choices
+  R dlgChooserR(int i) const { const R r = dlgRowR(i); return R{r.x + r.w - 168, r.y + 3, 168, r.h - 6}; }
+  int dlgItemsShown() const { const R c = bCard(); return std::max(1, std::min((int)dlg.items.size(), (int)((c.h - 40 - 78 - 30 - 3 * 26 - 30 - 48) / 24))); }
+  R dlgItemR(int i) const { const R d = dlgR(); return R{d.x + 12, d.y + 74 + i * 24, d.w - 24, 22}; }   // IMPORT: what the file holds
+  R dlgHowR(int h) const { const R d = dlgR(); return R{d.x + 12, d.y + 74 + dlgItemsShown() * 24 + 26 + h * 26, d.w - 24, 24}; }
+  R dlgBtnR(int b) const { const R d = dlgR(); const float w = 112; return R{d.x + d.w - 12 - w - (b == 0 ? w + 8 : 0), d.y + d.h - 40, w, 28}; }   // 0 CANCEL, 1 EXPORT… / IMPORT
+  // hover / click ids: 2000 + i a choice of EXPORT, 2010 + i its ▾ list, 2100 + i a line of IMPORT, 2200 + h how, 2900 CANCEL, 2901 the button that does it
+  int dlgHit(float x, float y) const {
+    if (dlgBtnR(0).has(x, y)) return 2900;
+    if (dlgBtnR(1).has(x, y)) return 2901;
+    if (dlg.mode == 1) {
+      for (int i = 0; i < 3; i++) if (dlgChooserR(i).has(x, y)) return 2010 + i;
+      for (int i = 0; i < 4; i++) if (dlgRowR(i).has(x, y)) return 2000 + i;
+    } else {
+      for (int i = 0; i < dlgItemsShown(); i++) if (dlgItemR(i).has(x, y)) return 2100 + i;
+      for (int h = 0; h < 3; h++) if (dlgHowR(h).has(x, y)) return 2200 + h;
+    }
+    return dlgR().has(x, y) ? 2999 : 2998;   // inside the window / outside it (nothing)
+  }
+  void exportOpen() {   // EXPORT…: the window, on the list shown
+    if (!host->browserOpen()) setBrowser(true);
+    Library& lib = Library::get();
+    dlg = BankDlg();
+    dlg.mode = 1;
+    dlg.what = bTab == 1 ? 0 : 1;
+    dlg.list = bTab == 0 ? bCat : 0;
+    dlg.userSec = bTab == 1 ? bCat : 0;
+    if (bTab == 0) for (const BankPreset& p : lib.bank()) { dlg.userSec = p.section; break; }   // the first bank with sounds
+    invalidateAll();
+  }
+  void exportGo() {
+    Library& lib = Library::get();
+    const std::vector<std::string> names = lib.bankNames();
+    const auto ls = lib.lists();
+    dlg.userSec = std::max(0, std::min(dlg.userSec, (int)names.size() - 1));
+    dlg.list = std::max(0, std::min(dlg.list, (int)ls.size() - 1));
+    std::wstring def = dlg.what == 0 ? L"Okto bank - " + fileSafe(toW(names[dlg.userSec])) + L".txt" :
+                       dlg.what == 1 ? L"Okto bank - " + fileSafe(toW(ls[dlg.list].first)) + L".txt" :
+                       dlg.what == 2 ? L"Okto favourites - " + std::to_wstring(dlg.minStars) + L" stars and more.txt" : L"Okto Fractal Wavelet - all presets.txt";
+    std::wstring path = envPath(L"WS_PRESETS_EXPORT");   // developer test: no file window
     if (path.empty()) {
       if (!win) return;
-      path = win->saveFileDialog(L"Export all presets (factory presets, user bank and your stars)", L"OKTOMULTIWAVE presets.txt");
+      path = win->saveFileDialog(dlg.what == 3 ? L"Export everything (factory presets, lists, stars and user bank)" : L"Export a bank", def.c_str());
       if (path.empty()) return;
     }
-    Library::get().refresh();
-    const std::wstring e = Library::get().exportTo(path);
-    if (!e.empty()) { if (win) win->message(L"Could not export the presets:\n" + path + L"\n\n" + e + L".", true); }
-    else bStatus = L"Exported to " + path.substr(path.find_last_of(L"\\/") + 1) + L".";
+    dlg.mode = 0;
+    lib.refresh();
+    int n = 0;
+    const std::wstring e = dlg.what == 3 ? lib.exportTo(path) : lib.exportBank(path, dlg.what, dlg.what == 0 ? dlg.userSec : dlg.list, dlg.minStars, n);
+    if (!e.empty()) { if (win) win->message(L"Could not export:\n" + path + L"\n\n" + e + L".", true); return; }
+    bStatus = L"Exported " + (dlg.what == 3 ? std::wstring(L"everything") : std::to_wstring(n) + (n == 1 ? L" sound" : L" sounds")) + L" to " + fileName(path) + L".";
   }
-  // IMPORT (beta 0.4): the presets of another file replace yours (adjusted and deleted presets, list order, user bank); the
-  // current file is kept as a dated backup copy next to it
-  void bankImport() {
+  void importOpen() {   // IMPORT…: the file, then the window with what it holds
+    if (!host->browserOpen()) setBrowser(true);
     std::wstring path = envPath(L"WS_PRESETS_IMPORT");   // developer tests: no file window
     if (path.empty()) {
       if (!win) return;
-      path = win->openFileDialog(L"Import presets (they replace yours; your file is kept as a backup copy)");
+      path = win->openFileDialog(L"Import: a bank, or a presets file of any version (you choose what comes in)");
       if (path.empty()) return;
     }
-    const std::wstring name = path.substr(path.find_last_of(L"\\/") + 1);
-    if (!ask(L"Replace your presets — adjusted and deleted factory presets, list order and user bank — with those of “" + name +
-             L"”?\n\nYour current presets file is kept as a backup copy next to it.")) return;
+    std::vector<Library::ImportItem> items;
+    std::string by;
+    const std::wstring e = Library::get().importScan(path, items, by);
+    if (!e.empty()) { if (win) win->message(L"Could not import:\n" + path + L"\n\n" + e + L".", true); return; }
+    dlg = BankDlg();
+    dlg.mode = 2; dlg.file = path; dlg.savedBy = by; dlg.items = items; dlg.on.assign(items.size(), 1);
+    invalidateAll();
+  }
+  void importGo() {
+    Library& lib = Library::get();
+    const std::wstring name = fileName(dlg.file);
+    if (dlg.how != 2 && std::none_of(dlg.on.begin(), dlg.on.end(), [](char c) { return c != 0; })) { bStatus = L"Tick what comes in first."; return; }
+    if (dlg.how == 2 && !ask(L"Replace your presets — adjusted and deleted factory presets, list order, stars and user bank — with those of “" + name +
+                             L"”?\n\nYour current presets file is kept as a backup copy.")) return;
+    const int banks0 = (int)lib.bankNames().size();
     std::wstring backup;
-    Library::get().refresh();
-    const std::wstring e = Library::get().importFrom(path, backup);
-    if (!e.empty()) { if (win) win->message(L"Could not import the presets:\n" + path + L"\n\n" + e + L".", true); return; }
+    std::string sum;
+    lib.refresh();
+    const std::wstring e = dlg.how == 2 ? lib.importFrom(dlg.file, backup) : lib.importSome(dlg.file, dlg.on, dlg.how, backup, sum);
+    if (!e.empty()) { if (win) win->message(L"Could not import:\n" + dlg.file + L"\n\n" + e + L".", true); return; }
+    bool sounds = dlg.how == 2;
+    for (size_t i = 0; i < dlg.items.size() && i < dlg.on.size(); i++) sounds = sounds || (dlg.on[i] && dlg.items[i].kind != 3);
+    dlg.mode = 0;
     buildCategories();
-    menuBank = Library::get().bank();
-    bReveal();
-    bStatus = L"Imported " + name + (backup.empty() ? L"." : L" (backup: " + backup.substr(backup.find_last_of(L"\\/") + 1) + L").");
+    menuBank = lib.bank();
+    if (sounds && dlg.how != 2) { bTab = 1; bScroll = 0; const int nb = (int)lib.bankNames().size(); bCat = nb > banks0 ? nb - 1 : std::min(bCat, nb - 1); }   // the user tab, on the new bank
+    else bReveal();
+    bStatus = L"Imported " + (dlg.how == 2 ? L"everything from " + name : toW(sum)) + (backup.empty() ? L"." : L" (backup: " + fileName(backup) + L").");
+  }
+  void dlgClick(int h, float x, float y) {
+    Library& lib = Library::get();
+    if (h == 2900 || h == 2998) { dlg.mode = 0; return; }   // CANCEL, or a click outside the window
+    if (h == 2901) { if (dlg.mode == 1) exportGo(); else importGo(); return; }
+    if (h >= 2000 && h < 2004) dlg.what = h - 2000;
+    else if (h >= 2010 && h < 2013) {   // a ▾ list: which bank, which list, how many stars
+      const int i = h - 2010;
+      std::vector<MenuItem> m;
+      if (i == 0) {
+        const std::vector<std::string> names = lib.bankNames();
+        const std::vector<BankPreset> bank = lib.bank();
+        for (int s = 0; s < (int)names.size(); s++) {
+          int n = 0; for (const BankPreset& p : bank) n += p.section == s;
+          m.push_back(MenuItem::item(toW(names[s]) + L"  (" + std::to_wstring(n) + L")", 1 + s, s == dlg.userSec, n == 0));
+        }
+      } else if (i == 1) {
+        const auto ls = lib.lists();
+        for (int l = 0; l < (int)ls.size(); l++) m.push_back(MenuItem::item(toW(ls[l].first) + L"  (" + std::to_wstring(ls[l].second.size()) + L")", 1 + l, l == dlg.list));
+      } else {
+        for (int s = 10; s >= 1; s--) m.push_back(MenuItem::item(std::to_wstring(s) + L" / 10 stars" + (s < 10 ? L" and more" : L""), s, s == dlg.minStars));
+      }
+      const R r = dlgChooserR(i);
+      const int cmd = win ? win->popupMenu(m, r.x, r.y + r.h) : 0;
+      if (cmd > 0) { dlg.what = i; if (i == 0) dlg.userSec = cmd - 1; else if (i == 1) dlg.list = cmd - 1; else dlg.minStars = cmd; }
+    }
+    else if (h >= 2100 && h < 2100 + (int)dlg.on.size() && dlg.how != 2) dlg.on[h - 2100] = !dlg.on[h - 2100];
+    else if (h >= 2200 && h < 2203) dlg.how = h - 2200;
+    (void)x; (void)y;
+  }
+  void radio(Canvas& g, float x, float cy, bool on, bool hot) {
+    g.strokeEllipse(R{x, cy - 6, 12, 12}, Pen(on ? rgb(accent()) : rgb(hot ? kText : kDim), 1.4f));
+    if (on) g.fillEllipse(R{x + 3, cy - 3, 6, 6}, Brush(rgb(accent())));
+  }
+  void tick(Canvas& g, float x, float cy, bool on, bool hot, bool en) {
+    const R b{x, cy - 6, 12, 12};
+    if (on) fillRR(g, b, 3, en ? rgb(accent()) : rgb(kFaint));
+    else strokeRR(g, b, 3, en ? rgb(hot ? kText : kDim) : rgb(kFaint), 1.4f);
+    if (on) { const Pen p(rgb(kOnAccent), 1.8f); g.line(Pt{x + 2.8f, cy}, Pt{x + 5.2f, cy + 2.6f}, p); g.line(Pt{x + 5.2f, cy + 2.6f}, Pt{x + 9.4f, cy - 3}, p); }
+  }
+  void drawBankDlg(Canvas& g) {
+    Library& lib = Library::get();
+    const R c = bCard(), d = dlgR();
+    fillRR(g, c, 18, argb(165, 10, 4, 14));   // the browser, dimmed
+    fillRR(g, d, 14, rgb(0x2a1330));
+    strokeRR(g, R{d.x + 0.5f, d.y + 0.5f, d.w - 1, d.h - 1}, 14, rgb(accent(), 150));
+    const int hv = bHover;
+    if (dlg.mode == 1) {
+      text(g, L"EXPORT", R{d.x + 14, d.y + 10, 200, 18}, 11, true, rgb(accent()), 0);
+      text(g, L"What goes into the file?", R{d.x + 14, d.y + 26, d.w - 28, 16}, 9.5f, false, rgb(kDim), 0);
+      const std::vector<std::string> names = lib.bankNames();
+      const auto ls = lib.lists();
+      const wchar_t* label[4] = {L"A bank of your user bank", L"A factory list", L"Your favourites", L"Everything (a full backup)"};
+      for (int i = 0; i < 4; i++) {
+        const R r = dlgRowR(i);
+        const bool sel = dlg.what == i, hot = hv == 2000 + i;
+        if (sel || hot) fillRR(g, r, 7, sel ? rgb(accent(), 40) : argb(20, 255, 255, 255));
+        radio(g, r.x + 8, r.y + r.h / 2, sel, hot);
+        text(g, label[i], R{r.x + 28, r.y, r.w - 200, r.h}, 10.5f, sel, rgb(sel ? kText : kDim), 0);
+        if (i < 3) {
+          const R b = dlgChooserR(i);
+          inset(g, b, 7, hv == 2010 + i);
+          std::wstring v;
+          if (i == 0 && dlg.userSec < (int)names.size()) { int n = 0; for (const BankPreset& p : menuBank) n += p.section == dlg.userSec; v = toW(names[dlg.userSec]) + L"  (" + std::to_wstring(n) + L")"; }
+          if (i == 1 && dlg.list < (int)ls.size()) v = toW(ls[dlg.list].first) + L"  (" + std::to_wstring(ls[dlg.list].second.size()) + L")";
+          if (i == 2) v = L"rated " + std::to_wstring(dlg.minStars) + L" / 10" + (dlg.minStars < 10 ? L" and more" : L"");
+          g.textEllipsis(v, R{b.x + 8, b.y, b.w - 26, b.h}, 9.5f, true, rgb(sel ? kText : kDim), true);
+          text(g, L"▾", R{b.x + b.w - 18, b.y, 12, b.h}, 10, true, rgb(kDim));
+        }
+      }
+      text(g, L"A bank file keeps every sound's settings and stars: IMPORT… adds it in any version.", R{d.x + 14, dlgRowR(3).y + 36, d.w - 28, 16}, 9, false, rgb(kFaint), 0);
+    } else {
+      text(g, L"IMPORT", R{d.x + 14, d.y + 10, 200, 18}, 11, true, rgb(accent()), 0);
+      g.textEllipsis(L"“" + fileName(dlg.file) + L"”" + (dlg.savedBy.empty() ? L"" : L"  (saved by " + toW(dlg.savedBy) + L")"), R{d.x + 80, d.y + 10, d.w - 94, 18}, 9.5f, false, rgb(kText), true);
+      text(g, L"Found in the file (tick what comes in):", R{d.x + 14, d.y + 52, d.w - 28, 16}, 9.5f, false, rgb(kDim), 0);
+      const bool en = dlg.how != 2;
+      for (int i = 0; i < dlgItemsShown(); i++) {
+        const R r = dlgItemR(i);
+        const Library::ImportItem& it = dlg.items[i];
+        const bool on = i < (int)dlg.on.size() && dlg.on[i], hot = en && hv == 2100 + i;
+        if (hot) fillRR(g, r, 6, argb(20, 255, 255, 255));
+        tick(g, r.x + 8, r.y + r.h / 2, on, hot, en);
+        g.textEllipsis(toW(it.name), R{r.x + 28, r.y, r.w - 120, r.h}, 10.5f, on && en, rgb(en ? (on ? kText : kDim) : kFaint), true);
+        text(g, std::to_wstring(it.count) + (it.kind == 3 ? (it.count == 1 ? L" rating" : L" ratings") : (it.count == 1 ? L" sound" : L" sounds")), R{r.x + r.w - 96, r.y, 90, r.h}, 9.5f, false, rgb(en ? kDim : kFaint), 2);
+      }
+      const R h0 = dlgHowR(0);
+      text(g, L"How?", R{d.x + 14, h0.y - 22, d.w - 28, 16}, 9.5f, false, rgb(kDim), 0);
+      const wchar_t* how[3] = {L"Add as banks of your own (nothing of yours is replaced)", L"Merge into your banks of the same name", L"Replace everything (your presets, lists and user bank)"};
+      for (int h = 0; h < 3; h++) {
+        const R r = dlgHowR(h);
+        const bool sel = dlg.how == h, hot = hv == 2200 + h;
+        if (sel || hot) fillRR(g, r, 6, sel ? rgb(h == 2 ? 0xff6b6b : accent(), 36) : argb(20, 255, 255, 255));
+        radio(g, r.x + 8, r.y + r.h / 2, sel, hot);
+        text(g, how[h], R{r.x + 28, r.y, r.w - 32, r.h}, 10, sel, rgb(sel ? (h == 2 ? 0xff8a8a : kText) : kDim), 0);
+      }
+      text(g, L"A backup copy of your presets file is made first.", R{d.x + 14, dlgHowR(2).y + 30, d.w - 28, 16}, 9, false, rgb(kFaint), 0);
+    }
+    const wchar_t* btn[2] = {L"CANCEL", dlg.mode == 1 ? L"EXPORT…" : L"IMPORT"};
+    for (int b = 0; b < 2; b++) {
+      const R r = dlgBtnR(b);
+      const bool hot = hv == 2900 + b;
+      if (b == 1) { fillRR(g, r, 8, rgb(accent(), hot ? 255 : 215)); text(g, btn[b], r, 9.5f, true, rgb(kOnAccent)); }
+      else { inset(g, r, 8, hot); text(g, btn[b], r, 9.5f, true, rgb(hot ? kText : kDim)); }
+    }
   }
   void bankShow() {
     const std::wstring path = Library::get().path();
@@ -1714,10 +2284,16 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   R bCard() const { return R{kDeviceW + 4, 8, kBrowserW - 12, kDeviceH - 16}; }
   R bHide() const { const R c = bCard(); return R{c.x + c.w - 70, c.y + 6, 58, 20}; }
   R bTabR(int t) const { const R c = bCard(); const float w = (c.w - 24) / 2; return R{c.x + 12 + t * w, c.y + 34, w, 26}; }
-  R bCatR(int i) const { const R c = bCard(); return R{c.x + 12, c.y + 72 + i * 26.0f, 118, 24}; }
-  // beta 0.3.3: while CHORD MODE is on the chord card is under the list (the list is that much shorter)
+  // the rows of the categories (factory tab) or of the banks and "+ New bank…" (user tab): 26 px, closer when there are many of them (version 1.0.17: the player's own banks)
+  float bCatH() const {
+    const int n = bTab == 0 ? (int)fCats.size() : (int)Library::get().bankNames().size() + 1;
+    return std::max(16.0f, std::min(26.0f, (bList().h + 26) / std::max(1, n)));
+  }
+  R bCatR(int i) const { const R c = bCard(); const float h = bCatH(); return R{c.x + 12, c.y + 72 + i * h, 118, h - 2}; }
+  R bNewBankR() const { return bCatR((int)Library::get().bankNames().size()); }   // version 1.0.17: "+ New bank…", under the banks of the user tab
+  // beta 0.3.3: while CHORD MODE is on the chord card is under the list (the list is that much shorter); version 1.0.17: a second row of buttons under it (31 px)
   static constexpr float kChordSideH = 248;
-  R bList() const { const R c = bCard(); return R{c.x + 136, c.y + 98, c.w - 162, c.h - 156 - (chordInBrowser() ? kChordSideH + 6 : 0)}; }
+  R bList() const { const R c = bCard(); return R{c.x + 136, c.y + 98, c.w - 162, c.h - 187 - (chordInBrowser() ? kChordSideH + 6 : 0)}; }
   R bChordCard() const { const R c = bCard(), l = bList(); return R{c.x + 8, l.y + l.h + 10, c.w - 16, kChordSideH}; }
   // the chord items in the browser: pads, name, KEYS OCT, the octave stepper, the voicing, STRUM and the strum plate, re-laid out for the width of the browser (the card's own order)
   void layoutChordItems() {
@@ -1760,7 +2336,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   R bRowR(int j) const { const R l = bList(); return R{l.x, l.y + j * kRowH, l.w, kRowH - 1}; }
   static constexpr int kBtns = 5;   // TO BANK, RESTORE, DELETE, EXPORT, IMPORT (beta 0.4; FILE is in the right-click menu)
   R bBtnR(int b) const { const R c = bCard(); const float w = (c.w - 24 - 4 * 5) / kBtns; return R{c.x + 12 + b * (w + 5), c.y + c.h - 50, w, 26}; }
-  int bNumCats() const { return bTab == 0 ? (int)fCats.size() : kNumBankSections; }
+  static constexpr int kBtns2 = 5;   // version 1.0.17: NEW, RENAME, COPY, PASTE, NEW BANK (a row above the others)
+  R bBtn2R(int b) const { const R c = bCard(); const float w = (c.w - 24 - (kBtns2 - 1) * 5) / kBtns2; return R{c.x + 12 + b * (w + 5), c.y + c.h - 81, w, 26}; }
+  int bNumCats() const { return bTab == 0 ? (int)fCats.size() : (int)Library::get().bankNames().size(); }
   // the rows of the selected category: factory preset indices, or indices into menuBank
   std::vector<int> bRows() {
     std::vector<int> r;
@@ -1777,7 +2355,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     Library& lib = Library::get();
     const std::string user = host->userPresetName();
     std::wstring e;
-    if (bTab == 0) { if (!factoryShown()) return; e = lib.moveInList(bCat, host->presetIndex(), dir); }
+    if (bTab == 0) { const int k = curEntry(); if (k < 0) return; e = lib.moveInList(bCat, k, dir); }   // (version 1.0.17: a preset of the player's own too)
     else { if (user.empty()) return; e = lib.moveUser(bCat, user.substr(std::strlen(kUserPrefix)), dir); }
     if (libError(e, L"Could not save the presets file:")) return;
     buildCategories();
@@ -1814,7 +2392,13 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     buildCategories();
     menuBank = Library::get().bank();
     const std::string user = host->userPresetName();
-    if (!user.empty()) {
+    const int ex = currentExtra();   // version 1.0.17: a preset of the player's own: in the factory tab, in the list it is in
+    if (ex >= 0) {
+      bTab = 0;
+      if (!(bCat >= 0 && bCat < (int)fCats.size() && std::count(fCats[bCat].presets.begin(), fCats[bCat].presets.end(), ex)))
+        for (size_t c = 1; c < fCats.size(); c++)
+          if (std::count(fCats[c].presets.begin(), fCats[c].presets.end(), ex)) { bCat = (int)c; break; }
+    } else if (!user.empty()) {
       for (size_t i = 0; i < menuBank.size(); i++)
         if (kUserPrefix + menuBank[i].name == user) { bTab = 1; bCat = menuBank[i].section; break; }
     } else {
@@ -1831,25 +2415,28 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   bool bRowIsCurrent(int row) {
     const std::string user = host->userPresetName();
-    if (bTab == 0) return factoryShown() && row == host->presetIndex();
+    if (bTab == 0) return row < kNumPresets ? factoryShown() && row == host->presetIndex() : curEntry() == row;   // (version 1.0.17: a preset of the player's own)
     return row >= 0 && row < (int)menuBank.size() && user == kUserPrefix + menuBank[row].name;
   }
-  // hover / click ids: 1 HIDE, 10 + t tab, 100 + i category, 1000 + j visible sound row, 500 + b button
+  // hover / click ids: 1 HIDE, 10 + t tab, 100 + i category, 1000 + j visible sound row, 500 + b button, 600 + b button of the second row, 98 "+ New bank…"
   int bHit(float x, float y) {
+    if (dlg.mode) return dlgHit(x, y);   // (version 1.0.17: the EXPORT / IMPORT window takes every click of the browser)
     if (bHide().has(x, y)) return 1;
     if (bMoveR(-1).has(x, y)) return 20;
     if (bMoveR(1).has(x, y)) return 21;
     for (int t = 0; t < 2; t++) if (bTabR(t).has(x, y)) return 10 + t;
     for (int i = 0; i < bNumCats(); i++) if (bCatR(i).has(x, y)) return 100 + i;
+    if (bTab == 1 && bNewBankR().has(x, y)) return 98;
     for (int j = 0; j < bVisibleRows(); j++) if (bRowR(j).has(x, y)) return 1000 + j;
     if (bScrollR().has(x, y) && (int)bRows().size() > bVisibleRows()) return 30;   // the scroll bar
     for (int b = 0; b < kBtns; b++) if (bBtnR(b).has(x, y)) return 500 + b;
+    for (int b = 0; b < kBtns2; b++) if (bBtn2R(b).has(x, y)) return 600 + b;
     return -1;
   }
   bool bBtnEnabled(int b) {
     const bool factory = factoryShown(), bank = !host->userPresetName().empty();
     if (b == 1) return bTab == 0 && factory && Library::get().adjusted(host->presetIndex());   // RESTORE
-    if (b == 2) return bTab == 0 ? factory && !Library::get().deleted(host->presetIndex()) : bank;   // DELETE
+    if (b == 2) return bTab == 0 ? (factory && !Library::get().deleted(host->presetIndex())) || currentExtra() >= 0 : bank;   // DELETE (version 1.0.17: a preset of the player's own too)
     return true;
   }
   void browserClick(float x, float y) {
@@ -1857,6 +2444,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     menuBank = Library::get().bank();
     if (win) win->takeFocus();   // beta 0.5: the arrow keys choose sounds from now on
     const int h = bHit(x, y);
+    if (dlg.mode) { dlgClick(h, x, y); menuBank = Library::get().bank(); onTimer(); invalidateAll(); return; }   // version 1.0.17
     if (h == 1) { setBrowser(false); return; }
     if (h == 20 || h == 21) { if (bMoveEnabled()) bMove(h == 20 ? -1 : 1); invalidateAll(); return; }
     if (h == 30) {   // the scroll bar: drag its thumb, or a click on the bar puts the thumb there
@@ -1873,12 +2461,19 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       if ((bTab == 0) == host->userPresetName().empty()) bReveal();
     }
     else if (h >= 100 && h < 500) { bCat = h - 100; bScroll = 0; }
+    else if (h == 98) newBank();   // version 1.0.17
+    else if (h >= 600 && h < 600 + kBtns2) {
+      const int b = h - 600;
+      if (b == 0) newSound(); else if (b == 1) renameShown(); else if (b == 2) copyPreset(); else if (b == 3) pastePreset(); else newBank();
+      menuBank = Library::get().bank();
+      onTimer();
+    }
     else if (h >= 1000) {
       const std::vector<int> rows = bRows();
       const int j = h - 1000 + bScroll;
       if (j < (int)rows.size() && bStarsR(h - 1000).has(x, y)) { bRate(rows[j], x - bStarsR(h - 1000).x); return; }   // beta 0.3.1: a click on the stars rates the sound (it does not load it)
       if (j < (int)rows.size()) {
-        if (bTab == 0) host->loadPreset(rows[j]);
+        if (bTab == 0) loadEntry(rows[j]);
         else host->loadUserSound(menuBank[rows[j]].v, kUserPrefix + menuBank[rows[j]].name);
         bStatus.clear();
         onTimer();
@@ -1890,12 +2485,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       const int b = h - 500;
       if (b == 0) bankSave();
       else if (b == 1) restorePreset(host->presetIndex());
-      else if (b == 2 && bTab == 0) deletePreset(host->presetIndex());
+      else if (b == 2 && bTab == 0) deletePreset(curEntry());
       else if (b == 2) {
         const std::string user = host->userPresetName();
         for (const BankPreset& p : Library::get().bank()) if (kUserPrefix + p.name == user) { bankDelete(p); break; }
-      } else if (b == 3) bankExport();
-      else bankImport();
+      } else if (b == 3) exportOpen();   // (version 1.0.17: the EXPORT window, then the file)
+      else importOpen();                 // (version 1.0.17: the file, then the IMPORT window)
       menuBank = Library::get().bank();
       onTimer();
     }
@@ -1903,9 +2498,28 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   }
   // beta 0.5: the sound menu (right-click on a sound of the list): move it to another category / section, TOP Sounds
   void browserRightClick(float x, float y) {
+    if (dlg.mode) return;   // (version 1.0.17: under the EXPORT / IMPORT window)
     buildCategories();
     menuBank = Library::get().bank();
     const int h = bHit(x, y);
+    if (bTab == 1 && h >= 100 && h < 500) {   // version 1.0.17: the bank menu (right-click on a bank of the user tab)
+      const int sec = h - 100;
+      const bool own = sec >= kNumBankSections;
+      std::vector<MenuItem> bm;
+      bm.push_back(MenuItem::item(bankLabel(sec) + (own ? L"" : L"   (built-in bank)"), 0, false, true));
+      bm.push_back(MenuItem::item(L"Paste preset here…", kCmdPaste));
+      bm.push_back(MenuItem::sep());
+      bm.push_back(MenuItem::item(L"Rename bank…", kCmdRenameBank, false, !own));
+      bm.push_back(MenuItem::item(L"Delete bank…", kCmdDeleteBank, false, !own));
+      bm.push_back(MenuItem::sep());
+      bm.push_back(MenuItem::item(L"New bank…", kCmdNewBank));
+      ctxBank = sec;
+      const int cmd = win ? win->popupMenu(bm, x, y) : 0;
+      menuCommand(cmd);
+      ctxBank = -1;
+      onTimer(); invalidateAll();
+      return;
+    }
     if (h < 1000) return;
     const std::vector<int> rows = bRows();
     const int j = h - 1000 + bScroll;
@@ -1916,14 +2530,23 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (bTab == 0) {
       const int cur = lib.categoryOf(row), def = Library::defaultCategory(row);
       m.push_back(MenuItem::item(toW(lib.name(row)), 0, false, true));
+      m.push_back(MenuItem::item(L"Copy\tCtrl+C", kCmdCopy));   // version 1.0.17
+      m.push_back(MenuItem::item(L"Rename…", kCmdRenameSound));
+      if (Library::isExtra(row)) m.push_back(MenuItem::item(L"Delete…", kCmdDelete));   // a preset of the player's own
+      m.push_back(MenuItem::sep());
       for (size_t i = 1; i < fCats.size(); i++) sub.push_back(MenuItem::item(fCats[i].label, kCmdMoveTo + (int)i, (int)i == cur, (int)i == cur));
       m.push_back(MenuItem::popup(L"Move to", std::move(sub)));
       if (def > 0 && def != cur && def < (int)fCats.size()) m.push_back(MenuItem::item(L"Back to " + fCats[def].label, kCmdMoveTo + def));
       m.push_back(lib.inTop(row) ? MenuItem::item(L"Remove from TOP Sounds", kCmdTopRemove) : MenuItem::item(L"Add to TOP Sounds", kCmdTopAdd));
     } else {
       const BankPreset& p = menuBank[row];
+      const std::vector<std::string> banks = lib.bankNames();   // (version 1.0.17: the player's own banks too)
       m.push_back(MenuItem::item(toW(p.name), 0, false, true));
-      for (int s = 0; s < kNumBankSections; s++) sub.push_back(MenuItem::item(toW(kBankSections[s]), kCmdMoveTo + s, s == p.section, s == p.section));
+      m.push_back(MenuItem::item(L"Copy\tCtrl+C", kCmdCopy));   // version 1.0.17
+      m.push_back(MenuItem::item(L"Duplicate", kCmdDuplicate));
+      m.push_back(MenuItem::item(L"Rename…", kCmdRenameSound));
+      m.push_back(MenuItem::sep());
+      for (int s = 0; s < (int)banks.size(); s++) sub.push_back(MenuItem::item(toW(banks[s]), kCmdMoveTo + s, s == p.section, s == p.section));
       m.push_back(MenuItem::popup(L"Move to", std::move(sub)));
     }
     ctxRow = row; ctxTab = bTab;
@@ -1953,9 +2576,9 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
   void moveBank(int idx, int sec) {
     Library& lib = Library::get();
     menuBank = lib.bank();
-    if (idx < 0 || idx >= (int)menuBank.size() || sec < 0 || sec >= kNumBankSections) return;
+    if (idx < 0 || idx >= (int)menuBank.size() || sec < 0 || sec >= (int)lib.bankNames().size()) return;
     const BankPreset p = menuBank[idx];
-    const std::wstring nm = L"“" + toW(p.name) + L"”", to = toW(kBankSections[sec]);
+    const std::wstring nm = L"“" + toW(p.name) + L"”", to = bankLabel(sec);
     if (p.section == sec) { bStatus = nm + L" is already in " + to + L"."; return; }
     for (const BankPreset& q : menuBank)
       if (q.section == sec && q.name == p.name) {
@@ -1978,6 +2601,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     bScroll = std::max(0, std::min(bScroll, n - bVisibleRows()));
   }
   void browserWheel(int dir) {
+    if (dlg.mode) return;   // (version 1.0.17: under the EXPORT / IMPORT window)
     buildCategories();
     const int n = (int)bRows().size(), maxScroll = std::max(0, n - bVisibleRows());
     const int s = std::max(0, std::min(maxScroll, bScroll - dir * 3));
@@ -2037,15 +2661,17 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         text(g, tabs[t], r, 10, true, t == bTab ? rgb(kOnAccent) : rgb(bHover == 10 + t ? kText : kDim));
       }
     }
-    // categories
+    // categories (user tab: the banks, the player's own after the built-in ones, then "+ New bank…")
     inset(g, R{c.x + 8, c.y + 68, 126, bList().h + 34}, 10);
+    const std::vector<std::string> bankNm = lib.bankNames();
+    const float catPx = bCatH() < 22 ? 10 : 11;
     for (int i = 0; i < bNumCats(); i++) {
       const R r = bCatR(i);
       const bool sel = i == bCat, hot = bHover == 100 + i;
       int n = 0;
       std::wstring label;
       if (bTab == 0) { for (int k : fCats[i].presets) n += !lib.deleted(k); label = fCats[i].label; }
-      else { for (const BankPreset& p : menuBank) n += p.section == i; label = toW(kBankSections[i]); }
+      else { for (const BankPreset& p : menuBank) n += p.section == i; label = i < (int)bankNm.size() ? toW(bankNm[i]) : L""; }
       if (sel || hot) fillRR(g, R{r.x, r.y, r.w, r.h}, 7, sel ? rgb(accent(), 46) : argb(23, 255, 255, 255));
       if (sel) g.fillRect(R{r.x, r.y + 4, 2.5f, r.h - 8}, rgb(accent()));
       if (rowMoving && i == dropCat) {   // beta 0.5: where the sound being dragged would go
@@ -2053,15 +2679,22 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         strokeRR(g, R{r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1}, 5, rgb(accent()));
       }
       const Col col = sel ? rgb(kText) : n ? rgb(hot ? kText : kDim) : rgb(kFaint);
-      text(g, label, R{r.x + 8, r.y, r.w - 34, r.h}, 11, sel, col, 0);
+      if (bTab == 1 && i >= kNumBankSections && !sel) g.fillRect(R{r.x, r.y + 5, 2, r.h - 10}, rgb(accent(), 120));   // version 1.0.17: a bank of the player's own
+      g.textEllipsis(label, R{r.x + 8, r.y, r.w - 38, r.h}, catPx, sel, col, true);
       text(g, std::to_wstring(n), R{r.x + r.w - 30, r.y, 24, r.h}, 9.5f, false, rgb(n ? kDim : kFaint), 2);
+    }
+    if (bTab == 1) {   // version 1.0.17: "+ New bank…"
+      const R r = bNewBankR();
+      const bool hot = bHover == 98, full = (int)bankNm.size() >= kNumBankSections + kMaxCustomBanks;
+      if (hot && !full) fillRR(g, r, 7, argb(23, 255, 255, 255));
+      text(g, L"+  New bank…", R{r.x + 8, r.y, r.w - 10, r.h}, catPx, true, full ? rgb(kFaint) : rgb(hot ? kText : accent()), 0);
     }
     // sounds: the list's name and ▲ ▼ above it
     const R l = bList();
     const std::vector<int> rows = bRows();
     {
       const R hd = bListHead();
-      const std::wstring nm = bTab == 0 ? (bCat < (int)fCats.size() ? fCats[bCat].label : L"") : toW(kBankSections[bCat]);
+      const std::wstring nm = bTab == 0 ? (bCat < (int)fCats.size() ? fCats[bCat].label : L"") : bCat < (int)bankNm.size() ? toW(bankNm[bCat]) : L"";
       std::wstring up = nm; for (auto& ch : up) ch = (wchar_t)towupper(ch);
       text(g, up + L"  \u00B7  " + std::to_wstring(rows.size()), R{hd.x + 2, hd.y, hd.w - 124, hd.h}, 9.5f, true, rgb(kDim), 0);
       const bool en = bMoveEnabled();
@@ -2075,7 +2708,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     inset(g, R{l.x - 4, l.y - 4, l.w + 22, l.h + 8}, 10);   // the list and its scroll bar
     const int vis = bVisibleRows();
     if (rows.empty())
-      text(g, bTab == 1 ? L"Empty — SAVE TO BANK keeps the sound you hear here." : L"No preset.", R{l.x + 8, l.y + 8, l.w - 16, 18}, 10, false, rgb(kFaint), 0);
+      text(g, bTab == 1 ? L"Empty — TO BANK… or PASTE puts a sound here." : L"No preset.", R{l.x + 8, l.y + 8, l.w - 16, 18}, 10, false, rgb(kFaint), 0);
     for (int j = 0; j < vis && j + bScroll < (int)rows.size(); j++) {
       const int row = rows[j + bScroll];
       const R r = bRowR(j);
@@ -2089,6 +2722,12 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       else { name = menuBank[row].name; vote = menuBank[row].stars; }
       drawRowStars(g, bStarsR(j), vote);   // beta 0.3.1: the rating, at the right of the row
       float right = bStarsR(j).x - 6;
+      if (bTab == 0 && Library::isExtra(row)) {   // version 1.0.17: a preset of the player's own (NEW in the factory tab)
+        const R p{right - 24, r.y + 5, 24, r.h - 10};
+        fillRR(g, p, 3, rgb(kAccentB, 60));
+        text(g, L"MY", p, 8, true, rgb(kAccentB));
+        right -= 28;
+      }
       if (adj) {   // adjusted by the player
         const R p{right - 26, r.y + 5, 26, r.h - 10};
         fillRR(g, p, 3, rgb(accent(), 40));
@@ -2103,7 +2742,14 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       fillRR(g, s, 4, rgb(0xffffff, 16));
       fillRR(g, R{t.x + 1, t.y + 1, t.w - 2, t.h - 2}, 4, rgb(0xffffff, bHover == 30 || bDrag ? 110 : 70));
     }
-    // buttons
+    // buttons (version 1.0.17: a row NEW, COPY, PASTE, NEW BANK above the others)
+    const wchar_t* labels2[kBtns2] = {L"NEW", L"RENAME\u2026", L"COPY", L"PASTE", L"NEW BANK\u2026"};
+    for (int b = 0; b < kBtns2; b++) {
+      const R r = bBtn2R(b);
+      const bool en = b != 1 || renameEnabled(), hot = en && bHover == 600 + b;
+      inset(g, r, 8, hot);
+      text(g, labels2[b], r, 9, true, en ? rgb(hot ? kText : kDim) : rgb(kFaint));
+    }
     const wchar_t* labels[kBtns] = {L"TO BANK\u2026", L"RESTORE", L"DELETE", L"EXPORT\u2026", L"IMPORT\u2026"};
     for (int b = 0; b < kBtns; b++) {
       const R r = bBtnR(b);
@@ -2116,7 +2762,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     if (rowMoving) st = bTab == 0 ? L"Drop it on a category: it moves there (on TOP Sounds: added to it)." : L"Drop it on a section: it moves there.";
     if (st.empty())
       st = std::to_wstring(lib.adjustedCount()) + L" adjusted \u00B7 " + std::to_wstring(lib.deletedCount()) + L" deleted \u00B7 " +
-           std::to_wstring(menuBank.size()) + L" in the user bank \u00B7 OKTOMULTIWAVE presets.txt";
+           std::to_wstring(menuBank.size()) + L" in the user bank \u00B7 Ctrl+C / Ctrl+V copy and paste";
     g.textEllipsis(st, R{c.x + 12, c.y + c.h - 21, c.w - 24, 14}, 9, false, rgb(kDim), false);   // (version 1.0.6: under the buttons; at y 684 it was drawn over the rows of the list since the panel was compacted)
     if (rowMoving && rowDrag >= 0) {   // beta 0.5: the sound being dragged, under the pointer (inside the browser)
       const std::string nm = bTab == 0 ? lib.name(rowDrag) : rowDrag < (int)menuBank.size() ? menuBank[rowDrag].name : "";
@@ -2125,6 +2771,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
       fillRR(g, gr, 5, rgb(accent(), 225));
       g.textEllipsis(toW(nm), R{gr.x + 10, gr.y, gr.w - 14, gr.h}, 11, true, rgb(kOnAccent), true);
     }
+    if (dlg.mode) drawBankDlg(g);   // version 1.0.17: the EXPORT / IMPORT window, over the browser
   }
   void starShape(Canvas& g, float cx, float cy, float r, Col c) {
     Pt p[10];

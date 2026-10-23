@@ -67,7 +67,9 @@ struct MenuItem {
 };
 
 // the save window: a name (proposed, editable, 48 characters at most) and, for the user bank, a section
-struct SaveDlg { std::wstring name; int section = 0; bool withSection = true; };
+struct SaveDlg { std::wstring name; int section = 0; bool withSection = true;
+  std::vector<std::wstring> sections;   // version 1.0.17: the banks offered (the built-in sections of the user bank and the player's own)
+};
 
 // the editor, as the system window sees it (coordinates in logical units)
 struct EditorEvents {
@@ -81,10 +83,11 @@ struct EditorEvents {
   virtual void mouseUp() = 0;
   virtual void mouseLeave() = 0;
   virtual void wheel(float x, float y, int dir) = 0;
-  virtual bool key(int k) = 0;   // beta 0.5: an arrow key (kKeyLeft .. kKeyDown); true when the editor used it
+  virtual bool key(int k) = 0;   // beta 0.5: an arrow key (kKeyLeft .. kKeyDown), version 1.0.17: Ctrl / Cmd + C or V (kKeyCopy, kKeyPaste); true when the editor used it
   virtual void testCommand(int cmd) = 0;   // developer tests: a preset-menu command
+  virtual void textDone(bool ok, const std::wstring& text) = 0;   // version 1.0.17: the name typed in place (editText) is done: Enter or a click elsewhere (ok), or Escape
 };
-enum : int { kKeyLeft = 1, kKeyUp, kKeyRight, kKeyDown };
+enum : int { kKeyLeft = 1, kKeyUp, kKeyRight, kKeyDown, kKeyCopy, kKeyPaste };
 
 // the system window, as the editor sees it
 struct EditorWindow {
@@ -104,6 +107,11 @@ struct EditorWindow {
   virtual std::wstring openFileDialog(const wchar_t* title) = 0;   // a .txt file to read (beta 0.4 IMPORT); "" when cancelled
   virtual void reveal(const std::wstring& path) = 0;   // shows the file in Explorer / the Finder
   virtual void openDocument(const std::wstring& path) = 0;   // opens it with its application (the manual: a browser)
+  virtual bool setClipboard(const std::wstring& text) = 0;   // version 1.0.17: COPY (a preset as text); false when the system refused
+  virtual std::wstring clipboard() = 0;                      // PASTE: the text of the clipboard ("" when it holds none)
+  // version 1.0.17: a one-line text field over r (logical units, px the text size), the text selected; EditorEvents::textDone when it ends. false: not
+  // available here (the editor asks with a window instead)
+  virtual bool editText(R r, const std::wstring& text, float px) = 0;
 };
 
 // implemented by editor_win.cpp / editor_mac.mm

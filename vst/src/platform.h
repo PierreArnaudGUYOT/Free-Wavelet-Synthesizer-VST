@@ -7,6 +7,12 @@
 #pragma once
 #ifdef _WIN32
 #include <windows.h>
+// version 1.0.17: the Documents folder (shell32, ole32), declared as the system headers do: shlobj.h would bring the COM interfaces (IConnectionPoint ...) that
+// clash with the VST3 SDK's names in plugin.cpp
+extern "C" {
+__declspec(dllimport) HRESULT __stdcall SHGetKnownFolderPath(const GUID& rfid, DWORD dwFlags, HANDLE hToken, PWSTR* ppszPath);
+__declspec(dllimport) void __stdcall CoTaskMemFree(LPVOID pv);
+}
 #else
 #include <dlfcn.h>
 #include <errno.h>
@@ -96,7 +102,8 @@ inline std::wstring contentsFolder() {
   pathUp(p); pathUp(p);
   return p;
 }
-// The folder of the presets library: the one holding the OktoMultiWaveSynth.vst3 bundle, else the binary's folder.
+// The folder of the presets library of 1.0 .. 1.0.16: the one holding the OktoMultiWaveSynth.vst3 bundle, else the binary's folder (since 1.0.17 the file is
+// still read there while the Documents library has none: documentsLibraryFolder).
 inline std::wstring libraryFolder() {
   std::wstring p = moduleFile();
   pathUp(p);
@@ -228,6 +235,39 @@ inline bool fileExists(const std::wstring& path) {
 #else
   struct stat st {};
   return stat(wideToUtf8(path).c_str(), &st) == 0;
+#endif
+}
+
+// Version 1.0.17 (the owner: "je ne veux pas que, quand un utilisateur installe une nouvelle version, il perde ses anciens sons"): the presets library lives in
+// the player's Documents folder, apart from the plug-in, so that installing, replacing or deleting the plug-in never touches it:
+// Documents\OktoPierre\Okto Fractal Wavelet (macOS: ~/Documents/OktoPierre/Okto Fractal Wavelet). Nothing is made there until the player keeps something (his
+// answer: "les utilisateurs qui ne font que jouer ne doivent pas être impactés": bank.h makes the folders at the first write). "" when the system gives none.
+inline std::wstring documentsLibraryFolder() {
+  const std::wstring e = envPath(L"WS_LIBRARY_DIR");   // tests: never the player's folders
+  if (!e.empty()) return e;
+#ifdef _WIN32
+  static const GUID kDocuments = {0xFDD39AD0, 0x238F, 0x46AF, {0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7}};   // FOLDERID_Documents (here: no uuid library needed)
+  PWSTR p = nullptr;
+  std::wstring d;
+  if (SUCCEEDED(SHGetKnownFolderPath(kDocuments, 0, nullptr, &p)) && p) d = p;
+  if (p) CoTaskMemFree(p);
+  return d.empty() ? d : d + L"\\OktoPierre\\Okto Fractal Wavelet";
+#else
+  const char* h = getenv("HOME");
+  return h && *h ? utf8ToWide(h) + L"/Documents/OktoPierre/Okto Fractal Wavelet" : std::wstring();
+#endif
+}
+// makes the folder and the missing ones above it; false when it cannot be made
+inline bool makeFolders(const std::wstring& dir) {
+  if (dir.empty()) return false;
+  if (fileExists(dir)) return true;
+  std::wstring up = dir;
+  pathUp(up);
+  if (up != dir && !up.empty() && !fileExists(up) && !makeFolders(up)) return false;
+#ifdef _WIN32
+  return CreateDirectoryW(dir.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS;
+#else
+  return mkdir(wideToUtf8(dir).c_str(), 0755) == 0 || errno == EEXIST;
 #endif
 }
 

@@ -31,7 +31,55 @@ static void sleepMs(int ms) { std::this_thread::sleep_for(std::chrono::milliseco
 static int countOf(const std::string& s, const std::string& x) { int n = 0; for (size_t p = s.find(x); p != std::string::npos; p = s.find(x, p + 1)) n++; return n; }
 
 int wmain(int argc, wchar_t** argv) {
-  if (argc < 2) { std::printf("usage: library_test.exe <outdir>\n"); return 2; }
+  if (argc < 2) { std::printf("usage: library_test.exe <outdir>   |   library_test.exe --folders <outdir>   |   library_test.exe --load <a COPY of a presets file>\n"); return 2; }
+  if (argc >= 3 && std::wstring(argv[1]) == L"--folders") {   // version 1.0.17: where the file is read and written (the Documents library; an older version's file next to the plug-in)
+    const std::wstring root = argv[2], docs = root + L"\\Documents\\OktoPierre\\Okto Fractal Wavelet", old = root + L"\\VST";
+    const std::wstring docsFile = docs + L"\\OKTOMULTIWAVE presets.txt", oldFile = old + L"\\OKTOMULTIWAVE presets.txt";
+    CreateDirectoryW(root.c_str(), nullptr); CreateDirectoryW(old.c_str(), nullptr);
+    WIN32_FIND_DATAW fd; HANDLE fh = FindFirstFileW((docs + L"\\*").c_str(), &fd);   // a clean start: no Documents library
+    if (fh != INVALID_HANDLE_VALUE) { do { DeleteFileW((docs + L"\\" + fd.cFileName).c_str()); } while (FindNextFileW(fh, &fd)); FindClose(fh); }
+    RemoveDirectoryW(docs.c_str()); RemoveDirectoryW((root + L"\\Documents\\OktoPierre").c_str()); RemoveDirectoryW((root + L"\\Documents").c_str());
+    SetEnvironmentVariableW(L"WS_LIBRARY_DIR", docs.c_str()); SetEnvironmentVariableW(L"WS_OLD_LIBRARY_DIR", old.c_str());
+    const std::string oldText = "OKTOMULTIWAVE SYNTH - presets\r\n\r\n######## USER BANK ########\r\n\r\n== Pad ==\r\n\r\nPreset: Old pad\r\n  f_cutoff: 5\r\n";
+    writeTextFile(oldFile, oldText);
+    Library& lib = Library::get();
+    bool oldPad = false; for (const BankPreset& q : lib.bank()) oldPad = oldPad || q.name == "Old pad";
+    check(oldPad && lib.path() == oldFile, "the file of an older version next to the plug-in is read where it is", u8(lib.path()));
+    check(!fileExists(root + L"\\Documents"), "nothing is made in Documents while the player only plays");
+    std::wstring e = lib.setStars(0, 6);
+    check(e.empty() && fileExists(docsFile), "the first thing he keeps makes the Documents library and is written there", u8(e));
+    check(readAll(oldFile) == oldText, "the file next to the plug-in stays as it was (a backup)");
+    oldPad = false; for (const BankPreset& q : lib.bank()) oldPad = oldPad || q.name == "Old pad";
+    check(lib.path() == docsFile && oldPad && lib.stars(0) == 6, "from then on the Documents file is read: his sounds are in it", u8(lib.path()));
+    std::string d = readAll(docsFile);
+    const size_t at = d.find(std::string("Plug-in version: ") + kAppVersionNum);
+    check(at != std::string::npos, "the file says which version wrote it");
+    if (at != std::string::npos) d.replace(at, 17 + std::strlen(kAppVersionNum), "Plug-in version: 0.9.9");
+    sleepMs(20);
+    writeTextFile(docsFile, d);
+    lib.refresh();
+    e = lib.setStars(0, 7);
+    check(e.empty() && fileExists(docs + L"\\OKTOMULTIWAVE presets (saved by 0.9.9).txt"), "a new version keeps a copy of the file another version wrote before it writes over it", u8(e));
+    std::printf(gFails ? "\n%d FAILED\n" : "\nALL PASS\n", gFails);
+    return gFails ? 1 : 0;
+  }
+  if (argc >= 3 && std::wstring(argv[1]) == L"--load") {   // version 1.0.17: a presets file read as the plug-in reads it (a copy: it may be written back): each bank, its sounds, their source waves
+    SetEnvironmentVariableW(L"WS_PRESETS_FILE", argv[2]);
+    Library& lib = Library::get();
+    const auto names = lib.bankNames();
+    const auto user = lib.bank();
+    for (size_t sec = 0; sec < names.size(); sec++) {
+      int n = 0, wmax = 0, newW = 0;
+      for (const auto& p : user) if (p.section == (int)sec) { n++; const int w = (int)p.v[P_A_WAVE]; wmax = std::max(wmax, w); newW += w >= 6 || (p.v[P_A2_LVL] > 0.01 && p.v[P_A2_WAVE] >= 6); }
+      if (n) std::printf("  %-20s %4d sounds, %d with a new wave (A1 wave up to %d)\n", names[sec].c_str(), n, newW, wmax);
+    }
+    std::printf("%d banks, %d user sounds\n", (int)names.size(), (int)user.size());
+    const auto lists = lib.lists();   // the browser's lists: each one's size, the first sounds of TOP Sounds with their stars
+    for (const auto& L : lists) std::printf("  list %-18s %4d\n", L.first.c_str(), (int)L.second.size());
+    const auto& top = lists[0].second;
+    for (size_t i = 0; i < top.size() && i < 16; i++) std::printf("    %2d. [%2d] %s\n", (int)i + 1, lib.stars(top[i]), lib.name(top[i]).c_str());
+    return 0;
+  }
   const std::wstring out = argv[1], dir = out + L"\\lib", file = dir + L"\\OKTOMULTIWAVE presets.txt", exported = out + L"\\exported presets.txt";
   CreateDirectoryW(out.c_str(), nullptr); CreateDirectoryW(dir.c_str(), nullptr);
   DeleteFileW(file.c_str()); DeleteFileW(exported.c_str());
@@ -109,6 +157,7 @@ int wmain(int argc, wchar_t** argv) {
     std::string again = readAll(file);
     pos = again.find("Preset: Instance two");
     again.replace(pos, std::string("Preset: Instance two").size(), "Preset: Instance three");
+    sleepMs(20);   // (a reader compares the file's time and size: Windows moves file times in steps of about 15 ms; an edit also compares the text)
     writeTextFile(file, again);
     sleepMs(650);
     check(lib.name(kA) == "Instance three", "a reader sees an external change after 500 ms", lib.name(kA));
@@ -188,8 +237,8 @@ int wmain(int argc, wchar_t** argv) {
     lib.setStars(kA, 7);   // ... and a rating
     check(lib.stars(kA) == 7, "the rating is kept in the file");
     std::string t = readAll(file);
-    const size_t lo = t.find("######## LIST ORDER v7");
-    check(lo != std::string::npos, "the file says LIST ORDER v7");
+    const size_t lo = t.find("######## LIST ORDER v8");   // (version 1.0.17: v8, the owner's new list)
+    check(lo != std::string::npos, "the file says LIST ORDER v8");
     if (lo != std::string::npos) {
       std::string t5 = t; t5.replace(lo, 22, "######## LIST ORDER v5");   // ... and the same file as 1.0 wrote it
       writeTextFile(file, t5);
@@ -260,8 +309,137 @@ int wmain(int argc, wchar_t** argv) {
     e = lib.removeUser(sec, first);
     lib.refresh();
     bool gone = true; for (const BankPreset& p : lib.bank()) if (p.section == sec && p.name == first) gone = false;
-    check(e.empty() && gone && inFolder() == kNumKeyAttac - 1, "a favourite the player deletes stays deleted (the file says LIST ORDER v7)", u8(e));
+    check(e.empty() && gone && inFolder() == kNumKeyAttac - 1, "a favourite the player deletes stays deleted (the file says LIST ORDER v8)", u8(e));
     check(has(readAll(file), "== KeyAttac =="), "the file has the KeyAttac folder");
+  }
+
+  std::printf("11. version 1.0.17: banks of the player's own (NEW BANK), and a preset as text (COPY / PASTE)\n");
+  {
+    const int nb = (int)lib.bankNames().size();
+    e = lib.addBank("My Live Set");
+    check(e.empty() && (int)lib.bankNames().size() == nb + 1 && lib.bankNames().back() == "My Live Set" && has(readAll(file), "== My Live Set =="),
+          "addBank() makes a bank, written in the file even while empty", u8(e));
+    check(!lib.addBank("My Live Set").empty() && !lib.addBank("Bass").empty(), "a bank name already taken is refused (a built-in one too)");
+    const int sec = nb;
+    BankPreset p; p.section = sec; p.name = "Live lead"; for (int i = 0; i < kNumParams; i++) p.v[i] = kParams[i].def; p.v[P_F_CUTOFF] = 4.5;
+    e = lib.putUser(p);
+    check(e.empty() && lib.bank().back().section == sec && has(readAll(file), "== My Live Set ==\r\n\r\nPreset: Live lead"), "a sound goes into it", u8(e));
+    {   // read back from the file only: the bank and its sound are there
+      const std::string txt = readAll(file);
+      writeTextFile(file, txt + "\r\n");
+      sleepMs(600);
+      lib.refresh();
+      bool found = false; for (const BankPreset& q : lib.bank()) found = found || (q.section == sec && q.name == "Live lead" && std::fabs(q.v[P_F_CUTOFF] - 4.5) < 1e-9);
+      check(found && lib.bankNames().back() == "My Live Set", "the file read again keeps the bank and its sound");
+    }
+    e = lib.renameBank(sec, "Stage");
+    check(e.empty() && lib.bankNames().back() == "Stage" && has(readAll(file), "== Stage ==") && !has(readAll(file), "== My Live Set =="), "renameBank() renames it, its sound stays", u8(e));
+    check(!lib.renameBank(0, "Basses").empty() && !lib.removeBank(0).empty(), "a built-in bank cannot be renamed or deleted");
+    e = lib.removeBank(sec);
+    bool left = false; for (const BankPreset& q : lib.bank()) left = left || q.name == "Live lead";
+    check(e.empty() && (int)lib.bankNames().size() == nb && !left && !has(readAll(file), "== Stage =="), "removeBank() deletes it with its sounds", u8(e));
+    // a preset as text, and back
+    const std::string t = Library::presetText("Copied pad", "A · Warm Pad", p.v);
+    BankPreset q;
+    const bool ok = Library::parsePreset("some words before\r\n" + t + "Preset: a second one\r\n  f_cutoff: 9\r\n", q);
+    check(ok && q.name == "Copied pad" && q.from == "A · Warm Pad" && std::fabs(q.v[P_F_CUTOFF] - 4.5) < 1e-9 && std::fabs(q.v[P_AMP_A] - kParams[P_AMP_A].def) < 1e-12,
+          "a preset copied as text is read back the same (the first block only)", t.substr(0, 120));
+    check(!Library::parsePreset("hello\nno preset here", q), "a text without a Preset: line is not a preset");
+  }
+
+  std::printf("12. version 1.0.17: NEW in a factory list (a preset of the player's own right after the selected one), NEW in a bank (right after the sound)\n");
+  {
+    const auto ls = lib.lists();
+    int cat = -1, after = -1, next = -1;
+    for (size_t i = 1; i < ls.size() && cat < 0; i++) if (ls[i].second.size() >= 2) { cat = (int)i; after = ls[i].second[0]; next = ls[i].second[1]; }
+    BankPreset p; p.name = "My new lead"; p.from = lib.name(after); for (int i = 0; i < kNumParams; i++) p.v[i] = kParams[i].def; p.v[P_F_CUTOFF] = 3.25;
+    int entry = -1;
+    e = lib.addExtra(p, cat, after, entry);
+    auto pos = [&](int list, int k) { const auto L = lib.lists()[list].second; return (int)(std::find(L.begin(), L.end(), k) - L.begin()); };
+    check(e.empty() && entry == kNumPresets && lib.name(entry) == "My new lead" && pos(cat, entry) == 1 && pos(cat, next) == 2 && lib.categoryOf(entry) == cat,
+          "addExtra() puts the new preset right after the selected one, in its category", u8(e));
+    const std::string txt = readAll(file);
+    check(has(txt, "######## YOUR PRESETS IN THE FACTORY LISTS ########\r\n\r\nPreset: My new lead") && has(txt, "2. + My new lead\r\n"), "the file keeps it, and its place in the list");
+    {   // read back from the file only
+      writeTextFile(file, txt + "\r\n");
+      sleepMs(600);
+      lib.refresh();
+      double w[kNumParams]; lib.values(entry, w);
+      check(lib.name(entry) == "My new lead" && pos(cat, entry) == 1 && std::fabs(w[P_F_CUTOFF] - 3.25) < 1e-9, "the file read again keeps it, with its sound, at its place");
+    }
+    check(!lib.addExtra(p, cat, after, entry).empty(), "a second preset of the player's own with the same name is refused");
+    e = lib.putExtra(kNumPresets, "My lead", nullptr);
+    check(e.empty() && lib.name(kNumPresets) == "My lead" && lib.findExtra("My lead") == kNumPresets, "putExtra() renames it", u8(e));
+    e = lib.setStars(kNumPresets, 8);
+    check(e.empty() && lib.stars(kNumPresets) == 8, "it can be rated", u8(e));
+    e = lib.removeExtra(kNumPresets);
+    check(e.empty() && lib.extraCount() == 0 && pos(cat, next) == 1 && !has(readAll(file), "+ My lead"), "removeExtra() deletes it, the list closes up", u8(e));
+    // a bank sound right after another one
+    BankPreset a; a.section = 1; a.name = "First"; for (int i = 0; i < kNumParams; i++) a.v[i] = kParams[i].def;
+    BankPreset b = a; b.name = "Second"; BankPreset c = a; c.name = "In between";
+    lib.putUser(a); lib.putUser(b);
+    e = lib.putUser(c, "", "First");
+    std::vector<std::string> order; for (const BankPreset& x : lib.bank()) if (x.section == 1) order.push_back(x.name);
+    const size_t f = std::find(order.begin(), order.end(), "First") - order.begin();
+    check(e.empty() && f + 2 < order.size() + 1 && f + 1 < order.size() && order[f + 1] == "In between" && f + 2 < order.size() && order[f + 2] == "Second",
+          "putUser(..., after) puts a new bank sound right after the selected one", u8(e));
+  }
+
+  std::printf("13. version 1.0.17: EXPORT of one bank (a user bank, a factory list, the favourites), IMPORT of the banks chosen (ADD, MERGE): nothing is replaced\n");
+  {
+    auto secOf = [&](const std::string& n) { const auto nm = lib.bankNames(); return (int)(std::find(nm.begin(), nm.end(), n) - nm.begin()); };
+    auto inSec = [&](int sec) { std::vector<BankPreset> v; for (const BankPreset& q : lib.bank()) if (q.section == sec) v.push_back(q); return v; };
+    e = lib.addBank("Export me");
+    const int sec = secOf("Export me");
+    BankPreset a; a.section = sec; a.name = "Bank sound A"; a.stars = 8; for (int i = 0; i < kNumParams; i++) a.v[i] = kParams[i].def; a.v[P_F_CUTOFF] = 3.5;
+    BankPreset b = a; b.name = "Bank sound B"; b.stars = 3; b.v[P_F_CUTOFF] = 4.4;
+    lib.putUser(a); lib.putUser(b);
+    const std::wstring fUser = out + L"\\bank user.txt", fList = out + L"\\bank list.txt", fFav = out + L"\\bank fav.txt", fAll = out + L"\\bank all.txt";
+    int n = 0;
+    e = lib.exportBank(fUser, Library::kExportUserBank, sec, 0, n);
+    const std::string tu = readAll(fUser);
+    check(e.empty() && n == 2 && has(tu, "== Export me ==") && has(tu, "Preset: Bank sound A") && has(tu, "Stars: 8") && !has(tu, "######## FACTORY"),
+          "EXPORT of a bank writes only its sounds, with their stars", u8(e));
+    const auto ls = lib.lists();
+    int expect = 0; for (int k : ls[1].second) expect += k >= kNumPresets || !lib.deleted(k);
+    e = lib.exportBank(fList, Library::kExportFactoryList, 1, 0, n);
+    check(e.empty() && n == expect && has(readAll(fList), "== " + ls[1].first + " ==") && has(readAll(fList), "From: "), "EXPORT of a factory list writes its presets as they are",
+          u8(e) + " " + std::to_string(n) + " of " + std::to_string(expect));
+    const int kC = plain(kB + 5);
+    lib.setStars(kB, 9);
+    e = lib.exportBank(fFav, Library::kExportFavourites, 0, 8, n);
+    const std::string tf = readAll(fFav);
+    check(e.empty() && has(tf, "Preset: " + lib.name(kB)) && has(tf, "Preset: Bank sound A") && !has(tf, "Bank sound B") && has(tf, "== Favourites =="),
+          "EXPORT of the favourites: every sound rated 8 or more, factory presets and user bank", u8(e));
+    std::vector<Library::ImportItem> items; std::string by;
+    e = lib.importScan(fUser, items, by);
+    check(e.empty() && items.size() == 1 && items[0].kind == 0 && items[0].name == "Export me" && items[0].count == 2 && by == kAppVersionNum,
+          "importScan of a bank file: the one bank, its sounds, the version that wrote it", u8(e) + " " + by);
+    std::wstring bk; std::string sum;
+    e = lib.importSome(fUser, {1}, Library::kImportAdd, bk, sum);
+    const int sec2 = secOf("Export me (imported)");
+    check(e.empty() && sec2 < (int)lib.bankNames().size() && inSec(sec2).size() == 2 && inSec(sec).size() == 2,
+          "ADD: his bank of that name stays as it was, the file's comes in as \"Export me (imported)\"", u8(e) + " " + sum);
+    check(!bk.empty() && fileExists(bk), "IMPORT keeps a backup copy of his file first", u8(bk));
+    b.v[P_F_CUTOFF] = 6.6; lib.putUser(b);   // his B changed since the export
+    e = lib.importSome(fUser, {1}, Library::kImportMerge, bk, sum);
+    bool b2 = false; for (const BankPreset& q : inSec(sec)) b2 = b2 || (q.name == "Bank sound B (2)" && std::fabs(q.v[P_F_CUTOFF] - 4.4) < 1e-9);
+    check(e.empty() && inSec(sec).size() == 3 && b2 && has(sum, "1 already there"), "MERGE: the same sound is left out, a namesake that differs comes in as \"(2)\"", u8(e) + " " + sum);
+    lib.setStars(kC, 6);
+    lib.setStars(kB, 9);
+    e = lib.exportTo(fAll);
+    lib.setStars(kC, 0);   // no rating now
+    lib.setStars(kB, 4);   // another rating now
+    e = lib.importScan(fAll, items, by);
+    int starItem = -1; bool hasBank = false;
+    for (size_t i = 0; i < items.size(); i++) { if (items[i].kind == 3) starItem = (int)i; if (items[i].kind == 0 && items[i].name == "Export me") hasBank = true; }
+    check(e.empty() && starItem >= 0 && hasBank, "importScan of a whole presets file: its banks and its stars", u8(e));
+    std::vector<char> only(items.size(), 0); if (starItem >= 0) only[starItem] = 1;
+    e = lib.importSome(fAll, only, Library::kImportAdd, bk, sum);
+    check(e.empty() && lib.stars(kC) == 6 && lib.stars(kB) == 4, "IMPORT of the stars rates only the presets he has not rated", u8(e) + " " + sum);
+    check(!lib.importSome(fAll, std::vector<char>(items.size(), 0), Library::kImportAdd, bk, sum).empty(), "nothing chosen: nothing is imported");
+    lib.setStars(kB, 0); lib.setStars(kC, 0);
+    lib.removeBank(secOf("Export me (imported)")); lib.removeBank(secOf("Export me"));
   }
 
   std::printf(gFails ? "\n%d FAILED\n" : "\nALL PASS\n", gFails);
