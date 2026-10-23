@@ -805,7 +805,8 @@ async function stepPanel() {
   const topNames = SPEC.TOP_LIST.map((i) => SPEC.PRESETS[i].name);
   const lastCat = SPEC.CATEGORIES[SPEC.CATEGORIES.length - 1];
   const lights = SPEC.PRESETS.filter((p) => / LGT$/.test(p.name)).length, high = SPEC.PRESETS.filter((p) => / HIGH_CPU$/.test(p.name));   // (version 1.0.14: the LGT versions, tools/spec.js LGT; the full versions of the favourites they replace are in Other)
-  check(SPEC.PRESETS.length === SPEC.TOP + SPEC.NEW_COUNT + lights && lights === 20 && high.length === 17 && high.every((p) => p.cat === 'Other' && !p.stars) && lastCat === 'Other', `spec: TOP Sounds = ${TOP_N} sounds, then ${SPEC.NEW_COUNT} new presets and ${lights} LGT versions (${high.length} HIGH_CPU originals in Other); ${lastCat} is the last category`,
+  // (version 1.0.15: the owner deleted AA · Morph of Brass LGT and three HIGH_CPU originals: 19 LGT versions, 14 HIGH_CPU)
+  check(SPEC.PRESETS.length === SPEC.TOP + SPEC.NEW_COUNT + lights && lights === 19 && high.length === 14 && high.every((p) => p.cat === 'Other' && !p.stars) && lastCat === 'Other', `spec: TOP Sounds = ${TOP_N} sounds, then ${SPEC.NEW_COUNT} new presets and ${lights} LGT versions (${high.length} HIGH_CPU originals in Other); ${lastCat} is the last category`,
     `TOP ${SPEC.TOP}, presets ${SPEC.PRESETS.length}, light ${lights}, last category '${lastCat}'`);
   const bInfo = await ev(`(() => { const b = document.getElementById('browser'); if (!b) return null;
     const tab = b.querySelector('.btabs button'); if (tab) tab.click();   // FACTORY

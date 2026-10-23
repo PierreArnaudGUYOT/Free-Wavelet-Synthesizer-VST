@@ -37,6 +37,11 @@ function WSCoreFactory(SPEC) {
   // the earlier versions); above it the gain falls with GUARD_ATT (s), is held for GUARD_HOLD (s) so that it does not ripple at the pitch of the sound, and comes back
   // with GUARD_REL (s).
   const GUARD_T = 0.9, GUARD_ATT = 0.0003, GUARD_HOLD = 0.015, GUARD_REL = 0.15;
+  // Version 1.0.15: the look-ahead limiter (OUTPUT 'Limiter'). The output is delayed by LIM_LA (s); the gain each sample needs to stay under LIM_CEIL is held for the
+  // B = D + 1 samples of the look-ahead plus LIM_HOLD (a running minimum: it does not ripple at the pitch of a bass), comes back with LIM_REL (s), and is averaged over B
+  // samples, so it reaches the needed gain exactly when the peak leaves the delay: no sample ever goes past LIM_CEIL and no tanh colours the sound. Below the ceiling the
+  // gain is exactly 1. 'Classic' (the guard + soft limiter of 1.0.14) goes through the same delay: the latency never changes.
+  const LIM_LA = 0.0015, LIM_HOLD = 0.015, LIM_REL = 0.15, LIM_CEIL = 0.89;
   // beta 0.3.2 (the crackle of a loud chord): the presets' masters are set for about three notes; a denser chord drove the soft limiter into audible distortion (the same fix as
   // the Wavelet Synthesizer's beta 0.7.1). The voice sum is scaled by sqrt(POLY_FREE / n) when n > POLY_FREE voices sound (n weighted by their energy relative to the loudest one,
   // so release tails count little), smoothed: up to POLY_FREE voices nothing changes.
@@ -670,12 +675,26 @@ function WSCoreFactory(SPEC) {
     this.vol = Math.exp(this.p[P.master] * (Math.LN10 / 20));
     this.guard = { t: GUARD_T, att: GUARD_ATT, hold: GUARD_HOLD, rel: GUARD_REL };   // (a test can change them before the first block)
     this.gd = 1; this.gHold = 0;   // the guard's gain and the samples it is still held for
+    // the look-ahead limiter (version 1.0.15): D samples of delay (the latency), a B-sample average, an H-sample running minimum
+    this.limD = Math.max(1, Math.round(LIM_LA * sr)); this.limB = this.limD + 1; this.limH = this.limB + Math.round(LIM_HOLD * sr);
+    this.limL = new Float64Array(this.limD); this.limR = new Float64Array(this.limD);
+    this.limQG = new Float64Array(this.limH); this.limQT = new Float64Array(this.limH);   // the running minimum's queue (gains, sample numbers)
+    this.limAv = new Float64Array(this.limB);
+    this.kLr = rateCoef(1 - Math.exp(-1 / (LIM_REL * 48000)), sr);
+    this.limReset();
     this.polyG = 1;   // the chord compensation (1 = none)
     this.polyDown = 1 - Math.exp(-1 / (POLY_DOWN * sr)); this.polyUp = 1 - Math.exp(-1 / (POLY_UP * sr));
     this.dcR = 1 - 2 * Math.PI * 10 / sr; this.dcxL = 0; this.dcyL = 0; this.dcxR = 0; this.dcyR = 0;
     this.chLen = Math.ceil(sr * 0.03) + 4;
     this.chBuf = new Float32Array(this.chLen); this.chW = 0; this.chPh = 0; this.chPh2 = 0;
     for (let s = 0; s < NS; s++) this.lvlSm[s] = this.p[K[s].lvl];
+  };
+  // the look-ahead limiter at rest: silent delay, gain 1 (setSampleRate, allSoundOff, an idle block)
+  E.limReset = function () {
+    this.limL.fill(0); this.limR.fill(0); this.limW = 0; this.limT = 0;
+    this.limQh = 0; this.limQn = 0;   // the queue's head and length
+    this.limAv.fill(1); this.limAw = 0; this.limSum = this.limB; this.limBelow = 0;   // the average: its samples, where the next one goes, their sum, how many are under 1
+    this.limEnv = 1; this.limG = 1; this.limRest = true;
   };
 
   E.setParam = function (id, v) {
@@ -821,6 +840,7 @@ function WSCoreFactory(SPEC) {
     this.chBuf.fill(0);
     this.quiet = 0;
     this.polyG = 1; this.gd = 1; this.gHold = 0;
+    this.limReset();
   };
 
   // ---------------------------------------------------------------- Okto MultiWave Synth: the chord layer
@@ -931,8 +951,8 @@ function WSCoreFactory(SPEC) {
     }
     if (!any) { this.polyG = 1; return; }
     const nv = amax > 0 ? sum / (amax * amax) : 0;
-    // + 1e-6: three equal voices give nv = 3.0000000000000004 (rounding), which must still mean "no compensation"
-    const gT = nv > POLY_FREE + 1e-6 ? Math.sqrt(POLY_FREE / nv) : 1;
+    // + 1e-6: three equal voices give nv = 3.0000000000000004 (rounding), which must still mean "no compensation"; CHORD COMP off (1.0.15): the gain glides back to 1
+    const gT = nv > POLY_FREE + 1e-6 && p[P.poly_comp] >= 0.5 ? Math.sqrt(POLY_FREE / nv) : 1;
     let g = this.polyG;
     if (g === 1 && gT === 1) return;
     const c = gT < g ? this.polyDown : this.polyUp;
@@ -1461,9 +1481,11 @@ function WSCoreFactory(SPEC) {
       outL.fill(0, o, o + n); outR.fill(0, o, o + n);
       this.vol = Math.exp(p[P.master] * (Math.LN10 / 20)); this.dlyT = this.delaySec() * this.sr;
       this.gd = 1; this.gHold = 0;
+      if (!this.limRest) this.limReset();
       this.publish(this.disp.peakL, this.disp.peakR, 0);
       return;
     }
+    this.limRest = false;
     L.fill(0, 0, n); R.fill(0, 0, n);
     let voices = 0;
     const fading = !!this.prev, fadeInc = fading ? 1 / 512 : 0, fade0 = fading ? this.fade : 1;
@@ -1534,6 +1556,10 @@ function WSCoreFactory(SPEC) {
     let pkL = this.disp.peakL, pkR = this.disp.peakR, bpk = 0;
     const gG = this.guard, gGt = gG.t, kGa = rateCoef(1 - Math.exp(-1 / (gG.att * 48000)), this.sr), kGr = rateCoef(1 - Math.exp(-1 / (gG.rel * 48000)), this.sr), gHoldN = Math.round(gG.hold * this.sr);
     let gd = this.gd, gHold = this.gHold;
+    // the look-ahead limiter's state for the block (version 1.0.15)
+    const limiter = p[P.out_mode] >= 0.5, limD = this.limD, limB = this.limB, limH = this.limH, limL = this.limL, limR = this.limR;
+    const qG = this.limQG, qT = this.limQT, av = this.limAv, kLr = this.kLr;
+    let lw = this.limW, limT = this.limT, qh = this.limQh, qn = this.limQn, aw = this.limAw, sum = this.limSum, below = this.limBelow, env = this.limEnv, g = this.limG;
     for (let i = 0; i < n; i++) {
       let l = L[i], r = R[i];
       if (drive > 0) {
@@ -1597,21 +1623,49 @@ function WSCoreFactory(SPEC) {
       const yr = r - this.dcxR + this.dcR * this.dcyR; this.dcxR = r; this.dcyR = Math.abs(yr) < 1e-20 ? 0 : yr; r = this.dcyR;
       this.vol += (volT - this.vol) * kVol;
       l *= this.vol; r *= this.vol;
-      // the peak guard (beta 0.3.2): the gain that keeps the larger channel under gT before the soft limiter
-      const aq = Math.abs(l) > Math.abs(r) ? Math.abs(l) : Math.abs(r), gT = aq > gGt && aq < 1e9 ? gGt / aq : 1;
+      // how loud the output stage's input is (the idle rule: when a block is skipped, the delay below holds nothing but silence)
+      const ai = Math.abs(l) > Math.abs(r) ? Math.abs(l) : Math.abs(r);
+      if (ai > bpk) bpk = ai;
+      // the look-ahead limiter's gain (version 1.0.15): the gain this sample needs, its minimum over the last limH samples (a queue of increasing gains), the release,
+      // the average over limB samples (exactly 1 while none of them is under 1)
+      const gq = ai > LIM_CEIL && ai < 1e9 ? LIM_CEIL / ai : 1;
+      // the oldest gain leaves the window BEFORE the new one comes in: the queue never holds more than limH (a long falling peak above the ceiling, a loud low square through
+      // the DC blocker, filled it to limH + 1 and overran it)
+      if (qn > 0 && qT[qh] <= limT - limH) { qh = qh + 1 >= limH ? 0 : qh + 1; qn--; }
+      while (qn > 0) { let b = qh + qn - 1; if (b >= limH) b -= limH; if (qG[b] >= gq) qn--; else break; }
+      let e = qh + qn; if (e >= limH) e -= limH;
+      qG[e] = gq; qT[e] = limT; qn++;
+      limT++;
+      const hm = qG[qh];
+      if (hm < env) env = hm;
+      else if (env < 1) { env += (hm - env) * kLr; if (hm === 1 && 1 - env < 1e-9) env = 1; }
+      const old = av[aw]; av[aw] = env; aw = aw + 1 >= limB ? 0 : aw + 1;
+      below += (env < 1 ? 1 : 0) - (old < 1 ? 1 : 0);
+      if (below === 0) { sum = limB; g = 1; } else { sum += env - old; g = sum / limB; }
+      // the delay: the output stage works on the sample of limD samples ago
+      const dl = limL[lw], dr = limR[lw]; limL[lw] = l; limR[lw] = r; lw = lw + 1 >= limD ? 0 : lw + 1;
+      // Classic, the output stage of 1.0.14: the peak guard (beta 0.3.2), the gain that keeps the larger channel under gT before the soft limiter. It follows the delayed signal in
+      // both modes, so that switching OUTPUT finds it in step (no stale gain cut when Classic comes back)
+      const aq = Math.abs(dl) > Math.abs(dr) ? Math.abs(dl) : Math.abs(dr), gT = aq > gGt && aq < 1e9 ? gGt / aq : 1;
       if (gT < gd) { gd += (gT - gd) * kGa; gHold = gHoldN; }
       else if (gHold > 0) gHold--;
       else if (gd < 1) { gd += (gT - gd) * kGr; if (gT === 1 && 1 - gd < 1e-9) gd = 1; }
-      l = softLimit(l * gd); r = softLimit(r * gd);
+      if (limiter) {
+        l = dl * g; r = dr * g;
+        l = l > 1 ? 1 : l < -1 ? -1 : l === l ? l : 0;   // never reached by a finite input (the gain keeps it under LIM_CEIL): a safety net
+        r = r > 1 ? 1 : r < -1 ? -1 : r === r ? r : 0;
+      } else {
+        l = softLimit(dl * gd); r = softLimit(dr * gd);
+      }
       outL[o + i] = l; outR[o + i] = r;
       const al = Math.abs(l), ar = Math.abs(r);
       if (al > pkL) pkL = al; if (ar > pkR) pkR = ar;
-      if (al > bpk) bpk = al; if (ar > bpk) bpk = ar;
     }
     this.gd = gd; this.gHold = gHold;
-    // how long the output has been silent, and how long it must stay so before the block is skipped
+    this.limW = lw; this.limT = limT; this.limQh = qh; this.limQn = qn; this.limAw = aw; this.limSum = sum; this.limBelow = below; this.limEnv = env; this.limG = g;
+    // how long the output stage's input has been silent, and how long it must stay so before the block is skipped
     if (voices === 0 && !fading && bpk < QUIET_PEAK) this.quiet += n; else this.quiet = 0;
-    this.quietNeed = Math.ceil(1.5 * (dmix > 0 || fb > 0 ? Math.max(dTarget, this.dlyT) : 0)) + QUIET_EXTRA;
+    this.quietNeed = Math.ceil(1.5 * (dmix > 0 || fb > 0 ? Math.max(dTarget, this.dlyT) : 0)) + QUIET_EXTRA + limD;
     this.publish(pkL, pkR, voices);
   };
 

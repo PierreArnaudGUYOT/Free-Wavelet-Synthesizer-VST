@@ -36,7 +36,7 @@ const APP = {
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
   version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
-  versionNum: '1.0.14',
+  versionNum: '1.0.15',
   date: '2026-10-21',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -345,6 +345,11 @@ add('vel_target', 'Velocity Target', 'VEL TO', { curve: 'choice', fmt: 'choice',
 add('midi_asoff', 'All Sound Off (MIDI CC 120)', 'SND OFF', { min: 0, max: 1, def: 0.5, hidden: true });
 add('midi_rstctl', 'Reset All Controllers (MIDI CC 121)', 'RST CTL', { min: 0, max: 1, def: 0.5, hidden: true });
 add('midi_anoff', 'All Notes Off (MIDI CC 123)', 'NOTES OFF', { min: 0, max: 1, def: 0.5, hidden: true });
+// Version 1.0.15 (the output stage): the look-ahead limiter replaces the peak guard + tanh soft limiter (OUTPUT 'Limiter', the default); 'Classic' is the stage of 1.0.14, kept
+// for the owner's A/B test. Both go through the same LIM_LA delay, so the latency the plug-in reports never changes. CHORD COMP: the voice-count compensation of beta 0.3.2
+// (polyComp), now switchable to compare by ear. Two hidden performance settings (never in a preset), set by the test page of the web test copy.
+add('out_mode', 'Output Stage', 'OUTPUT', { curve: 'choice', fmt: 'choice', min: 0, max: 1, def: 1, perf: true, hidden: true, choices: ['Classic', 'Limiter'], choiceShort: ['CLASSIC', 'LIMITER'] });
+add('poly_comp', 'Chord Compensation', 'CHORD COMP', { curve: 'choice', fmt: 'choice', min: 0, max: 1, def: 1, perf: true, hidden: true, choices: ['Off', 'On'], choiceShort: ['OFF', 'ON'] });
 
 const DELAY_BEATS = DELAY_NOTES.map(noteBeats), LFO_BEATS = LFO_NOTES.map(noteBeats);
 for (const b of [DELAY_BEATS, LFO_BEATS]) for (let i = 1; i < b.length; i++)
@@ -849,11 +854,7 @@ const percussive = (v0) => {
   v.mod_a = 0.001; v.vf_a = 0.001;
   return v;
 };
-const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).map(i => {
-  const p = PRESETS[i], v = percussive(p.v), down = KA_ADJ[p.name] || (p.light && KA_ADJ[p.light]) || 0;   // (version 1.0.14: an LGT version takes its original's)
-  if (down) v.master = Math.max(-36, (v.master !== undefined ? v.master : P[idx.master].def) - down);
-  return { name: p.name, from: p.name, stars: p.vote, v };
-});
+// (KEYATTAC itself is built below, after the owner's edits and deletions of version 1.0.15)
 // Version 1.0.11 (the owner's request, web app and plug-in): places of the TOP Sounds: AA · Sweep of Pixel the 2nd, A · Shimmering Strings the 3rd, AB · Kalimba Lung Machine the 5th and A · Noise Wash Pad
 // the 6th (he asked for the 5th for both, the later request, Kalimba, took the place and Noise Wash Pad follows it); the others keep their order around them. Each stays in its category too (the
 // browsers list the TOP Sounds in their category as well).
@@ -915,6 +916,34 @@ let DEMO_TRIM = {}; try { DEMO_TRIM = require('./demo_trim.js'); } catch (e) { i
 for (const n of TOUR) if (!DEMO_PRESETS.some(p => p.name === n) && !PRESETS.some(p => p.name === n)) throw new Error('TOUR: preset not found: ' + n);
 // version 1.0.10: only the copies the tour still uses are kept (the others were the old tour's presets: the demo vote replaced them; tools/demo_presets.js keeps them all)
 for (let i = DEMO_PRESETS.length - 1; i >= 0; i--) if (!TOUR.includes(DEMO_PRESETS[i].name)) DEMO_PRESETS.splice(i, 1);
+// Version 1.0.15: the owner's own sounds, from his presets file of 2026-10-23 (tools/owner_presets.js, written by tools/owner_import.js). His request: "implémente les sons qui sont dans le
+// fichier; tu peux écraser les anciens, uniquement si les sons ne sont pas utilisés dans la musique de démo; s'ils le sont, conserve le son dans le preset", and for the presets he deleted in his
+// browser: "les retirer, sauf ceux de la démo". So the presets he adjusted with SAVE PRESET take his values (only the parameters he changed), and the ones he deleted leave the factory list,
+// except, for both, the presets the demo plays (TOUR): the demo sounds as before. The order of the lists does not change (he did not want his stars to re-sort them).
+const OWNER = require('./owner_presets.js'), DEMO_NAMES = new Set(TOUR);
+const OWNER_EDITS = {};
+for (const [name, edit] of Object.entries(OWNER.adjusted)) {
+  if (DEMO_NAMES.has(name)) continue;
+  const p = PRESETS.find(x => x.name === name); if (!p) throw new Error('owner_presets: no preset ' + name);
+  p.v = Object.assign({}, p.v, edit); OWNER_EDITS[name] = edit;
+}
+let TOP_N = TOP_COUNT, NEW_N = NEW_RAW.length;   // the TOP Sounds of beta 0.7 and the new presets of the listening tests, in the array: the counts after the deletions
+{
+  const gone = new Set(OWNER.deleted.filter(n => !DEMO_NAMES.has(n)));
+  for (const n of gone) { if (!PRESETS.some(p => p.name === n)) throw new Error('owner_presets: no preset ' + n); if (n === DEFAULT_PRESET) throw new Error('owner_presets: the opening sound cannot go: ' + n); }
+  const newIdx = [], kept = [];
+  PRESETS.forEach((p, i) => { if (gone.has(p.name)) { newIdx.push(-1); if (i < TOP_COUNT) TOP_N--; else if (i < TOP_COUNT + NEW_RAW.length) NEW_N--; return; } newIdx.push(kept.length); kept.push(p); });
+  PRESETS.splice(0, PRESETS.length, ...kept);
+  for (const L of [TOP_LIST, TOP_EXTRA]) L.splice(0, L.length, ...L.map(i => newIdx[i]).filter(i => i >= 0));
+  PRESETS.map((p, i) => i).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).forEach((i, r) => { PRESETS[i].rank = r; });   // the same order, without the gaps
+  for (const n of gone) delete DESCRIPTIONS[n];
+  for (let i = CATEGORIES.length - 1; i >= 0; i--) if (CATEGORIES[i] !== 'Other' && !PRESETS.some(p => p.cat === CATEGORIES[i])) CATEGORIES.splice(i, 1);
+}
+const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).map(i => {
+  const p = PRESETS[i], v = percussive(p.v), down = KA_ADJ[p.name] || (p.light && KA_ADJ[p.light]) || 0;   // (version 1.0.14: an LGT version takes its original's)
+  if (down) v.master = Math.max(-36, (v.master !== undefined ? v.master : P[idx.master].def) - down);
+  return { name: p.name, from: p.name, stars: p.vote, v };
+});
 // version 1.0.6: what the demo window says while the piece plays (the owner's request: a short, readable presentation of the synth, the wavelets and the idea of an oscillator made of them, and how it
 // differs from the other synthesizers). One sentence per preset of the tour (every ~4 s, so about 13 words at the most, simple words), [chapter, sentence]; the web app shows them in order, the last one stays
 // if the tour is longer. Only facts of the engine: tools/ and CLAUDE.md section 3.1 (a cycle is split into 11 bands of wavelets; the scale filter works on bands, the position window on a part of the cycle).
@@ -968,5 +997,6 @@ for (const s of S) {
   }
 }
 
-module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_COUNT, TOP_EXTRA, TOP_LIST, PRESET_EDITS, DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, CATEGORIES,
-  LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, CHORDS, CHORD_KEYS, MICRO_TABLES, NEW_FIRST: TOP_COUNT, NEW_COUNT: NEW_RAW.length, DESCRIPTIONS, TOUR };
+module.exports = { DEVICE, ORIENT, CHORD_H, APP, DEFAULT_PRESET, PARAMS: P, INDEX: idx, SECTIONS: S, PRESETS, TOP: TOP_N, TOP_EXTRA, TOP_LIST, PRESET_EDITS: Object.assign({}, PRESET_EDITS, OWNER_EDITS),
+  DEMO_PRESETS, DEMO_TRIM, DEMO_STORY, KEYATTAC, CATEGORIES,
+  LFO2_TARGETS, LFO2_ROLE, ROLES, SLOTS, DELAY_BEATS, LFO_BEATS, CHORDS, CHORD_KEYS, MICRO_TABLES, NEW_FIRST: TOP_N, NEW_COUNT: NEW_N, DESCRIPTIONS, TOUR };

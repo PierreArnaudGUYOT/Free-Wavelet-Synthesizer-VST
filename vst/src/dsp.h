@@ -115,6 +115,10 @@ constexpr double LIMIT_T = 0.7;      // output soft limiter: transparent below -
 // (core.js, operation for operation). Below GUARD_T the gain is exactly 1 (bit-identical with the earlier versions); above it the gain falls with GUARD_ATT (s), is held for
 // GUARD_HOLD (s) so that it does not ripple at the pitch of the sound, and comes back with GUARD_REL (s).
 constexpr double GUARD_T = 0.9, GUARD_ATT = 0.0003, GUARD_HOLD = 0.015, GUARD_REL = 0.15;
+// Version 1.0.15: the look-ahead limiter (OUTPUT 'Limiter'; core.js, operation for operation). The output is delayed by LIM_LA (s); the gain each sample needs to stay under
+// LIM_CEIL is held for the B = D + 1 samples of the look-ahead plus LIM_HOLD (a running minimum), comes back with LIM_REL (s), and is averaged over B samples, so it reaches
+// the needed gain exactly when the peak leaves the delay. 'Classic' (the guard + soft limiter of 1.0.14) goes through the same delay: the latency never changes.
+constexpr double LIM_LA = 0.0015, LIM_HOLD = 0.015, LIM_REL = 0.15, LIM_CEIL = 0.89;
 // beta 0.3.2: the presets' masters are set for about three notes; a denser chord drove the soft limiter into audible distortion (the same fix as the Wavelet Synthesizer's beta 0.7.1).
 // The voice sum is scaled by sqrt(POLY_FREE / n) when n > POLY_FREE voices sound (n weighted by their energy relative to the loudest one, so release tails count little), smoothed:
 // up to POLY_FREE voices nothing changes.
@@ -131,6 +135,8 @@ inline double rateCoef(double a48, double sr) { return sr == 48000 ? a48 : 1 - s
 constexpr double DLY_MAX = 4;   // beta 0.6: the longest delay (s): a whole note at 60 BPM (tempo sync)
 
 inline double jsRound(double x) { return std::floor(x + 0.5); }  // Math.round semantics
+// version 1.0.15: the latency of the output stage at a sample rate, in samples (the look-ahead limiter's delay; the plug-in reports it to the host)
+inline int limiterDelay(double sr) { return std::max(1, (int)jsRound(LIM_LA * sr)); }
 
 struct Rng {
   uint32_t s;
@@ -943,7 +949,12 @@ class Engine {
     polyG = 1; polyDown = 1 - std::exp(-1 / (POLY_DOWN * sr)); polyUp = 1 - std::exp(-1 / (POLY_UP * sr));
     gd = 1; gHold = 0;
     kGa = rateCoef(1 - std::exp(-1 / (GUARD_ATT * 48000)), sr); kGr = rateCoef(1 - std::exp(-1 / (GUARD_REL * 48000)), sr); gHoldN = (int)std::lround(GUARD_HOLD * sr);
-    damp = sr == 48000 ? 0.25 : std::pow(0.25, 48000 / sr);
+    // the look-ahead limiter (version 1.0.15): D samples of delay (the latency), a B-sample average, an H-sample running minimum
+    limD = limiterDelay(sr); limB = limD + 1; limH = limB + (int)jsRound(LIM_HOLD * sr);
+    limL.assign(limD, 0.0); limR.assign(limD, 0.0); limQG.assign(limH, 0.0); limQT.assign(limH, 0); limAv.assign(limB, 1.0);
+    kLr = rateCoef(1 - std::exp(-1 / (LIM_REL * 48000)), sr);
+    limReset();
+    damp =sr == 48000 ? 0.25 : std::pow(0.25, 48000 / sr);
     quiet = 0; quietNeed = 1e18;   // samples of silence so far, and how many an idle skip needs (set by every block)
     vol = std::exp(p[P_MASTER] * (LN10 / 20));
     dcR = 1 - 2 * PI * 10 / sr; dcxL = dcyL = dcxR = dcyR = 0;
@@ -968,6 +979,7 @@ class Engine {
     dcxL = dcyL = dcxR = dcyR = 0;
     quiet = 0;
     polyG = 1; gd = 1; gHold = 0;
+    limReset();
     started = false;
     for (int s = 0; s < NS; s++) lvlSm[s] = p[kSlots[s].lvl];
   }
@@ -1084,7 +1096,11 @@ class Engine {
     std::fill(chBuf.begin(), chBuf.end(), 0.0f);
     quiet = 0;
     polyG = 1; gd = 1; gHold = 0;
+    limReset();
   }
+
+  // the latency of the output stage at the current sample rate (version 1.0.15: the look-ahead limiter's delay, in samples)
+  int latency() const { return limD; }
 
   // ---------------------------------------------------------------- Okto MultiWave Synth: the chord layer (core.js keyOn, 1:1)
   // Every key a player presses comes here (MIDI, the on-screen keyboard); CHORD off: keyOn is exactly noteOn. CHORD on:
@@ -1241,6 +1257,17 @@ class Engine {
   double kDly = 0.0005, kLp = 0.35, kVol = 0.002, damp = 0.25;   // smoothing per sample (setSampleRate)
   double polyG = 1, polyDown = 0, polyUp = 0;                    // beta 0.3.2: chord compensation
   double gd = 1, kGa = 0, kGr = 0; int gHold = 0, gHoldN = 0;      // beta 0.3.2: the peak guard (gain, its coefficients, the samples it is still held for)
+  // version 1.0.15: the look-ahead limiter (core.js limReset / block): the delay lines, the running minimum's queue (gains, sample numbers), the average's samples
+  std::vector<double> limL, limR, limQG, limAv; std::vector<int64_t> limQT;
+  int limD = 1, limB = 2, limH = 2, limW = 0, limQh = 0, limQn = 0, limAw = 0, limBelow = 0; int64_t limT = 0;
+  double limSum = 2, limEnv = 1, limG = 1, kLr = 0; bool limRest = true;
+  // the look-ahead limiter at rest: silent delay, gain 1 (setSampleRate, reset, allSoundOff, an idle block)
+  void limReset() {
+    std::fill(limL.begin(), limL.end(), 0.0); std::fill(limR.begin(), limR.end(), 0.0); limW = 0; limT = 0;
+    limQh = 0; limQn = 0;
+    std::fill(limAv.begin(), limAv.end(), 1.0); limAw = 0; limSum = limB; limBelow = 0;
+    limEnv = 1; limG = 1; limRest = true;
+  }
   double quiet = 0, quietNeed = 1e18;   // the idle rule (block)
   std::vector<float> chBuf; int chLen = 0, chW = 0; double chPh = 0, chPh2 = 0;   // triple chorus
   float bufL[CTRL], bufR[CTRL];
@@ -1961,8 +1988,8 @@ class Engine {
     }
     if (!any) { polyG = 1; return; }
     const double nv = amax > 0 ? sum / (amax * amax) : 0;
-    // + 1e-6: three equal voices give nv = 3.0000000000000004 (rounding), which must still mean "no compensation"
-    const double gT = nv > POLY_FREE + 1e-6 ? std::sqrt(POLY_FREE / nv) : 1;
+    // + 1e-6: three equal voices give nv = 3.0000000000000004 (rounding), which must still mean "no compensation"; CHORD COMP off (1.0.15): the gain glides back to 1
+    const double gT = nv > POLY_FREE + 1e-6 && p[P_POLY_COMP] >= 0.5 ? std::sqrt(POLY_FREE / nv) : 1;
     double g = polyG;
     if (g == 1 && gT == 1) return;
     if (g == gT) {   // settled: g += (gT - g) * c adds 0 and the snap keeps g, so every sample is scaled by the same g
@@ -1991,9 +2018,11 @@ class Engine {
       std::fill(outL + o, outL + o + n, 0.0f); std::fill(outR + o, outR + o + n, 0.0f);
       vol = std::exp(p[P_MASTER] * (LN10 / 20)); dlyT = delaySec() * sr;
       gd = 1; gHold = 0;
+      if (!limRest) limReset();
       publish(disp.peakL, disp.peakR, 0);
       return;
     }
+    limRest = false;
     std::fill(bufL, bufL + n, 0.0f); std::fill(bufR, bufR + n, 0.0f);
     if (envOne[0] != 1.0) std::fill(envOne, envOne + CTRL, 1.0);
     uint32_t vmask = 0;
@@ -2069,6 +2098,11 @@ class Engine {
     float pkL = disp.peakL, pkR = disp.peakR;
     double bpk = 0;
     double gdl = gd; int gHoldl = gHold;   // the peak guard's state for the block
+    // the look-ahead limiter's state for the block (version 1.0.15)
+    const bool limiter = p[P_OUT_MODE] >= 0.5;
+    double* const qG = limQG.data(); int64_t* const qT = limQT.data(); double* const av = limAv.data(); double* const lL = limL.data(); double* const lR = limR.data();
+    int lw = limW, qh = limQh, qn = limQn, aw = limAw, below = limBelow; int64_t lt = limT;
+    double sum = limSum, env = limEnv, g = limG;
     for (int i = 0; i < n; i++) {
       double l = bufL[i], r = bufR[i];
       if (drive > 0) {
@@ -2159,24 +2193,51 @@ class Engine {
       double yr = r - dcxR + dcR * dcyR; dcxR = r; dcyR = std::fabs(yr) < 1e-20 ? 0 : yr; r = dcyR;
       vol += (volT - vol) * kVol;
       l *= vol; r *= vol;
-      // the peak guard (beta 0.3.2): the gain that keeps the larger channel under GUARD_T before the soft limiter
-      const double aq = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r), gT = aq > GUARD_T && aq < 1e9 ? GUARD_T / aq : 1;
+      // how loud the output stage's input is (the idle rule: when a block is skipped, the delay below holds nothing but silence)
+      const double ai = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
+      if (ai > bpk) bpk = ai;
+      // the look-ahead limiter's gain (version 1.0.15): the gain this sample needs, its minimum over the last limH samples (a queue of increasing gains), the release,
+      // the average over limB samples (exactly 1 while none of them is under 1)
+      const double gq = ai > LIM_CEIL && ai < 1e9 ? LIM_CEIL / ai : 1;
+      // the oldest gain leaves the window BEFORE the new one comes in: the queue never holds more than limH (a long falling peak above the ceiling, a loud low square through
+      // the DC blocker, filled it to limH + 1 and wrote past the end of limQG / limQT)
+      if (qn > 0 && qT[qh] <= lt - limH) { qh = qh + 1 >= limH ? 0 : qh + 1; qn--; }
+      while (qn > 0) { int b = qh + qn - 1; if (b >= limH) b -= limH; if (qG[b] >= gq) qn--; else break; }
+      int e = qh + qn; if (e >= limH) e -= limH;
+      qG[e] = gq; qT[e] = lt; qn++;
+      lt++;
+      const double hm = qG[qh];
+      if (hm < env) env = hm;
+      else if (env < 1) { env += (hm - env) * kLr; if (hm == 1 && 1 - env < 1e-9) env = 1; }
+      const double old = av[aw]; av[aw] = env; aw = aw + 1 >= limB ? 0 : aw + 1;
+      below += (env < 1 ? 1 : 0) - (old < 1 ? 1 : 0);
+      if (below == 0) { sum = limB; g = 1; } else { sum += env - old; g = sum / limB; }
+      // the delay: the output stage works on the sample of limD samples ago
+      const double dl = lL[lw], dr = lR[lw]; lL[lw] = l; lR[lw] = r; lw = lw + 1 >= limD ? 0 : lw + 1;
+      // Classic, the output stage of 1.0.14: the peak guard (beta 0.3.2), the gain that keeps the larger channel under GUARD_T before the soft limiter. It follows the delayed signal
+      // in both modes, so that switching OUTPUT finds it in step (no stale gain cut when Classic comes back)
+      const double aq = std::fabs(dl) > std::fabs(dr) ? std::fabs(dl) : std::fabs(dr), gT = aq > GUARD_T && aq < 1e9 ? GUARD_T / aq : 1;
       if (gT < gdl) { gdl += (gT - gdl) * kGa; gHoldl = gHoldN; }
       else if (gHoldl > 0) gHoldl--;
       else if (gdl < 1) { gdl += (gT - gdl) * kGr; if (gT == 1 && 1 - gdl < 1e-9) gdl = 1; }
-      l = softLimit(l * gdl); r = softLimit(r * gdl);
+      if (limiter) {
+        l = dl * g; r = dr * g;
+        l = l > 1 ? 1 : l < -1 ? -1 : l == l ? l : 0;   // never reached by a finite input (the gain keeps it under LIM_CEIL): a safety net
+        r = r > 1 ? 1 : r < -1 ? -1 : r == r ? r : 0;
+      } else {
+        l = softLimit(dl * gdl); r = softLimit(dr * gdl);
+      }
       if (!std::isfinite(l)) l = 0;
       if (!std::isfinite(r)) r = 0;
       outL[o + i] = (float)l; outR[o + i] = (float)r;
       const double al = std::fabs(l), ar = std::fabs(r);
       pkL = std::max(pkL, (float)al); pkR = std::max(pkR, (float)ar);
-      if (al > bpk) bpk = al;
-      if (ar > bpk) bpk = ar;
     }
     gd = gdl; gHold = gHoldl;
-    // how long the output has been silent, and how long it must stay so before the block is skipped
+    limW = lw; limT = lt; limQh = qh; limQn = qn; limAw = aw; limSum = sum; limBelow = below; limEnv = env; limG = g;
+    // how long the output stage's input has been silent, and how long it must stay so before the block is skipped
     if (vmask == 0 && !fading && bpk < QUIET_PEAK) quiet += n; else quiet = 0;
-    quietNeed = std::ceil(1.5 * (dmix > 0 || fb > 0 ? std::max(dTarget, dlyT) : 0)) + QUIET_EXTRA;
+    quietNeed = std::ceil(1.5 * (dmix > 0 || fb > 0 ? std::max(dTarget, dlyT) : 0)) + QUIET_EXTRA + limD;
     publish(pkL, pkR, vmask);
   }
 };

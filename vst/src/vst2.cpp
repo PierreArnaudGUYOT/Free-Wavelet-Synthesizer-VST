@@ -77,7 +77,7 @@ enum : int32_t {   // plug-in opcodes (dispatcher)
   effGetNumMidiInputChannels = 78, effGetNumMidiOutputChannels = 79
 };
 enum : int32_t {   // host opcodes (callback)
-  audioMasterAutomate = 0, audioMasterVersion = 1, audioMasterGetTime = 7, audioMasterSizeWindow = 15, audioMasterGetCurrentProcessLevel = 23,
+  audioMasterAutomate = 0, audioMasterVersion = 1, audioMasterGetTime = 7, audioMasterIOChanged = 13, audioMasterSizeWindow = 15, audioMasterGetCurrentProcessLevel = 23,
   audioMasterUpdateDisplay = 42, audioMasterBeginEdit = 43, audioMasterEndEdit = 44
 };
 enum : int32_t { effFlagsHasEditor = 1 << 0, effFlagsCanReplacing = 1 << 4, effFlagsProgramChunks = 1 << 5, effFlagsIsSynth = 1 << 8 };
@@ -246,7 +246,7 @@ class Instance {
     fx.magic = vst2::kMagic;
     fx.dispatcher = &sDispatch; fx.process = &sProcessAdd; fx.processReplacing = &sProcessReplacing;
     fx.setParameter = &sSetParameter; fx.getParameter = &sGetParameter;
-    fx.numPrograms = kNumPresets; fx.numParams = P_MIDI_ASOFF; fx.numInputs = 0; fx.numOutputs = 2;   // (version 1.0.12: the host sees the 175 parameters of before, not the three triggers of the MIDI panic messages, which are the last ones)
+    fx.numPrograms = kNumPresets; fx.numParams = P_MIDI_ASOFF; fx.numInputs = 0; fx.numOutputs = 2;   // (the host sees the parameters before P_MIDI_ASOFF, 177 since VELOCITY in 1.0.13; not the three triggers of the MIDI panic messages (version 1.0.12), nor the hidden perf parameters that come after them, out_mode and poly_comp (version 1.0.15): every parameter from P_MIDI_ASOFF on is left out of VST2)
     fx.flags = vst2::effFlagsHasEditor | vst2::effFlagsCanReplacing | vst2::effFlagsProgramChunks | vst2::effFlagsIsSynth;
     fx.ioRatio = 1.0f; fx.object = this;
     fx.uniqueID = ('O' << 24) | ('k' << 16) | ('M' << 8) | 'W';   // Okto MultiWave Synth (the Wavelet Synthesizer is 'OkWv')
@@ -267,6 +267,7 @@ class Instance {
     }
     edHost = editorHostOf(ctrl);
     if (cpComp && cpCtrl) { cpComp->connect(cpCtrl); cpCtrl->connect(cpComp); }
+    if (proc) fx.initialDelay = (int32_t)proc->getLatencySamples();   // version 1.0.15: the look-ahead limiter's delay (at 48 kHz until the host gives its rate)
     ctrl->setComponentHandler(&handler);
     MemStream s;   // the controller starts from the processor's state, as in a VST3 host
     if (comp->getState(&s) == kResultOk) { s.pos = 0; ctrl->setComponentState(&s); }
@@ -319,11 +320,15 @@ class Instance {
       comp->setActive(true);
       proc->setProcessing(true);
       scratch.assign((size_t)std::max(1, maxBlock) * 2, 0.0f);
-    } else {
-      proc->setProcessing(false);
-      comp->setActive(false);
+      active = true;   // (before the callback below: a host that suspends and resumes from inside it must find the plug-in active)
+      // version 1.0.15: the look-ahead limiter's delay at this sample rate; a host that has seen another one is told so
+      const int32_t delay = (int32_t)proc->getLatencySamples();
+      if (delay != fx.initialDelay) { fx.initialDelay = delay; host(&fx, vst2::audioMasterIOChanged, 0, 0, nullptr, 0); }
+      return;
     }
-    active = on;
+    proc->setProcessing(false);
+    comp->setActive(false);
+    active = false;
   }
 
   void midi(const vst2::MidiEvent& m) {
@@ -476,7 +481,7 @@ class Instance {
     using namespace vst2;
     switch (op) {
       case effOpen: return 0;
-      case effSetSampleRate: if (opt >= kMinRate && opt <= kMaxRate) sampleRate = opt; return 0;   // real rates only
+      case effSetSampleRate: if (opt >= kMinRate && opt <= kMaxRate) { sampleRate = opt; fx.initialDelay = ws::limiterDelay(opt); } return 0;   // real rates only (1.0.15: the delay at that rate, ready before the resume)
       case effSetBlockSize: if (value > 0) maxBlock = (int32_t)value; return 0;
       case effMainsChanged: setActive(value != 0); return 0;
       case effSetProgram: setProgram((int)value); return 0;

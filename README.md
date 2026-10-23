@@ -2,8 +2,8 @@
 
 # ⬇ DOWNLOAD THE PLUG-IN (Windows VST3 / VST2, macOS VST3)
 
-1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.14**).
-2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.14-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.14-mac.zip** (macOS).
+1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.15**).
+2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.15-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.15-mac.zip** (macOS).
 3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (Windows, VST3; needs administrator rights) or into your VST2 plug-in folder; on a Mac into `~/Library/Audio/Plug-Ins/VST3`. `INSTALL.txt` (`INSTALL-mac.txt`) in the zip says more.
 4. In your DAW, rescan the plug-ins (Ableton Live: *Preferences → Plug-ins → Rescan*), then open *Plug-ins → OktoPierre → Okto MultiWave Synth*.
 
@@ -13,7 +13,7 @@
 
 ---
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.14, 2026-10-22), see
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.15, 2026-10-23), see
 [RELEASE_HISTORY.md](RELEASE_HISTORY.md). Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 Okto MultiWave Synth is the [Wavelet Synthesizer](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v0.7.1-beta)
@@ -30,6 +30,14 @@ the preset list (see the notes of the betas below), and the demo is one piece, B
 The web app also works offline: download the repository and open `web/index.html`. The same web app is at https://pierrearnaudguyot.github.io/Okto-MultiWave-Synth/ too (the development repository).
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
+
+## What version 1.0.15 changes (OktoWave 1.0)
+
+- **A cleaner output stage** (web app and plug-in): a look-ahead limiter replaces the peak guard and the tanh soft limiter. Loud, dense chords no longer buzz slightly: the peaks are turned down just before they come, never bent, and no sample goes above -1 dBFS. Quieter sounds (under -3 dBFS, the whole demo) are exactly as before, 1.5 ms later.
+- **A fixed latency of 1.5 ms** in the plug-in, reported to the DAW, which compensates it (Ableton Live does it by itself).
+- **The author's own sounds**: the 9 presets he adjusted that the demo does not play take his values (*A · Shimmering Strings*, *A · Warm Pad*, *AA · Chalk Edge Call*, *AB · Resonance Storm*, *AAB · Static & Fibre*, *AA · Tide Horns*, *AAB · Stair & Tap*, *AA · Sweep of Pixel LGT*, *AB · Step Spiral LGT*); the demo sounds as before.
+- **208 factory presets** (257 before): the 49 he deleted leave the list (the ones the demo plays stay); the order of the lists does not change, and a Live Set that names a removed preset keeps its sound.
+- **Credits**: Jérémie Paligrini (Soul Machine), now spelt right.
 
 ## What version 1.0.14 changes (OktoWave 1.0)
 
@@ -216,7 +224,7 @@ Beta 0.3.1 applies the first ratings of OktoPierre (80 of the new presets rated 
   the original's.
 - **OSC MIX** (the card next to the scope): three level knobs, one per oscillator, replace the A/B MIX knob. A1 plays at 100 %
   on a new patch, the others at 0. The sub oscillator is in the same card.
-- **237 presets** (version 1.0: the ones OktoPierre kept; earlier betas had 930 and then 1182): **21 TOP Sounds** (unchanged: they sound exactly as in beta 0.7) and 216 numbered ones
+- **208 presets** in version 1.0.15 (see above); version 1.0 had **237** (the ones OktoPierre kept; earlier betas had 930 and then 1182): **21 TOP Sounds** (unchanged: they sound exactly as in beta 0.7) and 216 numbered ones
   (`020`–`1374`, from the betas 0.1 to 0.3.4), in 11 sections (Pad, SuperModulation, Bass, Lead, Keyboard, Organ, Strings, Brass & Wind, Bells & Mallets, FX, Drums & Perc). Every new preset uses at least two
   oscillators; the letters of its name say which (`A1A2`, `A1B1`, `A1A2B1` …); an oscillator is often the attack (a click, a
   breath, a pluck) of another.
@@ -352,5 +360,5 @@ Created by Pierre Arnaud GUYOT ("OktoPierre"), on the basis of his
 
 ## Acknowledgments
 
-Thanks to Jeremi Palmigani (aka Saoul Machine) and Flo (aka Go Tiger) for testing the Wavelet Synthesizer and providing
+Thanks to Jérémie Paligrini (aka Soul Machine) and Flo (aka Go Tiger) for testing the Wavelet Synthesizer and providing
 valuable feedback and improvement suggestions, and to Arnaud Grignard for the technical review of the concept.

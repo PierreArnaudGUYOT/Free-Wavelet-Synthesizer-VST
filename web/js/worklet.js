@@ -36,11 +36,18 @@ function WSWorkletMain() {
       this.up = DUCK_UP; this.hold = DUCK_HOLD;   // the way up and the silent hold of the dip running, in quanta
       this.sched = null;     // a preset change waiting for its chord: { v, tables, at }
       this.discrete = Uint8Array.from(options.processorOptions.spec.PARAMS, p => (p.curve === 'choice' || p.curve === 'int' ? 1 : 0));
+      this.perf = Uint8Array.from(options.processorOptions.spec.PARAMS, p => (p.perf ? 1 : 0));   // the performance settings (version 1.0.15, see 'p')
       this.port.onmessage = (e) => {
         const m = e.data, eng = this.eng;
         switch (m.t) {
           case 'p': if (this.morph) this.morph.idx = this.morph.idx.filter(j => j !== m.i);   // the player's own move wins over the morph
-            if (Number.isFinite(m.v)) eng.setParam(m.i, m.v); break;   // a NaN would stay in the engine's state
+            if (Number.isFinite(m.v)) {   // a NaN would stay in the engine's state
+              eng.setParam(m.i, m.v);
+              // version 1.0.15: a performance setting (a preset leaves it as it is) also wins over a preset change already queued (the demo sends it 0.6 s ahead with the values
+              // of that moment): otherwise a setting changed in between, the A/B switch of the test copy for one, came back to its old value at the chord while the page showed the new one
+              if (this.perf[m.i]) { if (this.sched) this.sched.v[m.i] = m.v; if (this.pending) this.pending.v[m.i] = m.v; }
+            }
+            break;
           case 'all': this.sched = null; this.applyPending(); this.endMorph(); for (let i = 0; i < m.v.length; i++) if (Number.isFinite(m.v[i])) eng.setParam(i, m.v[i]); break;
           case 'bulk': this.sched = null; if (m.at !== undefined && this.seq) this.sched = { v: m.v, tables: m.tables, at: m.at }; else this.presetChange(m.v, m.tables); break;   // version 1.0.6: a preset change, the parameters and the tables together (1.0.8: at the song time `at`, if there is one)
           case 'tables': eng.setTables(m.tables); break;   // { needs, slots: [A1, A2, B1] }: per oscillator { mode, mips, rms, ph?, w2? } or null

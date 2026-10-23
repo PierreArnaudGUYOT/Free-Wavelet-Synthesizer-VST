@@ -106,5 +106,13 @@ module.exports = function cases(SPEC, C) {
   variant('loud chord, 3 voices (no compensation)', { v_voices: 3 }, { kind: 'loud' }, 90);
   variant('loud chord, master +6 dB: the peak guard rides the gain', { master: 6 }, { kind: 'loud' }, 5);
   variant('loud chord, master +6 dB, slow attack: the guard and the soft limiter', { master: 6, amp_a: 0.2 }, { kind: 'loud' }, 600);
+  // version 1.0.15: the output stage. The variants above play the look-ahead limiter (OUTPUT Limiter, the default); these play OUTPUT Classic (the guard + soft limiter of 1.0.14,
+  // delayed like the limiter), CHORD COMP off, and the case the review found: a loud square two octaves under C1 whose flat tops, through the DC blocker, keep falling above the
+  // ceiling for longer than the limiter's window (its queue overflowed: the plug-in wrote past its end)
+  variant('loud chord, master +6 dB, OUTPUT Classic', { master: 6, out_mode: 0 }, { kind: 'loud' }, 5);
+  variant('loud chord, master +6 dB, slow attack, OUTPUT Classic', { master: 6, amp_a: 0.2, out_mode: 0 }, { kind: 'loud' }, 600);
+  variant('loud chord, 16 voices, CHORD COMP off', { v_voices: 16, poly_comp: 0, master: 3 }, { kind: 'loud' }, 20);
+  variant('limiter: loud low square + sub square 2 octaves down (queue overflow)', { a1_lvl: 1, a_wave: 1, sub_level: 1, sub_shape: 2, sub_oct: 1, v_oct: -3, amp_s: 1, vel_amt: 0, master: 6 });
+  variant('limiter: the same, OUTPUT Classic', { a1_lvl: 1, a_wave: 1, sub_level: 1, sub_shape: 2, sub_oct: 1, v_oct: -3, amp_s: 1, vel_amt: 0, master: 6, out_mode: 0 });
   return out;
 };

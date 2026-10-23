@@ -8,20 +8,24 @@ const path = require('path');
 const OLD_SPEC = require('./ref/v07/spec.js'), OLD = require('./ref/v07/core.js')(OLD_SPEC);
 const SPEC = require('../web/js/spec.js'), C = require('../web/js/core.js')(SPEC);
 const sr = 48000, n = sr * 3, blk = 128, tol = parseFloat(process.argv[2] || '1e-5');
+// version 1.0.15: this version's output comes limD samples late (the look-ahead limiter's delay, the same in both output stages): it is rendered limD samples longer and read from
+// there; OUTPUT is set to Classic (the guard + tanh soft limiter beta 0.7 had: the Limiter has no knee at 0.7, so a sound that reaches it would differ on purpose)
 function render(Core, values) {
   const params = Float64Array.from(values);
+  if (Core === C) params[C.P.out_mode] = 0;
   const eng = new Core.Engine(sr); params.forEach((v, i) => eng.setParam(i, v));
   if (Core === OLD) eng.mixSm = params[Core.P.ab_mix];   // beta 0.7 smoothed the A/B balance from its default in a new engine; this version starts at the preset's levels
   eng.setTables(Core.buildTables(params, true));
-  const L = new Float32Array(n), R = new Float32Array(n);
-  for (let o = 0; o < n; o += blk) {
+  const lat = Core === C ? eng.limD : 0, m = n + lat;
+  const L = new Float32Array(m), R = new Float32Array(m);
+  for (let o = 0; o < m; o += blk) {
     if (o === 0) eng.noteOn(60, 0.9);
     if (o === 36000) eng.noteOff(60);
     if (o === 48000) { eng.noteOn(64, 0.8); eng.noteOn(67, 0.8); }   // two notes over the first one's release: three voices (beta 0.3.2: a denser chord is scaled down, see core.js polyComp)
     if (o === 105600) eng.allNotesOff();
-    eng.process(L.subarray(o, o + blk), R.subarray(o, o + blk), Math.min(blk, n - o));
+    eng.process(L.subarray(o, Math.min(o + blk, m)), R.subarray(o, Math.min(o + blk, m)), Math.min(blk, m - o));
   }
-  return [L, R];
+  return [L.subarray(lat, lat + n), R.subarray(lat, lat + n)];
 }
 let fails = 0, worst = 0;
 // beta 1.0: the TOP Sounds are sorted by the owner's stars and one was left out (unrated); the three he adjusted (SAVE PRESET) are no longer beta 0.7's sounds: they are not compared

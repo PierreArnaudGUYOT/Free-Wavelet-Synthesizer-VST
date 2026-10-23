@@ -1,0 +1,130 @@
+OktoWave 1.0 (Okto MultiWave Synth, version 1.0.15) - VST3 / VST2 instrument for Windows 10/11 (64-bit) (macOS: OktoMultiWaveSynth-1.0.15-mac.zip, same release page)
+Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
+the licence text is in OktoMultiWaveSynth.vst3\Contents\Resources\LICENSE.txt.
+Source code: https://github.com/PierreArnaudGUYOT/Okto-MultiWave-Synth
+
+Three oscillators (A1 A2 subtractive, B1 additive), three LFOs, a real filter (LADDER / OTA),
+208 presets (the author's choice), a chord mode with bass, an oriental keyboard.
+
+NEW IN 1.0.15
+- A CLEANER OUTPUT STAGE: a look-ahead limiter replaces the peak guard and the tanh soft limiter. The old stage bent every peak above -3 dBFS (a slight
+  buzz on loud, dense chords); the new one looks 1.5 ms ahead and turns the volume down just before the peak: no sample above -1 dBFS, no tanh.
+  Below -3 dBFS (where the old stage did nothing) the sound is exactly the same as in 1.0.14.
+- The plug-in now has a fixed latency of 1.5 ms, which it reports to the DAW (Ableton Live compensates it by itself).
+- The author's own sounds: the 9 factory presets he adjusted that the demo does not play take his values (A · Shimmering Strings, A · Warm Pad,
+  AA · Chalk Edge Call, AB · Resonance Storm, AAB · Static & Fibre, AA · Tide Horns, AAB · Stair & Tap, AA · Sweep of Pixel LGT, AB · Step Spiral LGT).
+  The presets of the demo keep their sound.
+- 49 presets removed (the ones the author deleted, except those the demo plays): 208 presets now (19 LGT). The order of the lists does not change;
+  a Live Set that names a removed preset keeps its sound.
+- The credits spell the name right: Jérémie Paligrini (Soul Machine).
+  Your presets file, stars and user bank are kept.
+
+NEW IN 1.0.14
+- LGT presets, lighter on the computer: the heaviest sounds could make the audio crackle on a slow or power-saving computer. 20 presets have an LGT version (less
+  modulation, fewer unison voices); for the 17 favourites among them the LGT version takes their place (TOP Sounds, section, stars) and the full version is in Other,
+  marked HIGH_CPU. The demo (PLAY DEMO) plays the LGT versions. The sound you open on is AA · Flint Ripple Haze LGT.
+- The sections of the preset browser hold the favourites: every preset without stars is in Other (TOP Sounds does not change).
+- ▲ UP / ▼ DOWN above the list of the preset browser move the sound you play up or down in it (labelled now).
+- PLAY card: the VELOCITY knob is left of its menu, captioned TARGET.
+  Your presets file, stars and user bank are kept.
+
+NEW IN 1.0.13
+- PLAY DEMO, left of SAVE PRESET: the demo of the web app (Beethoven's Appassionata as a tour of 30 presets) in the plug-in. The preset box says which preset of the tour
+  plays; a second click (STOP DEMO) ends it. Your own sound and the host's parameters are left as they were.
+- VELOCITY in the PLAY card: the velocity of your MIDI keyboard now shapes the sound clearly. The knob sets how much (default 50 %: a note played at half velocity
+  is about 8 dB softer), the menu under it where it goes: VOLUME (default), FILTER (the cutoff of the FILTER card) or both. It stays when you change preset; 0 % is the sound of 1.0.12.
+- The demo starts with the best sounds (a new order from the author's rating).
+- The titles of the effects (SATURATION, CHORUS, PING-PONG DELAY, REVERB) are readable (accent colour, bigger); the oscillator tabs are named OSC1, OSC2, OSC3.
+  Your presets file, stars and user bank are kept.
+
+NEW IN 1.0.12
+- THE SOUND STOPS WHEN THE HOST STOPS. In a DAW such as Ableton Live a sound could stay on after STOP: a sustain pedal still down in the MIDI sequence held the released notes, notes of a stopped
+  sequence got no note off, a note released at the moment the pedal goes down was held. The plug-in now releases every note and lifts the pedal when the host stops, understands the MIDI
+  messages "all notes off", "all sound off" and "reset all controllers", and puts the pedal at its exact place among the notes.
+  No change of the sound engine; your presets file, stars and user bank are kept.
+
+NEW IN 1.0.11 (the synthesizer shows "1.0": the first stable release)
+- THE PLAY CARD is a card like the others with the ARAB and TURK tunings (no oriental background).
+- TOP SOUNDS: a new order at the top of the list (AA · Sweep of Pixel 2nd, A · Shimmering Strings 3rd, AB · Kalimba Lung Machine 5th, A · Noise Wash Pad 6th), and A · Shimmering Strings has its LFO 1 rate at 6.5 Hz.
+  No change of the sound engine; your presets file, stars and user bank are kept.
+
+NEW IN 1.0.10
+- THE DEMO (web app) CHANGES PRESET WITH THE MUSIC: it starts on the low note that begins the theme of the right hand of Beethoven's Appassionata and a new preset comes every 8 beats (3.6 s),
+  at the start of each phrase, instead of about every 4 s on a chord. The 30 presets of the demo are the author's choice: he rated them with a vote test version and replaced the poorest.
+  The plug-in is the 1.0.9 one with its version number: no sound, no preset, no layout changed, your presets file, stars and user bank are kept.
+
+NEW IN 1.0.9
+- A "SEND FEEDBACK" BUTTON IN THE WEB APP (header and welcome window): a short form (Google Forms, no Google account needed) to tell the developer about a bug, an idea or a sound you miss.
+- A CLEARER ORIENTAL LOOK (TUNING ARAB / TURK): the TUNING switch, the MAQAM menu, the TONIC step and their captions sit on an opaque dark plate (their text was hard to read over the pattern);
+  the panel and the preset browser take the colours of the pattern (bronze for ARAB, carmine for TURK; WEST is unchanged). In the web app the pattern also fills the dark margins of the page.
+- THE CREDITS ARE BACK IN THE MANUAL (the testers, the demo music, the licences of what is reused).
+  No sound, no preset and no layout changed (the sound engine is the 1.0.8 one): your presets file, stars and user bank are kept.
+
+NEW IN 1.0.8
+- THE DEMO (web app) CHANGES PRESET EXACTLY ON THE CHORD of the music, whatever the load of the page: the audio thread makes the change by itself, 33 ms before the chord,
+  and the new sound is up when the chord starts. No more crackle and no more CPU at the chord than before. No sound, no preset, no layout of the plug-in changed (this zip is the 1.0.7
+  plug-in with its version number): your presets file, stars and user bank are kept.
+
+NEW IN 1.0.7
+- THE MANUAL EXPLAINS THE IDEA: eight short pages (the MANUAL button): the idea of wavelets (one page), subtractive synthesis with wavelets (three), additive synthesis with wavelets (three),
+  and a contents page, with figures made from the engine. Each page prints on one A4 sheet. The web app's welcome window has a box that opens the introduction.
+- LESS CPU, THE SAME SOUND BIT FOR BIT: about 10 % less on the heavier presets and chords, the plug-in instances that are idle cost almost nothing, a preset's tables are built on several threads
+  (3 times sooner when you change the sound). No sound, no preset, no layout changed: your presets file, stars and user bank are kept.
+
+NEW IN 1.0.6
+- A NEW LOOK, "CREPUSCULE": a warm gradient from violet to amber, frosted-glass cards, gold (A1 A2) and cyan (B1) accents, one flat outline round the
+  oscillator tab and its plate. The preset browser, the menus and the demo window follow. The ARAB and TURK colours of the PLAY card stay.
+- THE MANUAL IS ONE PAGE (MANUAL button): start in a minute, what a wavelet is, the panel card by card, playing, presets, install.
+- Version 1.0.6 changes no sound and no preset: your presets file, your stars and your user bank are kept as they are.
+- (Web app, same day: the demo presents the synthesizer in 30 short sentences; no more click when it changes preset.)
+
+NEW IN 1.0.5
+- THE SEVEN BEST-RATED PRESETS (10 stars) LEAD TOP SOUNDS, whatever their section; the synth opens on the first.
+- KEYATTAC, A NEW FOLDER OF YOUR USER BANK: the 36 presets you starred, retouched to be very percussive (attacks at the minimum, a short decay, a long release),
+  with your stars. Rename, move or delete them: a sound you delete stays deleted.
+
+NEW IN 1.0.2
+- THE SOUNDS YOU STARRED COME FIRST IN THEIR SECTION (TOP Sounds too); the synth opens on the first of TOP Sounds. SuperModulation keeps only the starred presets (15);
+  the 90 others are in a new section, OTHER. Your adjusted preset (AA . Orbit Pad) takes your values.
+
+NEW IN 1.0.1
+- NO MORE CRACKLE ON A BIG CHORD STRUCK HARD: the volume of every preset was set again with eight loud chords (8 notes over three octaves, 10 notes, 9 notes,
+  all at the maximum velocity): 183 presets went down by 1 to 12 dB, none reaches the soft limiter on those chords. Only volumes changed.
+- CHORD MODE: THE KEY OF THE LEFT HAND (it makes no sound) IS LIT WHILE IT IS HELD.
+
+NEW IN 1.0
+- 237 PRESETS: the sounds you kept (3 or more out of 10, your export of 2026-10-20, 17:03), the 19 you adjusted with your values, no new preset.
+  Every list is sorted from the best to the least rated, and the synth OPENS ON THE FIRST TOP SOUND (A . Wave Brass).
+- The sections of the browser: TOP Sounds, PAD (second), SuperModulation, Bass, Lead, KEYBOARD (Keys + Pluck), Organ, Strings, Brass & Wind,
+  Bells & Mallets, FX, Drums & Perc.
+- NAMES BY TYPE, NO NUMBERS: A, AA, AB, AAB, B and a title (A yellow, B blue). THE STARS START AT ZERO (the rating system stays; the stars of an old
+  presets file are not carried over). The header reads OKTOWAVE / FRACTAL WAVELET SYNTHESIZER.
+- REMOVED: EVALUATE SOUNDS, the extra demo songs and the song menu next to DEMO (DEMO plays the Beethoven Appassionata).
+- THE INTERFACE YOU CHOSE: the wave selector of LFO 1 underlined at the right of its title; LFO 2 / LFO 3 as two tabs, with a SHAPE knob
+  (the name of the wave under it); the VOICE knobs on the same line as the other cards; smaller, better centred WIDTH / SPARSITY knobs;
+  with TUNING = ARAB or TURK the PLAY card changes colour and shows an oriental pattern.
+- THE MANUAL opens on "What this synthesizer is, and what wavelets are".
+- LESS CPU (35 to 39 %) and no crackle on a loud chord.
+
+INSTALL
+1. Copy the WHOLE folder OktoMultiWaveSynth.vst3 (the manual is inside it) into ONE of these:
+   - your VST3 folder:  C:\Program Files\Common Files\VST3   (needs administrator rights), or
+   - your VST2 plug-in folder (the one set as "VST2 Plug-in Custom Folder" in Ableton Live; no administrator rights).
+   The same folder works as VST3 and as VST2. Replace the folder of 1.0.14 (or of an older version) if you have it.
+2. In Ableton Live: Preferences > Plug-ins, switch on "Use VST3 Plug-in System Folders" (or "Use VST2 Plug-in Custom Folder")
+   and click Rescan.
+3. In Live's browser: Plug-ins > OktoPierre > Okto MultiWave Synth. Drag it onto a MIDI track.
+
+It installs next to the Wavelet Synthesizer and the WaveChord Synth (its own name and IDs). A Live Set saved with a beta loads as before
+(the parameters saved in the Live Set are kept as they are).
+
+YOUR PRESETS FILE
+SAVE PRESET, the user bank, deleted presets, the stars you give and the order of the lists are kept in one readable text file,
+"OKTOMULTIWAVE presets.txt", next to the OktoMultiWaveSynth.vst3 folder. That folder must allow writing: the VST3 system
+folder needs administrator rights, so either install into a folder you own, or start Live as administrator once.
+The file of 1.0 / 1.0.1 is read: your user bank, your stars and the presets you adjusted or deleted are kept; the lists of the browser are rebuilt (sorted, OTHER).
+The file of beta 0.3.3 is read: your user bank is kept; your stars, the lists of the browser and the presets you adjusted or deleted (their
+numbered names are gone) start again from the final list (sorted, TOP Sounds first).
+
+CHECK THE DOWNLOAD
+The SHA-256 checksum of the zip is in the release notes on the GitHub page.

@@ -62,7 +62,7 @@ const minBlockRms = (r, a, b) => { let m = Infinity; for (let s = Math.round(a *
 
 // 1. under a held chord: the click of the change, the dip, the end state
 // (version 1.0.14: the two favourites are now 'HIGH_CPU' in Other, the same sounds; their LGT versions took their places)
-const PAIRS = [['AA · Flint Ripple Haze HIGH_CPU', 'AB · Kalimba Lung Machine HIGH_CPU'], ['AA · Flint Ripple Haze HIGH_CPU', 'AA · Hollow Bass'], ['AB · Pure Fog', 'B · Flute Lead'], ['A · Cello Section', 'AA · Tide Lute']];   // (version 1.0.10: presets of the tour, the old tour's own copies are gone)
+const PAIRS = [['AA · Flint Ripple Haze HIGH_CPU', 'AB · Pearl Wash HIGH_CPU'], ['AA · Flint Ripple Haze HIGH_CPU', 'AA · Hollow Bass'], ['AB · Pure Fog', 'B · Flute Lead'], ['A · Cello Section', 'AA · Tide Lute']];   // (version 1.0.10: presets of the tour, the old tour's own copies are gone)
 for (const [from, to] of PAIRS) {
   const n = play(from, to, 'bulk', true), o = play(from, to, 'p', true), label = `${from} > ${to}`;
   const cn = d2max(n, 1.5, 1.56), co = d2max(o, 1.5, 1.56);
@@ -77,16 +77,16 @@ for (const [from, to] of PAIRS) {
 }
 // 2. with nothing sounding the change is made at once (no dip: a reverb tail is not cut)
 {
-  const n = play('AA · Flint Ripple Haze HIGH_CPU', 'AB · Kalimba Lung Machine HIGH_CPU', 'bulk', false);
+  const n = play('AA · Flint Ripple Haze HIGH_CPU', 'AB · Pearl Wash HIGH_CPU', 'bulk', false);
   check(n.seen.pendingAtOnce === false && n.seen.dkAtOnce === -1, 'no note sounding: the change is made at once, no dip');
 }
 // 3. the player's own move during the morph wins
 {
   const proc = new Proc({ processorOptions: { spec: SPEC } }), send = (m) => proc.port.onmessage({ data: m });
-  const vf = valuesOf('AA · Flint Ripple Haze HIGH_CPU'), vt = valuesOf('AB · Kalimba Lung Machine HIGH_CPU');
+  const vf = valuesOf('AA · Flint Ripple Haze HIGH_CPU'), vt = valuesOf('AB · Pearl Wash HIGH_CPU');
   vf.forEach((x, i) => send({ t: 'p', i, v: x })); send({ t: 'tables', tables: tablesOf('AA · Flint Ripple Haze HIGH_CPU', vf) });
   const key = ['vf_cut', 'master', 'fx_rmix', 'ch_mix', 'f_cutoff'].find(k => Math.abs(vf[P[k]] - vt[P[k]]) > 1e-6);
-  send({ t: 'bulk', v: Array.from(vt), tables: tablesOf('AB · Kalimba Lung Machine HIGH_CPU', vt) });
+  send({ t: 'bulk', v: Array.from(vt), tables: tablesOf('AB · Pearl Wash HIGH_CPU', vt) });
   const mine = vt[P[key]] + 0.123;
   for (let s = 0; s < 3; s++) { global.currentFrame = s * Q; proc.process([[]], [[new Float32Array(Q), new Float32Array(Q)]]); }
   send({ t: 'p', i: P[key], v: mine });
@@ -97,7 +97,7 @@ for (const [from, to] of PAIRS) {
 {
   const m = /const SCHED_UP = (\d+), SCHED_HOLD = (\d+), SCHED_MORPH = (\d+);/.exec(fs.readFileSync(path.join(__dirname, '..', 'web', 'js', 'worklet.js'), 'utf8'));
   const up = +m[1], hold = +m[2], D = 2 + hold + up, T = 2.0, tf = Math.round(T * sr);
-  const fromName = 'AA · Flint Ripple Haze HIGH_CPU', toName = 'AB · Kalimba Lung Machine HIGH_CPU';
+  const fromName = 'AA · Flint Ripple Haze HIGH_CPU', toName = 'AB · Pearl Wash HIGH_CPU';
   const vf = valuesOf(fromName), vt = valuesOf(toName), tbTo = tablesOf(toName, vt);
   const start = () => {
     const proc = new Proc({ processorOptions: { spec: SPEC } }), send = (mm) => proc.port.onmessage({ data: mm });

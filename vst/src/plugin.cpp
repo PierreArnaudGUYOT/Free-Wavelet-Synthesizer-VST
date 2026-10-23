@@ -368,13 +368,21 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     return kInvalidArgument;
   }
   tresult PLUGIN_API canProcessSampleSize(int32 size) override { return size == kSample32 ? kResultTrue : kResultFalse; }
-  uint32 PLUGIN_API getLatencySamples() override { return 0; }
+  // version 1.0.15: the look-ahead limiter delays the output by 1.5 ms (the same in both output stages, so OUTPUT never changes it; in samples it follows the sample rate:
+  // 66 at 44.1 kHz, 72 at 48 kHz, 144 at 96 kHz, see setupProcessing)
+  uint32 PLUGIN_API getLatencySamples() override { return (uint32)engine.latency(); }
   tresult PLUGIN_API setupProcessing(ProcessSetup& setup) override {
     if (setup.symbolicSampleSize != kSample32) return kResultFalse;
+    const int latencyBefore = engine.latency();
     // beta 0.6 (security review): only real rates; an absurd one would overflow the 4 s delay line's size
     if (setup.sampleRate >= kMinRate && setup.sampleRate <= kMaxRate && setup.sampleRate != engine.sr) engine.setSampleRate(setup.sampleRate);
     offline = setup.processMode == kOffline;
     if (setup.maxSamplesPerBlock > 0 && setup.maxSamplesPerBlock <= 1 << 20) scratch.resize((size_t)setup.maxSamplesPerBlock);   // (version 1.0.7: the right channel of a mono host layout is not allocated on the audio thread)
+    // version 1.0.15: a new sample rate is a new latency in samples, and the VST3 rules want the host told (restartComponent(kLatencyChanged): it then deactivates,
+    // reactivates and asks getLatencySamples again, so its delay compensation stays right). Only the edit controller holds the component handler: the processor asks it through
+    // the connection, on this thread (setupProcessing is a UI-thread call, as restartComponent must be). Last, once the setup is complete: a host that restarts the plug-in
+    // from inside the call finds it ready. The same rate twice changes nothing and sends nothing: no loop.
+    if (engine.latency() != latencyBefore) sendLatencyChanged();
     return kResultOk;
   }
   // version 1.0.12: a host that switches the processing off (a suspended track, a stop) leaves nothing sounding, or held by the sustain pedal, behind it
@@ -817,6 +825,14 @@ class Processor : public IComponent, public IAudioProcessor, public IConnectionP
     peer->notify(m);
     m->release();
   }
+  // version 1.0.15: the latency changed with the sample rate (setupProcessing); the controller passes it on to the host (Controller::notify)
+  void sendLatencyChanged() {
+    if (!peer) return;   // not connected yet: the host asks getLatencySamples after its first setActive(true) anyway
+    IMessage* m = makeMessage(hostContext, "ws.latency");
+    m->getAttributes()->setInt("samples", engine.latency());
+    peer->notify(m);
+    m->release();
+  }
 };
 
 // ================================================================== controller
@@ -990,6 +1006,12 @@ class Controller : public IEditController, public IConnectionPoint, public IMidi
     if (std::strcmp(msg->getMessageID(), "ws.shared") == 0) {
       int64 id = 0;
       if (msg->getAttributes() && msg->getAttributes()->getInt("id", id) == kResultOk) shared = findShared(id);
+      return kResultOk;
+    }
+    // version 1.0.15: the processor's latency changed with the sample rate (its look-ahead limiter, Processor::setupProcessing). The processor has no component handler, so
+    // the controller tells the host, on the thread the host gave this message on (no thread of ours: the host keeps its own rules for restartComponent)
+    if (std::strcmp(msg->getMessageID(), "ws.latency") == 0) {
+      if (handler) handler->restartComponent(kLatencyChanged);
       return kResultOk;
     }
     return kResultFalse;

@@ -112,6 +112,7 @@ struct Options
 	double timeoutSec = 90;
 };
 static Options g_opt;
+static uint32 g_latency = 0;   // the latency the plug-in reports (getLatencySamples, processing section): the onset check allows for it
 static bool want (const char* sec) { return g_opt.only.empty () || g_opt.only.count (sec) > 0; }
 
 static std::wstring outPath (const std::string& name) { return g_opt.outDir + L"\\" + u2w (name); }
@@ -1318,6 +1319,7 @@ static void testBuses (Instance& in)
 	guarded ("getLatencySamples/getTailSamples", [&] {
 		lat = in.proc->getLatencySamples ();
 		tail = in.proc->getTailSamples ();
+		g_latency = lat;
 	});
 	LOG ("  latency %u samples, tail %s", lat,
 	     tail == kInfiniteTail ? "infinite" : tail == kNoTail ? "none (0)" : strf ("%u samples", tail).c_str ());
@@ -1911,8 +1913,8 @@ static void testAudioBasics (Instance& in, AudioCtx& ac)
 	     (long long)evt, (long long)(evt % g_opt.block), (long long)onset, (long long)(onset - evt));
 	check (pre.peak < 1e-5, "silence before the first note", strf ("peak %.2e before the first note-on", pre.peak));
 	if (onset >= 0)
-		check (onset >= evt && onset - evt <= 64, "note-on is sample accurate (honours Event::sampleOffset)",
-		       strf ("sound starts %+lld samples relative to the event (block %d)", (long long)(onset - evt), g_opt.block),
+		check (onset >= evt + (int64)g_latency && onset - evt - (int64)g_latency <= 64, "note-on is sample accurate (honours Event::sampleOffset)",
+		       strf ("sound starts %+lld samples relative to the event, %u of them the reported latency (block %d)", (long long)(onset - evt), g_latency, g_opt.block),
 		       Sev::Warn);
 
 	// release returns to silence at the end
@@ -5407,11 +5409,11 @@ static void testCtrlState (Module& m, HostApplication* host, Instance& in, Audio
 			if (!D1 || !D2)
 				return;
 			load (D1, modHaar);
-			const std::vector<uint8_t> crafted = makeWSC2 (1.25f, 1, "B · Space Choir");
+			const std::vector<uint8_t> crafted = makeWSC2 (1.25f, 1, "B · Flute Lead");   // (version 1.0.15: B · Space Choir left the factory list)
 			tresult r = ctlSet (*D1, crafted);
 			ctlGet (*D1, rtCtl);
 			D1->getState (rtComp);
-			check (r == kResultOk && rtCtl == crafted, "WSC2 setState then getState gives the same bytes ('B · Space Choir', modified, zoom 1.25)",
+			check (r == kResultOk && rtCtl == crafted, "WSC2 setState then getState gives the same bytes ('B · Flute Lead', modified, zoom 1.25)",
 			       strf ("setState %d; %s", r, parseCtlState (rtCtl).str ().c_str ()));
 			load (D2, rtComp);
 			tresult r2 = ctlSet (*D2, rtCtl);

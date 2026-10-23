@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   mac:
-    runs-on: macos-14
+    runs-on: macos-15   # (version 1.0.14: two runs on macos-14 were never picked up by a hosted runner, "not acquired by Runner of type hosted")
     timeout-minutes: 40   # a menu or a window of the editor left open must not keep the Mac busy
     defaults:
       run:
