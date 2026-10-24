@@ -75,12 +75,12 @@ var WS_SPEC = {
   "copyright": "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)",
   "license": "GPL v3",
   "version": "1.0",
-  "versionNum": "1.0.17",
+  "versionNum": "1.0.18",
   "date": "2026-10-23",
   "doi": "",
   "base": "Wavelet Synthesizer beta 0.7"
  },
- "DEFAULT_PRESET": 12,
+ "DEFAULT_PRESET": 109,
  "TOP": 13,
  "TOP_EXTRA": [
   13,
@@ -105,6 +105,7 @@ var WS_SPEC = {
   40
  ],
  "TOP_LIST": [
+  109,
   12,
   128,
   184,
@@ -117,7 +118,6 @@ var WS_SPEC = {
   140,
   198,
   203,
-  109,
   204,
   205,
   206,
@@ -2044,7 +2044,7 @@ var WS_SPEC = {
   {
    "key": "a1_lvl",
    "name": "A1 Level",
-   "short": "A1",
+   "short": "OS1",
    "curve": "lin",
    "fmt": "pct",
    "hidden": false,
@@ -2476,7 +2476,7 @@ var WS_SPEC = {
   {
    "key": "a2_lvl",
    "name": "A2 Level",
-   "short": "A2",
+   "short": "OS2",
    "curve": "lin",
    "fmt": "pct",
    "hidden": false,
@@ -2800,7 +2800,7 @@ var WS_SPEC = {
   {
    "key": "b1_lvl",
    "name": "B1 Level",
-   "short": "B1",
+   "short": "OS3",
    "curve": "lin",
    "fmt": "pct",
    "hidden": false,
@@ -3609,6 +3609,42 @@ var WS_SPEC = {
    "min": 0,
    "max": 1,
    "def": 0.5
+  },
+  {
+   "key": "v_vintage",
+   "name": "Vintage",
+   "short": "AMOUNT",
+   "curve": "lin",
+   "fmt": "pct",
+   "hidden": false,
+   "structural": false,
+   "perf": true,
+   "min": 0,
+   "max": 1,
+   "def": 0
+  },
+  {
+   "key": "v_vchar",
+   "name": "Vintage Type",
+   "short": "TYPE",
+   "curve": "choice",
+   "fmt": "choice",
+   "hidden": false,
+   "structural": false,
+   "perf": true,
+   "min": 0,
+   "max": 2,
+   "def": 1,
+   "choices": [
+    "Fixed differences",
+    "Both",
+    "Drift only"
+   ],
+   "choiceShort": [
+    "FIX",
+    "BOTH",
+    "DRIFT"
+   ]
   }
  ],
  "SECTIONS": [
@@ -3745,14 +3781,14 @@ var WS_SPEC = {
      "type": "source",
      "x": 276,
      "y": 70,
-     "w": 126,
+     "w": 182,
      "h": 82
     },
     {
      "type": "knobM",
      "param": "a_phase",
      "x": 408,
-     "y": 70,
+     "y": 186,
      "w": 52,
      "h": 60
     },
@@ -3775,16 +3811,16 @@ var WS_SPEC = {
     {
      "type": "knobL",
      "param": "a_width",
-     "x": 294,
-     "y": 162,
+     "x": 274,
+     "y": 184,
      "w": 64,
      "h": 62
     },
     {
      "type": "knobL",
      "param": "a_sparsity",
-     "x": 378,
-     "y": 162,
+     "x": 340,
+     "y": 184,
      "w": 64,
      "h": 62
     },
@@ -4068,14 +4104,14 @@ var WS_SPEC = {
      "type": "source",
      "x": 276,
      "y": 70,
-     "w": 126,
+     "w": 182,
      "h": 82
     },
     {
      "type": "knobM",
      "param": "a2_phase",
      "x": 408,
-     "y": 70,
+     "y": 186,
      "w": 52,
      "h": 60
     },
@@ -4098,16 +4134,16 @@ var WS_SPEC = {
     {
      "type": "knobL",
      "param": "a2_width",
-     "x": 294,
-     "y": 162,
+     "x": 274,
+     "y": 184,
      "w": 64,
      "h": 62
     },
     {
      "type": "knobL",
      "param": "a2_sparsity",
-     "x": 378,
-     "y": 162,
+     "x": 340,
+     "y": 184,
      "w": 64,
      "h": 62
     },
@@ -4774,7 +4810,8 @@ var WS_SPEC = {
      "x": 4,
      "y": 34,
      "w": 52,
-     "h": 60
+     "h": 60,
+     "only": "web"
     },
     {
      "type": "knobM",
@@ -4782,7 +4819,8 @@ var WS_SPEC = {
      "x": 64,
      "y": 34,
      "w": 52,
-     "h": 60
+     "h": 60,
+     "only": "web"
     },
     {
      "type": "knobM",
@@ -4790,7 +4828,53 @@ var WS_SPEC = {
      "x": 4,
      "y": 104,
      "w": 52,
-     "h": 60
+     "h": 60,
+     "only": "web"
+    },
+    {
+     "type": "knobT",
+     "param": "a1_lvl",
+     "x": 8,
+     "y": 32,
+     "w": 40,
+     "h": 46,
+     "only": "vst"
+    },
+    {
+     "type": "knobT",
+     "param": "a2_lvl",
+     "x": 8,
+     "y": 82,
+     "w": 40,
+     "h": 46,
+     "only": "vst"
+    },
+    {
+     "type": "knobT",
+     "param": "b1_lvl",
+     "x": 8,
+     "y": 132,
+     "w": 40,
+     "h": 46,
+     "only": "vst"
+    },
+    {
+     "type": "knobT",
+     "param": "v_vintage",
+     "x": 68,
+     "y": 32,
+     "w": 40,
+     "h": 46,
+     "only": "vst"
+    },
+    {
+     "type": "knobT",
+     "param": "v_vchar",
+     "x": 68,
+     "y": 82,
+     "w": 40,
+     "h": 46,
+     "only": "vst"
     },
     {
      "type": "label",
@@ -6072,7 +6156,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -6268,7 +6354,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -6465,7 +6553,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -6661,7 +6751,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -6857,7 +6949,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -7054,7 +7148,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -7251,7 +7347,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -7447,7 +7545,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -7644,7 +7744,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -7840,7 +7942,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -8037,14 +8141,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "B · Flute Lead",
    "cat": "Other",
    "id": "B · Flute Lead",
-   "rank": 113,
+   "rank": 115,
    "values": [
     2,
     6,
@@ -8233,7 +8339,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -8408,13 +8516,13 @@ var WS_SPEC = {
     0,
     7,
     0,
+    1,
+    1394.977897,
+    0.459184,
     0,
-    20000,
     0,
     0,
-    0,
-    0,
-    0.005,
+    0.036697,
     0.3,
     0.5,
     0.3,
@@ -8430,7 +8538,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.226757,
+    0,
+    1
    ]
   },
   {
@@ -8626,7 +8736,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -8823,7 +8935,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -9020,7 +9134,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -9217,7 +9333,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -9414,7 +9532,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -9610,7 +9730,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -9806,14 +9928,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Orbit Pad",
    "cat": "SuperModulation",
    "id": "506 A1A2 · Orbit Pad",
-   "rank": 109,
+   "rank": 111,
    "values": [
     0,
     4,
@@ -10002,7 +10126,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -10198,7 +10324,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -10395,7 +10523,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -10592,7 +10722,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -10789,7 +10921,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -10985,14 +11119,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Bloom of Soft",
    "cat": "SuperModulation",
    "id": "1101 A1A2 · Bloom of Soft",
-   "rank": 125,
+   "rank": 127,
    "values": [
     0,
     5,
@@ -11181,14 +11317,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Sweep Call",
    "cat": "Other",
    "id": "1104 A1A2B1 · Sweep Call",
-   "rank": 107,
+   "rank": 109,
    "values": [
     0,
     2,
@@ -11377,14 +11515,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Pick & Soft",
    "cat": "SuperModulation",
    "id": "1187 A1A2B1 · Pick & Soft",
-   "rank": 127,
+   "rank": 129,
    "values": [
     0,
     4,
@@ -11573,14 +11713,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Static & Fibre",
    "cat": "Other",
    "id": "1210 A1A2B1 · Static & Fibre",
-   "rank": 110,
+   "rank": 112,
    "values": [
     0,
     3,
@@ -11769,7 +11911,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -11965,14 +12109,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Breath & Drift",
    "cat": "Other",
    "id": "1355 A1A2B1 · Breath & Drift",
-   "rank": 111,
+   "rank": 113,
    "values": [
     0,
     1,
@@ -12161,7 +12307,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -12358,14 +12506,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Breathe Pluck",
    "cat": "Other",
    "id": "529 A1A2 · Breathe Pluck",
-   "rank": 115,
+   "rank": 117,
    "values": [
     0,
     4,
@@ -12554,14 +12704,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Origami & Honey",
    "cat": "Other",
    "id": "550 A1A2 · Origami & Honey",
-   "rank": 117,
+   "rank": 119,
    "values": [
     0,
     4,
@@ -12750,7 +12902,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -12946,14 +13100,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Ripple of Marimba",
    "cat": "Other",
    "id": "562 A1B1 · Ripple of Marimba",
-   "rank": 119,
+   "rank": 121,
    "values": [
     0,
     3,
@@ -13142,14 +13298,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Orbit Bloom",
    "cat": "Other",
    "id": "575 A1A2 · Orbit Bloom",
-   "rank": 121,
+   "rank": 123,
    "values": [
     0,
     4,
@@ -13338,14 +13496,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Ghost Foundation",
    "cat": "Other",
    "id": "593 A1B1 · Ghost Foundation",
-   "rank": 123,
+   "rank": 125,
    "values": [
     0,
     4,
@@ -13534,14 +13694,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Atoms Signal",
    "cat": "Other",
    "id": "602 A1B1 · Atoms Signal",
-   "rank": 126,
+   "rank": 128,
    "values": [
     0,
     6,
@@ -13730,14 +13892,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Swing of Odd",
    "cat": "Other",
    "id": "680 A2B1 · Swing of Odd",
-   "rank": 128,
+   "rank": 130,
    "values": [
     1,
     2,
@@ -13926,7 +14090,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -14123,7 +14289,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -14320,7 +14488,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -14517,7 +14687,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -14714,7 +14886,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -14910,7 +15084,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -15107,14 +15283,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Slow Violins",
    "cat": "Other",
    "id": "110 A1A2 · Slow Violins",
-   "rank": 129,
+   "rank": 131,
    "values": [
     0,
     6,
@@ -15303,14 +15481,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Wind Tunnel",
    "cat": "Other",
    "id": "186 A1B1 · Wind Tunnel",
-   "rank": 130,
+   "rank": 132,
    "values": [
     0,
     6,
@@ -15499,14 +15679,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Kick",
    "cat": "Other",
    "id": "189 A1A2 · Kick",
-   "rank": 131,
+   "rank": 133,
    "values": [
     0,
     6,
@@ -15695,14 +15877,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Snare",
    "cat": "Other",
    "id": "190 A1A2 · Snare",
-   "rank": 132,
+   "rank": 134,
    "values": [
     0,
     3,
@@ -15891,14 +16075,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Closed Hat",
    "cat": "Other",
    "id": "191 A1A2 · Closed Hat",
-   "rank": 133,
+   "rank": 135,
    "values": [
     0,
     0,
@@ -16087,14 +16273,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Open Hat",
    "cat": "Other",
    "id": "192 A1A2 · Open Hat",
-   "rank": 134,
+   "rank": 136,
    "values": [
     0,
     0,
@@ -16283,14 +16471,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Clap",
    "cat": "Other",
    "id": "193 A1A2 · Clap",
-   "rank": 135,
+   "rank": 137,
    "values": [
     0,
     2,
@@ -16479,14 +16669,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Tom",
    "cat": "Other",
    "id": "198 A1B1 · Tom",
-   "rank": 136,
+   "rank": 138,
    "values": [
     0,
     6,
@@ -16675,14 +16867,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Rim Shot",
    "cat": "Other",
    "id": "199 A1B1 · Rim Shot",
-   "rank": 137,
+   "rank": 139,
    "values": [
     0,
     3,
@@ -16871,14 +17065,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Ice Rise Clav",
    "cat": "Other",
    "id": "526 A1A2B1 · Ice Rise Clav",
-   "rank": 138,
+   "rank": 140,
    "values": [
     0,
     1,
@@ -17067,7 +17263,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -17264,7 +17462,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -17461,14 +17661,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Milk Sweep Growl",
    "cat": "Other",
    "id": "573 A1A2 · Milk Sweep Growl",
-   "rank": 139,
+   "rank": 141,
    "values": [
     0,
     3,
@@ -17657,14 +17859,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Reed Beam Undertow",
    "cat": "Other",
    "id": "577 A1A2 · Reed Beam Undertow",
-   "rank": 140,
+   "rank": 142,
    "values": [
     0,
     2,
@@ -17853,14 +18057,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Crystal Signal",
    "cat": "Other",
    "id": "605 A1A2B1 · Crystal Signal",
-   "rank": 141,
+   "rank": 143,
    "values": [
     0,
     6,
@@ -18049,14 +18255,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Fold & Moss",
    "cat": "Other",
    "id": "636 A1A2 · Fold & Moss",
-   "rank": 142,
+   "rank": 144,
    "values": [
     0,
     0,
@@ -18245,14 +18453,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Moon & Breath",
    "cat": "Other",
    "id": "776 A1A2 · Moon & Breath",
-   "rank": 143,
+   "rank": 145,
    "values": [
     0,
     2,
@@ -18441,7 +18651,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -18638,7 +18850,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -18835,7 +19049,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -19032,7 +19248,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -19229,14 +19447,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Beam Zap",
    "cat": "Other",
    "id": "1075 A1A2 · Beam Zap",
-   "rank": 145,
+   "rank": 147,
    "values": [
     0,
     6,
@@ -19425,7 +19645,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -19622,7 +19844,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -19818,14 +20042,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Nave Rise Keys",
    "cat": "Other",
    "id": "1144 A1B1 · Nave Rise Keys",
-   "rank": 146,
+   "rank": 148,
    "values": [
     0,
     1,
@@ -20014,14 +20240,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Mist Sweep Piano",
    "cat": "Other",
    "id": "1148 A1B1 · Mist Sweep Piano",
-   "rank": 147,
+   "rank": 149,
    "values": [
     0,
     3,
@@ -20210,7 +20438,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -20407,14 +20637,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Swirl Chimes",
    "cat": "Other",
    "id": "1167 A1A2 · Swirl Chimes",
-   "rank": 148,
+   "rank": 150,
    "values": [
     0,
     0,
@@ -20603,7 +20835,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -20800,7 +21034,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -20997,6 +21233,8 @@ var WS_SPEC = {
     0.4,
     150,
     1,
+    1,
+    0,
     1
    ]
   },
@@ -21194,14 +21432,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Rust Bloom Machine",
    "cat": "Other",
    "id": "1178 A1B1 · Rust Bloom Machine",
-   "rank": 150,
+   "rank": 152,
    "values": [
     0,
     3,
@@ -21390,7 +21630,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -21587,7 +21829,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -21784,7 +22028,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -21981,14 +22227,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Pixel Surge",
    "cat": "Other",
    "id": "1195 A1A2 · Pixel Surge",
-   "rank": 151,
+   "rank": 153,
    "values": [
     0,
     3,
@@ -22177,14 +22425,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Knock Lead",
    "cat": "Other",
    "id": "1198 A2B1 · Knock Lead",
-   "rank": 152,
+   "rank": 154,
    "values": [
     1,
     2,
@@ -22373,14 +22623,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Morph of Flint",
    "cat": "Other",
    "id": "1202 A1A2 · Morph of Flint",
-   "rank": 153,
+   "rank": 155,
    "values": [
     0,
     0,
@@ -22569,14 +22821,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Pearl Chords",
    "cat": "Other",
    "id": "1203 A1A2 · Pearl Chords",
-   "rank": 154,
+   "rank": 156,
    "values": [
     0,
     2,
@@ -22765,14 +23019,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Fold Flip Harp",
    "cat": "Other",
    "id": "1204 A2B1 · Fold Flip Harp",
-   "rank": 155,
+   "rank": 157,
    "values": [
     1,
     2,
@@ -22961,14 +23217,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Breath Bloom",
    "cat": "SuperModulation",
    "id": "1208 A2B1 · Breath Bloom",
-   "rank": 122,
+   "rank": 124,
    "values": [
     1,
     2,
@@ -23157,14 +23415,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Even of Amber",
    "cat": "Other",
    "id": "1212 A1B1 · Even of Amber",
-   "rank": 156,
+   "rank": 158,
    "values": [
     0,
     4,
@@ -23353,7 +23613,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -23550,14 +23812,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Lung of Marimba",
    "cat": "Other",
    "id": "1265 A1A2B1 · Lung of Marimba",
-   "rank": 157,
+   "rank": 159,
    "values": [
     0,
     3,
@@ -23746,7 +24010,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -23943,14 +24209,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Whistle Lead",
    "cat": "Other",
    "id": "024 A1A2 · Whistle Lead",
-   "rank": 158,
+   "rank": 160,
    "values": [
     0,
     6,
@@ -24139,14 +24407,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · String Machine II",
    "cat": "Other",
    "id": "121 A1B1 · String Machine II",
-   "rank": 159,
+   "rank": 161,
    "values": [
     0,
     2,
@@ -24335,7 +24605,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -24532,14 +24804,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Tambourine",
    "cat": "Other",
    "id": "200 A1B1 · Tambourine",
-   "rank": 160,
+   "rank": 162,
    "values": [
     0,
     0,
@@ -24728,14 +25002,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Opal Morph Haze",
    "cat": "Other",
    "id": "203 A1A2 · Opal Morph Haze",
-   "rank": 161,
+   "rank": 163,
    "values": [
     0,
     2,
@@ -24924,14 +25200,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Dust Resonance",
    "cat": "Other",
    "id": "279 A1B1 · Dust Resonance",
-   "rank": 162,
+   "rank": 164,
    "values": [
     0,
     2,
@@ -25120,7 +25398,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -25317,14 +25597,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Moon Ripple",
    "cat": "Other",
    "id": "362 A2B1 · Moon Ripple",
-   "rank": 163,
+   "rank": 165,
    "values": [
     1,
     2,
@@ -25513,14 +25795,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Taper & Vibes",
    "cat": "Other",
    "id": "504 A1B1 · Taper & Vibes",
-   "rank": 164,
+   "rank": 166,
    "values": [
     0,
     4,
@@ -25709,7 +25993,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -25905,7 +26191,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -26102,14 +26390,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Hold of Gong",
    "cat": "Other",
    "id": "523 A1A2B1 · Hold of Gong",
-   "rank": 165,
+   "rank": 167,
    "values": [
     0,
     3,
@@ -26298,14 +26588,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Wasp Surge",
    "cat": "Other",
    "id": "525 A1A2 · Wasp Surge",
-   "rank": 166,
+   "rank": 168,
    "values": [
     0,
     3,
@@ -26494,14 +26786,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Origami Blend",
    "cat": "Other",
    "id": "546 A1B1 · Origami Blend",
-   "rank": 167,
+   "rank": 169,
    "values": [
     0,
     2,
@@ -26690,14 +26984,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Amber Morph",
    "cat": "Other",
    "id": "559 A1B1 · Amber Morph",
-   "rank": 168,
+   "rank": 170,
    "values": [
     0,
     4,
@@ -26886,14 +27182,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Rise of Odd",
    "cat": "Other",
    "id": "561 A1B1 · Rise of Odd",
-   "rank": 169,
+   "rank": 171,
    "values": [
     0,
     0,
@@ -27082,14 +27380,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Stair & Tap",
    "cat": "Other",
    "id": "572 A1A2B1 · Stair & Tap",
-   "rank": 170,
+   "rank": 172,
    "values": [
     0,
     0,
@@ -27278,7 +27578,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -27338,7 +27640,7 @@ var WS_SPEC = {
     0,
     0,
     0,
-    8,
+    16,
     0,
     2,
     7.5,
@@ -27475,7 +27777,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -27672,7 +27976,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -27869,14 +28175,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Sweep of Tin",
    "cat": "Other",
    "id": "1077 A2B1 · Sweep of Tin",
-   "rank": 171,
+   "rank": 173,
    "values": [
     1,
     2,
@@ -28065,14 +28373,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Clack Wah",
    "cat": "Other",
    "id": "1085 A1A2B1 · Clack Wah",
-   "rank": 172,
+   "rank": 174,
    "values": [
     0,
     3,
@@ -28261,14 +28571,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Zap Laser",
    "cat": "Other",
    "id": "1086 A1A2 · Zap Laser",
-   "rank": 173,
+   "rank": 175,
    "values": [
     0,
     6,
@@ -28457,14 +28769,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Beam of Brass",
    "cat": "Other",
    "id": "1111 A1A2B1 · Beam of Brass",
-   "rank": 174,
+   "rank": 176,
    "values": [
     0,
     3,
@@ -28653,14 +28967,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Tide Lute",
    "cat": "SuperModulation",
    "id": "1115 A1A2 · Tide Lute",
-   "rank": 124,
+   "rank": 126,
    "values": [
     0,
     2,
@@ -28849,14 +29165,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Moon Surge Clav",
    "cat": "Other",
    "id": "1184 A1A2B1 · Moon Surge Clav",
-   "rank": 175,
+   "rank": 177,
    "values": [
     0,
     3,
@@ -29045,14 +29363,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Bloom of Bright",
    "cat": "Other",
    "id": "1190 A1A2 · Bloom of Bright",
-   "rank": 176,
+   "rank": 178,
    "values": [
     0,
     2,
@@ -29241,14 +29561,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Breath of Wood",
    "cat": "Other",
    "id": "1250 A1B1 · Breath of Wood",
-   "rank": 177,
+   "rank": 179,
    "values": [
     0,
     1,
@@ -29437,14 +29759,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Spark Orbit Ensemble",
    "cat": "Other",
    "id": "1326 A1B1 · Spark Orbit Ensemble",
-   "rank": 178,
+   "rank": 180,
    "values": [
     0,
     3,
@@ -29633,14 +29957,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Milk Strum",
    "cat": "Other",
    "id": "1361 A1A2 · Milk Strum",
-   "rank": 179,
+   "rank": 181,
    "values": [
     0,
     2,
@@ -29829,14 +30155,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Octave Square Lead",
    "cat": "Other",
    "id": "020 A1A2 · Octave Square Lead",
-   "rank": 180,
+   "rank": 182,
    "values": [
     0,
     2,
@@ -30025,14 +30353,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Cry Lead",
    "cat": "Other",
    "id": "038 A1B1 · Cry Lead",
-   "rank": 181,
+   "rank": 183,
    "values": [
     0,
     2,
@@ -30221,7 +30551,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -30418,7 +30750,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -30615,7 +30949,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -30812,7 +31148,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -31009,7 +31347,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -31206,14 +31546,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Open Call",
    "cat": "Other",
    "id": "627 A1A2 · Open Call",
-   "rank": 182,
+   "rank": 184,
    "values": [
     0,
     6,
@@ -31402,14 +31744,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Drift Signal",
    "cat": "Other",
    "id": "633 A2B1 · Drift Signal",
-   "rank": 183,
+   "rank": 185,
    "values": [
     1,
     2,
@@ -31598,14 +31942,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Atoms of Dive",
    "cat": "Other",
    "id": "648 A1A2 · Atoms of Dive",
-   "rank": 184,
+   "rank": 186,
    "values": [
     0,
     6,
@@ -31794,14 +32140,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Ice Tide Strum",
    "cat": "Other",
    "id": "901 A1B1 · Ice Tide Strum",
-   "rank": 185,
+   "rank": 187,
    "values": [
     0,
     5,
@@ -31990,14 +32338,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Wood & Drawbar",
    "cat": "Other",
    "id": "980 A1B1 · Wood & Drawbar",
-   "rank": 186,
+   "rank": 188,
    "values": [
     0,
     1,
@@ -32186,14 +32536,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Tide of Boom",
    "cat": "Other",
    "id": "1051 A1A2 · Tide of Boom",
-   "rank": 187,
+   "rank": 189,
    "values": [
     0,
     6,
@@ -32382,14 +32734,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Thud Shift",
    "cat": "Other",
    "id": "1053 A1A2 · Thud Shift",
-   "rank": 188,
+   "rank": 190,
    "values": [
     0,
     2,
@@ -32578,14 +32932,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Temple Rise Drum",
    "cat": "Other",
    "id": "1057 A1B1 · Temple Rise Drum",
-   "rank": 189,
+   "rank": 191,
    "values": [
     0,
     6,
@@ -32774,14 +33130,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Breathe Kick",
    "cat": "Other",
    "id": "1061 A1A2 · Breathe Kick",
-   "rank": 190,
+   "rank": 192,
    "values": [
     0,
     6,
@@ -32970,14 +33328,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Plasma Tom",
    "cat": "Other",
    "id": "1062 A1A2 · Plasma Tom",
-   "rank": 191,
+   "rank": 193,
    "values": [
     0,
     6,
@@ -33166,14 +33526,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Punch Rise Kick",
    "cat": "Other",
    "id": "1068 A1A2 · Punch Rise Kick",
-   "rank": 192,
+   "rank": 194,
    "values": [
     0,
     6,
@@ -33362,7 +33724,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -33559,7 +33923,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -33755,14 +34121,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Mosaic Strum",
    "cat": "Other",
    "id": "1182 A1A2B1 · Mosaic Strum",
-   "rank": 193,
+   "rank": 195,
    "values": [
     0,
     0,
@@ -33951,14 +34319,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Static Open Reeds",
    "cat": "Other",
    "id": "1192 A1A2B1 · Static Open Reeds",
-   "rank": 194,
+   "rank": 196,
    "values": [
     0,
     0,
@@ -34147,14 +34517,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Kite Swing",
    "cat": "Other",
    "id": "1199 A1A2 · Kite Swing",
-   "rank": 195,
+   "rank": 197,
    "values": [
     0,
     0,
@@ -34343,14 +34715,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Taper Atoms",
    "cat": "Other",
    "id": "1201 A1A2 · Taper Atoms",
-   "rank": 196,
+   "rank": 198,
    "values": [
     0,
     3,
@@ -34539,14 +34913,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Beam & Fanfare",
    "cat": "Other",
    "id": "1206 A1A2B1 · Beam & Fanfare",
-   "rank": 197,
+   "rank": 199,
    "values": [
     0,
     4,
@@ -34735,14 +35111,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Hollow & Drop",
    "cat": "Other",
    "id": "1231 A1B1 · Hollow & Drop",
-   "rank": 198,
+   "rank": 200,
    "values": [
     0,
     6,
@@ -34931,14 +35309,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Drum & Moss",
    "cat": "Other",
    "id": "1253 A1A2 · Drum & Moss",
-   "rank": 199,
+   "rank": 201,
    "values": [
     0,
     3,
@@ -35127,14 +35507,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Breathe Clav",
    "cat": "Other",
    "id": "1254 A1B1 · Breathe Clav",
-   "rank": 200,
+   "rank": 202,
    "values": [
     0,
     2,
@@ -35323,14 +35705,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Ripple of Crystal",
    "cat": "Other",
    "id": "1267 A1A2 · Ripple of Crystal",
-   "rank": 201,
+   "rank": 203,
    "values": [
     0,
     3,
@@ -35519,14 +35903,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Sweep of Flute",
    "cat": "Other",
    "id": "1278 A1B1 · Sweep of Flute",
-   "rank": 202,
+   "rank": 204,
    "values": [
     0,
     6,
@@ -35715,14 +36101,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Slope of Weave",
    "cat": "Other",
    "id": "1300 A1A2 · Slope of Weave",
-   "rank": 203,
+   "rank": 205,
    "values": [
     0,
     2,
@@ -35911,14 +36299,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Choir Breath Horns",
    "cat": "Other",
    "id": "1305 A1B1 · Choir Breath Horns",
-   "rank": 204,
+   "rank": 206,
    "values": [
     0,
     4,
@@ -36107,14 +36497,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Pixel Lean Pipes",
    "cat": "Other",
    "id": "1336 A1B1 · Pixel Lean Pipes",
-   "rank": 205,
+   "rank": 207,
    "values": [
     0,
     0,
@@ -36303,14 +36695,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Talk Lead",
    "cat": "Other",
    "id": "025 A1A2 · Talk Lead",
-   "rank": 206,
+   "rank": 208,
    "values": [
     0,
     3,
@@ -36499,14 +36893,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Fifth Lead",
    "cat": "Other",
    "id": "026 A1A2 · Fifth Lead",
-   "rank": 207,
+   "rank": 209,
    "values": [
     0,
     3,
@@ -36695,14 +37091,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Tape Pad",
    "cat": "Other",
    "id": "080 A1A2 · Tape Pad",
-   "rank": 208,
+   "rank": 210,
    "values": [
     0,
     2,
@@ -36891,14 +37289,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · FM Bell",
    "cat": "Other",
    "id": "157 A1A2 · FM Bell",
-   "rank": 209,
+   "rank": 211,
    "values": [
     0,
     6,
@@ -37087,14 +37487,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Air Tide",
    "cat": "Other",
    "id": "371 A1B1 · Air Tide",
-   "rank": 210,
+   "rank": 212,
    "values": [
     0,
     4,
@@ -37283,7 +37685,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -37480,14 +37884,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Abyss & Kalimba",
    "cat": "Other",
    "id": "515 A1A2B1 · Abyss & Kalimba",
-   "rank": 211,
+   "rank": 213,
    "values": [
     0,
     3,
@@ -37676,14 +38082,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Swirl of Odd",
    "cat": "Other",
    "id": "538 A1B1 · Swirl of Odd",
-   "rank": 212,
+   "rank": 214,
    "values": [
     0,
     0,
@@ -37872,14 +38280,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Sweep of Trumpet",
    "cat": "Other",
    "id": "645 A1B1 · Sweep of Trumpet",
-   "rank": 213,
+   "rank": 215,
    "values": [
     0,
     1,
@@ -38068,14 +38478,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Drawbar Shift",
    "cat": "Other",
    "id": "678 A1B1 · Drawbar Shift",
-   "rank": 214,
+   "rank": 216,
    "values": [
     0,
     0,
@@ -38264,14 +38676,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Moon Resonance Clav",
    "cat": "Other",
    "id": "689 A1B1 · Moon Resonance Clav",
-   "rank": 215,
+   "rank": 217,
    "values": [
     0,
     6,
@@ -38460,14 +38874,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Stair Pulse Tines",
    "cat": "Other",
    "id": "693 A1B1 · Stair Pulse Tines",
-   "rank": 216,
+   "rank": 218,
    "values": [
     0,
     5,
@@ -38656,14 +39072,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Hollow Scape",
    "cat": "Other",
    "id": "1043 A1A2B1 · Hollow Scape",
-   "rank": 217,
+   "rank": 219,
    "values": [
     0,
     6,
@@ -38852,14 +39270,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Skin Swing Hand Drum",
    "cat": "Other",
    "id": "1052 A2B1 · Skin Swing Hand Drum",
-   "rank": 218,
+   "rank": 220,
    "values": [
     1,
     2,
@@ -39048,14 +39468,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Temple & Pixel",
    "cat": "Other",
    "id": "1180 A1A2B1 · Temple & Pixel",
-   "rank": 219,
+   "rank": 221,
    "values": [
     0,
     6,
@@ -39244,14 +39666,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Beam of Cave",
    "cat": "Other",
    "id": "1232 A1B1 · Beam of Cave",
-   "rank": 220,
+   "rank": 222,
    "values": [
     0,
     3,
@@ -39440,14 +39864,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Soft Blend Harp",
    "cat": "Other",
    "id": "1255 A1A2 · Soft Blend Harp",
-   "rank": 221,
+   "rank": 223,
    "values": [
     0,
     2,
@@ -39636,14 +40062,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Tide of Chalk",
    "cat": "Other",
    "id": "1281 A1A2B1 · Tide of Chalk",
-   "rank": 222,
+   "rank": 224,
    "values": [
     0,
     3,
@@ -39832,7 +40260,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -40028,14 +40458,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Wood Orbit Pluck",
    "cat": "Other",
    "id": "1339 A1A2 · Wood Orbit Pluck",
-   "rank": 223,
+   "rank": 225,
    "values": [
     0,
     1,
@@ -40224,14 +40656,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AAB · Open Pluck",
    "cat": "Other",
    "id": "1340 A1A2B1 · Open Pluck",
-   "rank": 224,
+   "rank": 226,
    "values": [
     0,
     2,
@@ -40420,14 +40854,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Swing of Chalk",
    "cat": "Other",
    "id": "1366 A1A2 · Swing of Chalk",
-   "rank": 225,
+   "rank": 227,
    "values": [
     0,
     6,
@@ -40616,14 +41052,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Opal Atoms",
    "cat": "Other",
    "id": "1374 A1B1 · Opal Atoms",
-   "rank": 226,
+   "rank": 228,
    "values": [
     0,
     6,
@@ -40812,7 +41250,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -41009,7 +41449,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -41206,7 +41648,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -41403,7 +41847,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -41600,7 +42046,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -41796,7 +42244,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -41993,7 +42443,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -42190,7 +42642,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -42387,6 +42841,8 @@ var WS_SPEC = {
     0.4,
     150,
     1,
+    1,
+    0,
     1
    ]
   },
@@ -42394,7 +42850,7 @@ var WS_SPEC = {
    "name": "AA · Opal Rise Chords LGT",
    "cat": "SuperModulation",
    "id": "AA · Opal Rise Chords LGT",
-   "rank": 112,
+   "rank": 114,
    "values": [
     0,
     3,
@@ -42583,14 +43039,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Bloom of Timber LGT",
    "cat": "SuperModulation",
    "id": "AB · Bloom of Timber LGT",
-   "rank": 114,
+   "rank": 116,
    "values": [
     0,
     3,
@@ -42779,7 +43237,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -42976,7 +43436,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -42984,7 +43446,7 @@ var WS_SPEC = {
    "cat": "SuperModulation",
    "id": "AA · Salt Beam Strings LGT",
    "stars": 1,
-   "rank": 108,
+   "rank": 110,
    "values": [
     0,
     6,
@@ -43173,7 +43635,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -43370,14 +43834,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Wind Surge Horns LGT",
    "cat": "SuperModulation",
    "id": "AA · Wind Surge Horns LGT",
-   "rank": 116,
+   "rank": 118,
    "values": [
     0,
     4,
@@ -43566,14 +44032,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Knock Wah LGT",
    "cat": "SuperModulation",
    "id": "AB · Knock Wah LGT",
-   "rank": 118,
+   "rank": 120,
    "values": [
     0,
     4,
@@ -43762,14 +44230,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Rise of Slate LGT",
    "cat": "SuperModulation",
    "id": "AA · Rise of Slate LGT",
-   "rank": 120,
+   "rank": 122,
    "values": [
     0,
     2,
@@ -43958,14 +44428,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Moon & Breath LGT",
    "cat": "Other",
    "id": "AA · Moon & Breath LGT",
-   "rank": 144,
+   "rank": 146,
    "values": [
     0,
     2,
@@ -44154,14 +44626,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AA · Drum Bloom LGT",
    "cat": "Other",
    "id": "AA · Drum Bloom LGT",
-   "rank": 105,
+   "rank": 106,
    "values": [
     0,
     3,
@@ -44350,14 +44824,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Beam Lung Keys LGT",
    "cat": "Other",
    "id": "AB · Beam Lung Keys LGT",
-   "rank": 149,
+   "rank": 151,
    "values": [
     0,
     5,
@@ -44546,7 +45022,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -44743,7 +45221,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.477
+    0.477,
+    0,
+    1
    ]
   },
   {
@@ -44940,6 +45420,8 @@ var WS_SPEC = {
     0.4,
     150,
     1,
+    1,
+    0,
     1
    ]
   },
@@ -45137,7 +45619,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.458
+    0.458,
+    0,
+    1
    ]
   },
   {
@@ -45334,7 +45818,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.551
+    0.551,
+    0,
+    1
    ]
   },
   {
@@ -45531,7 +46017,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.662
+    0.662,
+    0,
+    1
    ]
   },
   {
@@ -45728,7 +46216,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.446
+    0.446,
+    0,
+    1
    ]
   },
   {
@@ -45925,7 +46415,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.381
+    0.381,
+    0,
+    1
    ]
   },
   {
@@ -46122,7 +46614,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.74
+    0.74,
+    0,
+    1
    ]
   },
   {
@@ -46319,7 +46813,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.785
+    0.785,
+    0,
+    1
    ]
   },
   {
@@ -46516,7 +47012,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.698
+    0.698,
+    0,
+    1
    ]
   },
   {
@@ -46713,7 +47211,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.318
+    0.318,
+    0,
+    1
    ]
   },
   {
@@ -46910,7 +47410,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.526
+    0.526,
+    0,
+    1
    ]
   },
   {
@@ -47107,7 +47609,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.626
+    0.626,
+    0,
+    1
    ]
   },
   {
@@ -47304,7 +47808,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.612
+    0.612,
+    0,
+    1
    ]
   },
   {
@@ -47501,7 +48007,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.693
+    0.693,
+    0,
+    1
    ]
   },
   {
@@ -47698,7 +48206,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.657
+    0.657,
+    0,
+    1
    ]
   },
   {
@@ -47895,7 +48405,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.717
+    0.717,
+    0,
+    1
    ]
   },
   {
@@ -48092,7 +48604,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.431
+    0.431,
+    0,
+    1
    ]
   },
   {
@@ -48289,7 +48803,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.657
+    0.657,
+    0,
+    1
    ]
   },
   {
@@ -48486,7 +49002,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.771
+    0.771,
+    0,
+    1
    ]
   },
   {
@@ -48683,7 +49201,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.828
+    0.828,
+    0,
+    1
    ]
   },
   {
@@ -48880,7 +49400,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.707
+    0.707,
+    0,
+    1
    ]
   },
   {
@@ -49077,7 +49599,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.701
+    0.701,
+    0,
+    1
    ]
   },
   {
@@ -49274,7 +49798,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.622
+    0.622,
+    0,
+    1
    ]
   },
   {
@@ -49471,7 +49997,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.829
+    0.829,
+    0,
+    1
    ]
   },
   {
@@ -49668,7 +50196,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.616
+    0.616,
+    0,
+    1
    ]
   },
   {
@@ -49865,7 +50395,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.785
+    0.785,
+    0,
+    1
    ]
   },
   {
@@ -50062,7 +50594,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.617
+    0.617,
+    0,
+    1
    ]
   },
   {
@@ -50070,7 +50604,7 @@ var WS_SPEC = {
    "cat": "SuperModulation",
    "id": "AAB · Clang Tide Signal STEP SAW",
    "stars": 2,
-   "rank": 106,
+   "rank": 107,
    "values": [
     0,
     2,
@@ -50259,7 +50793,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.734
+    0.734,
+    0,
+    1
    ]
   },
   {
@@ -50456,14 +50992,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.529
+    0.529,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Ripple Reeds2",
    "cat": "Bass",
    "id": "AB · Ripple Reeds2",
-   "rank": 227,
+   "rank": 105,
    "values": [
     0,
     6,
@@ -50652,14 +51190,16 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
    "name": "AB · Ripple",
    "cat": "Bass",
    "id": "AB · Ripple",
-   "rank": 228,
+   "rank": 108,
    "values": [
     0,
     6,
@@ -50848,7 +51388,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   }
  ],
@@ -51043,7 +51585,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -51236,7 +51780,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -51429,7 +51975,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -51622,7 +52170,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -51815,7 +52365,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   }
  ],
@@ -52146,7 +52698,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -52341,7 +52895,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -52536,7 +53092,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -52731,7 +53289,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -52926,7 +53486,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -53121,7 +53683,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -53316,7 +53880,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -53511,7 +54077,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -53706,7 +54274,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -53901,7 +54471,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -54096,7 +54668,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.935897
+    0.935897,
+    0,
+    1
    ]
   },
   {
@@ -54291,7 +54865,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -54486,7 +55062,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -54681,7 +55259,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -54876,7 +55456,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -55071,7 +55653,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -55266,7 +55850,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -55461,7 +56047,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -55656,7 +56244,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -55851,7 +56441,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -56046,7 +56638,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -56241,7 +56835,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -56436,7 +57032,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -56631,7 +57229,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -56826,7 +57426,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -57021,7 +57623,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -57216,7 +57820,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -57411,7 +58017,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -57606,7 +58214,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -57801,7 +58411,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -57996,7 +58608,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -58191,7 +58805,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -58386,7 +59002,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -58581,7 +59199,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -58776,6 +59396,8 @@ var WS_SPEC = {
     0.4,
     150,
     1,
+    1,
+    0,
     1
    ]
   },
@@ -58971,7 +59593,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -59166,7 +59790,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -59361,7 +59987,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -59556,7 +60184,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -59751,7 +60381,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -59946,7 +60578,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -60141,7 +60775,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -60336,7 +60972,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -60531,7 +61169,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -60726,7 +61366,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -60921,7 +61563,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -61116,7 +61760,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   },
   {
@@ -61311,7 +61957,9 @@ var WS_SPEC = {
     0.4,
     150,
     1,
-    0.5
+    0.5,
+    0,
+    1
    ]
   }
  ],

@@ -187,6 +187,7 @@
       v[i] = fit(i, obj && obj[p.key] !== undefined && isFinite(obj[p.key]) ? +obj[p.key] : p.def);
     });
     if (modify) modify((key, x) => { if (key in P) v[P[key]] = fit(P[key], x); }, key => v[P[key]]);
+    if ('v_vintage' in P) v[P.v_vintage] = 0;   // version 1.0.18 test: VINTAGE is the plug-in's only (OKTOWAVE_VINTAGE_SPEC.md): a preset that has it plays without it here
     return v;
   }
   // Version 1.0.8: the audio side of a preset change of the demo, sent ahead of the chord it goes with: the values and the tables (built ahead by prebuild, else here) with the song time `at`;
@@ -491,18 +492,36 @@
     $('st-midi').textContent = text; $('st-midi').title = text;
     if (msg && ms) flashTimer = setTimeout(() => midiStatus(), ms);
   }
+  // version 1.0.17 (the owner's MIDI keyboard "did not play": the page was open in VS Code's own browser, which has no Web MIDI): the status bar says what to do
+  // when the browser has no MIDI, when the access is refused, and when a keyboard is held by another program (on Windows one program per port: a DAW)
   function initMIDI() {
-    if (!navigator.requestMIDIAccess) { midiStatus('MIDI: not supported by this browser'); return; }
+    if (!navigator.requestMIDIAccess) {
+      midiStatus(/Electron\/|\bCode\//.test(navigator.userAgent) ? 'MIDI: not in this window (an editor\'s built-in browser): open the page in Chrome or Edge'
+        : !window.isSecureContext ? 'MIDI: needs a secure page (https or a file): open the official page'
+        : 'MIDI: not supported by this browser: open the page in Chrome or Edge');
+      return;
+    }
     navigator.requestMIDIAccess().then((access) => {
-      const hook = () => {
-        const names = [];
-        access.inputs.forEach((inp) => { inp.onmidimessage = onMIDI; names.push(inp.name); });
-        midiNames = names.length ? names.join(', ') : 'no device';
+      const opened = new Set(), busy = new Set();
+      const names = () => {
+        const list = [];
+        access.inputs.forEach((inp) => list.push(busy.has(inp.id) || inp.connection === 'pending' ? `${inp.name} (busy: another program uses it, a DAW? close it, then reload)` : inp.name));
+        midiNames = list.length ? list.join(', ') : 'no device';
         if (learn < 0) midiStatus();
       };
-      access.onstatechange = hook;
+      const hook = () => {
+        access.inputs.forEach((inp) => {
+          inp.onmidimessage = onMIDI;
+          if (opened.has(inp.id) || inp.state !== 'connected') return;
+          opened.add(inp.id);
+          inp.open().then(() => { busy.delete(inp.id); names(); }, () => { busy.add(inp.id); names(); });   // a port another program holds does not open ...
+          setTimeout(names, 800);   // ... or stays "pending"
+        });
+        names();
+      };
+      access.onstatechange = (e) => { if (e.port && e.port.state === 'disconnected') { opened.delete(e.port.id); busy.delete(e.port.id); } hook(); };
       hook();
-    }, () => { midiNames = 'access denied'; midiStatus(); });
+    }, () => { midiNames = 'access refused: allow "MIDI devices" in the site settings (the padlock left of the address), then reload'; midiStatus(); });
   }
   function programChange(n) {
     const list = presetList();

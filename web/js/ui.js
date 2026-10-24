@@ -192,15 +192,27 @@ class SynthUI {
     const s = svg('svg', { width: w.w, height: w.h }, box);
     const id = 'kg' + i + w.type;
     const defs = svg('defs', {}, s);
-    const grad = svg('radialGradient', { id, cx: '35%', cy: '30%', r: '75%' }, defs);
-    svg('stop', { offset: '0%', 'stop-color': '#3a414c' }, grad);
-    svg('stop', { offset: '100%', 'stop-color': '#161a1f' }, grad);
-    const thin = small || tiny, A0 = -0.75 * Math.PI, A1 = 0.75 * Math.PI, ar = r + (thin ? 2 : 4);
-    svg('path', { d: arcPath(cx, cy, ar, A0, A1), stroke: '#2a303a', 'stroke-width': thin ? 2.5 : 3, fill: 'none', 'stroke-linecap': 'round' }, s);
-    const val = svg('path', { d: '', stroke: 'var(--accent)', 'stroke-width': thin ? 2.5 : 3, fill: 'none', 'stroke-linecap': 'round' }, s);
-    svg('circle', { cx, cy, r: r - 1, fill: `url(#${id})`, stroke: '#0b0d10', 'stroke-width': 1.5 }, s);
-    svg('circle', { cx, cy, r: r - 4, fill: 'none', stroke: 'rgba(255,255,255,0.05)', 'stroke-width': 1 }, s);
-    const ptr = svg('line', { x1: cx, y1: cy - r * 0.25, x2: cx, y2: cy - r + 4, stroke: '#eef2f7', 'stroke-width': big ? 2.6 : tiny ? 2 : 2.2, 'stroke-linecap': 'round' }, s);
+    // version 1.0.18 (the owner's choice, ClaudeProjects/maquettes_boutons_cuivre, "couleur 1, cuivre rosé"; the plug-in draws the same knob, vst/src/editor.cpp): the knob is the
+    // picture img/bouton_cuivre_rose.png (knurled turned metal, a disc of radius 74.3 px in 156 px) with two soft shadows under it, lit from a fixed side (the picture does not
+    // turn); the white dot (0.12 r, at 0.696 r from the centre) shows the value, with a small shadow above it. The ring and the value arc are those of before.
+    const thin = small || tiny, A0 = -0.75 * Math.PI, A1 = 0.75 * Math.PI, ar = r + (thin ? 2 : 4), sw = thin ? 2.5 : 3;
+    const f = svg('filter', { id: id + 's', x: '-60%', y: '-60%', width: '220%', height: '220%', 'color-interpolation-filters': 'sRGB' }, defs);
+    [[2.2, 2.0, 0.35, 'b'], [0.8, 0.7, 0.55, 'a']].forEach(([dy, blur, op, k]) => {   // [vertical offset, blur, opacity]: a soft shadow and a tight contact shadow
+      svg('feGaussianBlur', { in: 'SourceAlpha', stdDeviation: blur, result: 'g' + k }, f);
+      svg('feOffset', { in: 'g' + k, dx: 0, dy, result: 'o' + k }, f);
+      svg('feFuncA', { type: 'linear', slope: op }, svg('feComponentTransfer', { in: 'o' + k, result: 's' + k }, f));
+    });
+    const fm = svg('feMerge', {}, f);
+    for (const m of ['sb', 'sa', 'SourceGraphic']) svg('feMergeNode', { in: m }, fm);
+    svg('path', { d: arcPath(cx, cy, ar, A0, A1), style: `stroke: rgba(255,255,255,0.18); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
+    const val = svg('path', { d: '', style: `stroke: var(--accent); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
+    const sz = r * 156 / 74.3;   // the picture is 2.0996 knob radii wide
+    svg('image', { href: 'img/bouton_cuivre_rose.png', x: cx - sz / 2, y: cy - sz / 2, width: sz, height: sz }, svg('g', { filter: `url(#${id}s)` }, s));
+    const dg = svg('radialGradient', { id: id + 'd', cx: '42%', cy: '38%', r: '62%' }, defs);
+    for (const [o, c] of [['0%', '#ffffff'], ['60%', '#f3f1f0'], ['100%', '#cfcac8']]) svg('stop', { offset: o, style: 'stop-color: ' + c }, dg);
+    const dotR = r * 0.12, dotD = r * 0.696;
+    const dotSh = svg('circle', { r: dotR * 1.1, style: 'fill: rgba(35,12,6,0.55); stroke: none' }, s);
+    const dot = svg('circle', { r: dotR, style: `fill: url(#${id}d); stroke: none` }, s);
     let label = null;
     if (!small) {
       label = el('div', 'label', box, { top: (big ? 48 : tiny ? 33 : 43) + 'px', fontSize: tiny ? '8.5px' : '' });
@@ -214,7 +226,9 @@ class SynthUI {
         const a = A0 + (A1 - A0) * n;
         const from = bip ? A0 + (A1 - A0) * this.C.toNorm(p, 0) : A0;
         val.setAttribute('d', arcPath(cx, cy, ar, Math.min(from, a), Math.max(from, a)));
-        ptr.setAttribute('transform', `rotate(${(a * 180 / Math.PI).toFixed(2)} ${cx} ${cy})`);
+        const dx = cx + dotD * Math.sin(a), dy = cy - dotD * Math.cos(a);
+        dot.setAttribute('cx', dx.toFixed(2)); dot.setAttribute('cy', dy.toFixed(2));
+        dotSh.setAttribute('cx', dx.toFixed(2)); dotSh.setAttribute('cy', (dy - dotR * 0.28).toFixed(2));
         if (label) {
           const showVal = widget.hover || widget.drag;
           // style 'value' (beta 0.6): the value is the label (a note value says more than "TIME")

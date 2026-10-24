@@ -2,8 +2,8 @@
 
 # ⬇ DOWNLOAD THE PLUG-IN (Windows VST3 / VST2, macOS VST3)
 
-1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.17**).
-2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.17-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.17-mac.zip** (macOS).
+1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)** (or, on this page: **Releases** in the right-hand column, then **v1.0.18**).
+2. Scroll down to **Assets** and click **OktoMultiWaveSynth-1.0.18-win64.zip** (Windows) or **OktoMultiWaveSynth-1.0.18-mac.zip** (macOS).
 3. Unzip it and copy the whole folder **OktoMultiWaveSynth.vst3** into `C:\Program Files\Common Files\VST3` (Windows, VST3; needs administrator rights) or into your VST2 plug-in folder; on a Mac into `~/Library/Audio/Plug-Ins/VST3`. `INSTALL.txt` (`INSTALL-mac.txt`) in the zip says more.
 4. In your DAW, rescan the plug-ins (Ableton Live: *Preferences → Plug-ins → Rescan*), then open *Plug-ins → OktoPierre → Okto Fractal Wavelet* (named Okto MultiWave Synth before 1.0.17).
 
@@ -13,7 +13,7 @@
 
 ---
 
-*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.17, 2026-10-23), see
+*Created by **Pierre Arnaud GUYOT** ("OktoPierre") — **OktoWave 1.0** (technical version 1.0.18, 2026-10-24), see
 [RELEASE_HISTORY.md](RELEASE_HISTORY.md). Architecture and maintenance notes: [CLAUDE.md](CLAUDE.md).*
 
 Okto MultiWave Synth is the [Wavelet Synthesizer](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v0.7.1-beta)
@@ -31,7 +31,15 @@ The web app also works offline: download the repository and open `web/index.html
 The Wavelet Synthesizer beta 0.7.1 that this repository carried until version 1.0.3 stays in its history and in the Releases (tag `v0.7.1-beta`, with its macOS plug-in);
 from version 1.0.6 the macOS plug-in is built and tested on GitHub's Macs and released with the Windows one.
 
-## What version 1.0.17 changes (OktoWave 1.0)
+## What version 1.0.18 changes (OktoWave 1.0)
+
+- **VINTAGE** (plug-in): one knob that ages the instrument like an analog polyphonic synthesizer of the 70s and 80s: each voice a little out of tune in its own way, a slow drift and a wow of the pitch, a darker and warmer tone, voices a little different. 0 % (the default) is the clean sound of before. **TYPE**: **FIX** (fixed differences only), **BOTH** or **DRIFT** (the moving drift only). It stays when you change preset, so every sound can be aged.
+- **Copper knobs** (web app and plug-in): every knob is a turned-metal knob in rosy copper, sharp at every size.
+- **A tidier panel** (web app and plug-in): the OSC MIX levels are named **OS1 OS2 OS3**, as the tabs; in the subtractive oscillator's card WIDTH, SPARSITY, PHASE and the level are on one row.
+- **The author's latest settings** for *A · Warm Pad* and *AA · Crystal Swirl*, TOP Sounds in his new order; the synth opens on *AA · Crystal Swirl*.
+- **MIDI in the web app**: when a keyboard does not play, the MIDI status says what to do.
+
+## What version 1.0.17 changed (OktoWave 1.0)
 
 - **Your sounds are never lost with a new version** (plug-in): your presets now live in `Documents\OktoPierre\Okto Fractal Wavelet` (macOS: `~/Documents/OktoPierre/Okto Fractal Wavelet`), apart from the plug-in, so installing, replacing or deleting the plug-in never touches them. Nothing is made there until you keep something (a player who only plays leaves nothing behind); the file of an older version, next to the plug-in, is read where it is and stays as it was. A new version keeps a copy of the file before it writes over it.
 - **Export and import by bank** (plug-in): **EXPORT…** writes one bank of your user bank, one factory list, your favourites (rated N or more) or everything; **IMPORT…** reads a bank or the presets file of any version, shows what it holds and **adds the banks you tick** as banks of your own (nothing of yours is replaced), or merges them into your banks of the same name, or replaces everything. A backup copy of your file is made first.

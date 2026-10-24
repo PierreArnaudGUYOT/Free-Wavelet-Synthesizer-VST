@@ -1,10 +1,18 @@
-OktoWave 1.0 (Okto Fractal Wavelet, version 1.0.17) - VST3 / VST2 instrument for Windows 10/11 (64-bit) (macOS: OktoMultiWaveSynth-1.0.17-mac.zip, same release page)
+OktoWave 1.0 (Okto Fractal Wavelet, version 1.0.18) - VST3 / VST2 instrument for Windows 10/11 (64-bit) (macOS: OktoMultiWaveSynth-1.0.18-mac.zip, same release page)
 Created by Pierre Arnaud GUYOT (OktoPierre). Free software under the GNU GPL v3 or later (GPL-3.0-or-later):
 the licence text is in OktoMultiWaveSynth.vst3\Contents\Resources\LICENSE.txt.
 Source code: https://github.com/PierreArnaudGUYOT/Okto-MultiWave-Synth
 
 Three oscillators (A1 A2 subtractive, B1 additive), three LFOs, a real filter (LADDER / OTA),
 229 presets (the author's choice), a chord mode with bass, an oriental keyboard.
+
+NEW IN 1.0.18
+- VINTAGE (in the OSC MIX card, titled MIX and VINTAGE): AMOUNT ages the instrument like an analog polyphonic synthesizer of the 70s and 80s: each voice a little
+  out of tune in its own way, a slow drift and a wow of the pitch, a darker and warmer tone, voices a little different. 0 % (the default) is the clean sound of
+  before. TYPE: FIX (the fixed differences only), BOTH or DRIFT (the moving drift only). It stays when you change preset, so every sound can be aged.
+- COPPER KNOBS: every knob is a turned-metal knob in rosy copper, sharp at every window size.
+- A TIDIER PANEL: the OSC MIX levels are named OS1 OS2 OS3, as the tabs; in the subtractive oscillator's card WIDTH, SPARSITY, PHASE and the level are on one row.
+- The author's latest settings for A · Warm Pad and AA · Crystal Swirl, TOP Sounds in his new order; the synth opens on AA · Crystal Swirl.
 
 NEW IN 1.0.17
 - YOUR SOUNDS ARE NEVER LOST WITH A NEW VERSION: your presets now live in Documents\OktoPierre\Okto Fractal Wavelet, apart from the plug-in, so installing,
@@ -134,7 +142,7 @@ INSTALL
 1. Copy the WHOLE folder OktoMultiWaveSynth.vst3 (the manual is inside it) into ONE of these:
    - your VST3 folder:  C:\Program Files\Common Files\VST3   (needs administrator rights), or
    - your VST2 plug-in folder (the one set as "VST2 Plug-in Custom Folder" in Ableton Live; no administrator rights).
-   The same folder works as VST3 and as VST2. Replace the folder of 1.0.16 (or of an older version) if you have it.
+   The same folder works as VST3 and as VST2. Replace the folder of 1.0.17 (or of an older version) if you have it.
 2. In Ableton Live: Preferences > Plug-ins, switch on "Use VST3 Plug-in System Folders" (or "Use VST2 Plug-in Custom Folder")
    and click Rescan.
 3. In Live's browser: Plug-ins > OktoPierre > Okto Fractal Wavelet (the name of the plug-in since 1.0.17; Okto MultiWave Synth before:

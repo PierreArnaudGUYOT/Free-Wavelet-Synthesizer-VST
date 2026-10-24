@@ -17,6 +17,8 @@ const db = x => 20 * Math.log10(Math.max(x, 1e-12));
 const A_PRESET = SPEC.PRESETS.findIndex(p => p.name === 'A · Warm Pad');
 function make(set, preset = A_PRESET) {
   const v = SPEC.PRESETS[preset].values.slice();
+  // version 1.0.18: A · Warm Pad has the author's OTA filter at 1395 Hz now; the checks start from it with the FILTER open (its defaults), as it was when they were written
+  if (preset === A_PRESET) for (const p of SPEC.PARAMS) if (/^vf_/.test(p.key)) v[P[p.key]] = p.def;
   for (const [k, x] of Object.entries(set)) { if (!(k in P)) throw new Error('unknown parameter ' + k); v[P[k]] = x; }
   const eng = new C.Engine(sr); v.forEach((x, i) => eng.setParam(i, x));
   const tb = C.buildTables(Float64Array.from(v), true); eng.setTables(tb);

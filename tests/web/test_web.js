@@ -719,7 +719,9 @@ async function stepPanel() {
   }
   await ev(`WS_TEST.setParam('osc_view', ${eng0}); true`);
   // tempo SYNC is the plug-in's: neither its buttons nor its note-value knobs here; the hertz / seconds knobs at their place
-  const vstOnly = all.filter((w) => w.only === 'vst' && w.param).map((w) => ({ name: SPEC_BY_KEY[w.param].name, x: w.sx + w.w / 2, y: w.sy + w.h / 2 }));
+  // (version 1.0.18: the plug-in's own OS1 OS2 OS3 knobs are levels the web app shows with its own knobs, at about the same place: not plug-in-only settings)
+  const webParams = new Set(all.filter((w) => w.only !== 'vst' && w.param).map((w) => w.param));
+  const vstOnly = all.filter((w) => w.only === 'vst' && w.param && !webParams.has(w.param)).map((w) => ({ name: SPEC_BY_KEY[w.param].name, x: w.sx + w.w / 2, y: w.sy + w.h / 2 }));
   // (the widgets of beta 0.2 that show with a playing setting — BASS with CHORD MODE, MAQAM and TONIC with TUNING — are not sync twins)
   const shown = all.filter((w) => w.vis && w.only !== 'vst' && w.param && !SPEC_BY_KEY[w.vis].perf).map((w) => ({ name: SPEC_BY_KEY[w.param].name, x: w.sx + w.w / 2, y: w.sy + w.h / 2, lfoPage: w.lfoPage }));
   const probe = (list) => ev(`(() => { const d = document.getElementById('device').getBoundingClientRect();
@@ -809,8 +811,10 @@ async function stepPanel() {
   // (version 1.0.17: 32 presets appended after them: the 30 New Waves sounds the owner kept, one of them a HIGH_CPU sound, and the 2 basses of his user bank; his stars
   // rate some HIGH_CPU originals now)
   const added = SPEC.PRESETS.length - (SPEC.TOP + SPEC.NEW_COUNT + lights);
-  check(added === 32 && lights === 19 && high.length === 15 && high.every((p) => p.cat === 'Other') && lastCat === 'Other', `spec: TOP Sounds = ${TOP_N} sounds, then ${SPEC.NEW_COUNT} new presets, ${lights} LGT versions and ${added} presets of 1.0.17 (${high.length} HIGH_CPU sounds in Other); ${lastCat} is the last category`,
-    `TOP ${SPEC.TOP}, presets ${SPEC.PRESETS.length}, light ${lights}, high ${high.length}, last category '${lastCat}'`);
+  // (version 1.0.18: the owner's presets file puts AA · Salt Beam Strings HIGH_CPU in SuperModulation; the other HIGH_CPU sounds stay in Other)
+  const highOut = high.filter((p) => p.cat !== 'Other').map((p) => p.name).join(', ');
+  check(added === 32 && lights === 19 && high.length === 15 && highOut === 'AA · Salt Beam Strings HIGH_CPU' && lastCat === 'Other', `spec: TOP Sounds = ${TOP_N} sounds, then ${SPEC.NEW_COUNT} new presets, ${lights} LGT versions and ${added} presets of 1.0.17 (${high.length} HIGH_CPU sounds, in Other but the one the owner moved); ${lastCat} is the last category`,
+    `TOP ${SPEC.TOP}, presets ${SPEC.PRESETS.length}, light ${lights}, high ${high.length} (outside Other: ${highOut || 'none'}), last category '${lastCat}'`);
   const bInfo = await ev(`(() => { const b = document.getElementById('browser'); if (!b) return null;
     const tab = b.querySelector('.btabs button'); if (tab) tab.click();   // FACTORY
     const first = b.querySelector('.bcats .bcat'); if (first) first.click();   // TOP Sounds

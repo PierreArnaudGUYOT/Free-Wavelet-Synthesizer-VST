@@ -36,7 +36,7 @@ const APP = {
   copyright: 'Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)',
   license: 'GPL v3',                 // shown on the panel; the licence is GPL-3.0-or-later (file LICENSE)
   version: '1.0',   // the version SHOWN (the panel's credit, the preset files): OktoWave 1.0, the first stable release; the technical number below is the release's (1.0.x)
-  versionNum: '1.0.17',
+  versionNum: '1.0.18',
   date: '2026-10-23',
   doi: '',                           // no Zenodo record yet (the base synthesizer's is 10.5281/zenodo.23431760)
   base: 'Wavelet Synthesizer beta 0.7',   // the synthesizer Okto MultiWave Synth is built on
@@ -261,7 +261,7 @@ for (const id of SLOT_IDS) {
     if (id === 'a1') k[f] = base; else { k[f] = id + '_' + f; cloneParam(k[f], name, base); }
   }
   // level, tuning, own envelope, pitch envelope (all new)
-  k.lvl = id + '_lvl'; add(k.lvl, name + ' Level', name, { min: 0, max: 1, def: id === 'a1' ? 1 : 0 });
+  k.lvl = id + '_lvl'; add(k.lvl, name + ' Level', { a1: 'OS1', a2: 'OS2', b1: 'OS3' }[id], { min: 0, max: 1, def: id === 'a1' ? 1 : 0 });   // (version 1.0.18, the owner: the OSC MIX knobs are OS1 OS2 OS3, as the tabs OSC1 OSC2 OSC3)
   k.oct = id + '_oct'; add(k.oct, name + ' Octave', 'OCTAVE', { curve: 'int', fmt: 'int', min: -3, max: 3, def: 0 });
   k.semi = id + '_semi'; add(k.semi, name + ' Semitones', 'SEMI', { curve: 'int', fmt: 'semi', min: -12, max: 12, def: 0 });
   k.fine = id + '_fine'; add(k.fine, name + ' Fine Tune', 'FINE', { fmt: 'cents', min: -100, max: 100, def: 0 });
@@ -373,6 +373,14 @@ add('fx_rwidth', 'Reverb Width', 'WIDTH', { min: 0, max: 1, def: 1, perf: true, 
 // léger"), 100 % = +8 dB in 50 ms ("punch fort"); in between +8 dB x PUNCH, falling in 30 + 20 x PUNCH ms (core.js / dsp.h ampPass). A sound's own setting (in the presets); a preset or
 // a saved project without it plays 50 %.
 add('fx_punch', 'Punch', 'PUNCH', { min: 0, max: 1, def: 0.5 });
+// Version 1.0.18 (the owner's spec, ClaudeProjects/OKTOWAVE_VINTAGE_SPEC.md; plug-in only: the web app does not show it and forces it to 0): VINTAGE, the faults of an
+// analog polyphonic synthesizer of the 70s-80s in one knob (each voice and oscillator out of tune in its own way, a pull at each note, a slow drift and a fast jitter, free-running
+// phases, the voices' filters and levels a little different; vst/src/dsp.h) and TYPE (FIX: the fixed differences only / BOTH: the spec / DRIFT: the moving drift only).
+// A playing setting of the instrument, like VELOCITY (perf: not in a preset, it stays when the preset changes, kept with the Live Set), so that it plays on every preset: the
+// instrument's age (the owner could not hear it while a preset change set it back to 0). The test switch PHASE FREE / RESET was dropped (the owner: "je pense pas qu'elle
+// serve beaucoup"): the phases run free.
+add('v_vintage', 'Vintage', 'AMOUNT', { fmt: 'pct', min: 0, max: 1, def: 0, perf: true });   // (the owner: under the title VINTAGE, the knobs AMOUNT and TYPE)
+add('v_vchar', 'Vintage Type', 'TYPE', { curve: 'choice', fmt: 'choice', min: 0, max: 2, def: 1, perf: true, choices: ['Fixed differences', 'Both', 'Drift only'], choiceShort: ['FIX', 'BOTH', 'DRIFT'] });
 
 const DELAY_BEATS = DELAY_NOTES.map(noteBeats), LFO_BEATS = LFO_NOTES.map(noteBeats);
 for (const b of [DELAY_BEATS, LFO_BEATS]) for (let i = 1; i < b.length; i++)
@@ -462,7 +470,7 @@ SLOTS.forEach((s, v) => {
       { type: 'source', x: 276, y: 70, w: 126, h: 64 },
       kn(K.phase, 408, 70),
       kn('wmorph', 470, 64), kn('env_wav', 470, 122),
-      kn(K.width, 294, 162, 'knobL'),      // (compactPanel() places them: 42 px discs centred at (326, 184) and (410, 184))
+      kn(K.width, 294, 162, 'knobL'),      // (compactPanel() places them: 42 px discs, version 1.0.18 centred at (306, 206) and (372, 206))
       kn(K.sparsity, 378, 162, 'knobL'),
       kn(K.lvl, 470, 180),
     ]);
@@ -499,7 +507,16 @@ SLOTS.forEach((s, v) => {
 // ---- always shown. At the top right, outside the plate: OSC MIX (the three levels, the sub oscillator) and the SCOPE, which show the whole sound (every oscillator
 // that plays and the sub oscillator, at the reference note C4), not the oscillator shown; they start under the header, level with the tabs
 section('mix', 'OSC MIX', 572, 56, 124, 298, -1, [
-  kn('a1_lvl', 4, 34), kn('a2_lvl', 64, 34), kn('b1_lvl', 4, 104),
+  // the web app: the three levels as before
+  Object.assign(kn('a1_lvl', 4, 34), { only: 'web' }), Object.assign(kn('a2_lvl', 64, 34), { only: 'web' }), Object.assign(kn('b1_lvl', 4, 104), { only: 'web' }),
+  // version 1.0.18 (the owner's request): in the plug-in OS1 OS2 OS3 smaller, one above the other at the left under the title MIX; at the right, under the title VINTAGE
+  // (editor.cpp draws both titles in the plug-in), AMOUNT and under it TYPE, a three-position knob (FIX / BOTH / DRIFT shown while hovered or turned), both the size of OS1
+  // and level with OS1 and OS2 (the owner)
+  { type: 'knobT', param: 'a1_lvl', x: 8, y: 32, w: 40, h: 46, only: 'vst' },
+  { type: 'knobT', param: 'a2_lvl', x: 8, y: 82, w: 40, h: 46, only: 'vst' },
+  { type: 'knobT', param: 'b1_lvl', x: 8, y: 132, w: 40, h: 46, only: 'vst' },
+  { type: 'knobT', param: 'v_vintage', x: 68, y: 32, w: 40, h: 46, only: 'vst' },
+  { type: 'knobT', param: 'v_vchar', x: 68, y: 82, w: 40, h: 46, only: 'vst' },
   { type: 'label', text: 'SUB OSC', x: 8, y: 198, w: 100, h: 14 },
   { type: 'knobT', param: 'sub_level', x: 2, y: 220, w: 40, h: 46 },
   { type: 'knobT', param: 'sub_oct', x: 42, y: 220, w: 40, h: 46 },
@@ -621,6 +638,9 @@ section('chord', 'CHORD KEYBOARD', 12, 1054, 1076, 104, -1, [
       // rings and labels touched), the first one under the selector
       for (const w of s.widgets) if (w.type === 'seg') w.y -= 6;
       if (base === 'tone' && s.id !== 'tone_b1') s.widgets.filter(w => /^knob/.test(w.type) && w.x >= 460).sort((a, b) => a.y - b.y).forEach((w, i) => { w.y = 62 + 62 * i; });
+      // version 1.0.18 (the owner's choice among two mock-ups, "proposition B": the axes aligned): the subtractive card's bottom row SOURCE WIDTH, SPARSITY, SOURCE PHASE, LEVEL,
+      // centres (306, 206), (372, 206), (434, 206), (496, 206); the SOURCE CYCLE picture wider (to x 458), next to WAVELET MORPH and ENV>WAV
+      if (s.widgets[4].type === 'source') { widget(s, 4, 276, 70, 182, 82); widget(s, 5, 408, 186); widget(s, 8, 274, 184); widget(s, 9, 340, 184); }
     } else if (base === 'filter' || base === 'position' || base === 'osc') {
       s.y = 356; s.h = 132; shift(s, 50, -8);
       // version 1.0.6 (nothing overlaps): the type selector / window picture is 4 px higher and the knobs 3 px lower: the rings of the knobs cleared it by -2.5 px
@@ -1023,37 +1043,41 @@ const KEYATTAC = PRESETS.map((p, i) => i).filter(i => PRESETS[i].vote && !PRESET
 // Pad, his version); the two sounds of the Bass bank of his user bank become factory presets of Bass. So the presets he adjusted take his values (the demo's too, as in 1.0.16),
 // his sections and his order of every list are the factory lists (no sorting by stars: his order), his stars are the factory stars. Applied after the KeyAttac folder, which
 // keeps the favourites of 1.0.16 as they were.
-{
-  const OWNER3 = require('./owner_presets3.js');
-  for (const [name, edit] of Object.entries(OWNER3.adjusted)) {
-    const p = PRESETS.find(x => x.name === name); if (!p) throw new Error('owner_presets3: no preset ' + name);
+// Version 1.0.18: the same for his presets file of 2026-10-24 (VSTClaude/new.txt, tools/owner_import.js --out owner_presets4.js: "j'ai changé un petit peu les presets, des
+// favoris"): A · Warm Pad and AA · Crystal Swirl take his new settings, TOP Sounds his new order (the synth opens on AA · Crystal Swirl), a section his new order.
+function applyOwnerFile(o, from) {
+  for (const [name, edit] of Object.entries(o.adjusted)) {
+    const p = PRESETS.find(x => x.name === name); if (!p) throw new Error(from + ': no preset ' + name);
     p.v = Object.assign({}, p.v, edit); OWNER_EDITS[name] = Object.assign({}, OWNER_EDITS[name] || {}, edit);
   }
-  if (OWNER3.deleted.length) dropPresets(OWNER3.deleted, 'owner_presets3');
-  for (const r of OWNER3.add || []) {   // the sounds of his user bank's Bass: factory presets of Bass, at the end of it
-    if (PRESETS.some(p => p.name === r.name)) throw new Error('owner_presets3: the name is taken: ' + r.name);
+  if (o.deleted.length) dropPresets(o.deleted, from);
+  for (const r of o.add || []) {   // (owner_presets3: the sounds of his user bank's Bass: factory presets of Bass, at the end of it)
+    if (PRESETS.some(p => p.name === r.name)) throw new Error(from + ': the name is taken: ' + r.name);
     PRESETS.push({ name: r.name, id: r.name, cat: r.cat, v: r.v, rank: 1e6 + PRESETS.length });
   }
-  for (const [sec, names] of Object.entries(OWNER3.lists)) {
+  for (const [sec, names] of Object.entries(o.lists)) {
     if (sec === 'TOP Sounds') continue;
-    names.forEach((n, i) => { const p = PRESETS.find(x => x.name === n); if (!p) throw new Error('owner_presets3 lists: no preset ' + n); p.cat = sec; p.rank = i; });
+    names.forEach((n, i) => { const p = PRESETS.find(x => x.name === n); if (!p) throw new Error(from + ' lists: no preset ' + n); p.cat = sec; p.rank = i; });
   }
-  const top = OWNER3.lists['TOP Sounds'].map(n => { const i = PRESETS.findIndex(x => x.name === n); if (i < 0) throw new Error('owner_presets3 TOP Sounds: no preset ' + n); return i; });
+  const top = o.lists['TOP Sounds'].map(n => { const i = PRESETS.findIndex(x => x.name === n); if (i < 0) throw new Error(from + ' TOP Sounds: no preset ' + n); return i; });
   TOP_LIST.splice(0, TOP_LIST.length, ...top);
   TOP_EXTRA.splice(0, TOP_EXTRA.length, ...TOP_EXTRA.filter(i => top.includes(i)));
-  for (const p of PRESETS) { const s = OWNER3.stars[p.name] || 0; if (s) p.vote = s; else delete p.vote; }
-  for (const n of Object.keys(OWNER3.stars)) if (!PRESETS.some(p => p.name === n)) throw new Error('owner_presets3: no preset ' + n);
+  for (const p of PRESETS) { const s = o.stars[p.name] || 0; if (s) p.vote = s; else delete p.vote; }
+  for (const n of Object.keys(o.stars)) if (!PRESETS.some(p => p.name === n)) throw new Error(from + ': no preset ' + n);
   PRESETS.map((p, i) => i).sort((a, b) => PRESETS[a].rank - PRESETS[b].rank).forEach((i, r) => { PRESETS[i].rank = r; });   // his order in each section, without gaps
   const ORDER = ['Pad', 'Bass', 'SuperModulation', 'Lead', 'Keyboard', 'Organ', 'Strings', 'Brass & Wind', 'Bells & Mallets', 'FX', 'Drums & Perc', 'Other'];
   CATEGORIES.splice(0, CATEGORIES.length, ...ORDER.filter(c => c === 'Other' || PRESETS.some(p => p.cat === c)));
   for (const p of PRESETS) if (!CATEGORIES.includes(p.cat)) throw new Error(`preset ${p.name}: no category`);
   DEFAULT_PRESET = PRESETS[TOP_LIST[0]].name;
 }
+applyOwnerFile(require('./owner_presets3.js'), 'owner_presets3');
+applyOwnerFile(require('./owner_presets4.js'), 'owner_presets4');
 // Version 1.0.17: values a preset plays in the WEB APP ONLY (tools/gen_spec.js writes them in web/js/spec.js; the plug-in keeps the preset as it is). The owner: "je ne souhaite
 // pas changer les paramètres du preset Warm Pad dans la version VST; propose quelque chose pour qu'il ne craque pas dans la version web". His Warm Pad's PUNCH (94 %) made a
 // chord played at the full velocity of the mouse / computer keyboard reach the output limiter (peak 0.89 with four notes); at 50 % (every preset's PUNCH) it stays under it
-// (0.60 with three notes, 0.83 with four). His choice: PUNCH 50 % in the web app.
-const WEB_EDITS = { 'A · Warm Pad': { fx_punch: 0.5 } };
+// (0.60 with three notes, 0.83 with four). His choice: PUNCH 50 % in the web app. Version 1.0.18: none now (his new Warm Pad, owner_presets4, has PUNCH 23 % and a darker
+// FILTER: the web app plays it as the plug-in does)
+const WEB_EDITS = {};
 for (const [name, e] of Object.entries(WEB_EDITS)) {
   if (!PRESETS.some(p => p.name === name)) throw new Error('WEB_EDITS: no preset ' + name);
   for (const k of Object.keys(e)) if (!(k in idx)) throw new Error('WEB_EDITS: unknown param ' + k);

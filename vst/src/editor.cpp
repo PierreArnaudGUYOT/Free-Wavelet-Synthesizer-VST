@@ -23,6 +23,7 @@
 #include "common.h"
 #include "bank.h"
 #include "editor_platform.h"
+#include "generated/knob_image.h"   // version 1.0.18: the copper knob (tools/knob_image.js)
 
 using namespace Steinberg;
 
@@ -461,6 +462,11 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         g.textVertical(toW(sd.title), R{r.x + 1, r.y + 1, 22, r.h - 2}, 9.5f, true, std::strcmp(sd.id, "play") == 0 ? rgb(accent()) : rgb(kTitle));
         continue;
       }
+      if (std::strcmp(sd.id, "mix") == 0) {   // version 1.0.18 (the owner): MIX over the three levels, VINTAGE over AMOUNT and TYPE (the web app keeps OSC MIX: it has no VINTAGE)
+        text(g, L"MIX", R{r.x + 28 - 30, r.y + 8, 60, 16}, 10.5f, true, rgb(kTitle), 1);       // centred over OS1 OS2 OS3 (their column's centre: x 28), a little lower
+        text(g, L"VINTAGE", R{r.x + 88 - 34, r.y + 8, 68, 16}, 10.5f, true, rgb(kTitle), 1);   // centred over AMOUNT and TYPE (x 88)
+        continue;
+      }
       std::string t = sd.title; size_t dot = t.find(" \xC2\xB7 ");
       if (dot != std::string::npos) {
         std::wstring a = toW(t.substr(0, dot)), b = toW(t.substr(dot));
@@ -560,13 +566,22 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     double from = bip ? A0 + (A1 - A0) * toNorm(p, 0) : A0;
     double lo = std::min(from, a), hi = std::max(from, a);
     if (hi - lo > 1e-3) g.arc(ring, gdiDeg(lo), (float)((hi - lo) * 180 / PI), Pen(rgb(accent(), alpha), sw).caps());
-    const R body{cx - r + 1, cy - r + 1, 2 * r - 2, 2 * r - 2};
-    g.fillEllipse(body, Brush(Pt{cx - r, cy - r}, Pt{cx + r, cy + r}, argb(140 * alpha / 255, 255, 255, 255), argb(31 * alpha / 255, 255, 255, 255)));
-    g.strokeEllipse(body, Pen(argb(89 * alpha / 255, 255, 255, 255), 1.5f));
-    g.strokeEllipse(R{cx - r + 4, cy - r + 4, 2 * r - 8, 2 * r - 8}, Pen(argb(alpha / 20, 255, 255, 255), 1));
-    float r0 = r * 0.25f, r1 = r - 4;
-    g.line(Pt{cx + r0 * (float)std::sin(a), cy - r0 * (float)std::cos(a)}, Pt{cx + r1 * (float)std::sin(a), cy - r1 * (float)std::cos(a)},
-           Pen(rgb(0xffffff, alpha), big ? 2.6f : tiny ? 2.f : 2.2f).caps());
+    // version 1.0.18 (the owner's choice, ClaudeProjects/maquettes_boutons_cuivre/integration/INTEGRATION.md: "couleur 1, cuivre rosé"): the knob is the copper picture with
+    // two soft shadows under it (knobSprite: made at the exact size in screen pixels, so it is smooth), lit from a fixed side (the picture does not turn); the white dot
+    // (0.12 r, at 0.696 r from the centre) shows the value, with a small shadow above it. The ring and the value arc are those of before.
+    {
+      const double sc = scale();
+      const float m = 5;   // the shadows' margin round the picture, panel px
+      const int S = std::max(8, (int)std::ceil((2 * r * kKnobImgW / (2 * kKnobImgDiscR) + 2 * m) * sc));
+      const std::vector<uint32_t>& spr = knobSprite(r, S, sc, alpha);
+      const float side = (float)(S / sc);
+      g.pixels(spr.data(), S, S, R{cx - side / 2, cy - side / 2, side, side});
+      const float dr = r * 0.12f, dd = r * 0.696f, dx = cx + dd * (float)std::sin(a), dy = cy - dd * (float)std::cos(a);
+      g.fillEllipse(R{dx - 1.1f * dr, dy - 0.28f * dr - 1.1f * dr, 2.2f * dr, 2.2f * dr}, Brush(argb(140 * alpha / 255, 35, 12, 6)));   // its shadow (0.55)
+      g.fillEllipse(R{dx - dr, dy - dr, 2 * dr, 2 * dr}, Brush(rgb(0xcfcac8, alpha)));                                                 // the dot: its edge ...
+      g.fillEllipse(R{dx - 0.78f * dr - 0.12f * dr, dy - 0.78f * dr - 0.15f * dr, 1.56f * dr, 1.56f * dr}, Brush(rgb(0xf6f4f3, alpha)));   // ... its lit part
+      g.fillEllipse(R{dx - 0.45f * dr - 0.18f * dr, dy - 0.45f * dr - 0.22f * dr, 0.9f * dr, 0.9f * dr}, Brush(rgb(0xffffff, alpha)));     // ... its brightest point
+    }
     if (!small) {
       bool showVal = (hover == idx || drag == idx);
       // beta 0.3.4, style 4 (the LFO SHAPE): a knob with a few positions, its choice (SINE TRI SAW SQR S&H) written under it in the accent colour, hovered or not
@@ -578,6 +593,60 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
     }
   }
 
+  // version 1.0.18: the copper knob of radius r (panel px) in an S x S screen-pixel image: the picture (kKnobImg, its disc as wide as the knob) resampled smoothly (ns x ns
+  // points per screen pixel, averaged with their alpha), its two shadows under it (0.8 px down, blur 0.7 px, 55 %; 2.2 px down, blur 2 px, 35 %: panel px), the disabled
+  // look's alpha applied; rows of 0xAARRGGBB, premultiplied on macOS (Canvas::pixels declares them so there), not on Windows (GDI+ 32bppARGB). Kept per size and alpha.
+  std::map<long long, std::vector<uint32_t>> knobSprites;
+  const std::vector<uint32_t>& knobSprite(float r, int S, double sc, int alpha) {
+    const long long key = ((long long)S << 24) ^ ((long long)std::lround(r * 64) << 9) ^ alpha;
+    auto found = knobSprites.find(key);
+    if (found != knobSprites.end()) return found->second;
+    static std::vector<float> src;   // the picture, premultiplied, 0 .. 1
+    if (src.empty()) {
+      src.resize((size_t)kKnobImgW * kKnobImgH * 4);
+      for (int i = 0; i < kKnobImgW * kKnobImgH; i++) {
+        const uint32_t c = kKnobImg[i]; const float A = ((c >> 24) & 255) / 255.f;
+        src[4 * i] = A * ((c >> 16) & 255) / 255.f; src[4 * i + 1] = A * ((c >> 8) & 255) / 255.f; src[4 * i + 2] = A * (c & 255) / 255.f; src[4 * i + 3] = A;
+      }
+    }
+    auto at = [&](float x, float y, float* o) {   // bilinear; outside the picture: transparent
+      const int x0 = (int)std::floor(x), y0 = (int)std::floor(y); const float fx = x - x0, fy = y - y0;
+      for (int q = 0; q < 4; q++) o[q] = 0;
+      for (int j = 0; j < 2; j++) for (int i = 0; i < 2; i++) {
+        const int xx = x0 + i, yy = y0 + j;
+        if (xx < 0 || yy < 0 || xx >= kKnobImgW || yy >= kKnobImgH) continue;
+        const float w = (i ? fx : 1 - fx) * (j ? fy : 1 - fy); const float* s = &src[4 * ((size_t)yy * kKnobImgW + xx)];
+        for (int q = 0; q < 4; q++) o[q] += w * s[q];
+      }
+    };
+    std::vector<uint32_t> out((size_t)S * S);
+    const float half = (float)(S / sc / 2), k = kKnobImgDiscR / r;   // panel px from the centre -> picture px
+    const int ns = std::max(2, std::min(6, (int)std::ceil(k / sc)));
+    const float ga = alpha / 255.f;
+    auto b8 = [](float v) { return (uint32_t)std::lround(std::min(1.f, std::max(0.f, v)) * 255); };
+    for (int py = 0; py < S; py++)
+      for (int px = 0; px < S; px++) {
+        float acc[4] = {0, 0, 0, 0}, o[4];
+        for (int sy = 0; sy < ns; sy++)
+          for (int sx = 0; sx < ns; sx++) {
+            const float lx = (float)((px + (sx + 0.5f) / ns) / sc) - half, ly = (float)((py + (sy + 0.5f) / ns) / sc) - half;
+            at(kKnobImgW / 2.f + lx * k - 0.5f, kKnobImgH / 2.f + ly * k - 0.5f, o);
+            for (int q = 0; q < 4; q++) acc[q] += o[q];
+          }
+        for (int q = 0; q < 4; q++) acc[q] /= (float)(ns * ns);
+        // the shadows, from the knob's outline: its edge blurred as by a Gaussian; two shadows add as 1 - (1 - a1)(1 - a2); black, under the picture
+        const float lx = (float)((px + 0.5) / sc) - half, ly = (float)((py + 0.5) / sc) - half;
+        auto sh = [&](float dy, float blur, float op) { const float d = std::sqrt(lx * lx + (ly - dy) * (ly - dy)); return op * 0.5f * (float)std::erfc((d - r) / (blur * 1.41421356f)); };
+        const float as = 1 - (1 - sh(0.8f, 0.7f, 0.55f)) * (1 - sh(2.2f, 2.0f, 0.35f));
+        float A = (acc[3] + as * (1 - acc[3])) * ga, Rr = acc[0] * ga, Gg = acc[1] * ga, Bb = acc[2] * ga;
+#ifndef __APPLE__
+        if (A > 0) { Rr /= A; Gg /= A; Bb /= A; }   // Windows: not premultiplied
+#endif
+        out[(size_t)py * S + px] = b8(A) << 24 | b8(Rr) << 16 | b8(Gg) << 8 | b8(Bb);
+      }
+    if (knobSprites.size() > 64) knobSprites.clear();
+    return knobSprites.emplace(key, std::move(out)).first->second;
+  }
   void drawSeg(Canvas& g, const Item& it) {
     const ParamDef& p = kParams[it.w->param];
     bool engine = it.w->style == 1;
@@ -606,7 +675,7 @@ class Editor : public IPlugView, public IPlugViewContentScaleSupport, public Edi
         fillRR(g, b, 7, rgb(c));
       }
       const std::wstring label = last ? (cur >= kSegShown ? toW(p.choiceShort[cur]) : std::wstring(L"MORE")) + L" ▾" : toW(p.choiceShort[k]);
-      g.textEllipsis(label, R{b.x + 2, b.y, b.w - 4, b.h}, engine ? 11.f : last ? 9.f : 10.f, true, on ? rgb(kOnAccent) : rgb(kDim), true);
+      g.textEllipsis(label, R{b.x + 2, b.y, b.w - 4, b.h}, engine ? 11.f : last ? 9.f : bw < 40 ? 8.5f : 10.f, true, on ? rgb(kOnAccent) : rgb(kDim), true);   // (1.0.18 test: a narrower button, smaller letters)
     }
   }
   static constexpr int kSegShown = 6;

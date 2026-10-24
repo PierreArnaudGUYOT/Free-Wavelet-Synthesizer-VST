@@ -15,6 +15,8 @@ const check = (ok, what, detail = '') => { console.log(`  [${ok ? 'PASS' : 'FAIL
 const A_PRESET = SPEC.PRESETS.findIndex(p => p.name === 'A · Warm Pad');
 function make(set, preset = A_PRESET) {
   const v = SPEC.PRESETS[preset].values.slice();
+  // version 1.0.18: A · Warm Pad has the author's OTA filter at 1395 Hz now (it softened the morph's changes these checks measure): they start from it with the FILTER open
+  if (preset === A_PRESET) for (const p of SPEC.PARAMS) if (/^vf_/.test(p.key)) v[P[p.key]] = p.def;
   for (const [k, x] of Object.entries(set)) { if (!(k in P)) throw new Error('unknown parameter ' + k); v[P[k]] = x; }
   const eng = new C.Engine(sr); v.forEach((x, i) => eng.setParam(i, x));
   const tb = C.buildTables(Float64Array.from(v), true); eng.setTables(tb);

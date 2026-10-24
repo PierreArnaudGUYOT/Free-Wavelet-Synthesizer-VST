@@ -111,11 +111,6 @@ button { font-family: inherit; }
 .knob .label { position: absolute; left: -6px; right: -6px; text-align: center; font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em;
   color: var(--dim); white-space: nowrap; overflow: hidden; }
 .knob.active .label, .knob:hover .label { color: var(--text); }
-.knob svg stop:first-child { stop-color: rgba(255,255,255,0.55); }
-.knob svg stop:last-child { stop-color: rgba(255,255,255,0.12); }
-.knob svg path:first-of-type { stroke: rgba(255,255,255,0.18); }
-.knob svg circle:first-of-type { stroke: rgba(255,255,255,0.35); }
-.knob svg line { stroke: #ffffff; }
 .knob .label.value { color: var(--accent); }
 .knob.disabled { opacity: 0.35; }
 .knobS .label { display: none; }

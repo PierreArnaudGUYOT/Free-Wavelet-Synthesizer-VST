@@ -208,7 +208,8 @@ int main(int argc, char** argv) {
           "chord keyboard: the selector key D3 is silent, sets Chord Type to 7 and tells the host", d);
     midi(fx, 0x90, 67, 100); Render chord = render(fx, 60);
     std::snprintf(d, sizeof d, "rms %.4f vs %.4f for the single note, peak %.3f", chord.rms, single.rms, chord.peak);
-    check(chord.bad == 0 && chord.peak <= 1.0f && chord.rms > 1.5 * single.rms, "chord keyboard: G4 plays the whole G7 chord (louder than the note alone)", d);
+    // (version 1.0.18: 1.25 times, was 1.5: the author's Warm Pad has an OTA filter at 1395 Hz now, which softens the chord's upper notes: 1.41; one note alone is 1.0)
+    check(chord.bad == 0 && chord.peak <= 1.0f && chord.rms > 1.25 * single.rms, "chord keyboard: G4 plays the whole G7 chord (louder than the note alone)", d);
     midi(fx, 0x80, 67, 0); render(fx, 400); Render off = render(fx, 10);
     std::snprintf(d, sizeof d, "peak %.5f", off.peak);
     check(off.peak < 1e-3, "chord keyboard: releasing the root releases the chord", d);

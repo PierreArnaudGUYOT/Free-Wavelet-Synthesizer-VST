@@ -139,6 +139,18 @@ constexpr double LN1000 = 6.907755278982137;
 constexpr double LN10 = 2.302585092994046;   // Math.LN10
 constexpr double LVL_EPS = 1e-5;   // an oscillator whose smoothed level is below this is not rendered
 constexpr double VOICE_GAIN = 0.4;   // about -8 dB per voice: headroom for chords
+// Version 1.0.18 TEST: VINTAGE (OKTOWAVE_VINTAGE_SPEC.md), the faults of an analog polyphonic synthesizer at 100 %: a fixed offset per voice and oscillator (a voice card's
+// calibration, cents), a scale error growing away from C4 (cents per octave), a pull at each note (cents, bell-shaped), a slow drift (cents rms, time constant in s: the exponential
+// converter's temperature) and a fast jitter; the voice's FILTER cutoff (octaves) and SCALE FILTER cutoff (bands) and its level (+-6 %, about 0.5 dB). VINTAGE 0: the code of before.
+// (the owner after his first listening, "je n'entends pas beaucoup la différence entre 0 et 100, fais un effet plus prononcé": about three times the spec's amounts, the slow
+// drift faster: the spec's 100 % is now about 35 %)
+// (then, "l'effet est toujours très discret, et sur certains presets je ne l'entends pas": stronger again, and three ingredients any listener hears as vintage: the WOW, a slow
+// wobble of the whole instrument's pitch (cents at its peak, round 0.7 Hz); a darker tone (the SCALE FILTER cutoff lowered, bands); warmth (the DRIVE stage at least this much))
+constexpr double VINT_OFF = 18, VINT_TRK = 3, VINT_ON = 10, VINT_SLOW = 12, VINT_TAU_S = 1.2, VINT_FAST = 2, VINT_TAU_F = 0.03;
+constexpr double VINT_FOCT = 0.5, VINT_FBAND = 0.3, VINT_LVL = 0.15;
+constexpr double VINT_WOW = 10, VINT_WOW_HZ = 0.7, VINT_DARK = 1.0, VINT_WARM = 0.3;
+constexpr double VINT_C2M = 5.776226504666211e-4;   // LN2 / 1200: cents -> frequency ratio, to the first order (0.03 cent off at 10 cents, 0.3 cent at 30)
+constexpr uint32_t VINT_SEED = 1448235604u;         // the voice cards' seed
 constexpr double LIMIT_T = 0.7;      // output soft limiter: transparent below -3 dBFS, never above 0 dBFS
 // beta 0.3.2 (the crackle of a loud chord): in front of the soft limiter, a peak guard rides the output gain so that the signal that reaches the limiter never goes past GUARD_T
 // (core.js, operation for operation). Below GUARD_T the gain is exactly 1 (bit-identical with the earlier versions); above it the gain falls with GUARD_ATT (s), is held for
@@ -867,6 +879,8 @@ struct Slot {
   double mL2f0 = std::nan(""), mL2 = 0;                                  // log2(261.63 / f0)
   double mTop = std::nan(""), mFmax = std::nan(""); int mMip = 0;        // the mip level for the highest unison frequency
   int mType = -1; double mCut = 0, mSlope = 0, mRes = 0, mFg[NB] = {};   // filterGains(type, cut, slope, res)
+  double f0r = 261.63;                    // VINTAGE (1.0.18 test): the pitch the oscillator plays, its drift added (f0 when VINTAGE is 0)
+  double vOn = 0, xS = 0, xF = 0;         // ... the note's pull (-1 .. 1), the slow drift's and the jitter's states
 };
 struct Voice {
   bool active = false, gate = false, held = false, fresh = true;
@@ -882,6 +896,7 @@ struct Voice {
   double wm0 = 0, wm1 = 0;   // WAVELET MORPH position at the start / end of the block
   double gain = 1; bool quick = false;   // the chord's bass note plays louder; a note dropped by a live chord change fades out quickly
   double pu = 0;   // PUNCH (version 1.0.16): the boost's envelope, 1 at the start of a note, falling to 0
+  Rng vr{1u}; double f0r = 261.63;   // VINTAGE (1.0.18 test): the note's random numbers; the sub oscillator's pitch (A1's drift)
 };
 // releases the voice's own envelopes (with the AMP and MOD envelopes)
 inline void relOwn(Voice& v) { for (int s = 0; s < NS; s++) v.sl[s].own.gate(false); }
@@ -976,8 +991,25 @@ class Engine {
 
   explicit Engine(double sampleRate = 48000) {
     for (int i = 0; i < kNumParams; i++) p[i] = kParams[i].def;
+    {   // VINTAGE (1.0.18 test): the voice cards, drawn once in this order (a voice keeps its character for the whole session, as a real voice card)
+      Rng r(VINT_SEED);
+      for (int k = 0; k < MAXV; k++) {
+        for (int s = 0; s < NS; s++) { vOff[k][s] = (r.next() + r.next() + r.next()) * (2.0 / 3) - 1; vTrk[k][s] = 2 * r.next() - 1; }
+        vFc[k] = 2 * r.next() - 1; vLv[k] = 2 * r.next() - 1;
+      }
+    }
     setSampleRate(sampleRate);
+    {   // ... and each voice's drift starts warm: its states drawn uniformly with their running standard deviation (1 / vgS, 1 / vgF), then going on from note to note
+      Rng r(VINT_SEED ^ 0x9E3779B9u);
+      for (int k = 0; k < MAXV; k++)
+        for (int s = 0; s < NS; s++) { voices[k].sl[s].xS = (2 * r.next() - 1) * std::sqrt(3.0) / vgS; voices[k].sl[s].xF = (2 * r.next() - 1) * std::sqrt(3.0) / vgF; }
+    }
   }
+  // VINTAGE (1.0.18 test): the voice cards (fixed offset and scale error per voice and oscillator, -1 .. 1; the FILTER / SCALE FILTER cutoff and level per voice) and the drift's
+  // coefficients per control block (one pole on uniform noise; vgS / vgF bring the states' standard deviation to 1)
+  double vOff[MAXV][NS] = {}, vTrk[MAXV][NS] = {}, vFc[MAXV] = {}, vLv[MAXV] = {};
+  double vkS = 0, vkF = 0, vgS = 0, vgF = 0;
+  double wow = 0, wowPh = 0, wowRate = VINT_WOW_HZ; Rng wowR{VINT_SEED + 7u};   // the WOW (-1 .. 1), its phase and its wandering speed
 
   // beta 0.6: TEMPO SYNC. The plug-in gives the host's tempo; 0 = none (as the web app): the delay's TIME and the LFOs' RATE
   // then stay in seconds and hertz whatever SYNC says. With SYNC off every sound is bit-identical with beta 0.5.
@@ -996,6 +1028,8 @@ class Engine {
   void setSampleRate(double s) {
     sr = s;
     fmax = std::max(0.45 * sr, sr - 19000);
+    vkS = 1 - std::exp(-CTRL / (VINT_TAU_S * sr)); vkF = 1 - std::exp(-CTRL / (VINT_TAU_F * sr));   // VINTAGE (1.0.18 test)
+    vgS = std::sqrt(6 / vkS); vgF = std::sqrt(6 / vkF);
     dlyLen = (int)std::ceil(sr * (DLY_MAX + 0.1)) + 4;   // beta 0.6: 4 s (was 1.1 s; the reads never reach further back)
     dlyL.assign(dlyLen, 0.0f); dlyR.assign(dlyLen, 0.0f);
     dlyW = 0; dlyT = delaySec() * sr; lpL = lpR = 0;
@@ -1367,6 +1401,7 @@ class Engine {
   void trigger(Voice& vc, int note, double vel, bool legato, bool glideOn) {
     vc.glide = glideOn;
     double glide = glideOn ? p[P_V_GLIDE] : 0;
+    const bool idle = !vc.active;   // (VINTAGE: the free phases and the drift's states start with an idle voice only)
     if (!vc.active) {
       vc.fresh = true;
       for (int s = 0; s < NS; s++) {
@@ -1384,6 +1419,19 @@ class Engine {
     vc.note = note; vc.target = note; vc.vel = vel;
     vc.gain = nextGain; vc.quick = false;
     vc.age = ++counter;
+    // VINTAGE (1.0.18): the note's own random numbers (its age and its voice), the pull of each oscillator at a new start of the note (legato: kept, the pitch glides), and
+    // with an idle voice the phases of free-running oscillators (the unison copies and the sub start anywhere in their cycle; the test switch PHASE FREE / RESET was dropped, the
+    // owner: "je pense pas qu'elle serve beaucoup"). The drift is NOT started again (unlike the spec: a real voice's temperature goes on from note to note, so that a short note
+    // also hears the drift; the states start warm, see the constructor). VINTAGE 0: nothing drawn, the code of before.
+    if (p[P_V_VINTAGE] > 0) {
+      const int k = (int)(&vc - voices);
+      vc.vr = Rng((uint32_t)vc.age * 2654435761u + (uint32_t)k * 40503u + 1u);
+      if (!legato) for (int s = 0; s < NS; s++) vc.sl[s].vOn = (vc.vr.next() + vc.vr.next() + vc.vr.next()) * (2.0 / 3) - 1;
+      if (idle) {
+        for (int s = 0; s < NS; s++) for (int u = 0; u < 4; u++) vc.sl[s].phase[u] = vc.vr.next();
+        vc.subPhase = vc.vr.next();
+      }
+    }
     if (!legato) {
       vc.amp.gate(true); vc.mod.gate(true); vc.fe.gate(true);
       for (int s = 0; s < NS; s++) { Slot& sl = vc.sl[s]; for (int b = 0; b < NB; b++) sl.scaleAtk[b] = true; sl.own.gate(true); sl.pe = 1; }
@@ -1413,6 +1461,12 @@ class Engine {
     lfo = v;
     lfoPhase += lfoHz(P_LFO_SYNC, P_LFO_DIV, P_LFO_RATE) * n / sr;
     if (lfoPhase >= 1) { lfoPhase -= std::floor(lfoPhase); sh = lfoRng.next() * 2 - 1; }
+    // VINTAGE (1.0.18 test): the WOW, every voice together (a tired machine), its speed wandering between 0.5 and 0.9 Hz
+    if (p[P_V_VINTAGE] > 0) {
+      wowRate += (VINT_WOW_HZ * (0.75 + 0.5 * wowR.next()) - wowRate) * 0.01;
+      wowPh += wowRate * n / sr; if (wowPh >= 1) wowPh -= std::floor(wowPh);
+      wow = sinTurn(wowPh);
+    }
   }
   // LFO 2 (beta 0.3): the same shapes, its own phase and sample & hold sequence
   void lfo2Tick(int n) {
@@ -1534,6 +1588,27 @@ class Engine {
     const double wm = std::min(1.0, std::max(0.0, p[P_WMORPH] + dMorph + p[P_LFO_WAV] * lfo + (p[P_ENV_WAV] + p[P_LFO_EW] * lfo) * mod));
     vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
     vc.fresh = false;
+    // VINTAGE (1.0.18 test): each oscillator's detune in cents: VINTAGE x (the fixed part: the voice card's offset and scale error and the note's pull; the moving part: the slow
+    // drift and the jitter, limited to 3 x their rms). CHARACTER: Static = the fixed part only, Both = both (the spec), Drift = the moving part only. The states move on a whole
+    // control block only (a host's last short block keeps them).
+    const double vint = p[P_V_VINTAGE];
+    const int vk = vint > 0 ? (int)(&vc - voices) : 0;
+    const int vch = vint > 0 ? (int)jsRound(p[P_V_VCHAR]) : 1;
+    const double vFix = vch == 2 ? 0 : 1, vMove = vch == 0 ? 0 : 1;
+    if (vint > 0 && n == CTRL)
+      for (int s = 0; s < NS; s++) {
+        Slot& sl = vc.sl[s];
+        const double gs = 2 * vc.vr.next() - 1; sl.xS += (gs - sl.xS) * vkS;
+        const double gf = 2 * vc.vr.next() - 1; sl.xF += (gf - sl.xF) * vkF;
+      }
+    auto vCents = [&](int s) {
+      const Slot& sl = vc.sl[s];
+      double dyn = sl.xS * vgS * VINT_SLOW + sl.xF * vgF * VINT_FAST;
+      const double lim = 3 * (VINT_SLOW + VINT_FAST);
+      if (dyn > lim) dyn = lim; else if (dyn < -lim) dyn = -lim;
+      return vint * (vFix * (VINT_OFF * vOff[vk][s] + VINT_TRK * vTrk[vk][s] * (vc.note - 60) / 12.0 + VINT_ON * sl.vOn) + vMove * (dyn + VINT_WOW * wow));
+    };
+    if (vint > 0) vc.f0r = vc.f0 * (1 + vCents(0) * VINT_C2M); else vc.f0r = vc.f0;   // the sub oscillator follows A1 (an analog sub is divided from VCO 1)
 
     for (int s = 0; s < NS; s++) {
       Slot& sl = vc.sl[s]; const SlotDef& k = kSlots[s]; const Prep& q = pr[s];
@@ -1548,6 +1623,7 @@ class Engine {
       if (pa != sl.mA) { sl.mA = pa; sl.mF0 = 440 * std::pow(2.0, pa); }
       const double f0 = sl.mF0;
       sl.f0 = f0;
+      if (vint > 0) sl.f0r = f0 * (1 + vCents(s) * VINT_C2M); else sl.f0r = f0;   // VINTAGE: what the unison copies play (the mip level and the key tracking keep f0)
       const double fTop = f0 * topMul;
       if (fTop != sl.mTop || fmax != sl.mFmax) {
         sl.mTop = fTop; sl.mFmax = fmax;
@@ -1557,7 +1633,8 @@ class Engine {
       sl.mip = sl.mMip;
       // scale filter
       if (f0 != sl.mL2f0) { sl.mL2f0 = f0; sl.mL2 = std::log2(261.63 / f0); }
-      const double cut = q.fcut + (1 - q.fkey) * sl.mL2 + q.fenv * mod + p[P_LFO_CUT] * lfo + q.fvel * (vc.vel - 1);
+      double cut = q.fcut + (1 - q.fkey) * sl.mL2 + q.fenv * mod + p[P_LFO_CUT] * lfo + q.fvel * (vc.vel - 1);
+      if (vint > 0) cut += vint * (vFix * VINT_FBAND * vFc[vk] - VINT_DARK);   // VINTAGE: the voice's own SCALE FILTER cutoff, and a darker tone
       // LFO 1 TO RESO: the resonance swings by +- the amount (dB), kept in 0 .. 24
       const double res = p[P_LFO_RES] > 0 ? std::min(24.0, std::max(0.0, q.fres + p[P_LFO_RES] * lfo)) : q.fres;
       // the band gains are a function of (type, cut, slope, res) only: the voice's last ones, or the last ones computed for this oscillator (the voices of a chord that
@@ -1619,7 +1696,8 @@ class Engine {
     const double aInc = 1 / (p[P_AMP_A] * sr), dC = mAmpD.get(-LN1000 / (p[P_AMP_D] * sr)), rC = mAmpR.get(-LN1000 / (p[P_AMP_R] * sr));
     // beta 0.2: the chord's bass note plays louder (vc.gain; exactly the old value when it is 1), and a note dropped by a live chord
     // change fades out in QUICK_REL at most
-    const double velGain = VOICE_GAIN * (1 - p[P_AMP_VEL] * (1 - vc.vel)) * vc.gain * velVolume(vc);
+    double velGain = VOICE_GAIN * (1 - p[P_AMP_VEL] * (1 - vc.vel)) * vc.gain * velVolume(vc);
+    if (p[P_V_VINTAGE] > 0 && (int)jsRound(p[P_V_VCHAR]) != 2) velGain *= 1 + p[P_V_VINTAGE] * VINT_LVL * vLv[&vc - voices];   // VINTAGE (1.0.18 test): the voice's own level
     const double rQ = vc.quick && p[P_AMP_R] > QUICK_REL ? mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : rC;
     // PUNCH (version 1.0.16): the start of the note boosted by (1 + gP pu), pu falling from 1 in 30 + 20 x PUNCH ms, gP from +8 dB x PUNCH, the whole of it up to C3 and a quarter
     // of it from C6 up (a transient shaper per note: it never lowers the level). PUNCH 0: the loop of before, bit for bit (and no boost left for later).
@@ -1684,7 +1762,7 @@ class Engine {
         if (rms[sl.mip * NL + b] > 1e-7f && (std::fabs(g[b]) > 1e-6 || std::fabs(g[b] + dg[b] * n) > 1e-6)) act[na++] = b;
     const bool useDry = audible && mode == 0 && sl.pd > 0;
     double* ph = endPh[s];
-    for (int u = 0; u < U; u++) { inc[u] = sl.f0 * detMul[u] / sr; ph[u] = sl.phase[u]; }
+    for (int u = 0; u < U; u++) { inc[u] = sl.f0r * detMul[u] / sr; ph[u] = sl.phase[u]; }   // (VINTAGE 1.0.18 test: f0r, f0 itself at 0)
     // The band gains and their steps, padded to NL entries (pairs for SSE2). A band that is not in the active list keeps its gain (step 0) and its term is never added.
     // When every active step is exactly 0 the per-sample ramp (lg += 0) is skipped: the same values.
     alignas(16) double lg[NL], dgl[NL], tv[NL];
@@ -1841,7 +1919,7 @@ class Engine {
     // A fundamental at or above Nyquist can only alias: the wavetable part of such a voice stays silent.
     const bool audible = sl.f0 < 0.5 * sr;
     double* ph = endPh[s];
-    for (int u = 0; u < U; u++) { inc[u] = sl.f0 * detMul[u] / sr; ph[u] = sl.phase[u]; }
+    for (int u = 0; u < U; u++) { inc[u] = sl.f0r * detMul[u] / sr; ph[u] = sl.phase[u]; }   // (VINTAGE 1.0.18 test: f0r, f0 itself at 0)
     const double pc = sl.pc, pw = sl.pw, pd = sl.pd;
     const double* own = ownOn[s] ? ownBuf[s] : nullptr;
     if (own && ownZero[s]) {   // the output is the product of the envelope and the own envelope, which is 0 all block: every sample adds (float)(x * 0) = +-0, which changes no sum; the phases move as ever
@@ -1893,7 +1971,8 @@ class Engine {
   }
   void fltPrep(Voice& vc, int n, double feLev) {
     (void)n;
-    const double octs = p[P_VF_ENV] * 8 * feLev + p[P_VF_KEY] * (vc.pitch - 60) / 12 + dFltOct + velFilterOct(vc);
+    double octs = p[P_VF_ENV] * 8 * feLev + p[P_VF_KEY] * (vc.pitch - 60) / 12 + dFltOct + velFilterOct(vc);
+    if (p[P_V_VINTAGE] > 0 && (int)jsRound(p[P_V_VCHAR]) != 2) octs += p[P_V_VINTAGE] * VINT_FOCT * vFc[&vc - voices];   // VINTAGE (1.0.18 test): the voice's own FILTER cutoff
     double fc = p[P_VF_CUT] * std::pow(2.0, octs);
     const double fmax = 0.45 * sr;
     if (fc > fmax) fc = fmax; else if (fc < 8) fc = 8;
@@ -1982,7 +2061,7 @@ class Engine {
     const double subLvl = p[P_SUB_LEVEL];
     endSubPhase = vc.subPhase;
     if (!(subLvl > 0)) return;
-    const double subInc = vc.f0 * ((int)jsRound(p[P_SUB_OCT]) == 1 ? 0.25 : 0.5) / sr;
+    const double subInc = vc.f0r * ((int)jsRound(p[P_SUB_OCT]) == 1 ? 0.25 : 0.5) / sr;   // (VINTAGE 1.0.18 test: f0r, A1's drift; f0 itself at 0)
     const int subShape = (int)jsRound(p[P_SUB_SHAPE]);
     if (!(subInc < 0.5)) return;   // silent when it would alias (above Nyquist)
     double sph = vc.subPhase;
@@ -2161,7 +2240,7 @@ class Engine {
     polyComp(bufL, bufR, n);
 
     // effects
-    const double drive = p[P_FX_DRIVE], kd = mKd.get(drive * 24 * (LN10 / 20));
+    const double drive = p[P_V_VINTAGE] > 0 ? std::max(p[P_FX_DRIVE], VINT_WARM * p[P_V_VINTAGE]) : p[P_FX_DRIVE], kd = mKd.get(drive * 24 * (LN10 / 20));   // (VINTAGE: warmth)
     if (kd != mCompKd) { mCompKd = kd; mComp = 0.5 / std::tanh(0.5 * kd); }
     const double comp = mComp;
     const double fb = p[P_FX_DFB], dmix = p[P_FX_DMIX], rmix = p[P_FX_RMIX];
