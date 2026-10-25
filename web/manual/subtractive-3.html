@@ -24,7 +24,7 @@
 <h2>Moving the wavelet controls</h2>
 <ul>
   <li>The <span class="ctl">MOD ENVELOPE</span> (an ADSR) drives <span class="ctl">ENV AMT</span> of the scale filters and <span class="ctl">ENV&gt;WAV</span>, the morph.</li>
-  <li><span class="ctl">LFO 1</span> moves, at the rate you choose (<span class="ctl">RATE</span>, or <span class="ctl">SYNC</span> to the tempo in the plug-in): <span class="ctl">PITCH</span> (vibrato), <span class="ctl">CUTOFF</span>, <span class="ctl">POSITION</span>, <span class="ctl">WAVELET</span> (the morph), <span class="ctl">SPARSITY</span>, <span class="ctl">RESO</span> and <span class="ctl">ENV&gt;WAV</span>, each by the amount of its knob. Shapes: sine, triangle, saw, square, sample &amp; hold.</li>
+  <li><span class="ctl">LFO 1</span> moves, at the rate you choose (<span class="ctl">RATE</span>, or <span class="ctl">SYNC</span> to the tempo in the plug-in): <span class="ctl">PITCH</span> (vibrato), <span class="ctl">CUTOFF</span>, <span class="ctl">POSITION</span>, <span class="ctl">WAVELET</span> (the morph), <span class="ctl">ATOMS</span>, <span class="ctl">PEAK</span> and <span class="ctl">ENV&gt;WAV</span>, each by the amount of its knob. Shapes: sine, triangle, saw, square, sample &amp; hold.</li>
   <li><span class="ctl">LFO 2</span> and <span class="ctl">LFO 3</span> (two tabs of one card) each move <em>one</em> control, chosen with <span class="ctl">TARGET</span> among 19, in every oscillator that has it, by <span class="ctl">AMOUNT</span> (negative reverses it). Among them: Source Phase, Sparsity, Source Width, Window Width, Window Depth, Wavelet Morph. A wavelet control that moves makes the timbre swim, which no filter sweep does: this is the <b>SuperModulation</b> of the presets of that name (<i>AA · Deep Ripple</i>).</li>
 </ul>
 
@@ -34,8 +34,8 @@
 
 <h2>Three recipes</h2>
 <table>
-  <tr><th><i>A · Warm Pad</i></th><td>A smooth wavelet (Coiflet 3), <b>CUTOFF 5</b> with a little RESO, a quick AMP ATTACK (5 ms) and a long release (1.4 s), <b>UNISON 3</b> wide in the stereo field, a little delay and a long reverb.</td></tr>
-  <tr><th><i>A · Wave Brass</i></th><td>Daubechies 20, <b>CUTOFF 3.3</b>, SLOPE 36, RESO 8; <b>ENV AMT +4</b> so that every note opens the filter by four bands as the MOD ENVELOPE rises (0.06 s); MORPH and ENV&gt;WAV carry the timbre towards the second wavelet.</td></tr>
+  <tr><th><i>A · Warm Pad</i></th><td>A smooth wavelet (Coiflet 3), <b>CUTOFF 5</b> with a little PEAK, a quick AMP ATTACK (5 ms) and a long release (1.4 s), <b>UNISON 3</b> wide in the stereo field, a little delay and a long reverb.</td></tr>
+  <tr><th><i>A · Wave Brass</i></th><td>Daubechies 20, <b>CUTOFF 3.3</b>, SLOPE 36, PEAK 8; <b>ENV AMT +4</b> so that every note opens the filter by four bands as the MOD ENVELOPE rises (0.06 s); MORPH and ENV&gt;WAV carry the timbre towards the second wavelet.</td></tr>
   <tr><th><i>AA · Drum Bloom LGT</i></th><td>A2 is a sine one octave up, with <b>OWN ENVELOPE</b> on (decay 0.19 s) and a <b>PITCH ENV of +16 semitones in 50 ms</b>: the thump of a drum. A1 (a square) and the slow LFOs bloom around it.</td></tr>
 </table>
 

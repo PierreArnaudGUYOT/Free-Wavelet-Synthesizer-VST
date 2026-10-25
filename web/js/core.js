@@ -89,18 +89,22 @@ function WSCoreFactory(SPEC) {
       case 'pct': return Math.round(v * 100) + '%';
       case 'bipct': return sgn(v, Math.abs(Math.round(v * 100)) + '%');
       case 'db': return (v >= 0 ? '' : '−') + Math.abs(v).toFixed(1) + ' dB';
-      case 'dbband': return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB/band';
+      case 'dbband': return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB/oct';   // (version 1.0.20, P2: a band is an octave of harmonics)
       case 'sec':
         if (p.curve === 'pow2' && v < 0.0005) return 'off';
         return v < 0.9995 ? (v * 1000).toFixed(v < 0.01 ? 1 : 0) + ' ms' : v.toFixed(2) + ' s';
       case 'hz': return v.toFixed(v < 1 ? 2 : 1) + ' Hz';
       case 'cents': return sgn(v, Math.abs(Math.round(v)) + ' ct');
-      case 'band': return p.min < 0 ? sgn(v, Math.abs(v).toFixed(1) + ' bands') : 'band ' + v.toFixed(1);
+      case 'band': return p.min < 0 ? sgn(v, Math.abs(v).toFixed(1) + ' oct') : 'band ' + v.toFixed(1);
+      case 'harm': {   // version 1.0.20 (P2): the highest harmonic the WAVELET FILTER lets through at C4, and its frequency there (dsp.h formatValue)
+        const h = Math.pow(2, v - 1), f = 261.63 * h;
+        return 'H' + (h < 1 ? h.toFixed(2) : Math.round(h)) + ' · ' + (f >= 20000 ? 'open' : f >= 1000 ? (f / 1000).toFixed(1) + ' kHz' : Math.round(f) + ' Hz');
+      }
       case 'int': return p.min < 0 ? sgn(Math.round(v), String(Math.abs(Math.round(v)))) : String(Math.round(v));
       case 'choice': return p.choices[Math.round(v)] || '';
       case 'deg': return Math.round(v * 360) + '°';
       case 'cyc': return '±' + Math.round(v * 360) + '°';
-      case 'bandamt': return '±' + v.toFixed(1) + ' bands';
+      case 'bandamt': return '±' + v.toFixed(1) + ' oct';
       case 'semi': return sgn(Math.round(v), Math.abs(Math.round(v)) + ' st');
       default: return v.toFixed(2);
     }
@@ -119,6 +123,11 @@ function WSCoreFactory(SPEC) {
       case 'pct': case 'bipct': v /= 100; break;
       case 'deg': case 'cyc': v /= 360; break;
       case 'sec': if (/ms/i.test(t)) v /= 1000; break;
+      case 'harm':   // (version 1.0.20, P2) "H64" a harmonic, "16.7 kHz" / "800 Hz" a frequency at C4, a plain number a band
+        if (/^[\s<]*h/i.test(t)) v = v > 0 ? Math.log2(v) + 1 : 0;   // (the formatted text "H64 · 16.7 kHz" starts with the harmonic)
+        else if (/khz/i.test(t)) v = Math.log2(v * 1000 / 261.63) + 1;
+        else if (/hz/i.test(t)) v = Math.log2(v / 261.63) + 1;
+        break;
     }
     return Math.min(p.max, Math.max(p.min, v));
   }

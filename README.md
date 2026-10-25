@@ -16,8 +16,9 @@
 
 ## What it is
 - **A research instrument** to hear what the wavelet transform does to sound: the discrete wavelet transform splits each tone into 11 octave-spaced bands, and the synthesizer rebuilds it band by band instead of shaping it with Fourier filters.
-- **Three wavelet oscillators**: two subtractive ones (A1, A2) that filter a source wave band by band (SCALE FILTER, POSITION window), and an additive one (B1) that builds a tone from wavelet atoms with eleven drawbars.
+- **Three wavelet oscillators**: two subtractive ones (A1, A2) that filter a source wave band by band (WAVELET FILTER, WINDOW), and an additive one (B1) that builds a tone from wavelet atoms with eleven drawbars.
 - **Compare the wavelets**: seven of them (Haar, Daubechies 2, 4, 8 and 20, Symlet 8, Coiflet 3), WAVELET MORPH between two, and LFOs that move the wavelet itself (SuperModulation), to hear how each one colours the same sound.
+- **20 morph macros**: sliders that each move several controls of the subtractive oscillators together (BRIGHTEN, WAVELET MORPH, HOLLOW, SPARSE GRAIN, NOISE AIR, SHIMMER, GLASS …), to vary a sound without opening every card.
 - **A complete synthesizer around it**: a real filter (ladder / OTA), three LFOs, envelopes, chorus, delay, reverb and punch, a chord mode, oriental tunings, VINTAGE and 229 presets.
 - **Free to use**: the plug-in and the web app, free of charge for any use, including your music productions.
 

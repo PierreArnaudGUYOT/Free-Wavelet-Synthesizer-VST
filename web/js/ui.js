@@ -430,7 +430,11 @@ class SynthUI {
     prev.onclick = () => go(-1); next.onclick = () => go(1); name.onclick = () => go(1);
     name.title = p.name + ' (click to cycle)';
     const narrow = w.w < 200;
-    const widget = { w, p, i, el: box, update: () => { const v = Math.round(this.host.get(i)); name.innerHTML = (narrow ? '' : `<small>${p.short}</small>`) + p.choices[v]; } };
+    // (ClaudeProjects/OKTOWAVE_REGLAGES_SOUSTRACTIF.md P4: the wavelets as a scale from the most angular to the smoothest, as in the plug-in's drawStep)
+    const HINT = ['ANGULAR', 'ROUGH', 'SOFT', 'SMOOTH', 'SYMMETRIC', 'ROUND', 'SILKY'];
+    const wavelet = i === this.P.wav2 || this.SPEC.SLOTS.some(sl => sl.mode === 0 && sl.k.wavelet === i);
+    const label = v => wavelet && HINT[v] ? `${p.choiceShort[v]} · ${HINT[v]}` : p.choices[v];
+    const widget = { w, p, i, el: box, update: () => { const v = Math.round(this.host.get(i)); name.innerHTML = (narrow ? '' : `<small>${p.short}</small>`) + label(v); } };
     this.reg(w.param, widget);
     widget.update();
   }
@@ -576,7 +580,7 @@ class SynthUI {
 
   // ------------------------------------------------------------------ canvases
   canvasWidget(w, box, ab) {
-    const screen = ['scope', 'scalogram', 'atom', 'source', 'window', 'adsr'].includes(w.type);
+    const screen = ['scope', 'scalogram', 'atom', 'source', 'window', 'adsr', 'filterview'].includes(w.type);
     if (screen) box.classList.add('screen');
     const cv = el('canvas', 'disp', box);
     const c = { w, box, cv, ctx: cv.getContext('2d'), ab, sec: ab.sec, dirty: true };
@@ -659,13 +663,39 @@ class SynthUI {
   makeBrowser() {
     const b = el('div', 'browser', this.dev.parentElement);
     b.id = 'browser';
-    b.innerHTML = '<div class="bhead"><span class="btitle">PRESET BROWSER</span><button class="bhide" title="Hide the preset browser ' +
-      '(a click on the preset name brings it back)">HIDE ▸</button></div><div class="btabs"><button data-t="0"></button><button data-t="1"></button></div>' +
-      '<div class="bcols"><div class="bcats"></div><div class="bright"><div class="bhd"></div><div class="blist"></div></div></div><div class="bstatus"></div>';
+    b.innerHTML = '<div class="bhead"><span class="btitle">PRESET BROWSER</span><span class="bbtns"><button class="bmac" title="The 20 morph macros of the subtractive oscillators">MACROS</button>' +
+      '<button class="bhide" title="Hide the preset browser (a click on the preset name brings it back)">HIDE ▸</button></span></div><div class="btabs"><button data-t="0"></button><button data-t="1"></button></div>' +
+      '<div class="bcols"><div class="bcats"></div><div class="bright"><div class="bhd"></div><div class="blist"></div></div></div><div class="bstatus"></div><div class="bmacros"></div>';
     this.browser = b;
     this.orientVars(b);   // beta 0.3.4: the oriental colour code reaches the browser too
     this.bTab = 0; this.bCat = 0;
     b.querySelector('.bhide').onclick = () => this.setBrowser(false);
+    // the MORPH MACROS (as the plug-in's MACROS panel): 20 sliders in place of the preset lists, each one moves several controls of the subtractive oscillators
+    // (tools/macros.js); 0 = the preset as saved; a double click puts a macro back to 0; right-click: MIDI learn
+    const mac = b.querySelector('.bmac');
+    mac.onclick = () => {
+      const on = !b.classList.contains('macros');
+      b.classList.toggle('macros', on);
+      b.querySelector('.btitle').textContent = on ? 'MORPH MACROS' : 'PRESET BROWSER';
+      mac.textContent = on ? '◂ PRESETS' : 'MACROS';
+      mac.classList.toggle('on', on);
+    };
+    const box = b.querySelector('.bmacros');
+    (this.SPEC.MACROS || []).forEach((m, k) => {
+      const key = 'macro' + (k + 1), i = this.P[key];
+      const row = el('div', 'mrow', box);
+      row.innerHTML = `<div class="mtop"><span class="mname">${k + 1}. ${m.name}</span><span class="mval"></span></div><input type="range" min="0" max="1" step="0.01">`;
+      row.title = `${m.name}: ${m.what} (double-click: back to 0)`;
+      const inp = row.querySelector('input'), val = row.querySelector('.mval');
+      let editing = false;
+      inp.addEventListener('input', () => { if (!editing) { editing = true; this.host.begin(i); } this.host.set(i, +inp.value); });
+      inp.addEventListener('change', () => { if (editing) { editing = false; this.host.end(i); } });
+      row.addEventListener('dblclick', () => { this.host.begin(i); this.host.set(i, 0); this.host.end(i); });
+      const update = () => { const v = this.host.get(i); if (!editing) inp.value = v; val.textContent = Math.round(v * 100) + ' %'; row.classList.toggle('on', v > 0); };
+      this.reg(key, { el: row, update });
+      update();
+    });
+    el('div', 'mnote', box).textContent = 'Each macro moves several controls of the subtractive oscillators (A1, A2). 0 % = the preset as saved.';
     b.querySelectorAll('.btabs button').forEach(t => { t.onclick = () => { this.bTab = +t.dataset.t; this.bCat = 0; if (this.bTab === 0) this.bReveal(); this.renderBrowser(); }; });
     this.bReveal();
     this.renderBrowser();
@@ -795,7 +825,11 @@ class SynthUI {
     for (const sl of this.SPEC.SLOTS) {   // the source width only means something for PULSE and TRIANGLE, the seed for RANDOM
       if (sl.mode === 0) { const wave = Math.round(this.host.get(sl.k.wave)); set(sl.k.width, wave === 2 || wave === 3); }
       else set(sl.k.seed, Math.round(this.host.get(sl.k.pattern)) === 5);
+      // (OKTOWAVE_REGLAGES_SOUSTRACTIF.md P3) the WINDOW does nothing while its AMOUNT is 0
+      if (sl.k.pdep !== undefined) { const on = this.host.get(sl.k.pdep) > 0; set(sl.k.pcen, on); set(sl.k.pwid, on); }
     }
+    // (P3) WAVELET 2 does nothing while no morph moves the wavelet (MORPH, ENV>WAV, LFO 1 to WAVELET / ENV>WAV)
+    set(P.wav2, this.host.get(P.wmorph) > 0 || this.host.get(P.env_wav) !== 0 || this.host.get(P.lfo_wav) > 0 || this.host.get(P.lfo_ew) > 0);
   }
   // The live data arrives about 30 times a second. liveVer changes only when something the canvases show has changed: the animated
   // canvases are drawn again then (and at least twice a second, in case a state they show changed without it), not on every frame.
@@ -1038,12 +1072,31 @@ class SynthUI {
     ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.moveTo(0, H - 4.5); ctx.lineTo(W, H - 4.5); ctx.stroke();
     if (st.depth <= 0) {
       ctx.fillStyle = 'rgba(200,210,225,0.35)'; ctx.font = '600 9px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('WINDOW OFF · RAISE DEPTH', W / 2, H / 2 + 3); ctx.textAlign = 'left';
+      ctx.fillText('WINDOW OFF · RAISE AMOUNT', W / 2, H / 2 + 3); ctx.textAlign = 'left';
       return;
     }
     ctx.beginPath();
     for (let x = 0; x <= W; x++) { const v = C.windowValue(x / W, st.center, st.width, st.depth); const yy = H - 4 - v * (H - 8); if (x) ctx.lineTo(x, yy); else ctx.moveTo(x, yy); }
     ctx.strokeStyle = this.accent(); ctx.lineWidth = 1.6; ctx.stroke();
+  }
+
+  // (OKTOWAVE_REGLAGES_SOUSTRACTIF.md P1, as the plug-in's drawFilterView) the WAVELET FILTER's 11 band gains at C4 (TYPE, CUTOFF, SLOPE, PEAK: core.js filterGains, the
+  // engine's; at C4 KEY TRK has no effect), one bar per octave of harmonics, from +24 dB (top) to -48 dB (bottom); the bands that start above 20 kHz at C4 (9 to 11) are grey
+  draw_filterview(ctx, W, H, c) {
+    const sl = this.SPEC.SLOTS[c.sec.view];
+    if (!sl || sl.mode !== 0) return;
+    const NB = 11, g = this.C.filterGains(Math.round(this.host.get(sl.k.ftype)), this.host.get(sl.k.fcut), this.host.get(sl.k.fslope), this.host.get(sl.k.fres), new Float64Array(NB));
+    const pad = 4, bw = (W - 2 * pad) / NB, top = 3, h = H - 6, y0 = top + h * (24 / 72);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad, y0); ctx.lineTo(W - pad, y0); ctx.stroke();
+    for (let b = 0; b < NB; b++) {
+      const db = Math.max(-48, Math.min(24, 20 * Math.log10(Math.max(1e-12, g[b]))));
+      const x = pad + b * bw, y = top + (24 - db) / 72 * h;
+      const heard = 261.63 * Math.pow(2, b - 1) < 20000;   // band b + 1 starts at harmonic 2^(b - 1)
+      ctx.fillStyle = heard ? this.accent() : 'rgba(200,210,225,0.27)';
+      ctx.fillRect(x + 1.5, Math.min(y, y0), bw - 3, Math.max(1.5, Math.abs(y - y0)));
+    }
+    ctx.fillStyle = 'rgba(200,210,225,0.47)'; ctx.font = '600 7.5px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('at C4', W - 3, 9); ctx.textAlign = 'left';
   }
 
   draw_adsr(ctx, W, H, c) {

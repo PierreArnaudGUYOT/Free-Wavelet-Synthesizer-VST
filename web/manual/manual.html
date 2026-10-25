@@ -53,16 +53,16 @@
 <table>
   <tr><th>Header</th><td>The <b>preset box</b> (◀ ▶ step through the sounds, a click on the name opens the preset browser), <b>MANUAL</b>, the master volume knob and the level meter. The demo (a piece played as a tour of the presets): <b>▶ DEMO</b> in the browser, <b>▶ PLAY DEMO</b> in the plug-in (it leaves your sound as it was; a second click stops it). Browser only: <b>DOWNLOAD VST</b> and <b>SEND FEEDBACK</b> (a short form that opens in a new tab: a bug, an idea, a sound you miss). Plug-in only: <b>SAVE PRESET</b> and the window-size button.</td></tr>
   <tr><th>OSC1 · OSC2 · OSC3</th><td>The three folder tabs choose <em>which oscillator's cards you see</em> (OSC1 and OSC2 are the subtractive ones, A1 and A2 in this manual; OSC3 is the additive one, B1). They never change the sound: a lit dot says the oscillator is heard, and what you hear is set by <b>OSC MIX</b>.</td></tr>
-  <tr><th>WAVELET · SUBTRACTIVE</th><td>The heart of A1 and A2: the wave, the wavelet, <b>SOURCE CYCLE</b>, <b>MORPH</b>, <b>SPARSITY</b>. → <a href="subtractive-1.html">Subtractive 1</a></td></tr>
+  <tr><th>WAVELET · SUBTRACTIVE</th><td>The heart of A1 and A2, in three groups: <b>SOURCE</b> (the wave, its cycle, WIDTH, PHASE), <b>ATOMS</b> (the wavelet, its atom, how many atoms are kept) and <b>MORPH</b> (WAVELET 2, MORPH, ENV&gt;WAV). → <a href="subtractive-1.html">Subtractive 1</a></td></tr>
   <tr><th>WAVELET · ADDITIVE</th><td>The heart of B1: the pattern, the 11 drawbars, <b>TILT</b>, <b>SEED</b>, the band envelope knobs. → <a href="additive-1.html">Additive 1</a></td></tr>
-  <tr><th>SCALE FILTER</th><td>Low-pass, high-pass, band-pass or band-reject <em>on band sizes</em>, with slope, resonance, key tracking, envelope and velocity. → <a href="subtractive-2.html">Subtractive 2</a>, <a href="additive-2.html">Additive 2</a></td></tr>
-  <tr><th>POSITION</th><td>A window that confines the filter (A) or the detail (B) to one part of the cycle. → <a href="subtractive-2.html">Subtractive 2</a></td></tr>
+  <tr><th>WAVELET FILTER</th><td>Low-pass, high-pass, band-pass or band-reject <em>on band sizes</em>, with slope, <b>PEAK</b>, key tracking, envelope and velocity; on A1 and A2 a picture shows the gain of the 11 bands at C4. → <a href="subtractive-2.html">Subtractive 2</a>, <a href="additive-2.html">Additive 2</a></td></tr>
+  <tr><th>WINDOW</th><td>A window that confines the filter (A) or the detail (B) to one part of the cycle: <b>AMOUNT</b>, <b>POSITION</b>, <b>WIDTH</b>. → <a href="subtractive-2.html">Subtractive 2</a></td></tr>
   <tr><th>TUNE · OWN ENVELOPE · PITCH ENVELOPE</th><td>The oscillator's own tuning, its private ADSR (it can only shorten it) and a pitch envelope. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
   <tr><th>OSC MIX · SUB OSC</th><td>The three oscillator levels, <b>OS1</b> <b>OS2</b> <b>OS3</b> as the tabs (an oscillator at 0 costs nothing), and the sub oscillator. In the plug-in the card is titled MIX and VINTAGE: <b>VINTAGE</b> ages the instrument like an analog synthesizer. → <a href="additive-3.html">Additive 3</a></td></tr>
   <tr><th>SCOPE · ALL OSCILLATORS</th><td>One cycle of the whole sound, and under it the <b>SCALOGRAM</b>: rows are band sizes, bright cells are loud atoms. → <a href="additive-2.html">Additive 2</a></td></tr>
   <tr><th>FILTER</th><td>A 24 dB resonant low-pass in every voice, <b>LADDER</b> or <b>OTA</b>, with its own ADSR. Open by default. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
-  <tr><th>AMP ENVELOPE · MOD ENVELOPE</th><td>The loudness of the voice (and <b>VELOCITY</b>); the MOD ENVELOPE moves the scale cutoffs and the wavelet morph. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
-  <tr><th>LFO 1 · LFO 2/3</th><td>LFO 1 moves pitch, cutoff, position, morph, sparsity and resonance. LFO 2 and LFO 3 (two tabs) each move <em>one control of your choice</em> (<b>TARGET</b>) in every oscillator. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
+  <tr><th>AMP ENVELOPE · MOD ENVELOPE</th><td>The loudness of the voice (and <b>VELOCITY</b>); the MOD ENVELOPE moves the wavelet filters' cutoffs and the wavelet morph. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
+  <tr><th>LFO 1 · LFO 2/3</th><td>LFO 1 moves pitch, cutoff, position, morph, atoms and peak. LFO 2 and LFO 3 (two tabs) each move <em>one control of your choice</em> (<b>TARGET</b>) in every oscillator. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
   <tr><th>VOICE · EFFECTS</th><td>Portamento (OFF · POLY · LEGATO), <b>VOICES</b>, <b>GLIDE</b>, <b>UNISON</b>, <b>DETUNE</b>, <b>STEREO</b>; then saturation, chorus, ping-pong delay, reverb, <b>PUNCH</b> (a stronger start of every note), master volume and a soft limiter. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
   <tr><th>PLAY · CHORD KEYBOARD</th><td><b>CHORD MODE</b>, <b>BASS</b>, the <b>TUNING</b> switch (WEST · ARAB · TURK) and the chord card: see <a href="#play">Playing</a>. <b>VELOCITY</b>: how much the velocity of your keys counts (50 %: a note played at half velocity is about 8 dB softer; 0 %: every note alike) and, in the menu under it, where it goes: <b>VOLUME</b>, <b>FILTER</b> (the cutoff of the FILTER card, which it switches in) or both. It stays when you change preset.</td></tr>
   <tr><th>Keyboard</th><td>Five octaves, with the <b>pitch</b> and <b>mod</b> wheels at its left. Lit keys follow what is played, by you, by MIDI or by the demo.</td></tr>
@@ -70,7 +70,7 @@
 <h3>Working with the controls</h3>
 <ul>
   <li><b>Drag</b> a knob up or down; hold <kbd>Shift</kbd> for five times finer steps. The mouse wheel also works. <b>Double-click</b> (or <kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + click) resets it to its default. Hover a knob to read its value.</li>
-  <li><b>Right-click</b> a control in the browser to link a MIDI knob (MIDI learn; <kbd>Esc</kbd> cancels). A <b>greyed-out</b> control has no effect with the current settings (WIDTH unless the wave is PULSE or TRI).</li>
+  <li><b>Right-click</b> a control in the browser to link a MIDI knob (MIDI learn; <kbd>Esc</kbd> cancels). A <b>greyed-out</b> control has no effect with the current settings (WIDTH unless the wave is PULSE or TRI; the WINDOW's POSITION and WIDTH while its AMOUNT is 0; WAVELET 2 while nothing morphs).</li>
   <li>Browser only: <b>Save preset</b>, <b>Export</b>, <b>Import</b> in the bar under the panel. Plug-in only: the SYNC buttons lock the delay and the LFOs to the tempo of your DAW, and <b>VINTAGE</b> (<b>AMOUNT</b>, <b>TYPE</b>) in the OSC MIX card.</li>
 </ul>
 
@@ -90,6 +90,16 @@
   <li><b>Plug-in:</b> <b>SAVE PRESET</b> adjusts the sound playing (<b>RESTORE</b> brings the original back) or replaces a sound of your <b>USER BANK</b>, which starts with a <b>KeyAttac</b> folder of percussive favourites. In the preset browser, <b>NEW</b> copies the sound right under the selected one and you type its name in place; <b>RENAME</b>, <b>COPY</b> / <b>PASTE</b> (<kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + C, V), <b>NEW BANK</b>. <b>EXPORT…</b> writes one bank, one list, your favourites or everything; <b>IMPORT…</b> shows what a file holds and adds the banks you tick (nothing of yours is replaced, unless you choose to).</li>
   <li><b>Your sounds are safe:</b> they live in <code>Documents\OktoPierre\Okto Fractal Wavelet</code> (macOS: <code>~/Documents/OktoPierre/Okto Fractal Wavelet</code>), made the first time you keep something. Installing, replacing or deleting the plug-in never touches it; the file of an older version is read where it is.</li>
 </ul>
+
+<h2 id="macros">Morph macros</h2>
+<p><b>MACROS</b>, at the top of the preset browser (left of HIDE), shows 20 sliders in place of the lists (<b>◂ PRESETS</b> brings the lists back). Each one moves several controls of the subtractive oscillators A1 and A2 together, from the sound's own settings (0 %) towards a destination (100 %): an easy way to vary a sound without opening every card. A double click puts a slider back to 0 %. Hover a slider in the browser to read what it does.</p>
+<ul>
+  <li><b>The wavelet filter:</b> BRIGHTEN, DARKEN, RESONANCE, FILTER PLUCK (it opens at each note and closes fast), SLOW BLOOM (it opens slowly), VOWEL, GLASS.</li>
+  <li><b>The wavelet:</b> WAVELET MORPH (towards WAVELET 2), MORPH BREATH (LFO 1 swings it), MORPH ENVELOPE (each note travels towards WAVELET 2).</li>
+  <li><b>The window:</b> HOLLOW, WINDOW SCAN (LFO 1 moves the window through the cycle), HARMONIC SHIFT.</li>
+  <li><b>Grain, noise and motion:</b> SPARSE GRAIN, GRIT, NOISE AIR (A2 becomes a thin noise), HARMONIC MOTION, SLOW DRIFT, FAST CHAOS, SHIMMER (A2 joins, slightly detuned).</li>
+</ul>
+<p>The cards keep showing the sound's own settings; the macros move what you hear. Several macros on one control share it: the control goes towards the mean of their destinations, so two macros up never push it past both. The macros are playing settings, like VELOCITY: they stay when you change preset and are never saved in a preset. In the plug-in they are kept with your project and can be automated (<i>Macro 1 BRIGHTEN</i> … <i>Macro 20 GLASS</i>); in the browser a right-click links one to a MIDI knob. A macro that acts through the wavelet filter or the window is heard best on a sound whose filter is not wide open.</p>
 
 <h2 id="install">Install the plug-in</h2>
 <div class="two">

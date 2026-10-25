@@ -37,6 +37,29 @@
   const toKeyed = (withPerf) => { const o = {}; PARAMS.forEach((p, i) => { if (!p.hidden && (withPerf || !p.perf)) o[p.key] = +values[i].toFixed(6); }); return o; };
 
   // ---------------------------------------------------------------- parameters
+  // The 20 morph macros (tools/macros.js applyMacros -> WS_SPEC.MACROS; the plug-in's plugin.cpp effective()): the engine and the tables play the panel's values moved by
+  // the macros (a target goes from the panel's value towards its destination, or moves by an amount, by the macro's value; several macros towards destinations of one
+  // control: the weighted mean of their moves once their values add up to more than 1; the amounts add; kept in range; a choice target takes its value as soon as its
+  // macro leaves 0). The panel keeps showing the preset's own values. Always a copy.
+  const MAC = SPEC.MACROS || [], MAC_FIRST = P.macro1, MAC_TARGET = new Set(), MAC_PARAM = new Set();
+  MAC.forEach((m, k) => { MAC_PARAM.add(MAC_FIRST + k); m.t.forEach(t => MAC_TARGET.add(t.p)); });
+  function effective(vals) {
+    const e = Float64Array.from(vals);
+    const to = new Map(), w = new Map(), add = new Map(), set = new Map();
+    MAC.forEach((m, k) => {
+      const a = vals[MAC_FIRST + k];
+      if (!(a > 0)) return;
+      for (const t of m.t) {
+        if (t.k === 2) set.set(t.p, t.v);
+        else if (t.k === 0) { to.set(t.p, (to.get(t.p) || 0) + a * (t.v - vals[t.p])); w.set(t.p, (w.get(t.p) || 0) + a); }
+        else add.set(t.p, (add.get(t.p) || 0) + a * t.v);
+      }
+    });
+    for (const p of new Set([...to.keys(), ...add.keys()]))
+      e[p] = Math.min(PARAMS[p].max, Math.max(PARAMS[p].min, vals[p] + (to.get(p) || 0) / Math.max(1, w.get(p) || 0) + (add.get(p) || 0)));
+    for (const [p, x] of set) e[p] = x;
+    return e;
+  }
   function post(msg, transfer) { if (node) node.port.postMessage(msg, transfer || []); }
   // a preset change (applyKeyed) holds the parameter messages and sends them with the tables in ONE message (see applyKeyed)
   let hold = null;
@@ -46,16 +69,21 @@
     v = Math.min(p.max, Math.max(p.min, v));
     if (p.curve === 'int' || p.curve === 'choice') v = Math.round(v);
     if (values[i] === v) return;
-    const needs = C.tableNeeds(values), morph = C.morphNeeded(values), vsig = C.variantSig(values);
+    const e0 = effective(values);   // (version 1.0.20: the macros)
+    const needs = C.tableNeeds(e0), morph = C.morphNeeded(e0), vsig = C.variantSig(e0);
     values[i] = v;
-    if (hold) hold.n++; else post({ t: 'p', i, v });
+    const e1 = effective(values);
+    let structural = p.structural && i !== P.osc_view;
+    if (hold) hold.n++;
+    else if (!MAC_PARAM.has(i) && !MAC_TARGET.has(i)) post({ t: 'p', i, v });
+    else for (const k of MAC_TARGET) if (e1[k] !== e0[k]) { post({ t: 'p', i: k, v: e1[k] }); if (PARAMS[k].structural) structural = true; }   // (version 1.0.20: the controls a macro moves)
     ui.refresh(i);
     // an oscillator's level rebuilds the tables only when it reaches or leaves 0 (it plays or not); the WAVELET MORPH when it
     // starts or stops needing the WAVELET 2 tables; an LFO when it starts or stops moving the SOURCE PHASE, SPARSITY or SOURCE WIDTH (the variants tables); the
     // OSC tabs only choose the oscillator shown (its display is built again, the sound does not change)
-    if (p.structural || C.tableNeeds(values) !== needs) scheduleDisplay();   // beta 0.3: also when an oscillator starts or stops playing (the scope shows them all)
-    if ((p.structural && i !== P.osc_view) || C.tableNeeds(values) !== needs || C.morphNeeded(values) !== morph ||
-        C.variantSig(values) !== vsig) scheduleBuild();
+    if (p.structural || structural || C.tableNeeds(e1) !== needs) scheduleDisplay();   // beta 0.3: also when an oscillator starts or stops playing (the scope shows them all)
+    if (structural || C.tableNeeds(e1) !== needs || C.morphNeeded(e1) !== morph ||
+        C.variantSig(e1) !== vsig) scheduleBuild();
     // the OSC tabs only choose the panel shown: switching them does not modify the sound
     if (user && !p.hidden && !p.perf && i !== P.osc_view) { if (!dirty) { dirty = true; ui.setPresetName(presetName, true); } }
     if (user && !p.hidden) saveStateSoon();
@@ -111,6 +139,7 @@
     } catch (_) { pworker = null; pready = false; }
   }
   function prebuild(vals) {
+    vals = effective(vals);   // (version 1.0.20: the macros)
     if (!pworker) startPreWorker();
     if (!pworker) return;
     if (!pready) { pwant = vals; return; }
@@ -137,10 +166,10 @@
   let buildTimer2 = null, displayKey = '';
   // the display is a function of the values: built again only when they changed since the last one (version 1.0.7)
   function buildDisplay() {
-    const key = values.join(',');
+    const e = effective(values), key = e.join(',');   // (version 1.0.20: the macros: the displays show what plays)
     if (key === displayKey) return;
     displayKey = key;
-    ui.setTables(C.buildTables(values, false));
+    ui.setTables(C.buildTables(e, false));
   }
   function scheduleBuild() {
     if (buildTimer) return;
@@ -157,11 +186,12 @@
     const seq = ++buildSeq;
     if (inWorker === true && worker && workerReady) {
       if (workerBusy) workerAgain = true;
-      else { workerBusy = true; worker.postMessage({ seq, values: Float64Array.from(values) }); }
+      else { workerBusy = true; worker.postMessage({ seq, values: effective(values) }); }   // (version 1.0.20: the macros)
     } else {
       deliveredSeq = seq;
       if (buildTimer) { clearTimeout(buildTimer); buildTimer = null; }   // (a build of the Worker asked for by a parameter of this very change: this one has it all)
-      deliver(tables || C.buildTables(values, true), bulk ? values : null);
+      const e = effective(values);
+      deliver(tables || C.buildTables(e, true), bulk ? e : null);
     }
     if (buildTimer2) { clearTimeout(buildTimer2); buildTimer2 = null; }
     buildDisplay();
@@ -193,7 +223,7 @@
   // Version 1.0.8: the audio side of a preset change of the demo, sent ahead of the chord it goes with: the values and the tables (built ahead by prebuild, else here) with the song time `at`;
   // nothing is changed on the page (applyKeyed with { audio: false } does that, at the chord)
   function sendKeyed(obj, modify, at) {
-    const v = finalValues(obj, modify);
+    const v = effective(finalValues(obj, modify));   // (version 1.0.20: the macros)
     const tb = prebuilt && prebuilt.key === v.join(',') ? prebuilt.tb : C.buildTables(v, true);
     prebuilt = null;
     deliver(tb, v, at);
@@ -208,7 +238,7 @@
       buildDisplay();
       return;
     }
-    const tb = prebuilt && prebuilt.key === v.join(',') ? prebuilt.tb : null;   // built ahead by the demo (prebuild)
+    const tb = prebuilt && prebuilt.key === effective(v).join(',') ? prebuilt.tb : null;   // built ahead by the demo (prebuild; version 1.0.20: with the macros)
     prebuilt = null;
     build(false, true, tb);
   }
@@ -360,7 +390,7 @@
     await ready;
     node = nd;
     node.port.onmessage = (e) => onWorklet(e.data);
-    post({ t: 'all', v: Array.from(values) });
+    post({ t: 'all', v: Array.from(effective(values)) });   // (version 1.0.20: the macros)
     if (heldTables) { const tb = heldTables; heldTables = null; deliver(tb); } else build();
   }
   // switch the engine: stored; while the audio runs, the old node goes and a new one comes (the demo, if it played, starts again)
@@ -714,6 +744,8 @@
     noteOff: n => noteOff(n),
     setParam: (key, v) => { if (!(key in P)) throw new Error('unknown param ' + key); setParam(P[key], v, true); },
     getParam: key => values[P[key]],
+    allValues: () => Array.from(values),
+    effective: () => Array.from(effective(values)),   // the values the engine plays (the panel's, moved by the morph macros)
     paramKeys: () => PARAMS.map(p => p.key),
     getLevel: () => ({ peakL: lastLevel.peakL, peakR: lastLevel.peakR }),
     presets: () => presetList().map(x => x.name),

@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE) -->
-<!-- Page 2 of 3 on additive synthesis with wavelets (oscillator B1): the wavelet choice, the scalogram, the scale filter and the window on B1. The pictures are made by tools/manual_figs.js. -->
+<!-- Page 2 of 3 on additive synthesis with wavelets (oscillator B1): the wavelet choice, the scalogram, the wavelet filter and the window on B1. The pictures are made by tools/manual_figs.js. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -25,8 +25,8 @@
 <p>The <span class="ctl">SCOPE · ALL OSCILLATORS</span> card draws one cycle of the whole mix, and under it the <span class="ctl">SCALOGRAM</span> draws the bands as rows, band 1 at the bottom and band 11 at the top, with the places in the cycle as columns. A bright cell is a loud atom. For B1 a bar up lights its row and a bar at 0 leaves it dark (with the IMPULSE pattern only the first cell of a row lights; with RANDOM the cells vary). The scalogram moves with the sound: the band envelopes and the filter change its rows while the note plays.</p>
 
 <h2>The scale filter and the window on B1</h2>
-<p>B1 has its own <span class="ctl">SCALE FILTER</span> with the same controls as the subtractive oscillators (<a href="subtractive-2.html">page 2 of Subtractive</a>): <span class="ctl">TYPE</span>, <span class="ctl">CUTOFF</span>, <span class="ctl">SLOPE</span>, <span class="ctl">RESO</span>, <span class="ctl">KEY TRK</span>, <span class="ctl">ENV AMT</span>, <span class="ctl">VEL AMT</span>. The band gain is the product of the bar, the tilt, the band envelope and the filter, so you can set a tone with the bars and let the filter, an envelope or an LFO open and close it on top.</p>
-<p>The <span class="ctl">POSITION</span> window works differently from the subtractive one, because B1 has no unfiltered wave to fall back on. Band 1 plays everywhere; the other bands play only inside the window (<span class="ctl">DEPTH</span> 100 %). A narrow window is a spotlight: the detail of the sound is heard only in one part of the cycle, and LFO 1 (its <span class="ctl">POSITION</span> knob) or LFO 2/3 can move it along. With <span class="ctl">DEPTH</span> at 0 (the default) the window is off.</p>
+<p>B1 has its own <span class="ctl">WAVELET FILTER</span> with the same controls as the subtractive oscillators (<a href="subtractive-2.html">page 2 of Subtractive</a>): <span class="ctl">TYPE</span>, <span class="ctl">CUTOFF</span>, <span class="ctl">SLOPE</span>, <span class="ctl">PEAK</span>, <span class="ctl">KEY TRK</span>, <span class="ctl">ENV AMT</span>, <span class="ctl">VEL AMT</span>. The band gain is the product of the bar, the tilt, the band envelope and the filter, so you can set a tone with the bars and let the filter, an envelope or an LFO open and close it on top.</p>
+<p>The <span class="ctl">POSITION</span> window works differently from the subtractive one, because B1 has no unfiltered wave to fall back on. Band 1 plays everywhere; the other bands play only inside the window (<span class="ctl">AMOUNT</span> 100 %). A narrow window is a spotlight: the detail of the sound is heard only in one part of the cycle, and LFO 1 (its <span class="ctl">POSITION</span> knob) or LFO 2/3 can move it along. With <span class="ctl">DEPTH</span> at 0 (the default) the window is off.</p>
 <figure><img src="img/add-scalogram.svg" alt="The scalogram of an additive sound with six lit rows, and its cycle with and without the position window"></figure>
 
 <h2>Two more things the LFOs can do to B1</h2>
