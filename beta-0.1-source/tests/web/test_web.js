@@ -1,0 +1,796 @@
+// Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
+// SPDX-License-Identifier: GPL-3.0-or-later
+// test_web.js - end-to-end test of the Wavelet Synthesizer web app in headless Edge.
+//
+//   node tests/web/test_web.js [--url <url>] [--out <dir>] [--quick] [--headed]
+//
+// Default URL: file:///.../Wavelet%20Synthesizer/web/index.html (derived from this file's location).
+// Uses the page's test hook window.WS_TEST:
+//   await start(); noteOn(note, vel0to1); noteOff(note); setParam(key, plain); getParam(key);
+//   paramKeys(); getLevel() -> {peakL, peakR}; presets(); loadPreset(i); openManual('A'|'B'); closeManual()
+// tools/spec.js (the single source of truth for parameters/presets) is used as oracle when present.
+// Writes <out>/report.txt and PNG screenshots. Exit code: 0 pass, 1 failures, 2 page/API missing.
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { pathToFileURL } = require('url');
+const { Browser, sleep } = require('./cdp');
+const { decodePng, imageStats, imageDiff } = require('./png');
+
+const ROOT = path.resolve(__dirname, '..', '..');
+const opt = { url: null, out: path.join(__dirname, 'out'), quick: false, headed: false, fileAccess: true };
+for (let i = 2; i < process.argv.length; i++) {
+  const a = process.argv[i];
+  if (a === '--url') opt.url = process.argv[++i];
+  else if (a === '--out') opt.out = path.resolve(process.argv[++i]);
+  else if (a === '--quick') opt.quick = true;
+  else if (a === '--headed') opt.headed = true;
+  else if (a === '--no-file-access') opt.fileAccess = false; // like a normal browser opening file://
+  else { console.log('usage: node test_web.js [--url URL] [--out DIR] [--quick] [--headed] [--no-file-access]'); process.exit(64); }
+}
+const PAGE = path.join(ROOT, 'web', 'index.html');
+const BASE_URL = opt.url || pathToFileURL(PAGE).href;
+
+let SPEC = null;
+try { SPEC = require(path.join(ROOT, 'tools', 'spec.js')); } catch (_) { /* oracle optional */ }
+const SPEC_BY_KEY = SPEC ? Object.fromEntries(SPEC.PARAMS.map((p) => [p.key, p])) : {};
+// DEFAULT_PRESET may be a preset name or an index
+if (SPEC && typeof SPEC.DEFAULT_PRESET === 'number') SPEC.DEFAULT_PRESET = (SPEC.PRESETS[SPEC.DEFAULT_PRESET] || {}).name;
+
+// ------------------------------------------------------------------ report
+const lines = [];
+const results = [];
+let section = 'startup';
+function log(s = '') { console.log(s); lines.push(s); }
+function rec(sev, name, detail = '') {
+  results.push({ sev, section, name, detail });
+  log(`  [${sev}] ${name}${detail ? '  -- ' + detail : ''}`);
+}
+function check(ok, name, detail = '', failSev = 'FAIL') { rec(ok ? 'PASS' : failSev, name, ok ? '' : detail); return ok; }
+function begin(name) { section = name; log(''); log(`=== ${name} ===`); }
+function writeReport(abort) {
+  const n = (s) => results.filter((r) => r.sev === s).length;
+  log('');
+  log('==================================== SUMMARY ====================================');
+  log(`Page   : ${BASE_URL}`);
+  if (abort) log(`RUN ABORTED: ${abort}`);
+  log(`Checks : ${n('PASS')} PASS, ${n('WARN')} WARN, ${n('FAIL')} FAIL`);
+  for (const sev of ['FAIL', 'WARN']) {
+    const rs = results.filter((r) => r.sev === sev);
+    if (!rs.length) continue;
+    log(sev === 'FAIL' ? 'FAILURES:' : 'WARNINGS:');
+    for (const r of rs) log(`  - [${r.section}] ${r.name}${r.detail ? '  -- ' + r.detail : ''}`);
+  }
+  log(`RESULT: ${n('FAIL') || abort ? 'FAIL' : 'PASS'}`);
+  fs.mkdirSync(opt.out, { recursive: true });
+  fs.writeFileSync(path.join(opt.out, 'report.txt'), lines.join('\n') + '\n');
+  return n('FAIL') + (abort ? 1 : 0);
+}
+const db = (x) => (x > 0 ? (20 * Math.log10(x)).toFixed(1) : '-inf');
+const short = (arr, max = 10) => (arr.length > max ? arr.slice(0, max).join('; ') + `; ... (${arr.length} total)` : arr.join('; '));
+
+// ------------------------------------------------------------------ helpers
+let B = null;
+const shots = {};
+async function shot(name, w, h) {
+  const file = path.join(opt.out, name + '.png');
+  const buf = await B.screenshot(file, w ? { width: w, height: h } : {});
+  const img = decodePng(buf);
+  shots[name] = img;
+  const st = imageStats(img);
+  log(`  screenshot ${name}.png (${img.width}x${img.height}, ${st.distinctColors} colours, luma std ${st.lumaStd.toFixed(1)})`);
+  return { img, st };
+}
+const ev = (expr, t) => B.evaluate(expr, t);
+const level = async () => {
+  const l = await ev('Promise.resolve(WS_TEST.getLevel())');
+  return l && typeof l === 'object' ? l : { peakL: NaN, peakR: NaN };
+};
+const peakOf = (l) => Math.max(Number(l.peakL), Number(l.peakR));
+
+// wait until the level crosses a threshold; returns {ok, ms, peak, max}
+async function waitLevel(pred, timeoutMs, intervalMs = 40) {
+  const t0 = Date.now();
+  let p = 0, max = 0, bad = null;
+  while (Date.now() - t0 < timeoutMs) {
+    const l = await level();
+    p = peakOf(l);
+    if (!Number.isFinite(p)) bad = l;
+    max = Math.max(max, Number.isFinite(p) ? p : 0);
+    if (pred(p)) return { ok: true, ms: Date.now() - t0, peak: p, max, bad };
+    await sleep(intervalMs);
+  }
+  return { ok: false, ms: Date.now() - t0, peak: p, max, bad };
+}
+
+// play one note and report onset/peak/release
+async function playNote(note, vel, holdMs, opts = {}) {
+  const on = opts.on || (() => ev(`WS_TEST.noteOn(${note}, ${vel})`));
+  const off = opts.off || (() => ev(`WS_TEST.noteOff(${note})`));
+  await on();
+  const up = await waitLevel((p) => p > (opts.onThreshold || 0.003), opts.onTimeout || 2500);
+  let max = up.max;
+  const tHold = Date.now();
+  while (Date.now() - tHold < holdMs) { const p = peakOf(await level()); if (Number.isFinite(p)) max = Math.max(max, p); await sleep(40); }
+  await off();
+  const down = await waitLevel((p) => p < (opts.offThreshold || 0.001), opts.offTimeout || 6000);
+  return { sounded: up.ok, onsetMs: up.ms, peak: max, released: down.ok, releaseMs: down.ms, residual: down.peak, nonFinite: up.bad || down.bad };
+}
+
+// ------------------------------------------------------------------ test steps
+// Audio tap: wraps AudioNode.connect so that whatever the app connects to the destination is also
+// recorded by a ScriptProcessor (test-only, parallel path through a zero-gain node).
+const TAP_SOURCE = `(() => {
+  const orig = AudioNode.prototype.connect;
+  window.__wsTap = { chunks: [], rec: false, ctx: null };
+  AudioNode.prototype.connect = function (dest, ...rest) {
+    const r = orig.call(this, dest, ...rest);
+    try {
+      if (dest instanceof AudioDestinationNode && !this.__wsTapped) {
+        this.__wsTapped = true;
+        const ctx = this.context;
+        const sp = ctx.createScriptProcessor(4096, 2, 2);
+        const z = ctx.createGain(); z.gain.value = 0;
+        orig.call(this, sp); orig.call(sp, z); orig.call(z, ctx.destination);
+        sp.onaudioprocess = (e) => {
+          if (!window.__wsTap.rec) return;
+          window.__wsTap.chunks.push({ t: e.playbackTime, L: Array.from(e.inputBuffer.getChannelData(0)), R: Array.from(e.inputBuffer.getChannelData(1)) });
+        };
+        window.__wsTap.ctx = ctx;
+      }
+    } catch (e) { /* tap is best effort */ }
+    return r;
+  };
+})();`;
+
+// Hann-windowed Goertzel amplitude (same estimator as the VST host)
+function toneAmp(x, sr, f) {
+  const n = x.length, w = 2 * Math.PI * f / sr, c = 2 * Math.cos(w);
+  let s1 = 0, s2 = 0, ws = 0;
+  for (let i = 0; i < n; i++) {
+    const win = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1));
+    ws += win;
+    const s0 = x[i] * win + c * s1 - s2;
+    s2 = s1; s1 = s0;
+  }
+  return 2 * Math.sqrt(Math.max(0, s1 * s1 + s2 * s2 - c * s1 * s2)) / ws;
+}
+const bandMax = (x, sr, f0, f1) => { let m = 0; for (let f = f0; f <= f1; f++) m = Math.max(m, toneAmp(x, sr, f)); return m; };
+const dB = (a) => 20 * Math.log10(Math.max(a, 1e-12));
+
+// Neutral patch: 'A · Init' by name if it exists, otherwise every spec default (never a preset index).
+const NEUTRAL_EXPR = () => {
+  const i = SPEC ? SPEC.PRESETS.findIndex((p) => p.name === 'A · Init') : -1;
+  return i >= 0 ? `WS_TEST.loadPreset(${i})` : 'true';
+};
+const SPEC_DEFAULTS_EXPR = () => (SPEC ? SPEC.PARAMS.filter((p) => !p.hidden).map((p) => `WS_TEST.setParam('${p.key}', ${p.def});`).join(' ') : '');
+
+async function stepPortamento() {
+  begin('Portamento (Off / On / Legato, mono and poly)');
+  const keys = await ev('WS_TEST.paramKeys()');
+  if (!keys.includes('v_porta')) { rec('WARN', 'Portamento parameter (v_porta) present', 'not in paramKeys()'); return; }
+  if (!(await ev('!!(window.__wsTap && window.__wsTap.ctx)'))) { rec('WARN', 'audio tap available', 'could not tap the output; portamento not measured'); return; }
+  const choices = SPEC_BY_KEY.v_porta ? SPEC_BY_KEY.v_porta.choices : ['Off', 'On', 'Legato'];
+  const fB = 329.6276;
+  const rows = [], bad = [];
+  for (const voices of [1, 8]) for (let mode = 0; mode < 3; mode++) for (const scen of ['separated', 'legato']) {
+    if (voices > 1 && mode === 1 && scen === 'legato') { log(`  (${choices[mode]}, 8 voices, legato: allocation-dependent - checked in the voice-allocation step)`); continue; }
+    await ev(`${SPEC_DEFAULTS_EXPR()} WS_TEST.allNotesOff && WS_TEST.allNotesOff();
+      WS_TEST.setParam('v_porta', ${mode}); WS_TEST.setParam('v_glide', 0.3); WS_TEST.setParam('v_voices', ${voices});
+      WS_TEST.setParam('amp_r', 0.05); WS_TEST.setParam('fx_dmix', 0); WS_TEST.setParam('fx_rmix', 0); true`);
+    await sleep(300);
+    const r = await ev(`(async () => {
+      const T = window.__wsTap, ctx = T.ctx, sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+      if (${voices} > 1) { for (let k = 0; k < 8; k++) WS_TEST.noteOn(100 + k, 0.3); await sleep(100); for (let k = 0; k < 8; k++) WS_TEST.noteOff(100 + k); await sleep(350); }
+      T.chunks = []; T.rec = true;
+      await sleep(250);
+      const t1 = ctx.currentTime; WS_TEST.noteOn(57, 0.7);
+      ${scen === 'separated' ? 'await sleep(400); WS_TEST.noteOff(57); await sleep(300);' : 'await sleep(500);'}
+      const t2 = ctx.currentTime; WS_TEST.noteOn(64, 0.7);
+      await sleep(800); WS_TEST.noteOff(64); WS_TEST.noteOff(57); await sleep(300);
+      T.rec = false;
+      return { t1, t2, sr: ctx.sampleRate, chunks: T.chunks };
+    })()`, 30000);
+    // assemble the recording (mono) and find the first onset
+    const x = [];
+    for (const c of r.chunks) for (let i = 0; i < c.L.length; i++) x.push(0.5 * (c.L[i] + c.R[i]));
+    const on1 = x.findIndex((v) => Math.abs(v) > 0.01);
+    const sr = r.sr;
+    if (on1 < 0) { bad.push(`${choices[mode]} ${scen} ${voices}v: no sound recorded`); continue; }
+    const on2 = on1 + Math.round((r.t2 - r.t1) * sr);
+    const win = (a, b) => x.slice(on2 + Math.round(a * sr), on2 + Math.round(b * sr));
+    const mid = win(0.07, 0.17), end = win(0.5, 0.6);
+    const midDb = dB(bandMax(mid, sr, 245, 305)) - dB(toneAmp(mid, sr, fB));
+    const endDb = dB(bandMax(end, sr, 245, 305)) - dB(toneAmp(end, sr, fB));
+    const expectGlide = mode === 1 || (mode === 2 && scen === 'legato');
+    const ok = (expectGlide ? midDb > 6 : midDb < -6) && endDb < -6;
+    rows.push(`  ${choices[mode].padEnd(12)} ${String(voices).padEnd(6)} ${scen.padEnd(10)} ${midDb.toFixed(1).padStart(7)} ${endDb.toFixed(1).padStart(7)}  ${(expectGlide ? 'glide' : 'no glide').padEnd(9)} ${ok ? 'ok' : 'WRONG'}`);
+    if (!ok) bad.push(`${choices[mode]} ${scen} ${voices} voice(s): +0.12 s ${midDb.toFixed(1)} dB, end ${endDb.toFixed(1)} dB (expected ${expectGlide ? 'glide' : 'no glide'})`);
+  }
+  log('  glide band (245-305 Hz) vs target E4 at +70..170 ms / +500..600 ms after the 2nd note (dB; > 0 = still gliding):');
+  log(`  ${'mode'.padEnd(12)} ${'voices'.padEnd(6)} ${'notes'.padEnd(10)} ${'+0.12s'.padStart(7)} ${'+0.55s'.padStart(7)}  ${'expected'.padEnd(9)} result`);
+  for (const r of rows) log(r);
+  check(bad.length === 0, 'Portamento: Off never glides; Poly glides (mono; poly melody); Legato glides only when a key is held (mono and poly)', short(bad));
+  await ev(`${NEUTRAL_EXPR()}; true`);
+}
+
+// Autocorrelation pitch estimate (same estimator as the VST host); 0 when no clear periodicity.
+function estimatePitch(x, from, len, sr) {
+  if (from < 0 || from + len > x.length) return 0;
+  const minLag = Math.max(2, Math.floor(sr / 2000)), maxLag = Math.min(Math.floor(len / 2), Math.floor(sr / 40));
+  const n = len - maxLag;
+  if (n <= 0) return 0;
+  const r = new Array(maxLag + 2).fill(0);
+  let best = 0;
+  for (let lag = minLag; lag <= maxLag + 1; lag++) {
+    let s = 0, e0 = 0, e1 = 0;
+    for (let i = 0; i < n; i++) { const a = x[from + i], b = x[from + i + lag]; s += a * b; e0 += a * a; e1 += b * b; }
+    r[lag] = e0 > 0 && e1 > 0 ? s / Math.sqrt(e0 * e1) : 0;
+    if (lag <= maxLag) best = Math.max(best, r[lag]);
+  }
+  if (best < 0.5) return 0;
+  for (let lag = minLag + 1; lag <= maxLag; lag++)
+    if (r[lag] >= 0.9 * best && r[lag] >= r[lag - 1] && r[lag] >= r[lag + 1]) {
+      const a = r[lag - 1], b = r[lag], c = r[lag + 1], den = a - 2 * b + c;
+      return sr / (lag + (Math.abs(den) > 1e-12 ? (0.5 * (a - c)) / den : 0));
+    }
+  return 0;
+}
+const hzOf = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+// Polyphonic portamento, same cases and method as the VST host: "pluck" envelope so that held notes are
+// silent at the next note-on; the start pitch (first 12 ms) of each new note must be nearest to the
+// expected source pitch among the candidates (other sources and the target).
+async function stepPolyPorta() {
+  begin('Polyphonic portamento (voice allocation)');
+  const keys = await ev('WS_TEST.paramKeys()');
+  if (!keys.includes('v_porta') || !(await ev('!!(window.__wsTap && window.__wsTap.ctx)'))) { rec('WARN', 'polyphonic portamento measurable', 'no v_porta or no audio tap'); return; }
+  const bad = [];
+  // events: [ms, 'on'|'off', note]; returns mono samples, sample rate and the onset sample of every 'on'
+  const run = async (mode, pluck, release, events) => {
+    await ev(`${SPEC_DEFAULTS_EXPR()} WS_TEST.allNotesOff && WS_TEST.allNotesOff();
+      WS_TEST.setParam('v_porta', ${mode}); WS_TEST.setParam('v_glide', 0.4); WS_TEST.setParam('v_voices', 8);
+      WS_TEST.setParam('amp_r', ${release}); ${pluck ? "WS_TEST.setParam('amp_s', 0); WS_TEST.setParam('amp_d', 0.12);" : ''} true`);
+    await sleep(400);
+    const r = await ev(`(async () => {
+      const T = window.__wsTap, ctx = T.ctx, sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+      const ev = ${JSON.stringify(events)};
+      for (let k = 0; k < 8; k++) WS_TEST.noteOn(100 + k, 0.3);   // prime the voice history (far away)
+      await sleep(100); for (let k = 0; k < 8; k++) WS_TEST.noteOff(100 + k); await sleep(350);
+      T.chunks = []; T.rec = true;
+      await sleep(250);
+      const t0 = performance.now(), times = [];
+      for (const [ms, kind, note] of ev) {
+        const wait = ms - (performance.now() - t0); if (wait > 0) await sleep(wait);
+        if (kind === 'on') { times.push(ctx.currentTime); WS_TEST.noteOn(note, 0.5); } else WS_TEST.noteOff(note);
+      }
+      await sleep(700); T.rec = false;
+      return { times, sr: ctx.sampleRate, chunks: T.chunks };
+    })()`, 30000);
+    const x = [];
+    for (const c of r.chunks) for (let i = 0; i < c.L.length; i++) x.push(0.5 * (c.L[i] + c.R[i]));
+    const sr = r.sr;
+    const first = x.findIndex((v) => Math.abs(v) > 0.003);
+    // onset of each note: predicted from the first onset + context time, refined to the first sample
+    // above threshold within -15..+15 ms when the signal was quiet before (pluck cases)
+    const ons = r.times.map((t) => first + Math.round((t - r.times[0]) * sr));
+    // refine each predicted onset (message/timer jitter of a few ms): first sample within -25..+25 ms whose level
+    // jumps above 3x the residual of the preceding 15 ms (earlier notes may still be decaying)
+    const refined = ons.map((o) => {
+      const a = Math.round(0.025 * sr), w = Math.round(0.015 * sr);
+      let base = 0; for (let i = Math.max(0, o - a - w); i < o - a; i++) base = Math.max(base, Math.abs(x[i]));
+      const thr = Math.max(0.003, 3 * base);
+      for (let i = Math.max(0, o - a); i < Math.min(x.length, o + a); i++) if (Math.abs(x[i]) > thr) return i;
+      return o;
+    });
+    return { x, sr, ons: refined };
+  };
+  const judge = (what, f, expect, cands) => {
+    let nearest = expect, best = 1e9;
+    for (const c of cands) { const d = Math.abs(12 * Math.log2(f / hzOf(c))); if (d < best) { best = d; nearest = c; } }
+    const ok = f > 0 && nearest === expect && best < 1.5;
+    log(`    ${what.padEnd(44)} start ${f.toFixed(1).padStart(7)} Hz  expected ${hzOf(expect).toFixed(1).padStart(7)} Hz (MIDI ${expect})  nearest MIDI ${nearest}  ${ok ? 'ok' : 'WRONG'}`);
+    if (!ok) bad.push(`${what}: starts at ${f.toFixed(1)} Hz (nearest MIDI ${nearest}), expected MIDI ${expect}`);
+  };
+  const start = (r, k) => estimatePitch(r.x, r.ons[k], Math.round(0.012 * r.sr), r.sr);
+
+  log('  1. Poly, one note at a time (release 1.5 s tails): 60 -> 64 -> 67');
+  // the first note is held 1.2 s so that its voice settles (it glides in from the primed pitch)
+  let r = await run(1, false, 1.5, [[0, 'on', 60], [1200, 'off', 60], [1450, 'on', 64], [1700, 'off', 64], [1950, 'on', 67], [2200, 'off', 67]]);
+  judge('64 starts from 60', start(r, 1), 60, [60, 64, 67]);
+  judge('67 starts from 64', start(r, 2), 64, [60, 64, 67]);
+  for (const mode of [1, 0]) {
+    log(`  2. ${mode ? 'Poly' : 'Off'}: hold C4-E4-G4, release, then F4 / A4 / C5 (each while the previous are held)`);
+    // the first chord is held 1.2 s so that its voices settle (they glide in from the primed pitches)
+    r = await run(mode, true, 0.05, [[0, 'on', 60], [1, 'on', 64], [2, 'on', 67], [1200, 'off', 60], [1200, 'off', 64], [1200, 'off', 67],
+      [1650, 'on', 65], [2050, 'on', 69], [2450, 'on', 72], [2950, 'off', 65], [2950, 'off', 69], [2950, 'off', 72]]);
+    if (mode) {
+      judge('F4 (first note, most recent free voice = G4)', start(r, 3), 67, [60, 64, 67, 65]);
+      judge('A4 (nearest free voice = E4)', start(r, 4), 64, [60, 64, 67, 65, 69]);
+      judge('C5 (nearest free voice = C4)', start(r, 5), 60, [60, 64, 67, 69, 72]);
+    } else {
+      judge('Off: F4 starts on its own pitch', start(r, 3), 65, [60, 64, 67, 65]);
+      judge('Off: A4 starts on its own pitch', start(r, 4), 69, [60, 64, 67, 65, 69]);
+      judge('Off: C5 starts on its own pitch', start(r, 5), 72, [60, 64, 67, 69, 72]);
+    }
+  }
+  log('  3. Legato only, 8 voices: 60 released, then 67; 67 held, then 72');
+  r = await run(2, true, 0.05, [[0, 'on', 60], [300, 'off', 60], [750, 'on', 67], [1150, 'on', 72], [1800, 'off', 72], [1800, 'off', 67]]);
+  judge('67 after a released 60 (no glide)', start(r, 1), 67, [60, 67]);
+  judge('72 while 67 is held (glides from 67)', start(r, 2), 67, [60, 67, 72]);
+  check(bad.length === 0, 'polyphonic portamento: melody glides from the previous note, chord change voice by voice (G->F, E->A, C->C5), Legato from the held note, Off never glides', short(bad));
+  await ev(`${NEUTRAL_EXPR()}; true`);
+}
+
+// Security regression: notes far above Nyquist (before the fix: NaN output, synth muted until reload)
+async function stepHighNotes() {
+  begin('High notes above Nyquist (security regression)');
+  if (!(await ev('!!(window.__wsTap && window.__wsTap.ctx)'))) { rec('WARN', 'high notes measurable', 'no audio tap'); return; }
+  const sr = await ev('window.__wsTap.ctx.sampleRate');
+  const bad = [];
+  for (const [oct, note] of [[3, 127], [3, 115], [2, 127]]) {
+    await ev(`${SPEC_DEFAULTS_EXPR()} WS_TEST.allNotesOff && WS_TEST.allNotesOff(); WS_TEST.setParam('v_oct', ${oct}); WS_TEST.setParam('sub_level', 0.8); true`);
+    await sleep(300);
+    const r = await ev(`(async () => {
+      const T = window.__wsTap, sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+      T.chunks = []; T.rec = true;
+      const lv = []; WS_TEST.noteOn(${note}, 0.8);
+      for (let i = 0; i < 20; i++) { await sleep(50); const l = WS_TEST.getLevel(); lv.push(l.peakL, l.peakR); }
+      WS_TEST.noteOff(${note}); await sleep(300); T.rec = false;
+      let n = 0, nonFinite = 0, peak = 0;
+      for (const c of T.chunks) for (const a of [c.L, c.R]) for (const v of a) { n++; if (!Number.isFinite(v)) nonFinite++; else peak = Math.max(peak, Math.abs(v)); }
+      return { lvBad: lv.filter((v) => !Number.isFinite(v)).length, lvMax: Math.max(...lv.filter(Number.isFinite)), n, nonFinite, peak };
+    })()`, 20000);
+    // a later note must be audible: C4 with the same Octave (sounds C7), then C4 with Octave 0
+    const later = async () => {
+      await ev('WS_TEST.noteOn(60, 0.8); true');
+      let m = 0, nf = 0;
+      for (let i = 0; i < 10; i++) { await sleep(60); const l = await ev('WS_TEST.getLevel()'); if (!Number.isFinite(l.peakL) || !Number.isFinite(l.peakR)) nf++; else m = Math.max(m, l.peakL, l.peakR); }
+      await ev('WS_TEST.noteOff(60); true');
+      await sleep(300);
+      return { m, nf };
+    };
+    const c7 = await later();
+    await ev(`WS_TEST.setParam('v_oct', 0); true`);
+    const c4 = await later();
+    const f0 = 440 * Math.pow(2, (note + 12 * oct - 69) / 12);
+    log(`  Octave ${oct > 0 ? '+' : ''}${oct} note ${note} (f0 ${f0.toFixed(0)} Hz, sr ${sr}): ${r.n} samples, non-finite ${r.nonFinite}, peak ${r.peak.toFixed(4)}; getLevel non-finite ${r.lvBad}; then C4 at Octave ${oct}: ${c7.m.toFixed(3)}, C4 at Octave 0: ${c4.m.toFixed(3)}`);
+    if (r.nonFinite || r.lvBad) bad.push(`oct ${oct} note ${note}: ${r.nonFinite} non-finite samples, ${r.lvBad} non-finite levels`);
+    if (!(c7.m > 0.003 && c4.m > 0.003) || c7.nf || c4.nf) bad.push(`oct ${oct} note ${note}: later C4 not audible (${c7.m.toFixed(4)} / ${c4.m.toFixed(4)})`);
+  }
+  check(bad.length === 0, 'Octave +3 note 127/115 and Octave +2 note 127: output stays finite and later notes are audible', short(bad));
+  check(B.errors().length === 0, 'no console errors with high notes', short(B.errors()));
+  await ev(`${NEUTRAL_EXPR()}; true`);
+}
+
+async function stepLoad() {
+  begin('Load');
+  const t0 = Date.now();
+  try { await B.navigate(BASE_URL); } catch (e) { rec('FAIL', 'page loads', e.message); return false; }
+  await sleep(1500);
+  const errs = B.errors(t0);
+  check(errs.length === 0, 'page loads without console errors / uncaught exceptions / failed resources', short(errs));
+  const api = await ev(`(() => { const t = window.WS_TEST; if (!t) return null;
+    return Object.fromEntries(['start','noteOn','noteOff','setParam','getParam','paramKeys','getLevel','presets','loadPreset','openManual','closeManual','allNotesOff'].map(k => [k, typeof t[k]])); })()`);
+  if (!check(!!api, 'window.WS_TEST test hook exists', 'window.WS_TEST is undefined')) return false;
+  const missing = Object.entries(api).filter(([k, t]) => t !== 'function' && k !== 'allNotesOff').map(([k]) => k);
+  check(missing.length === 0, 'WS_TEST exposes the agreed API', 'missing: ' + missing.join(', '));
+  if (SPEC && SPEC.DEFAULT_PRESET) {
+    // the app opens on DEFAULT_PRESET (spec defaults + preset values)
+    const pr = SPEC.PRESETS.find((p) => p.name === SPEC.DEFAULT_PRESET);
+    const want = Object.assign({}, ...SPEC.PARAMS.map((p) => ({ [p.key]: p.def })), pr.v);
+    const st0 = await ev(`({ vals: Object.fromEntries(WS_TEST.paramKeys().map(k => [k, WS_TEST.getParam(k)])),
+      label: (document.querySelector('.presets .pname') || {}).textContent || '' })`);
+    const bad = Object.entries(want).filter(([k, v]) => !(Math.abs(st0.vals[k] - v) <= 1e-6 * Math.max(1, Math.abs(SPEC_BY_KEY[k].max - SPEC_BY_KEY[k].min)))).map(([k, v]) => `${k}=${st0.vals[k]} (want ${v})`);
+    log(`  startup preset label: '${st0.label.trim()}'`);
+    check(st0.label.includes(SPEC.DEFAULT_PRESET) && bad.length === 0, `the app opens on '${SPEC.DEFAULT_PRESET}' (label and all values)`,
+      `label '${st0.label.trim()}'; ` + short(bad));
+  }
+  log(`  (info) WS_TEST.allNotesOff: ${api.allNotesOff}`);
+  for (const [w, h] of [[1124, 782], [1280, 860], [1920, 1080]]) {
+    const { st } = await shot(`load_${w}x${h}`, w, h);
+    check(st.distinctColors > 8 && st.lumaStd > 2, `page renders non-blank content at ${w}x${h}`, `${st.distinctColors} colours`);
+    const ov = await ev(`({sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight, w: innerWidth, h: innerHeight})`);
+    check(ov.sw <= ov.w + 1 && ov.sh <= ov.h + 1, `no scrollbars / overflow at ${w}x${h}`,
+      `document ${ov.sw}x${ov.sh} vs viewport ${ov.w}x${ov.h}`, 'WARN');
+  }
+  await B.setViewport(1280, 860);
+  return true;
+}
+
+async function stepStart() {
+  begin('Start audio');
+  const t0 = Date.now();
+  let ok = true;
+  try { await ev('Promise.resolve(WS_TEST.start()).then(() => true)', 15000); }
+  catch (e) { ok = false; rec('FAIL', 'WS_TEST.start() resolves', e.message); }
+  if (ok) check(true, 'WS_TEST.start() resolves', '');
+  log(`  start() took ${Date.now() - t0} ms`);
+  const l = await level();
+  check(Number.isFinite(Number(l.peakL)) && Number.isFinite(Number(l.peakR)), 'getLevel() returns numeric {peakL, peakR}', JSON.stringify(l));
+  const idle = await waitLevel((p) => p < 0.001, 2000);
+  check(idle.ok, 'silence when idle after start()', `peak ${idle.peak}`, 'WARN');
+  await sleep(300);
+  for (const [w, h] of [[1124, 782], [1280, 860], [1920, 1080]]) await shot(`ui_${w}x${h}`, w, h);
+  await B.setViewport(1280, 860);
+  await sleep(300);
+  await shot('ui_1280x860_ref');
+  const errs = B.errors(t0);
+  check(errs.length === 0, 'no console errors while starting audio', short(errs));
+  return ok;
+}
+
+async function stepParams() {
+  begin('Parameters');
+  const keys = await ev('WS_TEST.paramKeys()');
+  if (!check(Array.isArray(keys) && keys.length > 0, 'paramKeys() returns a non-empty array', JSON.stringify(keys))) return [];
+  log(`  ${keys.length} parameter keys`);
+  if (SPEC) {
+    const specKeys = SPEC.PARAMS.map((p) => p.key);
+    const missing = specKeys.filter((k) => !keys.includes(k)), extra = keys.filter((k) => !specKeys.includes(k));
+    check(missing.length === 0, 'every spec parameter is exposed (tools/spec.js)', 'missing: ' + missing.join(', '));
+    check(extra.length === 0, 'no parameters beyond the spec', 'extra: ' + extra.join(', '), 'WARN');
+  }
+  // read, range-check, set/get round-trip and clamping, all inside the page for speed
+  const spec = SPEC ? SPEC.PARAMS.map((p) => ({ key: p.key, min: p.min, max: p.max, def: p.def, curve: p.curve })) : [];
+  const res = await ev(`(() => {
+    const spec = ${JSON.stringify(spec)}; const S = Object.fromEntries(spec.map(p => [p.key, p]));
+    const out = { bad: [], range: [], rt: [], clamp: [], values: {} };
+    for (const k of WS_TEST.paramKeys()) {
+      const v0 = WS_TEST.getParam(k); out.values[k] = v0;
+      if (typeof v0 !== 'number' || !isFinite(v0)) { out.bad.push(k + '=' + v0); continue; }
+      const s = S[k]; if (!s) continue;
+      if (v0 < s.min - 1e-9 || v0 > s.max + 1e-9) out.range.push(k + '=' + v0 + ' not in [' + s.min + ',' + s.max + ']');
+      let t = s.min + (s.max - s.min) * 0.37; if (s.curve === 'int' || s.curve === 'choice') t = Math.round(t);
+      WS_TEST.setParam(k, t); const g = WS_TEST.getParam(k);
+      if (!(Math.abs(g - t) <= 1e-6 * Math.max(1, Math.abs(s.max - s.min)))) out.rt.push(k + ': set ' + t + ' got ' + g);
+      WS_TEST.setParam(k, s.max + (s.max - s.min) * 10); const hi = WS_TEST.getParam(k);
+      WS_TEST.setParam(k, s.min - (s.max - s.min) * 10); const lo = WS_TEST.getParam(k);
+      if (!(hi <= s.max + 1e-9 && lo >= s.min - 1e-9)) out.clamp.push(k + ': ' + lo + '..' + hi);
+      WS_TEST.setParam(k, v0);
+    }
+    return out; })()`);
+  check(res.bad.length === 0, 'getParam returns finite numbers for every key', short(res.bad));
+  if (SPEC) {
+    check(res.range.length === 0, 'current values within the spec ranges', short(res.range));
+    check(res.rt.length === 0, 'setParam/getParam round-trip (plain values)', short(res.rt));
+    check(res.clamp.length === 0, 'setParam clamps out-of-range values to [min, max]', short(res.clamp), 'WARN');
+    const nonDef = Object.entries(res.values).filter(([k, v]) => SPEC_BY_KEY[k] && Math.abs(v - SPEC_BY_KEY[k].def) > 1e-6).map(([k, v]) => `${k}=${v}`);
+    log(`  (info) values differing from spec defaults at startup (initial preset?): ${nonDef.join(', ') || 'none'}`);
+  }
+  return keys;
+}
+
+async function stepNote() {
+  begin('Note on / off');
+  const t0 = Date.now();
+  const r = await playNote(60, 0.8, 600);
+  log(`  C4: sound after ${r.onsetMs} ms, peak ${db(r.peak)} dBFS, back below -60 dBFS ${r.releaseMs} ms after noteOff (residual ${r.residual})`);
+  check(r.sounded && r.peak > 0, 'noteOn(60, 0.8) makes the output level rise above 0', `peak ${r.peak}`);
+  check(r.released, 'level returns to ~0 (< 0.001) after noteOff + release', `still ${r.residual} after ${r.releaseMs} ms`);
+  check(!r.nonFinite, 'getLevel stays finite', JSON.stringify(r.nonFinite));
+  check(r.peak <= 1.0, 'single note does not clip (peak <= 0 dBFS)', `peak ${r.peak}`, 'WARN');
+  // a low and a high note
+  for (const n of [24, 96]) {
+    const q = await playNote(n, 0.8, 300);
+    log(`  MIDI ${n}: peak ${db(q.peak)} dBFS, released ${q.released}`);
+    check(q.sounded && q.released, `MIDI ${n} sounds and releases`, `sounded ${q.sounded}, residual ${q.residual}`);
+  }
+  const errs = B.errors(t0);
+  check(errs.length === 0, 'no console errors while playing', short(errs));
+}
+
+async function stepPresets() {
+  begin('Presets');
+  const names = await ev('WS_TEST.presets()');
+  if (!check(Array.isArray(names) && names.length > 0, 'presets() returns a non-empty array', JSON.stringify(names))) return;
+  log(`  ${names.length} presets`);
+  if (SPEC) {
+    const sn = SPEC.PRESETS.map((p) => p.name);
+    check(names.length === sn.length, 'preset count matches the spec', `${names.length} vs ${sn.length}`);
+    const diff = sn.map((n, i) => (names[i] !== n ? `#${i} '${names[i]}' vs spec '${n}'` : null)).filter(Boolean);
+    check(diff.length === 0, 'preset names/order match the spec', short(diff), 'WARN');
+  }
+  const silent = [], stuck = [], errsAll = [], valueBad = [], notReset = [], sameShot = [];
+  log(`  ${'#'.padEnd(3)} ${'name'.padEnd(22)} ${'peak dB'.padStart(8)} ${'onset ms'.padStart(9)} ${'release ms'.padStart(11)}`);
+  let prevImg = shots.ui_1280x860_ref;
+  let prevVals = await ev(`JSON.stringify(WS_TEST.paramKeys().map(k => WS_TEST.getParam(k)))`);
+  for (let i = 0; i < names.length; i++) {
+    const t0 = Date.now();
+    await ev(`WS_TEST.loadPreset(${i})`);
+    await sleep(250);
+    if (SPEC && SPEC.PRESETS[i]) {
+      const v = SPEC.PRESETS[i].v;
+      const vals = await ev(`Object.fromEntries(WS_TEST.paramKeys().map(k => [k, WS_TEST.getParam(k)]))`);
+      for (const [k, x] of Object.entries(v))
+        if (!(Math.abs(vals[k] - x) <= 1e-6 * Math.max(1, Math.abs(SPEC_BY_KEY[k].max - SPEC_BY_KEY[k].min))))
+          valueBad.push(`#${i} ${k}=${vals[k]} (preset ${x})`);
+      for (const p of SPEC.PARAMS)
+        if (!(p.key in v) && !p.hidden && Math.abs(vals[p.key] - p.def) > 1e-6) notReset.push(`#${i} ${p.key}=${vals[p.key]} (default ${p.def})`);
+    }
+    const { img } = await shot(`preset_${String(i).padStart(2, '0')}`);
+    const valsNow = await ev(`JSON.stringify(WS_TEST.paramKeys().map(k => WS_TEST.getParam(k)))`);
+    // only expect a visible change when the parameter values actually changed
+    if (prevImg && valsNow !== prevVals) { const d = imageDiff(prevImg, img); if (d && d.changedFraction < 0.002) sameShot.push(`#${i}`); }
+    prevImg = img;
+    prevVals = valsNow;
+    const r = await playNote(60, 0.8, 300, { onTimeout: 3000, offTimeout: opt.quick ? 4000 : 9000 });
+    log(`  ${String(i).padEnd(3)} ${String(names[i]).padEnd(22)} ${db(r.peak).padStart(8)} ${String(r.sounded ? r.onsetMs : '-').padStart(9)} ${String(r.released ? r.releaseMs : 'no').padStart(11)}`);
+    if (!r.sounded || !(r.peak > 0)) silent.push(`#${i} ${names[i]}`);
+    if (!r.released) stuck.push(`#${i} ${names[i]} (residual ${r.residual.toFixed ? r.residual.toFixed(4) : r.residual})`);
+    const e = B.errors(t0);
+    if (e.length) errsAll.push(`#${i} ${names[i]}: ${e[0]}`);
+    if (!r.released) { await ev('WS_TEST.allNotesOff && WS_TEST.allNotesOff()'); await waitLevel((p) => p < 0.001, 3000); }
+  }
+  check(silent.length === 0, 'every preset produces sound (C4)', short(silent));
+  check(stuck.length === 0, 'every preset returns to ~0 after noteOff + release', short(stuck));
+  check(errsAll.length === 0, 'no console errors while loading/playing presets', short(errsAll));
+  if (SPEC) {
+    check(valueBad.length === 0, 'loadPreset applies the preset values from the spec', short(valueBad));
+    check(notReset.length === 0, 'loadPreset resets parameters the preset does not set to their defaults', short(notReset), 'WARN');
+  }
+  check(sameShot.length === 0, 'the UI visibly changes when a different preset is loaded', 'no visible change at ' + sameShot.join(', '), 'WARN');
+}
+
+async function stepEngines() {
+  begin('Engine A / B');
+  await ev(NEUTRAL_EXPR());
+  for (const e of [0, 1]) {
+    await ev(`WS_TEST.setParam('engine', ${e})`);
+    await sleep(300);
+    const r = await playNote(57, 0.8, 400);
+    log(`  engine ${e ? 'B' : 'A'}: peak ${db(r.peak)} dBFS, released ${r.released}`);
+    check(r.sounded && r.released, `engine ${e ? 'B' : 'A'} plays and releases`, `sounded ${r.sounded}, residual ${r.residual}`);
+    await shot(`engine_${e ? 'B' : 'A'}`);
+  }
+  const d = imageDiff(shots.engine_A, shots.engine_B);
+  check(d && d.changedFraction > 0.01, 'UI switches between engine A and B panels', d ? `${(d.changedFraction * 100).toFixed(2)} % pixels changed` : 'size mismatch', 'WARN');
+  await ev(`WS_TEST.setParam('engine', 0)`);
+}
+
+async function stepManuals() {
+  begin('Manuals');
+  await sleep(200);
+  const { img: base } = await shot('manual_base');
+  for (const m of ['A', 'B']) {
+    const t0 = Date.now();
+    try { await ev(`Promise.resolve(WS_TEST.openManual('${m}')).then(() => true)`); }
+    catch (e) { rec('FAIL', `openManual('${m}')`, e.message); continue; }
+    await sleep(1000);
+    const { img, st } = await shot(`manual_${m}`);
+    const d = imageDiff(base, img);
+    check(d && d.changedFraction > 0.05, `openManual('${m}') opens a manual view`, d ? `${(d.changedFraction * 100).toFixed(1)} % pixels changed` : 'size mismatch');
+    check(st.distinctColors > 8, `manual ${m} is not blank`, `${st.distinctColors} colours`);
+    // the manual document itself must load and contain text (iframe or inline)
+    const tree = await B.send('Page.getFrameTree');
+    const frames = [];
+    (function walk(n) { for (const c of n.childFrames || []) { frames.push(c.frame); walk(c); } })(tree.frameTree);
+    const failed = frames.filter((f) => f.unreachableUrl).map((f) => f.unreachableUrl);
+    const missing = frames.map((f) => f.url).filter((u) => /^file:/.test(u) && !fs.existsSync(require('url').fileURLToPath(u.split('#')[0])));
+    const info = await ev(`(() => { const out = [];
+      for (const f of document.querySelectorAll('iframe')) { const r = f.getBoundingClientRect(); if (r.width < 50 || r.height < 50) continue;
+        let len = -1; try { len = f.contentDocument && f.contentDocument.body ? f.contentDocument.body.innerText.trim().length : -1; } catch (e) { len = -2; }
+        out.push({ src: f.getAttribute('src'), len }); }
+      return out; })()`);
+    log(`  manual ${m}: frames ${JSON.stringify(frames.map((f) => f.unreachableUrl || f.url))}, visible iframes ${JSON.stringify(info)}`);
+    // len -1/-2: document not readable from the parent (file:// without --allow-file-access-from-files is
+    // cross-origin); load failures are still caught by the frame tree / file existence checks above.
+    const textOk = info.length === 0 || info.some((x) => x.len > 200 || x.len < 0);
+    check(failed.length === 0 && missing.length === 0 && textOk, `manual ${m} document loads and has content`,
+      failed.length || missing.length ? 'failed to load: ' + [...failed, ...missing].join(', ') : 'iframe has no readable text: ' + JSON.stringify(info));
+    for (const [w, h] of [[1920, 1080]]) await shot(`manual_${m}_${w}x${h}`, w, h);
+    await B.setViewport(1280, 860);
+    await sleep(200);
+    await ev(`Promise.resolve(WS_TEST.closeManual())`);
+    await sleep(600);
+    const { img: after } = await shot(`manual_${m}_closed`);
+    const d2 = imageDiff(base, after);
+    check(d2 && d2.changedFraction < 0.05, `closeManual() returns to the synth view (manual ${m})`,
+      d2 ? `${(d2.changedFraction * 100).toFixed(1)} % pixels differ from before opening` : 'size mismatch', 'WARN');
+    const errs = B.errors(t0);
+    check(errs.length === 0, `no console errors with manual ${m}`, short(errs));
+  }
+}
+
+async function stepKeyboard() {
+  begin('Computer keyboard');
+  await ev(NEUTRAL_EXPR());
+  await ev('document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.focus(); true');
+  await sleep(200);
+  const keys = [['1', 'Digit1'], ['5', 'Digit5'], ['0', 'Digit0'], ['1', 'Numpad1'], ['a', 'KeyA'], ['w', 'KeyW'], ['k', 'KeyK']];
+  const bad = [];
+  for (const [k, code] of keys) {
+    const t0 = Date.now();
+    const r = await playNote(0, 0, 300, { on: () => B.keyDown(k, { code }), off: () => B.keyUp(k, { code }) });
+    log(`  key ${code}: sound ${r.sounded ? 'yes' : 'NO'} (peak ${db(r.peak)} dBFS), released ${r.released}`);
+    if (!r.sounded) bad.push(`${code} no sound`);
+    if (!r.released) bad.push(`${code} stuck`);
+    const e = B.errors(t0);
+    if (e.length) bad.push(`${code}: ${e[0]}`);
+  }
+  check(bad.length === 0, 'computer keyboard keys (digits, numpad, letters) play and release notes', short(bad));
+  // auto-repeat while held must not retrigger/stick
+  {
+    await B.keyDown('d', { code: 'KeyD' });
+    for (let i = 0; i < 6; i++) {
+      await B.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'd', code: 'KeyD', windowsVirtualKeyCode: 68, text: 'd', autoRepeat: true });
+      await sleep(40);
+    }
+    await B.keyUp('d', { code: 'KeyD' });
+    const down = await waitLevel((p) => p < 0.001, 5000);
+    check(down.ok, 'held key with auto-repeat releases on keyup (no stuck note)', `residual ${down.peak}`);
+  }
+  // octave keys must not throw
+  const t0 = Date.now();
+  await B.key('z', { code: 'KeyZ' });
+  await B.key('x', { code: 'KeyX' });
+  check(B.errors(t0).length === 0, 'Z/X octave keys raise no errors', short(B.errors(t0)));
+}
+
+// Locate the device (1100x720 layout) on the page to click spec coordinates.
+async function deviceRect() {
+  return ev(`(() => {
+    let best = null;
+    for (const el of document.querySelectorAll('body *')) {
+      const r = el.getBoundingClientRect();
+      if (r.width < 300 || r.height < 200) continue;
+      const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+      const ar = r.width / r.height, err = Math.abs(ar / (1100 / 720) - 1);
+      if (err > 0.03 || r.width * r.height < 0.3 * innerWidth * innerHeight) continue;
+      // closest aspect ratio wins (an outer stage/container is usually a bit off), then the larger one
+      if (!best || err < best.err - 0.002 || (Math.abs(err - best.err) <= 0.002 && r.width * r.height > best.w * best.h))
+        best = { x: r.left, y: r.top, w: r.width, h: r.height, err, tag: el.tagName, id: el.id, cls: String(el.className) };
+    }
+    return best; })()`);
+}
+
+async function stepMouse() {
+  begin('Mouse on the UI (spec layout coordinates)');
+  await ev(NEUTRAL_EXPR());
+  await sleep(300);
+  const r = await deviceRect();
+  if (!r) { rec('WARN', 'device element (1100x720 aspect) found on the page', 'cannot map spec coordinates; mouse checks skipped'); return; }
+  log(`  device element <${r.tag} id='${r.id}' class='${r.cls}'> at ${r.x.toFixed(0)},${r.y.toFixed(0)} size ${r.w.toFixed(0)}x${r.h.toFixed(0)}`);
+  const P = (x, y) => [r.x + (x * r.w) / 1100, r.y + (y * r.h) / 720];
+  const t0 = Date.now();
+  await B.click(...P(488, 24));
+  await sleep(300);
+  const eB = await ev(`WS_TEST.getParam('engine')`);
+  await B.click(...P(356, 24));
+  await sleep(300);
+  const eA = await ev(`WS_TEST.getParam('engine')`);
+  check(eB === 1 && eA === 0, 'clicking the engine selector switches engine B then A', `after B click: ${eB}, after A click: ${eA}`, 'WARN');
+  const c0 = await ev(`WS_TEST.getParam('f_cutoff')`);
+  const [kx, ky] = P(50, 418);
+  await B.drag(kx, ky, kx, ky + 60, 12);
+  await sleep(200);
+  const c1 = await ev(`WS_TEST.getParam('f_cutoff')`);
+  check(c1 !== c0, 'dragging the Cutoff knob down changes f_cutoff', `${c0} -> ${c1}`, 'WARN');
+  log(`  cutoff drag: ${c0} -> ${c1}`);
+  // on-screen keyboard: press the first white key below the black keys (position from the spec layout)
+  let kbx = 110, kby = 690;
+  for (const sec of SPEC.SECTIONS) for (const w of sec.widgets) if (w.type === 'keyboard') { kbx = sec.x + w.x + 10; kby = sec.y + w.y + w.h - 12; }
+  log(`  on-screen keyboard click at device (${kbx}, ${kby})`);
+  const [px, py] = P(kbx, kby);
+  await B.mouse('mouseMoved', px, py, { button: 'none', buttons: 0 });
+  await B.mouse('mousePressed', px, py, { buttons: 1 });
+  const up = await waitLevel((p) => p > 0.003, 2000);
+  await sleep(200);
+  await B.mouse('mouseReleased', px, py, { buttons: 0 });
+  const down = await waitLevel((p) => p < 0.001, 5000);
+  check(up.ok && down.ok, 'clicking an on-screen keyboard key plays and releases a note', `sounded ${up.ok}, released ${down.ok}`, 'WARN');
+  await shot('mouse_after');
+  check(B.errors(t0).length === 0, 'no console errors during mouse interaction', short(B.errors(t0)));
+  await ev(NEUTRAL_EXPR());
+}
+
+async function stepStress() {
+  begin('Random parameter stress');
+  if (!SPEC) { rec('WARN', 'random stress', 'tools/spec.js not available'); return; }
+  const t0 = Date.now();
+  const spec = SPEC.PARAMS.filter((p) => !p.hidden).map((p) => ({ key: p.key, min: p.min, max: p.max, int: p.curve === 'int' || p.curve === 'choice' }));
+  let nonFinite = 0, maxPeak = 0;
+  const iters = opt.quick ? 15 : 40;
+  let seed = 12345;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  for (let i = 0; i < iters; i++) {
+    const sets = [];
+    for (let k = 0; k < 10; k++) {
+      const p = spec[Math.floor(rnd() * spec.length)];
+      let v = p.min + rnd() * (p.max - p.min); if (p.int) v = Math.round(v);
+      sets.push([p.key, v]);
+    }
+    const note = 36 + Math.floor(rnd() * 48);
+    await ev(`(() => { for (const [k, v] of ${JSON.stringify(sets)}) WS_TEST.setParam(k, v); WS_TEST.noteOn(${note}, 0.9); return true; })()`);
+    await sleep(120);
+    const l = await level();
+    const p = peakOf(l);
+    if (!Number.isFinite(p)) nonFinite++; else maxPeak = Math.max(maxPeak, p);
+    await ev(`WS_TEST.noteOff(${note})`);
+  }
+  log(`  ${iters} iterations x 10 random parameter values; max peak ${db(maxPeak)} dBFS`);
+  check(nonFinite === 0, 'output level stays finite under random parameters (no NaN)', `${nonFinite} non-finite readings`);
+  check(maxPeak < 4, 'no blow-up under random parameters (peak < +12 dBFS)', `peak ${maxPeak}`);
+  await ev(`${NEUTRAL_EXPR()}; WS_TEST.allNotesOff && WS_TEST.allNotesOff(); true`);
+  const down = await waitLevel((p) => p < 0.001, 12000);
+  check(down.ok, 'silence after random stress + all notes off (no stuck voice)', `residual ${down.peak}`);
+  check(B.errors(t0).length === 0, 'no console errors during random stress', short(B.errors(t0)));
+}
+
+async function stepHashes() {
+  begin('URL hash options');
+  // full reload (hash-only navigation would not reload the document)
+  for (const [hash, idx] of [['#noaudio', null], ['#preset=3', 3]]) {
+    await B.navigate('about:blank');
+    const t0 = Date.now();
+    await B.navigate(BASE_URL + hash);
+    await sleep(1200);
+    const errs = B.errors(t0);
+    check(errs.length === 0, `${hash}: loads without console errors`, short(errs));
+    await shot('hash_' + hash.replace(/[^a-z0-9]/gi, '_'));
+    if (idx !== null && SPEC && SPEC.PRESETS[idx]) {
+      const v = SPEC.PRESETS[idx].v;
+      const vals = await ev(`Object.fromEntries(WS_TEST.paramKeys().map(k => [k, WS_TEST.getParam(k)]))`);
+      const bad = Object.entries(v).filter(([k, x]) => Math.abs(vals[k] - x) > 1e-6).map(([k, x]) => `${k}=${vals[k]} (want ${x})`);
+      check(bad.length === 0, `${hash}: preset ${idx} '${SPEC.PRESETS[idx].name}' is loaded`, short(bad));
+    }
+  }
+  if (shots.load_1280x860 && shots.hash__noaudio) {
+    const d = imageDiff(shots.load_1280x860, shots.hash__noaudio);
+    log(`  (info) #noaudio vs normal load: ${d ? (d.changedFraction * 100).toFixed(1) + ' % pixels differ' : 'size differs'}`);
+  }
+}
+
+async function main() {
+  fs.mkdirSync(opt.out, { recursive: true });
+  for (const f of fs.readdirSync(opt.out)) if (/\.(png|txt)$/.test(f)) fs.rmSync(path.join(opt.out, f));
+  log('test_web.js - Wavelet Synthesizer web app test (headless Edge via CDP)');
+  log(`date   : ${new Date().toISOString()}`);
+  log(`page   : ${BASE_URL}`);
+  log(`browser: headless Edge${opt.fileAccess ? ' with --allow-file-access-from-files' : ' WITHOUT --allow-file-access-from-files (normal browser)'}`);
+  log(`spec   : ${SPEC ? `tools/spec.js (${SPEC.PARAMS.length} params, ${SPEC.PRESETS.length} presets)` : 'not available'}`);
+  if (!opt.url && !fs.existsSync(PAGE)) {
+    begin('Load');
+    rec('FAIL', 'web/index.html exists', `${PAGE} not found - the web app has not been built yet`);
+    process.exit(writeReport() ? 2 : 0);
+  }
+  let abort = null;
+  try {
+    B = await Browser.launch({ width: 1280, height: 860, headless: !opt.headed, fileAccess: opt.fileAccess });
+    await B.send('Page.addScriptToEvaluateOnNewDocument', { source: TAP_SOURCE });
+    const loaded = await stepLoad();
+    if (!loaded) { abort = 'page or WS_TEST hook missing'; }
+    else {
+      const started = await stepStart();
+      await stepParams();
+      if (started) {
+        await stepNote();
+        await stepPresets();
+        await stepEngines();
+      }
+      await stepManuals();
+      if (started) {
+        await stepKeyboard();
+        await stepPortamento();
+        await stepPolyPorta();
+        await stepHighNotes();
+        await stepMouse();
+        await stepStress();
+      }
+      await stepHashes();
+      begin('Console summary');
+      const all = B.errors(0), warns = B.warnings(0);
+      log(`  total console errors: ${all.length}, warnings: ${warns.length}`);
+      for (const w of warns.slice(0, 20)) log('    ' + w);
+    }
+  } catch (e) {
+    abort = 'exception in test driver: ' + (e && e.stack ? e.stack : e);
+  } finally {
+    if (B) await B.close();
+  }
+  const fails = writeReport(abort);
+  process.exit(abort && /missing/.test(abort) ? 2 : fails ? 1 : 0);
+}
+
+main();

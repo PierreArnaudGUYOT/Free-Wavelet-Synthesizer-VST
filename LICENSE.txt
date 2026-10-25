@@ -1,0 +1,30 @@
+Okto Fractal Wavelet (OktoWave) - licence of the plug-in and of the web app
+Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). All rights reserved.
+
+FREE TO USE
+You may download, install and use Okto Fractal Wavelet (the VST3 / VST2 plug-in and the web app) free of
+charge, on as many computers as you like, for any purpose, including commercial music production. The music
+and the sounds you make with it are yours.
+
+WHAT YOU MAY NOT DO
+You may share the unmodified download (the zip as published, or a link to it). You may not sell it, rent it,
+modify it, decompile, disassemble or reverse engineer it (except where the law expressly allows it), or
+distribute modified copies of it or parts of it.
+
+NO WARRANTY
+The software is provided "as is", without warranty of any kind, express or implied. In no event shall the
+author be liable for any claim, damage or other liability arising from the use of the software.
+
+EARLIER VERSIONS
+The versions up to 1.0.18 were published under the GNU General Public License v3; the copies of those versions
+keep that licence. The source code of the Wavelet Synthesizer beta 0.1 stays available under the GNU GPL v3:
+https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST
+
+THIRD-PARTY NOTICES
+- VST3 interfaces: Copyright (c) Steinberg Media Technologies GmbH, MIT licence (the text is in
+  THIRD-PARTY-VST3-INTERFACES-LICENSE.txt next to this file). VST is a registered trademark of Steinberg Media
+  Technologies GmbH.
+- Wavelet filter coefficients: from PyWavelets (https://pywavelets.readthedocs.io), MIT licence,
+  Copyright (c) 2006-2012 Filip Wasilewski, Copyright (c) 2012- The PyWavelets Developers.
+- Demo music: L. van Beethoven, Piano Sonata No. 23 "Appassionata", Op. 57, III, public domain; MIDI file from
+  the Mutopia Project (mutopiaproject.org), public domain.

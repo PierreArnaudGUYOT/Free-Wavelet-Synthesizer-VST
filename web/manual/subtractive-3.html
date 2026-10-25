@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE) -->
+<!-- Page 3 of 3 on subtractive synthesis with wavelets: making it move and finishing the sound. The pictures are made by tools/manual_figs.js. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OktoWave manual — Subtractive 3: making it move</title>
+<meta name="description" content="Tuning, own envelope, pitch envelope, LFOs, the voice filter, the amp envelope, unison and effects, with three recipes.">
+<link rel="stylesheet" href="manual.css">
+<script src="manual.js" defer></script>
+</head>
+<body class="sub">
+<main>
+
+<p class="kicker">Subtractive synthesis with wavelets · page 3 of 3 · oscillators A1 and A2</p>
+<h1>Making it move, finishing the sound</h1>
+<p class="lead">The oscillator and its filter make a tone. Envelopes, LFOs, the voice filter and the effects shape it in time.</p>
+
+<h2>Tuning, own envelope, pitch envelope</h2>
+<p>The <span class="ctl">TUNE · OWN ENVELOPE · PITCH ENVELOPE</span> card belongs to one oscillator. <span class="ctl">OCTAVE</span>, <span class="ctl">SEMI</span> and <span class="ctl">FINE</span> tune it against the others (<i>AA · Slow Violins</i> tunes A1 six cents sharp and A2 six cents flat, both an octave up). <span class="ctl">OWN ENVELOPE</span> gives the oscillator a private ADSR that multiplies the voice's AMP ENVELOPE, so it can only <em>shorten</em> the oscillator: a click, a pluck, a strike. <span class="ctl">PITCH ENV</span> starts the oscillator that many semitones (±48) away from the note, and <span class="ctl">TIME</span> says how long it takes to fall back.</p>
+<figure><img src="img/sub-envelopes.svg" alt="An amp envelope shortened by an own envelope, and a pitch envelope falling twelve semitones in eighty milliseconds"></figure>
+
+<h2>Moving the wavelet controls</h2>
+<ul>
+  <li>The <span class="ctl">MOD ENVELOPE</span> (an ADSR) drives <span class="ctl">ENV AMT</span> of the scale filters and <span class="ctl">ENV&gt;WAV</span>, the morph.</li>
+  <li><span class="ctl">LFO 1</span> moves, at the rate you choose (<span class="ctl">RATE</span>, or <span class="ctl">SYNC</span> to the tempo in the plug-in): <span class="ctl">PITCH</span> (vibrato), <span class="ctl">CUTOFF</span>, <span class="ctl">POSITION</span>, <span class="ctl">WAVELET</span> (the morph), <span class="ctl">SPARSITY</span>, <span class="ctl">RESO</span> and <span class="ctl">ENV&gt;WAV</span>, each by the amount of its knob. Shapes: sine, triangle, saw, square, sample &amp; hold.</li>
+  <li><span class="ctl">LFO 2</span> and <span class="ctl">LFO 3</span> (two tabs of one card) each move <em>one</em> control, chosen with <span class="ctl">TARGET</span> among 19, in every oscillator that has it, by <span class="ctl">AMOUNT</span> (negative reverses it). Among them: Source Phase, Sparsity, Source Width, Window Width, Window Depth, Wavelet Morph. A wavelet control that moves makes the timbre swim, which no filter sweep does: this is the <b>SuperModulation</b> of the presets of that name (<i>AA · Deep Ripple</i>).</li>
+</ul>
+
+<h2>The rest of the voice</h2>
+<p>Each note is rendered by its own voice (up to 16, <span class="ctl">VOICES</span>). Its oscillators are added by <span class="ctl">OSC MIX</span> (with the <span class="ctl">SUB OSC</span>, a plain wave one or two octaves down), then pass a conventional resonant <span class="ctl">FILTER</span> (<b>LADDER</b>, dark and gritty, or <b>OTA</b>, round and smooth; its CUTOFF is in hertz and it has its own ADSR), then the <span class="ctl">AMP ENVELOPE</span> (<span class="ctl">VELOCITY</span> sets how much the key's strength matters). <span class="ctl">UNISON</span> plays 1 to 4 detuned copies (<span class="ctl">DETUNE</span> in cents) spread by <span class="ctl">STEREO</span>; <span class="ctl">GLIDE</span> and the portamento switch (<b>OFF</b> · <b>POLY</b> · <b>LEGATO</b>) slide between notes. All the notes then share the <span class="ctl">EFFECTS</span>: <span class="ctl">DRIVE</span>, <span class="ctl">CHORUS</span>, a ping-pong delay, a reverb, and a soft limiter. <span class="ctl">PUNCH</span>, at the right of the effects, gives every note a stronger start, most on the low notes: 0 is off, 50 % (every preset) a light punch, 100 % a strong one; it never lowers the level.</p>
+<figure><img src="img/signal-flow.svg" alt="The path of the sound: oscillators, mix, voice filter, amp envelope, then the effects"></figure>
+
+<h2>Three recipes</h2>
+<table>
+  <tr><th><i>A · Warm Pad</i></th><td>A smooth wavelet (Coiflet 3), <b>CUTOFF 5</b> with a little RESO, a quick AMP ATTACK (5 ms) and a long release (1.4 s), <b>UNISON 3</b> wide in the stereo field, a little delay and a long reverb.</td></tr>
+  <tr><th><i>A · Wave Brass</i></th><td>Daubechies 20, <b>CUTOFF 3.3</b>, SLOPE 36, RESO 8; <b>ENV AMT +4</b> so that every note opens the filter by four bands as the MOD ENVELOPE rises (0.06 s); MORPH and ENV&gt;WAV carry the timbre towards the second wavelet.</td></tr>
+  <tr><th><i>AA · Drum Bloom LGT</i></th><td>A2 is a sine one octave up, with <b>OWN ENVELOPE</b> on (decay 0.19 s) and a <b>PITCH ENV of +16 semitones in 50 ms</b>: the thump of a drum. A1 (a square) and the slow LFOs bloom around it.</td></tr>
+</table>
+
+<footer><p><a href="manual.html">Contents</a> · OktoWave, by Pierre Arnaud GUYOT (OktoPierre), free to use (freeware), all rights reserved.</p></footer>
+</main>
+</body>
+</html>

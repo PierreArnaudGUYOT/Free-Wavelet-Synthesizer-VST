@@ -1,0 +1,5 @@
+# Normalise text files; Windows batch files keep CRLF (cmd needs it for labels), also in GitHub's "Download ZIP"
+* text=auto
+*.bat text eol=crlf
+*.mid binary
+*.png binary

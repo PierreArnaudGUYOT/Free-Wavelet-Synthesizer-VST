@@ -1,0 +1,12 @@
+# plugin build (recreated by vst\build.bat)
+/build/
+# test results, renders and compiled test tools
+/tests/**/out*/
+/tests/vst3host/obj/
+/tests/vst3host/selftest/build/
+*.exe
+*.o
+*.log
+*.wav
+*.raw
+*.zip

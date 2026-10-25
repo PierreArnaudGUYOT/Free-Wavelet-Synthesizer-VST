@@ -1,0 +1,98 @@
+/* Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE) */
+/* The look of the manual (the eight pages share it): the dark Crepuscule colours of the panel on screen, a light ink-saving look on paper (one A4 page each). */
+:root { --bg: #1c0a20; --card: rgba(255,255,255,.07); --edge: rgba(255,255,255,.2); --text: #f6f9ff; --dim: #c2d1e6; --faint: #9a88ab; --gold: #ffd166; --cyan: #7ae7ff; --pink: #ff9ec7; --acc: var(--gold); }
+* { box-sizing: border-box; }
+body { margin: 0; background: linear-gradient(160deg, #2b0f2e 0%, #3a1538 40%, #4a1f2e 100%) fixed, var(--bg); color: var(--text); font: 16px/1.6 "Segoe UI", system-ui, -apple-system, Arial, sans-serif; }
+body.add { --acc: var(--cyan); }
+body.wav { --acc: var(--pink); }
+main { max-width: 880px; margin: 0 auto; padding: 22px 22px 60px; }
+a { color: var(--acc); }
+p, li { max-width: 74ch; }
+h1 { margin: 2px 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: .01em; }
+h1 span { color: var(--acc); }
+h2 { margin: 30px 0 8px; padding-top: 8px; font-size: 21px; color: var(--acc); border-top: 1px solid var(--edge); }
+h3 { margin: 18px 0 4px; font-size: 16px; color: var(--cyan); }
+.kicker { margin: 18px 0 0; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--acc); }
+.lead { margin: 0 0 14px; font-size: 18px; color: var(--dim); }
+code, kbd { padding: 1px 6px; border-radius: 5px; background: rgba(0,0,0,.35); border: 1px solid var(--edge); font: 14px Consolas, "SFMono-Regular", monospace; }
+/* a label of the panel, as printed on it */
+.ctl { padding: 1px 6px; border-radius: 5px; background: rgba(0,0,0,.35); border: 1px solid var(--edge); font-size: .84em; font-weight: 600; letter-spacing: .03em; white-space: nowrap; color: var(--acc); }
+
+/* navigation, added by manual.js */
+.mnav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 6px; }
+.mnav .brand { margin-right: 6px; font-weight: 700; letter-spacing: .06em; color: var(--text); text-decoration: none; }
+.mnav .brand span { color: var(--gold); }
+.mnav a.pill { padding: 3px 11px; border: 1px solid var(--edge); border-radius: 999px; color: var(--text); text-decoration: none; font-size: 13.5px; background: rgba(0,0,0,.22); }
+.mnav a.pill:hover { border-color: var(--acc); color: var(--acc); }
+.mnav a.pill[aria-current] { background: var(--acc); border-color: var(--acc); color: #1c0a20; font-weight: 700; }
+.mnav .grp { margin-left: 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--edge); }
+.pager a { display: block; max-width: 48%; padding: 8px 14px; border: 1px solid var(--edge); border-radius: 12px; background: var(--card); color: var(--text); text-decoration: none; }
+.pager a:hover { border-color: var(--acc); }
+.pager small { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.pager .next { margin-left: auto; text-align: right; }
+
+/* figures */
+figure { margin: 14px 0; }
+figure img { display: block; width: 100%; height: auto; border-radius: 12px; }
+figcaption { margin-top: 4px; font-size: 13.5px; color: var(--dim); }
+img.panel { width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--edge); }
+
+/* boxes */
+.card { margin: 14px 0; padding: 12px 18px; border: 1px solid var(--edge); border-radius: 14px; background: var(--card); }
+.card h3 { margin-top: 0; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.try { margin: 16px 0; padding: 10px 16px; border: 1px solid var(--edge); border-left: 4px solid var(--acc); border-radius: 10px; background: var(--card); }
+.try b:first-child { color: var(--acc); }
+.try p { margin: 4px 0; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 15px; }
+th, td { padding: 6px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--edge); }
+th { color: var(--dim); font-weight: 600; width: 27%; }
+details { margin: 8px 0; border: 1px solid var(--edge); border-radius: 10px; background: var(--card); }
+summary { padding: 9px 14px; cursor: pointer; font-weight: 600; }
+details p { margin: 0; padding: 0 14px 12px; color: var(--dim); }
+footer { margin-top: 40px; color: var(--dim); font-size: 14px; }
+/* the credits (version 1.0.16, the owner's request): Soul Machine's stage name and Instagram, larger */
+li.thanks-star { margin: 10px 0; font-size: 18px; line-height: 1.5; }
+li.thanks-star .stage { font-size: 1.55em; font-weight: 800; letter-spacing: .02em; color: var(--gold); }
+li.thanks-star .insta { font-size: 1.05em; font-weight: 600; overflow-wrap: anywhere; }   /* the long address breaks on a phone */
+
+@media (max-width: 560px) {
+  main { padding: 16px 16px 48px; }
+  h1 { font-size: 25px; }
+  th { width: auto; }
+  .pager a { max-width: 100%; }
+  .pager { flex-direction: column; }
+}
+
+/* paper: one A4 page per page of the manual, light colours (the dark pictures are inverted) */
+@page { size: A4; margin: 9mm 12mm; }
+@media print {
+  :root { --bg: #fff; --card: #f4f1f6; --edge: #bdb4c6; --text: #16111b; --dim: #3b3344; --faint: #6b6275; --gold: #8a5a00; --cyan: #006b86; --pink: #a1255d; }
+  body { background: #fff; color: var(--text); font-size: 9pt; line-height: 1.3; }
+  main { max-width: none; padding: 0; }
+  .mnav, .pager { display: none; }
+  h1 { font-size: 17pt; margin: 0 0 1pt; }
+  h2 { margin: 5pt 0 2pt; padding-top: 2pt; font-size: 11pt; }
+  h3 { margin: 5pt 0 1pt; font-size: 9.6pt; }
+  .kicker { margin: 0; font-size: 7.5pt; }
+  .lead { font-size: 10pt; margin: 0 0 2pt; }
+  p, li { max-width: none; orphans: 2; widows: 2; }
+  p { margin: 2pt 0; }
+  ul, ol { margin: 2pt 0; padding-left: 14pt; }
+  a { color: inherit; text-decoration: none; }
+  code, kbd, .ctl { background: #fff; border-color: var(--edge); color: var(--text); padding: 0 3pt; }
+  figure { margin: 3pt 0; break-inside: avoid; text-align: center; }
+  figure img { filter: invert(1) hue-rotate(180deg); width: 72%; margin: 0 auto; }
+  figure.mid img { width: 58%; }
+  figure.tall img { width: 56%; }
+  figure.snug img { width: 52%; }
+  figcaption { font-size: 8pt; margin-top: 1pt; }
+  .try, .card { background: #fff; padding: 3pt 8pt; margin: 4pt 0; }
+  table { font-size: 8.8pt; margin: 3pt 0; }
+  th, td { padding: 1.5pt 6pt; }
+  details { border: 0; background: none; }
+  details > summary { padding: 0; }
+  footer { margin-top: 3pt; font-size: 7pt; }
+  footer p { margin: 0; }
+}

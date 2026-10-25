@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE) -->
+<!-- Page 3 of 3 on additive synthesis with wavelets (oscillator B1): playing it with the other oscillators, the chord keyboard, three recipes. The pictures are made by tools/manual_figs.js. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OktoWave manual — Additive 3: playing with the others</title>
+<meta name="description" content="Mixing the additive oscillator with the subtractive ones, tuning it, playing it with the chord keyboard and the oriental tunings, with three recipes.">
+<link rel="stylesheet" href="manual.css">
+<script src="manual.js" defer></script>
+</head>
+<body class="add">
+<main>
+
+<p class="kicker">Additive synthesis with wavelets · page 3 of 3 · oscillator B1</p>
+<h1>Playing B1 with the others</h1>
+<p class="lead">B1 rarely plays alone. Mixed with the subtractive oscillators it adds a layer that you built by hand, band by band.</p>
+
+<h2>One mix for three oscillators</h2>
+<p>The <span class="ctl">OSC MIX</span> card sets the level of A1, A2 and B1 with the knobs <span class="ctl">OS1</span>, <span class="ctl">OS2</span> and <span class="ctl">OS3</span>, named as the tabs; the <span class="ctl">SCOPE</span> shows their sum. A fresh patch plays A1 only: raise OS3 to hear B1. An oscillator at 0 is off and costs no computing time. The <span class="ctl">SUB OSC</span> (<span class="ctl">LEVEL</span>, <span class="ctl">OCT</span> one or two octaves down, <span class="ctl">SHAPE</span> sine, triangle or square) adds a plain wave under everything; it does not go through the scale filters.</p>
+<figure><img src="img/add-mix.svg" alt="The cycle of A1 alone, B1 alone and their mix, as the scope shows them"></figure>
+
+<h2>VINTAGE (plug-in)</h2>
+<p>In the plug-in the card is titled <span class="ctl">MIX</span> and <span class="ctl">VINTAGE</span>. <span class="ctl">AMOUNT</span> ages the instrument like an analog polyphonic synthesizer of the 70s and 80s: each voice is a little out of tune in its own way and pulled at each note, the pitch drifts slowly and wobbles (a wow), the tone gets darker and warmer, the filters and levels of the voices differ a little, and the oscillators start anywhere in their cycle. At 0 % the sound is exactly the clean one. <span class="ctl">TYPE</span> chooses the kind of age: <span class="ctl">FIX</span> the fixed differences between the voices only (nothing moves), <span class="ctl">BOTH</span> (the default) or <span class="ctl">DRIFT</span> the moving drift only. Both are playing settings, like VELOCITY: they stay when you change preset and are kept with your project, not in the presets. The browser version does not have them.</p>
+
+<h2>Tune it, shorten it, bend it</h2>
+<p>B1 has its own <span class="ctl">TUNE · OWN ENVELOPE · PITCH ENVELOPE</span> card, exactly as the subtractive oscillators (<a href="subtractive-3.html">Subtractive 3</a>). A classic use: A1 plays the <em>attack</em> (a short <span class="ctl">OWN ENVELOPE</span>, or a noise), B1 plays the <em>body</em> (an octave down, with its bars and band envelopes). Two oscillators one octave apart, or a few cents apart, thicken a sound before the unison does.</p>
+
+<h2>Chords and quarter tones</h2>
+<p>B1 follows the keyboard like the others. In <span class="ctl">CHORD MODE</span> one finger plays a whole chord, which suits organs and choirs. The <span class="ctl">TUNING</span> switch (<b>WEST</b> · <b>ARAB</b> · <b>TURK</b>) gives the keyboard 24 or 53 steps to the octave; every oscillator, B1 included, plays them. See <a href="manual.html#play">Playing</a> on the contents page.</p>
+
+<h2>Three recipes</h2>
+<table>
+  <tr><th><i>B · Flute Lead</i></th><td>B1 alone, <b>RAMP</b>, Daubechies 20. Only bars 1 to 3 (1, 0.3, 0.1), bars 4 to 11 at 0, <b>TILT −8</b>: a pure, hollow tone. An AMP ATTACK of 0.06 s, sustain 90 %, and a vibrato from LFO 1 at 5 Hz.</td></tr>
+  <tr><th><i>B · Choir Pad</i></th><td>B1 alone, <b>MIRROR</b>, Daubechies 20, <b>TILT −5</b>, bars 1 to 7 up (between 0.1 and 1), bars 8 to 11 at 0. <b>ATTACK 1 s</b> with <b>SPREAD +0.5</b>: the fine bands arrive after the low ones, as a vowel opens. UNISON 3, chorus and reverb.</td></tr>
+  <tr><th><i>AB · Open Mallets</i></th><td>A1 is a noise with a very short OWN ENVELOPE: the strike. B1 uses the <b>IMPULSE</b> pattern, bars falling from band 2 to band 9, <b>TILT −4.8</b>, a 12 ms ATTACK, AMP sustain 0 with a 3.9 s decay: the ring. A1 has a BAND-PASS and B1 a LOW-PASS, both opened by the MOD ENVELOPE (ENV AMT +3 to +4 bands).</td></tr>
+</table>
+
+<div class="try"><p><b>Try it.</b> Load <i>B · Choir Pad</i>, raise OS1 (A1) in OSC MIX and give A1 a very short OWN ENVELOPE: a soft breath of attack in front of the choir. Then change the PATTERN of B1 while you hold a chord.</p></div>
+
+<footer><p><a href="manual.html">Contents</a> · OktoWave, by Pierre Arnaud GUYOT (OktoPierre), free to use (freeware), all rights reserved.</p></footer>
+</main>
+</body>
+</html>

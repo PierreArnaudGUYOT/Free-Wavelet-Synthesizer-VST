@@ -1,0 +1,75 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Okto MultiWave Synth</title>
+<meta name="author" content="Pierre Arnaud GUYOT (OktoPierre)">
+<!-- Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.7). Release beta 0.2 (see RELEASE_HISTORY.md). -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2316191f'/%3E%3Cpath d='M4 16h5l3-9 4 18 4-13 3 7h5' fill='none' stroke='%232fd4c6' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/synth.css">
+</head>
+<body>
+<div id="stage">
+  <div id="device" class="mode-a" aria-label="Okto MultiWave Synth — a wavelet synthesizer with three oscillators"></div>
+</div>
+
+<div id="statusbar">
+  <span id="st-audio" class="st-item"><i class="dot"></i><span>Audio off</span></span>
+  <span id="st-midi" class="st-item">MIDI: —</span>
+  <select id="midi-ch" class="st-sel" title="MIDI input channel (right-click a control on the panel for MIDI learn)"></select>
+  <span class="st-item st-keys" title="Digits 1–9 0 (or numeric keypad) = C D E F G A B C D E · letter rows A W S E D F T G Y H U J K = chromatic · Z / X = octave down / up">Keys: <b>1</b>–<b>0</b> = C D E F G A B C D E · <b>A W S E D…</b> chromatic · <b>Z</b>/<b>X</b> octave <span id="st-oct">C4</span></span>
+  <button id="btn-save" class="st-btn" title="Save the current sound as a user preset">Save preset</button>
+  <button id="btn-export" class="st-btn" title="Download the current sound as a .json file">Export</button>
+  <button id="btn-import" class="st-btn" title="Load a preset from a .json file">Import</button>
+  <input id="file-import" type="file" accept=".json,application/json" hidden>
+</div>
+
+<!-- beta 0.6: the welcome window. Browsers allow sound only after a click: each choice is that click. It comes back with a
+     message in place of the sub-title when another window takes the audio (app.js showOverlay). -->
+<div id="start-overlay">
+  <div class="welcome" role="dialog" aria-modal="true" aria-labelledby="w-title" aria-describedby="w-sub">
+    <h1 id="w-title"><span>OKTOMULTIWAVE</span> · Wavelet Synthesizer</h1>
+    <p id="w-sub" class="sub">A wavelet synthesizer with three oscillators (A1 A2 subtractive, B1 additive), LFOs that move the wavelet itself (SuperModulation), a chord mode with bass, an oriental tuning switch and 229 presets — by OktoPierre, built on his Wavelet Synthesizer.</p>
+    <div class="choices">
+      <button id="start-btn" class="choice">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6v7M12 6v7M17 6v7" stroke="currentColor" stroke-width="1.8"/></svg>
+        <b>Play the synth</b><small>MIDI supported</small></button>
+      <!-- web update 2026-10-25 (the owner: three boxes, "le cadre avec le lien vers la démo au centre, mets-le bien en valeur car je veux que les gens ouvrent la vidéo YouTube"):
+           the middle box opens the demo video on YouTube (a new tab); the demo inside the page stays on the header's ▶ DEMO -->
+      <a id="w-demo" class="choice main demo" href="https://www.youtube.com/watch?v=hWzu-LVZM8I" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="4.5" width="21" height="15" rx="4.5" fill="currentColor"/><path d="M10 8.6v6.8l5.8-3.4z" style="fill: var(--brand)"/></svg>
+        <b>Play the demo on YouTube</b><small>Watch and hear the synthesizer</small></a>
+      <a id="w-vst" class="choice dl" href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+        <b>Download the VST</b><small>The free plug-in for Ableton Live &amp; co.: Windows (VST3 / VST2).</small></a>
+    </div>
+    <p class="foot">Browsers only allow sound after a click. <a id="w-manual" href="manual/manual.html" target="_blank" rel="noopener">User manual</a> ·
+      <a id="w-learn" href="manual/wavelets.html" target="_blank" rel="noopener">Learn more about the sound engine</a> ·
+      <a id="w-feedback" href="https://docs.google.com/forms/d/e/1FAIpQLSdqkWNwanzcDDURcKepEK_U1P8b_HyR8B5_Gk48xtuQOYHqgQ/viewform" target="_blank" rel="noopener noreferrer">Send your feedback</a> · free to use (freeware).</p>
+  </div>
+</div>
+
+<div id="manual-overlay" hidden>
+  <div class="manual-frame">
+    <div class="manual-bar">
+      <span id="manual-title">Manual</span>
+      <span class="st-spacer"></span>
+      <a id="manual-newtab" href="#" target="_blank" rel="noopener">Open in new tab</a>
+      <button id="manual-close" title="Close (Esc)">✕</button>
+    </div>
+    <iframe id="manual-iframe" title="User manual"></iframe>
+  </div>
+</div>
+
+<script src="js/spec.js"></script>
+<script src="js/core.js"></script>
+<script src="js/worklet.js"></script>
+<script src="js/wasm_engine.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/demo_data.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
