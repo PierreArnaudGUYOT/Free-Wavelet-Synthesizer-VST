@@ -48,7 +48,7 @@ button { font-family: inherit; }
 #device.mode-b { --accent: var(--accent-b); --accent-soft: rgba(122, 231, 255, 0.16); --accent-tint: rgba(122, 231, 255, 0.07); --accent-line: rgba(122, 231, 255, 0.26); }
 
 /* beta 0.3: the preset browser at the right of the panel (as in the VST plug-in), selection only */
-#browser { position: absolute; left: 0; top: 0; width: 348px; height: 878px; transform-origin: 0 0; display: flex; flex-direction: column;
+#browser { position: absolute; left: 0; top: 0; width: 408px; height: 878px; transform-origin: 0 0; display: flex; flex-direction: column;
   padding: 6px 12px 10px; background: linear-gradient(160deg, #2b0f2e 0%, #5a1f4a 30%, #8a3a3a 62%, #c25a2a 100%); border: 1px solid var(--card-edge);
   border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 var(--glass-hi); user-select: none; -webkit-user-select: none; }
 #browser > * { position: relative; z-index: 1; }
@@ -63,8 +63,35 @@ button { font-family: inherit; }
 #browser .bmac { height: 20px; min-width: 74px; padding: 0 8px; border: 1px solid var(--card-edge); border-radius: 7px; background: var(--inset); color: var(--text);
   font-size: 9px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; }
 #browser .bmac.on { color: var(--accent); border-color: var(--accent); }
-#browser .bmacros { display: none; }
-#browser.macros .btabs, #browser.macros .bcols, #browser.macros .bstatus { display: none; }
+#browser .bmacros, #browser .blab { display: none; }
+#browser.macros .btabs, #browser.macros .bcols, #browser.macros .bstatus, #browser.lab .btabs, #browser.lab .bcols, #browser.lab .bstatus { display: none; }
+/* version 1.1: the LAB page of test sliders (like MACROS) */
+#browser .blabb { height: 20px; min-width: 66px; padding: 0 8px; border: 1px solid var(--card-edge); border-radius: 7px; background: var(--inset); color: var(--text);
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; }
+#browser .blabb.on { color: var(--accent); border-color: var(--accent); }
+/* TEST (web): the WAVELET LABORATORY: the panel's cards placed in the browser as in the plug-in (the sections "lab_*", x - 1104, y - 8), over the browser's card, under its header */
+#browser > .blab { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 0; }
+#browser.lab > .blab { display: block; }
+#browser > .bhead { z-index: 2; }
+/* OktoWave 1.1: the MORPH LFO in the subtractive oscillator's plate (lavender), the WAVELET SHAPER beside it (a thin frame of the accent) */
+[data-sid^="mlfo_"] { border-color: rgba(196,155,255,0.7); box-shadow: inset 0 0 0 2px rgba(196,155,255,0.18); }
+[data-sid^="mlfo_"] .title, [data-sid^="mlfo_"] .title b { color: #c49bff; }
+[data-sid^="shaper_"] { border-color: color-mix(in srgb, var(--accent) 60%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
+.labbtn.small { font-size: 8px; border-radius: 7px; }
+.labbtn { border: 1px solid var(--card-edge); border-radius: 9px; background: var(--inset); color: var(--dim); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; }
+.labbtn:hover { color: var(--text); }
+.labbtn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+#browser .blabb { min-width: 88px; }
+#browser .lhead { height: 20px; margin-top: 4px; display: flex; align-items: flex-end; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
+#browser .lrow .mtop { align-items: center; gap: 6px; }
+#browser .lrow .mname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#browser .lrow.lfo .mval { color: var(--accent); }
+#browser .lhelp { display: flex; justify-content: space-between; gap: 6px; font-size: 8.5px; color: var(--dim); line-height: 11px; white-space: nowrap; }
+#browser .lhelp span:first-child { overflow: hidden; text-overflow: ellipsis; }
+#browser .lcpu { color: var(--faint); flex: none; }
+#browser .lrow input { margin-top: 1px; height: 10px; }
+#browser .llfo { height: 15px; padding: 0 6px; border: 1px solid var(--card-edge); border-radius: 6px; background: var(--inset); color: var(--dim); font-size: 8.5px; font-weight: 700; cursor: pointer; }
+#browser .llfo.on { color: var(--accent); border-color: var(--accent); }
 #browser.macros .bmacros { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-top: 10px; padding: 0 2px; }
 #browser .mrow { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
 #browser .mtop { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: var(--text); }

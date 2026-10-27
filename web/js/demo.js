@@ -131,15 +131,26 @@ function WSDemo(api) {
     const calm = TOUR_CALM[sc.preset];   // (version 1.0.14: less modulation)
     if (calm !== undefined) for (const key of CALM_KEYS) setk(key, get(key) * calm);
     const trim = (WS_SPEC.DEMO_TRIM || {})[sc.preset];
-    if (trim) setk('master', Math.max(PARAMS[P.master].min, get('master') - trim));
+    // (OktoWave 1.1: the scene's own MASTER: the default for a factory preset, which carries none any more (never the scene before's: the trims would add up), the demo's
+    // copies keep theirs (DEMO_PRESETS); gen_spec, which runs these rules without a demo (st null), keeps the presets' values)
+    const copy = (WS_SPEC.DEMO_PRESETS || []).find(p => p.name === sc.preset);
+    const m0 = !st ? get('master') : copy ? copy.values[P.master] : PARAMS[P.master].def;
+    setk('master', trim ? Math.max(PARAMS[P.master].min, m0 - trim) : m0);
     // web update 2026-10-24 (the owner: the VOLUME knob did nothing during the demo, every preset put its own back): the turns of the VOLUME knob during the demo
     // move every preset's (syncVol; at the start the knob shows the loaded preset's level, not a choice of the player); not in the plug-in's scenes (tools/gen_spec.js)
     // and the demo plays DEMO_DB lower (the owner: "baisser le volume global lors de la démo", 20 %)
-    if (st && st.vol) { const m = PARAMS[P.master]; setk('master', Math.min(m.max, Math.max(m.min, get('master') + st.vol.off + DEMO_DB))); }
+    if (st && st.vol) {
+      const m = PARAMS[P.master], mv = Math.min(m.max, Math.max(m.min, get('master') + st.vol.off + DEMO_DB));
+      setk('master', mv); sc.masterSet = mv;
+      st.vol.mine = (st.vol.mine || []).concat(mv).slice(-4);   // (the levels the demo itself gave: never a turn of the knob)
+    }
   };
   const DEMO_DB = 20 * Math.log10(0.8);   // -1.94 dB: 20 % lower (the plug-in: plugin.cpp demoMaster)
-  function syncVol() {   // a turn of the VOLUME knob since the demo last set it goes into the offset
-    if (st.vol.last !== null) st.vol.off += api.values()[P.master] - st.vol.last;
+  // a turn of the VOLUME knob since the demo set the scene's level goes into the offset (OktoWave 1.1: measured against the level the demo gave the scene playing, masterSet:
+  // MASTER no longer comes with the preset, so the level of the panel and the one last noted could be a scene apart and a preset's trim was taken for a turn of the knob)
+  function syncVol() {
+    const mine = st.vol.mine || [], now = api.values()[P.master];
+    if (mine.length && !mine.some(x => Math.abs(x - now) < 1e-9)) { st.vol.off += now - mine[mine.length - 1]; st.vol.mine = [now]; }
     st.vol.last = null;
   }
 
@@ -152,7 +163,7 @@ function WSDemo(api) {
       syncVol();
       api.applyPreset(sc.preset, sceneRules(sc), { audio: !sc.sent });
       st.vol.last = api.values()[P.master];
-      if (sc.sent && sc.sentOff !== st.vol.off) set('master', st.vol.last);   // (the knob turned after the preset went to the audio thread)
+      if (sc.sent && sc.sentOff !== st.vol.off && sc.masterSet !== undefined) set('master', sc.masterSet);   // (the knob turned after the preset went to the audio thread)
       st.scene = k;
       // the next preset's tables are built ahead, in a Worker, a second after this one is in place
       clearTimeout(st.pre);
@@ -220,8 +231,8 @@ function WSDemo(api) {
     if (!win) buildWindow();
     const song = (opts && opts.song) || SONG;   // (version 1.0.13: the rating build gives the piece with each phrase played several times, and its scenes)
     const scenes = opts && opts.scenes ? scenesFrom(opts.scenes) : tourScenes(song, (opts && opts.tour) || WS_SPEC.TOUR);   // (opts.tour: another list of presets, the vote build's)
-    const TUNING_KEYS = ['mt_mode', 'mt_scale', 'mt_tonic', 'vel_amt'], v0 = api.values();   // (version 1.0.13: VELOCITY too, a performance setting the demo's rules set to 0)
-    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), scene: -1, t0: 0, raf: 0, sync: null, pre: 0, offset: 0, paused: null,
+    const TUNING_KEYS = ['mt_mode', 'mt_scale', 'mt_tonic', 'vel_amt', 'master'], v0 = api.values();   // (version 1.0.13: VELOCITY too, a performance setting the demo's rules set to 0; OktoWave 1.1: MASTER, a performance setting now, which the scenes move)
+    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), master0: v0[P.master], scene: -1, t0: 0, raf: 0, sync: null, pre: 0, offset: 0, paused: null,
       vol: { off: 0, last: null } };   // (web update 2026-10-24: the VOLUME knob, sceneRules)   // (the tuning is a performance setting: a snapshot leaves it out, the demo gives it back)
     api.post({ t: 'alloff' });
     win.title.textContent = 'DEMO · ' + song.composer + ' — ' + (song.short || song.title);

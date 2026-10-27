@@ -92,6 +92,8 @@ class SynthUI {
   build() {
     this.orientVars(this.dev);
     for (const s of this.SPEC.SECTIONS) {
+      if (s.widgets.length && s.widgets.every(w => w.only === 'vst')) continue;
+      if (s.id.startsWith('lab')) continue;   // (OktoWave 1.1: the WAVELET LABORATORY's cards are built in the browser, makeLabModule)
       const card = s.title !== '';
       const se = el('div', 'section' + (card ? ' card' : '') + (s.vtitle ? ' vt' : '') + (s.tabbed ? ' tabbed' : ''), this.dev, { left: s.x + 'px', top: s.y + 'px', width: s.w + 'px', height: s.h + 'px' });
       if (card) {
@@ -169,6 +171,13 @@ class SynthUI {
       }
       case 'label': box.classList.add('wlabel'); el('span', '', box).textContent = w.text; return;   // (a span: the oriental PLAY card puts the caption on a plate)
       case 'toggle': return this.toggle(w, box);   // Okto MultiWave Synth: the web app shows toggles too (CHORD ON, BASS)
+      case 'labbtn': {   // TEST (web): WAVELET LAB, as CHORD MODE: it shows the laboratory in the browser's place (lit while it is shown)
+        const bt = el('button', 'labbtn' + (w.h < 22 ? ' small' : ''), box, { width: '100%', height: '100%' });   // (OktoWave 1.1: a small button in the card)
+        bt.textContent = w.text;
+        bt.onclick = () => this.setLab(!(this.browser && this.bOpen && this.browser.classList.contains('lab')));
+        (this.labBtns || (this.labBtns = [])).push(bt);
+        return;
+      }
       case 'zoom': return;
       case 'credit': {
         // beta 0.7: "By OktoPierre · version · licence" at the bottom left, small and discreet as before beta 0.6
@@ -206,6 +215,9 @@ class SynthUI {
     for (const m of ['sb', 'sa', 'SourceGraphic']) svg('feMergeNode', { in: m }, fm);
     svg('path', { d: arcPath(cx, cy, ar, A0, A1), style: `stroke: rgba(255,255,255,0.18); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
     const val = svg('path', { d: '', style: `stroke: var(--accent); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
+    // TEST (web, as the plug-in): a control the MORPH LFO moves shows the range it goes through (its knob ± depth x half the range), a light lavender arc outside the ring
+    const labK = (this.SPEC.LAB_LFO || []).indexOf(i), depthId = labK >= 0 ? this.SPEC.LAB_DEPTH[labK] : -1;
+    const modArc = depthId >= 0 ? svg('path', { d: '', style: 'stroke: #e2d2ff; stroke-width: 2.5; fill: none; stroke-linecap: round' }, s) : null;
     const sz = r * 156 / 74.3;   // the picture is 2.0996 knob radii wide
     svg('image', { href: 'img/bouton_cuivre_rose.png', x: cx - sz / 2, y: cy - sz / 2, width: sz, height: sz }, svg('g', { filter: `url(#${id}s)` }, s));
     const dg = svg('radialGradient', { id: id + 'd', cx: '42%', cy: '38%', r: '62%' }, defs);
@@ -226,6 +238,10 @@ class SynthUI {
         const a = A0 + (A1 - A0) * n;
         const from = bip ? A0 + (A1 - A0) * this.C.toNorm(p, 0) : A0;
         val.setAttribute('d', arcPath(cx, cy, ar, Math.min(from, a), Math.max(from, a)));
+        if (modArc) {
+          const dd = Math.abs(this.host.get(depthId)), m0 = Math.max(0, n - dd / 2), m1 = Math.min(1, n + dd / 2);
+          modArc.setAttribute('d', dd > 0 && m1 > m0 ? arcPath(cx, cy, ar + sw, A0 + (A1 - A0) * m0, A0 + (A1 - A0) * m1) : '');
+        }
         const dx = cx + dotD * Math.sin(a), dy = cy - dotD * Math.cos(a);
         dot.setAttribute('cx', dx.toFixed(2)); dot.setAttribute('cy', dy.toFixed(2));
         dotSh.setAttribute('cx', dx.toFixed(2)); dotSh.setAttribute('cy', (dy - dotR * 0.28).toFixed(2));
@@ -242,6 +258,7 @@ class SynthUI {
     };
     this.dragBehaviour(box, widget, i, p, 180);
     this.reg(w.param, widget);
+    if (depthId >= 0) { if (!this.byParam.has(depthId)) this.byParam.set(depthId, []); this.byParam.get(depthId).push({ update: widget.update }); }   // (its depth redraws the arc)
     widget.update();
   }
 
@@ -347,7 +364,7 @@ class SynthUI {
   oscTabs(w, box, sec) {
     const i = this.P[w.param], SL = this.SPEC.SLOTS, S = this.SPEC.SECTIONS, g = id => S.find(q => q.id === id);
     box.classList.add('osctabs');
-    const me = g('oscframe'), tone = g('tone_' + SL[0].id), mix = g('mix'), flt = g('filter_' + SL[0].id);
+    const me = g('oscframe'), tone = g('tone_' + SL[0].id), mix = g('mix'), flt = g('osc_' + SL[0].id);   // (OktoWave 1.1: the second row's card is TUNE, the WAVELET FILTER left it)
     // the notch: half way between the tone card and OSC MIX, half way between the bottom of OSC MIX / SCOPE and the second row (section coordinates)
     const W = me.w, H = me.h, r = 12, x0 = 0.5, x1 = W - 0.5, y0 = 38.5, y1 = H - 0.5;
     const xn = (tone.x + tone.w + mix.x) / 2 - me.x, yn = (mix.y + mix.h + flt.y) / 2 - me.y;
@@ -433,7 +450,8 @@ class SynthUI {
     // (ClaudeProjects/OKTOWAVE_REGLAGES_SOUSTRACTIF.md P4: the wavelets as a scale from the most angular to the smoothest, as in the plug-in's drawStep)
     const HINT = ['ANGULAR', 'ROUGH', 'SOFT', 'SMOOTH', 'SYMMETRIC', 'ROUND', 'SILKY'];
     const wavelet = i === this.P.wav2 || this.SPEC.SLOTS.some(sl => sl.mode === 0 && sl.k.wavelet === i);
-    const label = v => wavelet && HINT[v] ? `${p.choiceShort[v]} · ${HINT[v]}` : p.choices[v];
+    const tight = w.w < 150;   // (OktoWave 1.1: the oscillator's card in four columns: the short name only, as the plug-in's drawStep when it does not fit)
+    const label = v => tight ? p.choiceShort[v] : wavelet && HINT[v] ? `${p.choiceShort[v]} · ${HINT[v]}` : p.choices[v];
     const widget = { w, p, i, el: box, update: () => { const v = Math.round(this.host.get(i)); name.innerHTML = (narrow ? '' : `<small>${p.short}</small>`) + label(v); } };
     this.reg(w.param, widget);
     widget.update();
@@ -513,7 +531,11 @@ class SynthUI {
     prev.onclick = () => this.host.presetStep(-1);
     next.onclick = () => this.host.presetStep(1);
     // the name opens the preset browser when it is hidden, else the classic menu
-    name.onclick = (e) => { e.stopPropagation(); if (this.browser && !this.bOpen) this.setBrowser(true); else this.togglePresetMenu(box); };
+    name.onclick = (e) => { e.stopPropagation(); if (this.browser && !this.bOpen) { this.setBrowser(true); this.setLab(false, false); } else this.togglePresetMenu(box); };
+    // TEST (web, as the plug-in): the mouse resting on the name for a moment opens the menu of the banks (each one folds out its presets)
+    let hoverT = null;
+    name.addEventListener('mouseenter', () => { clearTimeout(hoverT); hoverT = setTimeout(() => { if (!this.pmenu) this.togglePresetMenu(box); }, 350); });
+    name.addEventListener('mouseleave', () => clearTimeout(hoverT));
     this.presetNameEl = name;
     document.addEventListener('pointerdown', (e) => { if (this.pmenu && !this.pmenu.contains(e.target)) this.closePresetMenu(); });
   }
@@ -580,7 +602,7 @@ class SynthUI {
 
   // ------------------------------------------------------------------ canvases
   canvasWidget(w, box, ab) {
-    const screen = ['scope', 'scalogram', 'atom', 'source', 'window', 'adsr', 'filterview'].includes(w.type);
+    const screen = ['scope', 'scalogram', 'atom', 'source', 'window', 'adsr', 'filterview', 'labscope'].includes(w.type);
     if (screen) box.classList.add('screen');
     const cv = el('canvas', 'disp', box);
     const c = { w, box, cv, ctx: cv.getContext('2d'), ab, sec: ab.sec, dirty: true };
@@ -606,7 +628,7 @@ class SynthUI {
   fit() {
     const stage = this.dev.parentElement;
     const DH = this.SPEC.DEVICE.h + (this.chordOn ? this.SPEC.CHORD_H : 0);   // CHORD MODE adds the chord card
-    const W = 1100 + (this.browser && this.bOpen ? 360 : 0);   // the panel, and the preset browser at its right
+    const W = 1100 + (this.browser && this.bOpen ? 420 : 0);   // the panel, and the preset browser at its right (TEST: 408 wide, as the plug-in's, for the laboratory)
     const aw = stage.clientWidth - 24, ah = stage.clientHeight - 24;
     const s = clamp(Math.min(aw / W, ah / DH), 0.45, 2.5);
     this.scale = s;
@@ -663,47 +685,89 @@ class SynthUI {
   makeBrowser() {
     const b = el('div', 'browser', this.dev.parentElement);
     b.id = 'browser';
-    b.innerHTML = '<div class="bhead"><span class="btitle">PRESET BROWSER</span><span class="bbtns"><button class="bmac" title="The 20 morph macros of the subtractive oscillators">MACROS</button>' +
+    b.innerHTML = '<div class="bhead"><span class="btitle">PRESET BROWSER</span><span class="bbtns"><button class="blabb" title="The WAVELET LABORATORY">WAVELET LAB</button>' +
       '<button class="bhide" title="Hide the preset browser (a click on the preset name brings it back)">HIDE ▸</button></span></div><div class="btabs"><button data-t="0"></button><button data-t="1"></button></div>' +
-      '<div class="bcols"><div class="bcats"></div><div class="bright"><div class="bhd"></div><div class="blist"></div></div></div><div class="bstatus"></div><div class="bmacros"></div>';
+      '<div class="bcols"><div class="bcats"></div><div class="bright"><div class="bhd"></div><div class="blist"></div></div></div><div class="bstatus"></div><div class="blab"></div>';
     this.browser = b;
     this.orientVars(b);   // beta 0.3.4: the oriental colour code reaches the browser too
     this.bTab = 0; this.bCat = 0;
     b.querySelector('.bhide').onclick = () => this.setBrowser(false);
-    // the MORPH MACROS (as the plug-in's MACROS panel): 20 sliders in place of the preset lists, each one moves several controls of the subtractive oscillators
-    // (tools/macros.js); 0 = the preset as saved; a double click puts a macro back to 0; right-click: MIDI learn
-    const mac = b.querySelector('.bmac');
-    mac.onclick = () => {
-      const on = !b.classList.contains('macros');
-      b.classList.toggle('macros', on);
-      b.querySelector('.btitle').textContent = on ? 'MORPH MACROS' : 'PRESET BROWSER';
-      mac.textContent = on ? '◂ PRESETS' : 'MACROS';
-      mac.classList.toggle('on', on);
-    };
-    const box = b.querySelector('.bmacros');
-    (this.SPEC.MACROS || []).forEach((m, k) => {
-      const key = 'macro' + (k + 1), i = this.P[key];
-      const row = el('div', 'mrow', box);
-      row.innerHTML = `<div class="mtop"><span class="mname">${k + 1}. ${m.name}</span><span class="mval"></span></div><input type="range" min="0" max="1" step="0.01">`;
-      row.title = `${m.name}: ${m.what} (double-click: back to 0)`;
-      const inp = row.querySelector('input'), val = row.querySelector('.mval');
-      let editing = false;
-      inp.addEventListener('input', () => { if (!editing) { editing = true; this.host.begin(i); } this.host.set(i, +inp.value); });
-      inp.addEventListener('change', () => { if (editing) { editing = false; this.host.end(i); } });
-      row.addEventListener('dblclick', () => { this.host.begin(i); this.host.set(i, 0); this.host.end(i); });
-      const update = () => { const v = this.host.get(i); if (!editing) inp.value = v; val.textContent = Math.round(v * 100) + ' %'; row.classList.toggle('on', v > 0); };
-      this.reg(key, { el: row, update });
-      update();
-    });
-    el('div', 'mnote', box).textContent = 'Each macro moves several controls of the subtractive oscillators (A1, A2). 0 % = the preset as saved.';
+    // TEST (web, the owner 2026-10-27: "fais une version web de test"): the WAVELET LABORATORY in the browser's place, as in the plug-in: WAVELET LAB / ◂ PRESETS in the header
+    // (the MACROS panel and the slider page are gone, as in the plug-in); open when the page opens
+    this.labBtn = b.querySelector('.blabb');
+    this.labBtn.onclick = () => this.setLab(!b.classList.contains('lab'));
+    this.makeLabModule(b.querySelector('.blab'));
+    this.setLab(false, false);   // (OktoWave 1.1, the owner: the page opens on the preset lists; WAVELET LAB shows the laboratory)
     b.querySelectorAll('.btabs button').forEach(t => { t.onclick = () => { this.bTab = +t.dataset.t; this.bCat = 0; if (this.bTab === 0) this.bReveal(); this.renderBrowser(); }; });
     this.bReveal();
     this.renderBrowser();
+  }
+  // version 1.1 (ClaudeProjects/ExchNGE/CLAUDE.md, the owner: "des sliders de tests pour tester les nouveaux paramètres"): the LAB page, one slider per control of tools/spec.js
+  // LAB (its whole range; a double click: its default) and the groups' titles; LFO (the controls the engine takes at every block): the test LFO, a 6 s triangle over the
+  // whole range (the bits of lab_lfo), as in the plug-in's LAB page
+  makeLab(box) {
+    const C = this.C, LFO = this.SPEC.LAB_LFO || [], iMask = this.P.lab_lfo, updates = [];
+    for (const g of this.SPEC.LAB || []) {
+      el('div', 'lhead', box).textContent = g.title;
+      for (const i of g.p) {
+        const p = this.params[i], bit = iMask === undefined ? -1 : LFO.indexOf(i), hlp = (this.SPEC.LAB_HELP || {})[i] || ['', ''];   // (no test LFO since the MORPH LFO)
+        const row = el('div', 'mrow lrow', box);
+        row.innerHTML = `<div class="mtop"><span class="mname">${p.name}</span><span class="mval"></span>${bit >= 0 ? '<button class="llfo" title="A 6 s triangle over the whole range">LFO</button>' : ''}</div>` +
+          `<div class="lhelp"><span>${hlp[0]}</span><span class="lcpu">CPU ${hlp[1]}</span></div><input type="range" min="0" max="1" step="0.001">`;
+        row.title = `${p.name} (double-click: default)`;
+        const inp = row.querySelector('input'), val = row.querySelector('.mval'), lb = row.querySelector('.llfo');
+        let editing = false;
+        inp.addEventListener('input', () => { if (!editing) { editing = true; this.host.begin(i); } this.host.set(i, C.toPlain(p, +inp.value)); });
+        inp.addEventListener('change', () => { if (editing) { editing = false; this.host.end(i); } });
+        row.addEventListener('dblclick', (e) => { if (e.target === lb) return; this.host.begin(i); this.host.set(i, p.def); this.host.end(i); });
+        const lfoOn = () => bit >= 0 && ((Math.round(this.host.get(iMask)) >> bit) & 1) === 1;
+        if (lb) lb.onclick = () => { const m = Math.round(this.host.get(iMask)) ^ (1 << bit); this.host.begin(iMask); this.host.set(iMask, m); this.host.end(iMask); };
+        const update = () => {
+          const v = this.host.get(i), on = lfoOn();
+          if (!editing) inp.value = C.toNorm(p, v);
+          val.textContent = on ? '6 s triangle' : C.format(p, v);
+          row.classList.toggle('on', on || v !== p.def); row.classList.toggle('lfo', on);
+          if (lb) lb.classList.toggle('on', on);
+        };
+        this.reg(p.key, { el: row, update });
+        updates.push(update);
+      }
+    }
+    if (iMask !== undefined) { if (!this.byParam.has(iMask)) this.byParam.set(iMask, []); for (const u of updates) this.byParam.get(iMask).push({ update: u }); }
+    el('div', 'mnote', box).textContent = 'New sources: WAVE ▸ MORE ▾ ▸ VOWEL, COMB (−6 % CPU), FOLD (+3 %); WIDTH shapes them. Double-click a slider: its default.';
+    el('div', 'mnote', box).textContent = 'CPU: measured per voice of A1 / A2 in the plug-in (one voice ≈ 0.13 % of a core, about 0.35 % in the browser); all 12 LFOs on: +25 %. Rebuild ≈ 3 ms.';
+    updates.forEach(u => u());
+  }
+  // TEST (web): the WAVELET LABORATORY shown in the browser's place (on) or the preset lists; openIt: the browser opens if it is hidden
+  setLab(on, openIt = true) {
+    const b = this.browser;
+    if (!b) return;
+    if (on && openIt && !this.bOpen) this.setBrowser(true);
+    b.classList.toggle('lab', on);
+    b.querySelector('.btitle').textContent = on ? 'WAVELET LABORATORY' : 'PRESET BROWSER';
+    this.labBtn.textContent = on ? '◂ PRESETS' : 'WAVELET LAB'; this.labBtn.classList.toggle('on', on);
+    for (const x of this.labBtns || []) x.classList.toggle('on', on && this.bOpen);
+    for (const c of this.canvases) c.dirty = true;
+  }
+  // TEST (web): the laboratory's cards (tools/spec.js, the sections "lab_*", placed in the plug-in's browser at x 1104, y 8), built in the browser with the panel's widgets
+  makeLabModule(box) {
+    for (const s of this.SPEC.SECTIONS) {
+      if (!s.id.startsWith('lab')) continue;
+      const se = el('div', 'section card', box, { left: (s.x - 1104) + 'px', top: (s.y - 8) + 'px', width: s.w + 'px', height: s.h + 'px' });
+      const t = el('div', 'title', se), parts = s.title.split(' · ');
+      t.innerHTML = parts.length > 1 ? `<b>${parts[0]}</b> · ${parts.slice(1).join(' · ')}` : s.title;
+      se.dataset.sid = s.id;
+      this.sections.push({ spec: s, el: se });   // (OktoWave 1.1: the filter, window and band cards are the oscillator shown's: setView hides the others)
+      for (const w of s.widgets) this.makeWidget(Object.assign({}, w, { only: undefined }), se, s);
+      this.sections[this.sections.length - 1].canvases = this.canvases.filter(c => c.sec === s);
+      se.classList.toggle('hidden', this.secHidden(s));
+    }
   }
   setBrowser(open) {
     this.bOpen = open;
     try { localStorage.setItem('mw.browser', open ? 'open' : 'closed'); } catch (_) { /* storage unavailable */ }
     if (open) { this.bReveal(); this.renderBrowser(); }
+    for (const x of this.labBtns || []) x.classList.toggle('on', open && this.browser.classList.contains('lab'));   // (TEST: WAVELET LAB lit while the laboratory is seen)
     this.fit();
   }
   // the category of the sound playing (TOP Sounds when it is there and already shown)
@@ -823,7 +887,7 @@ class SynthUI {
     const P = this.P;
     const set = (i, on) => { const ws = this.byParam.get(i); if (ws) ws.forEach(w => w.el && w.el.classList.toggle('disabled', !on)); };
     for (const sl of this.SPEC.SLOTS) {   // the source width only means something for PULSE and TRIANGLE, the seed for RANDOM
-      if (sl.mode === 0) { const wave = Math.round(this.host.get(sl.k.wave)); set(sl.k.width, wave === 2 || wave === 3); }
+      if (sl.mode === 0) { const wave = Math.round(this.host.get(sl.k.wave)); set(sl.k.width, wave === 2 || wave === 3 || wave >= 26); }   // (version 1.1: VOWEL, COMB, FOLD use WIDTH)
       else set(sl.k.seed, Math.round(this.host.get(sl.k.pattern)) === 5);
       // (OKTOWAVE_REGLAGES_SOUSTRACTIF.md P3) the WINDOW does nothing while its AMOUNT is 0
       if (sl.k.pdep !== undefined) { const on = this.host.get(sl.k.pdep) > 0; set(sl.k.pcen, on); set(sl.k.pwid, on); }
@@ -1047,7 +1111,7 @@ class SynthUI {
     ctx.fillStyle = `rgba(${r},${g},${b},0.14)`; ctx.fill();
     ctx.strokeStyle = this.accent(); ctx.lineWidth = 2; ctx.shadowColor = this.accent(); ctx.shadowBlur = 6; ctx.stroke(); ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(200,210,225,0.5)'; ctx.font = '600 9.5px Segoe UI, system-ui, sans-serif';
-    ctx.fillText('ψ  ATOM SHAPE', 8, 14);
+    ctx.fillText(W < 160 ? 'ψ  ATOM' : 'ψ  ATOM SHAPE', 8, 14);   // (OktoWave 1.1: a narrow picture, as the plug-in's)
     ctx.textAlign = 'right'; ctx.fillText(C.FILTERS[wi].L + ' TAPS', W - 8, 14); ctx.textAlign = 'left';
   }
 
@@ -1097,6 +1161,24 @@ class SynthUI {
     }
     ctx.fillStyle = 'rgba(200,210,225,0.47)'; ctx.font = '600 7.5px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'right';
     ctx.fillText('at C4', W - 3, 9); ctx.textAlign = 'left';
+  }
+
+  // TEST (web): the MORPH LFO's picture, as the plug-in's drawLabScope: two cycles of its shape in lavender, its period in the corner
+  draw_labscope(ctx, W, H) {
+    const shape = Math.round(this.host.get(this.P.lab_shape)), rate = this.host.get(this.P.lab_rate);
+    const SH = [0.3, -0.7, 0.85, -0.2, 0.55, -0.9, 0.1, -0.45], x0 = 8, w = W - 16, yc = H / 2, a = H / 2 - 12;
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, yc); ctx.lineTo(x0 + w, yc); ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i <= 200; i++) {
+      const t = 2 * i / 200, ph = t - Math.floor(t);
+      const v = shape === 0 ? Math.sin(2 * Math.PI * ph) : shape === 1 ? (ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph) : shape === 2 ? 1 - 2 * ph : shape === 3 ? (ph < 0.5 ? 1 : -1) : SH[Math.min(7, Math.floor(t * 4))];
+      const x = x0 + w * i / 200, y = yc - a * v;
+      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.strokeStyle = '#c49bff'; ctx.lineWidth = 1.8; ctx.stroke();
+    const per = rate > 0 ? 1 / rate : 0;
+    ctx.fillStyle = '#c49bff'; ctx.font = '700 8.5px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(per >= 1 ? per.toFixed(1) + ' s' : Math.round(per * 1000) + ' ms', W - 6, 13); ctx.textAlign = 'left';
   }
 
   draw_adsr(ctx, W, H, c) {
