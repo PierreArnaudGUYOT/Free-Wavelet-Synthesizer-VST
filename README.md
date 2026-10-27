@@ -17,9 +17,10 @@
 ## What it is
 - **A research instrument** to hear what the wavelet transform does to sound: the discrete wavelet transform splits each tone into 11 octave-spaced bands, and the synthesizer rebuilds it band by band instead of shaping it with Fourier filters.
 - **Three wavelet oscillators**: two subtractive ones (A1, A2) that shape a source wave band by band (its WINDOW in the card, a WAVELET SHAPER that reshapes the atoms, a MORPH LFO that swings the bands' balance), and an additive one (B1) that builds a tone from wavelet atoms with eleven drawbars.
+- **A wider palette (version 1.2)**: OSC2 can modulate OSC1 (**FM**, ring, AM), twelve harder source waves, hard **SYNC**, a source **DRIVE** and **BITS**, a continuous **ANGLE** wavelet and **ENCRE** (the atoms drawn back with another wavelet), an oscillator drive that follows the playing, **ENV / VEL → TABLES** (the timbre travels inside each note), a random start per note and a true **NOISE**; the new bank **Wavelet FM** shows them.
 - **The Wavelet Laboratory**: the wavelet filter of each oscillator drawn large, band punch, start phase, tilt and parity, an envelope per band.
 - **Compare the wavelets**: seven of them (Haar, Daubechies 2, 4, 8 and 20, Symlet 8, Coiflet 3), WAVELET MORPH between two, and LFOs that move the wavelet itself (SuperModulation), to hear how each one colours the same sound.
-- **A complete synthesizer around it**: a real filter (ladder / OTA), three LFOs, envelopes, chorus, delay, reverb and punch, a chord mode, oriental tunings, VINTAGE and 238 presets, all as loud as one another (the master volume stays when you change preset).
+- **A complete synthesizer around it**: a real filter (ladder / OTA), three LFOs, envelopes, chorus, delay, reverb and punch, a chord mode, oriental tunings, VINTAGE and 267 presets, all as loud as one another (the master volume stays when you change preset).
 - **Free to use**: the plug-in and the web app, free of charge for any use, including your music productions.
 
 ## Licence

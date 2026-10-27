@@ -172,7 +172,7 @@ class SynthUI {
       case 'label': box.classList.add('wlabel'); el('span', '', box).textContent = w.text; return;   // (a span: the oriental PLAY card puts the caption on a plate)
       case 'toggle': return this.toggle(w, box);   // Okto MultiWave Synth: the web app shows toggles too (CHORD ON, BASS)
       case 'labbtn': {   // TEST (web): WAVELET LAB, as CHORD MODE: it shows the laboratory in the browser's place (lit while it is shown)
-        const bt = el('button', 'labbtn' + (w.h < 22 ? ' small' : ''), box, { width: '100%', height: '100%' });   // (OktoWave 1.1: a small button in the card)
+        const bt = el('button', 'labbtn' + (w.h < 22 ? ' small' : w.h >= 40 ? ' big' : ''), box, { width: '100%', height: '100%' });   // (OktoWave 1.1: a small button in the card)
         bt.textContent = w.text;
         bt.onclick = () => this.setLab(!(this.browser && this.bOpen && this.browser.classList.contains('lab')));
         (this.labBtns || (this.labBtns = [])).push(bt);
@@ -1091,8 +1091,10 @@ class SynthUI {
 
   draw_atom(ctx, W, H) {
     const C = this.C, wi = Math.round(this.host.get(C.K[this.view].wavelet));
-    if (!this.atomCache.has(wi)) this.atomCache.set(wi, C.atomShape(wi));
-    const a = this.atomCache.get(wi);
+    // (TEST 1.2: the Angle wavelet's atom depends on the angle: cached by wavelet and angle)
+    const ang = wi >= C.FILTERS.length ? this.host.get(C.K[this.view].angle) : 0, ck = wi >= C.FILTERS.length ? wi + ':' + ang : wi;
+    if (!this.atomCache.has(ck)) this.atomCache.set(ck, C.atomShape(wi, ang));
+    const a = this.atomCache.get(ck);
     const span = a.hi - a.lo + 1, margin = Math.max(4, span * 0.15), lo = a.lo - margin, hi = a.hi + margin;
     let peak = 0; for (let i = a.lo; i <= a.hi; i++) peak = Math.max(peak, Math.abs(a.x[i]));
     const sy = (H / 2 - 16) / peak, mid = H / 2 + 6;
@@ -1112,7 +1114,7 @@ class SynthUI {
     ctx.strokeStyle = this.accent(); ctx.lineWidth = 2; ctx.shadowColor = this.accent(); ctx.shadowBlur = 6; ctx.stroke(); ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(200,210,225,0.5)'; ctx.font = '600 9.5px Segoe UI, system-ui, sans-serif';
     ctx.fillText(W < 160 ? 'ψ  ATOM' : 'ψ  ATOM SHAPE', 8, 14);   // (OktoWave 1.1: a narrow picture, as the plug-in's)
-    ctx.textAlign = 'right'; ctx.fillText(C.FILTERS[wi].L + ' TAPS', W - 8, 14); ctx.textAlign = 'left';
+    ctx.textAlign = 'right'; ctx.fillText(C.waveletFilter(wi, ang).L + ' TAPS', W - 8, 14); ctx.textAlign = 'left';
   }
 
   draw_source(ctx, W, H) {
@@ -1120,7 +1122,7 @@ class SynthUI {
     if (!tb || tb.mode !== 0) return;
     const vals = this.host.values();
     const k = C.K[this.view];
-    const raw = C.sourceCycle(Math.round(vals[k.wave]), vals[k.width], vals[k.phase]);   // shifted by SOURCE PHASE
+    const raw = C.sourceCycle(Math.round(vals[k.wave]), vals[k.width], vals[k.phase], vals[k.sync], vals[k.sdrive], vals[k.bits]);   // shifted by SOURCE PHASE (TEST 1.2: with SYNC, DRIVE, BITS)
     const dry = tb.layers[C.DRY];
     let peak = 1; for (let i = 0; i < C.N; i++) peak = Math.max(peak, Math.abs(dry[i]));
     const sy = (H / 2 - 8) / peak;

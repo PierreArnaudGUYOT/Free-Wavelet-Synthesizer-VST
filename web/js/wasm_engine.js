@@ -13,7 +13,7 @@ function WSWasmEngine(module, sr) {
   const x = inst.exports;
   x._initialize();
   x.ws_create(sr);
-  const NP = x.ws_num_params(), NB = 11, MAXV = 16, VK_PHASE = 0;
+  const NP = x.ws_num_params(), NB = 11, MAXV = 16, VK_PHASE = 0, VK_ANGLE = 4;
   const pP = x.ws_params() >> 3, pL = x.ws_out_l() >> 2, pR = x.ws_out_r() >> 2, pK = x.ws_keys(), pS = x.ws_sel_held(), MAXB = x.ws_max_block();
   const SN = x.ws_state_size();
   let buf = null, f32 = null, f64 = null, u8 = null, pV = null, keysV = null, selV = null, oL128 = null, oR128 = null;
@@ -65,7 +65,7 @@ function WSWasmEngine(module, sr) {
       let w2 = null;
       if (t.w2) { w2 = { set: t.w2, regs: [[s, 1, 0, -1]] }; ops.push(w2); }
       if (t.vk !== undefined && t.vk >= 0 && t.ph) {
-        const first = t.vk === VK_PHASE ? 1 : 0;
+        const first = (t.vk === VK_PHASE || t.vk === VK_ANGLE) ? 1 : 0;   // (TEST 1.2: the ANGLE sets go round like the PHASE ones: set 0 is the oscillator's own)
         if (first) main.regs.push([s, 2, 0, t.vk]);
         t.ph.forEach((ps, j) => ops.push({ set: ps, regs: [[s, 2, j + first, t.vk]] }));
         if (w2 && t.w2.ph && t.w2.ph.length === t.ph.length) {

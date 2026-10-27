@@ -25,8 +25,13 @@ function WSCoreFactory(SPEC) {
   // moved by LFO 1 (sparsity) or LFO 2. The tables are built at SPARSE_K sparsities 0, 1/8 .. 1 (or WIDTH_K widths 0.02 .. 0.98)
   // and each voice crossfades between the two nearest; one kind of variant per oscillator (VK_*), see slotVariant.
   const SPARSE_K = 9, WIDTH_K = 9, VK_PHASE = 0, VK_SPARSITY = 1, VK_WIDTH = 2;
-  const VK_N = [PHASE_K, SPARSE_K, WIDTH_K];
+  // TEST 1.2 (ClaudeProjects/OKTOWAVE_OSCILLATEUR_PALETTE.md): two more kinds of variant, the SOURCE SYNC ratio (SYNC_K sets from 1 to 8) and the wavelet ANGLE (ANGLE_K sets round
+  // the turn, relative to the knob like the PHASE sets: set 0 is the oscillator's own, the place wraps)
+  const SYNC_K = 15, ANGLE_K = 12, VK_SYNC = 3, VK_ANGLE = 4;
+  const VK_N = [PHASE_K, SPARSE_K, WIDTH_K, SYNC_K, ANGLE_K];
   const WIDTH_MIN = 0.02, WIDTH_MAX = 0.98;
+  const SYNC_MIN = 1, SYNC_MAX = 8;
+  const FM_MAX = 1.5;   // TEST 1.2: OSC2 -> OSC1 FM at FM AMT 100 %: the phase of OSC1's reading moved by up to 1.5 turns by OSC2's dry wave (x its own envelope)
   const BASS_GAIN = 1.4;    // the chord's bass note plays this much louder (about +3 dB)
   const QUICK_REL = 0.06;   // a chord note dropped by a live chord change fades out in at most this many seconds
   const LN1000 = Math.log(1000);
@@ -101,6 +106,7 @@ function WSCoreFactory(SPEC) {
         return 'H' + (h < 1 ? h.toFixed(2) : Math.round(h)) + ' · ' + (f >= 20000 ? 'open' : f >= 1000 ? (f / 1000).toFixed(1) + ' kHz' : Math.round(f) + ' Hz');
       }
       case 'gamma': return 'γ ' + Math.pow(2.5, v).toFixed(2);   // version 1.1 (the shaper's POWER): the power 2.5^value (dsp.h formatValue)
+      case 'ratio': return '×' + v.toFixed(2);   // TEST 1.2: the SOURCE SYNC ratio
       case 'int': return p.min < 0 ? sgn(Math.round(v), String(Math.abs(Math.round(v)))) : String(Math.round(v));
       case 'choice': return p.choices[Math.round(v)] || '';
       case 'deg': return Math.round(v * 360) + '°';
@@ -140,6 +146,20 @@ function WSCoreFactory(SPEC) {
     for (let n = 0; n < L; n++) g[n] = ((n & 1) ? -1 : 1) * h[L - 1 - n];
     return { h, g, L };
   });
+  // TEST 1.2 (OKTOWAVE_OSCILLATEUR_PALETTE.md A1): the WAVELET choice 'Angle' (after the seven of the list) is the 4-tap orthogonal wavelet of the angle a (turns):
+  // h = [1 - cos + sin, 1 + cos + sin, 1 + cos - sin, 1 - cos - sin] / (2 sqrt 2), orthogonal and of gain sqrt 2 at DC for every angle; 1/6 turn (60°) is Daubechies 2
+  // exactly, 0 and 1/4 turn are Haar, the other angles have no vanishing moment (a ramp gives atoms everywhere). sinTurn: the same bits in dsp.h.
+  const TWO_SQRT2 = 2.8284271247461903;
+  function angleFilter(a) {
+    a -= Math.floor(a);
+    let ac = a + 0.25; ac -= Math.floor(ac);
+    const s = sinTurn(a), c = sinTurn(ac);
+    const h = Float64Array.from([(1 - c + s) / TWO_SQRT2, (1 + c + s) / TWO_SQRT2, (1 + c - s) / TWO_SQRT2, (1 - c - s) / TWO_SQRT2]), g = new Float64Array(4);
+    for (let n = 0; n < 4; n++) g[n] = ((n & 1) ? -1 : 1) * h[3 - n];
+    return { h, g, L: 4 };
+  }
+  // the filter of wavelet choice wi (an index past the list = Angle, of angle a)
+  function waveletFilter(wi, a) { return wi >= FILTERS.length ? angleFilter(a) : FILTERS[wi]; }
 
   // Periodic orthogonal DWT, full depth. Output layout: c[0] = approximation,
   // band b (1..11) occupies c[2^(b-1) .. 2^b - 1] (band 11 = finest).
@@ -239,16 +259,25 @@ function WSCoreFactory(SPEC) {
   // wave. Only +, -, *, /, Math.floor and sinTurn (never Math.sin / cos / exp / pow / tanh): dsp.h computes the very same bits
   // with the same operations in the same order (SPARSITY picks atoms by size: a last-bit difference would change the sound).
   // None of them uses SOURCE WIDTH (only PULSE and TRI do); all follow SOURCE PHASE like the first five.
-  function sourceCycle(wave, width, phase) {
+  // TEST 1.2 (OKTOWAVE_OSCILLATEUR_PALETTE.md B1, B2): the source modifiers sync (the wave read at frac(ratio · ph), restarted every cycle; 1 = off), drive (the cycle through the
+  // rational tanh at a gain of 1 + 15 · drive, then normalised; 0 = off) and bits (2^(8 - 6 bits) levels, one point held out of 2^(6 bits); 0 = off), and twelve harder sources
+  // (29 .. 40), all with +, -, *, /, floor, sinTurn, tnh and rng only (the same bits in dsp.h). The neutral values take the path of before.
+  function sourceCycle(wave, width, phase, sync, drive, bits) {
     const x = new Float64Array(N);
     const r = rng(12345);
     const sh = phase || 0;
+    const sy = sync > 1 ? sync : 0;
     // version 1.1 (S3): VOWEL's harmonic amplitudes; COMB's number of harmonics, 2 · 32^WIDTH (2 .. 60)
     const va = wave === 26 ? vowelAmps(width) : null;
     let combK = 0;
     if (wave === 27) { combK = Math.round(2 / expNeg(-width * LN32)); combK = combK < 1 ? 1 : combK > 64 ? 64 : combK; }
+    // TEST 1.2: FEEDBACK FM's last sample, CHAOS's state, RANDOM STEPS' values (a fixed seed), the harmonics of PRIME
+    let fbY = 0, chaos = 0.3;
+    const steps = wave === 35 ? (() => { const q = rng(4321), o = new Float64Array(64); for (let k = 0; k < 64; k++) o[k] = q() * 2 - 1; return o; })() : null;
+    const primeH = width < 0.5 ? [1, 3, 7, 11, 17] : [1, 4, 9, 16, 25], primeD = 0.45 + 0.5 * (width * 2 - Math.floor(width * 2));
     for (let i = 0; i < N; i++) {
       let ph = i / N + sh; ph -= Math.floor(ph);
+      if (sy) { ph *= sy; ph -= Math.floor(ph); }   // (TEST 1.2 SYNC: a sub-cycle restarted every cycle)
       switch (wave) {
         case 0: x[i] = 1 - 2 * ph; break;
         case 1: x[i] = ph < 0.5 ? 1 : -1; break;
@@ -302,12 +331,45 @@ function WSCoreFactory(SPEC) {
         case 27: { let s = 0; for (let h = 1; h <= combK; h++) s += sinTurn(fracT(h * ph + 0.25)); x[i] = s; break; }
         // version 1.1 (S3) FOLD: a sine driven by 1 + 7 · WIDTH through a sine-fold ((2/pi) asin(sin(pi y / 2)): a triangle of y, folded at ± 1)
         case 28: { const y = (1 + 7 * width) * sinTurn(ph); let t = (y + 1) / 4; t -= Math.floor(t); x[i] = t < 0.5 ? 4 * t - 1 : 3 - 4 * t; break; }
+        // TEST 1.2 (B2): XOR SQUARE: the square times a square at 1 + 7 WIDTH times the note (a digital ring modulator)
+        case 29: { const rr = 1 + 7 * width; x[i] = (ph < 0.5 ? 1 : -1) * (fracT(rr * ph) < 0.5 ? 1 : -1); break; }
+        // FEEDBACK FM: a sine whose phase is moved by its last sample, WIDTH turns at full (the DX feedback: a sine, a saw, then a buzz)
+        case 30: { fbY = sinTurn(fracT(ph + width * fbY)); x[i] = fbY; break; }
+        // RESO: the CZ resonance at harmonic 1 + 15 WIDTH under the falling saw (RESO SAW is harmonic 6); RESO SQR: the same under a square window (silent half)
+        case 31: x[i] = (1 - ph) * sinTurn(fracT((1 + 15 * width) * ph + 0.25)); break;
+        case 32: x[i] = ph < 0.5 ? sinTurn(fracT((1 + 15 * width) * ph + 0.25)) : 0; break;
+        // GROWL: the saw under two formants, at harmonics F1 = 2 + 6 WIDTH and 2 F1 + 1 (a talking bass)
+        case 33: { const F1 = 2 + 6 * width; x[i] = (1 - 2 * ph) * (1 + sinTurn(fracT(F1 * ph + 0.25))) * (1 + sinTurn(fracT((2 * F1 + 1) * ph + 0.25))) * 0.25; break; }
+        // CHAOS: the logistic map x = r x (1 - x), r from 3.57 (the edge of chaos) to 4 with WIDTH, one step per point
+        case 34: { chaos = (3.57 + 0.43 * width) * chaos * (1 - chaos); x[i] = 2 * chaos - 1; break; }
+        // RANDOM STEPS: 4 · 2^round(4 WIDTH) steps of fixed random values per cycle
+        case 35: { const ns = 4 * (1 << Math.round(4 * width)); x[i] = steps[Math.floor(ph * ns) % 64]; break; }
+        // NOISE BURST: noise over the first WIDTH of the cycle, silence after
+        case 36: x[i] = ph < width ? r() * 2 - 1 : 0; break;
+        // PRIME: five sines at the harmonics 1, 3, 7, 11, 17 (WIDTH under 50 %) or 1, 4, 9, 16, 25, each d times quieter than the one before (d from WIDTH)
+        case 37: { let s = 0, a = 1; for (let k = 0; k < 5; k++) { s += a * sinTurn(fracT(primeH[k] * ph)); a *= primeD; } x[i] = s; break; }
+        // SUPER PULSE: three pulses of widths w, w / 2 and w / 4
+        case 38: x[i] = (ph < width ? 1 : -1) + (ph < width * 0.5 ? 1 : -1) + (ph < width * 0.25 ? 1 : -1); break;
+        // TRI FOLD: the triangle driven by 1 + 7 WIDTH through the fold of FOLD
+        case 39: { const tr = ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph, y = (1 + 7 * width) * tr; let t = (y + 1) / 4; t -= Math.floor(t); x[i] = t < 0.5 ? 4 * t - 1 : 3 - 4 * t; break; }
+        // ALIAS SAW: the saw held one point out of 2^round(2 + 4 WIDTH) (the images of a low sample rate)
+        case 40: { const ns = N / (1 << Math.round(2 + 4 * width)); x[i] = 1 - 2 * Math.floor(ph * ns) / ns; break; }
         default: x[i] = r() * 2 - 1; break;   // NOISE (5)
       }
     }
     if (wave === 5) {
       const s = ((Math.round(sh * N) % N) + N) % N;
       if (s) { const y = Float64Array.from(x); for (let i = 0; i < N; i++) x[i] = y[(i + s) % N]; }
+    }
+    // TEST 1.2 (B1): DRIVE then BITS on the cycle brought to a peak of 1 (their steps are then the same whatever the wave)
+    if (drive > 0 || bits > 0) {
+      let pk = 0; for (let i = 0; i < N; i++) pk = Math.max(pk, Math.abs(x[i]));
+      if (pk > 0) for (let i = 0; i < N; i++) x[i] /= pk;
+      if (drive > 0) { const g = 1 + 15 * drive; for (let i = 0; i < N; i++) x[i] = tnh(g * x[i]); }
+      if (bits > 0) {
+        const L = Math.pow(2, Math.round(8 - 6 * bits)), M = 1 << Math.round(6 * bits);
+        for (let i = 0; i < N; i++) x[i] = Math.round(x[i - (i % M)] * L) / L;
+      }
     }
     let mean = 0; for (let i = 0; i < N; i++) mean += x[i]; mean /= N;
     let peak = 0; for (let i = 0; i < N; i++) { x[i] -= mean; peak = Math.max(peak, Math.abs(x[i])); }
@@ -347,6 +409,14 @@ function WSCoreFactory(SPEC) {
     let mx = 0; for (let i = 1; i < N; i++) { const a = Math.abs(c[i]); if (a > mx) mx = a; }
     for (let i = 1; i < N; i++) if (!(Math.abs(c[i]) > mx * 1e-9)) c[i] = 0;
     const bySize = (a, b) => (Math.abs(c[b]) - Math.abs(c[a])) || (a - b);
+    if (mode === 4) {   // TEST 1.2 (A5) RESIDUE: the atoms the global hard mode would remove are the ones kept (ATOMS at 0 removes none: everything stays)
+      const idx = []; for (let i = 1; i < N; i++) if (c[i] !== 0) idx.push(i);
+      const nz = idx.length, K = Math.min(nz, s <= 0 ? nz : Math.max(1, Math.round(Math.pow(nz, 1 - s))));
+      if (K >= nz) return { K: nz, nz };
+      idx.sort(bySize);
+      for (let j = 0; j < K; j++) c[idx[j]] = 0;
+      return { K: nz - K, nz };
+    }
     // idx sorted by size, K kept: the others removed; soft: the K kept shrunk by the first smaller size below the K-th
     const keep = (idx, K, soft) => {
       let T = 0;
@@ -452,7 +522,8 @@ function WSCoreFactory(SPEC) {
   const K = SLOTS.map(s => s.k);
   const ROLE_PCEN = ROLES.indexOf('pcen'), ROLE_PHASE = ROLES.indexOf('phase'), ROLE_SPARSITY = ROLES.indexOf('sparsity'), ROLE_WIDTH = ROLES.indexOf('width'),
     ROLE_TILT = ROLES.indexOf('tilt'), ROLE_ODD = ROLES.indexOf('odd'), ROLE_EVEN = ROLES.indexOf('even'), ROLE_SUS = ROLES.indexOf('sus'),
-    ROLE_MORPH = ROLES.indexOf('morph'), ROLE_FRES = ROLES.indexOf('fres'), ROLE_VFCUT = ROLES.indexOf('vfcut'), ROLE_VFRES = ROLES.indexOf('vfres');
+    ROLE_MORPH = ROLES.indexOf('morph'), ROLE_FRES = ROLES.indexOf('fres'), ROLE_VFCUT = ROLES.indexOf('vfcut'), ROLE_VFRES = ROLES.indexOf('vfres'),
+    ROLE_SYNC = ROLES.indexOf('sync'), ROLE_ANGLE = ROLES.indexOf('angle');   // (TEST 1.2)
   // the size of a move of LFO 2 / LFO 3 at full amount: half the range of its target in plain units; the filter cutoff is exponential: half its range in octaves
   function roleSpan(tp, role) { return role === ROLE_VFCUT ? Math.log2(tp.max / tp.min) : tp.max - tp.min; }
   const LVL_EPS = 1e-5;     // an oscillator whose smoothed level is below this is not rendered
@@ -461,8 +532,12 @@ function WSCoreFactory(SPEC) {
   function tableNeeds(params) {
     let m = 0;
     for (let s = 0; s < NS; s++) if (params[K[s].lvl] > 0) m |= 1 << s;
+    if (fmMode(params) > 0) m |= 2;   // (TEST 1.2: OSC2 modulates OSC1: its tables are needed whatever its level)
     return m;
   }
+  // TEST 1.2 (C1, C2): the OSC2 route: 0 Mix (as before), 1 FM, 2 FM + mix, 3 Ring, 4 Ring + mix, 5 AM, 6 AM + mix; OSC2's own output is heard in the "+ mix" routes and in Mix
+  function fmMode(params) { return Math.round(params[P.a_fm_mode]); }
+  function fmHeard(mode) { return mode === 0 || mode === 2 || mode === 4 || mode === 6; }
   // WAVELET MORPH (beta 0.3): the amounts that can move the sound away from WAVELET; an oscillator whose wavelet is WAVELET 2 has
   // nothing to morph to
   // the role LFO 2 moves now (-1: its amount is 0)
@@ -480,23 +555,37 @@ function WSCoreFactory(SPEC) {
   // SOURCE PHASE (beta 0.4), SPARSITY and SOURCE WIDTH (beta 0.2) moved by an LFO: a subtractive oscillator that plays gets its tables
   // built at several values (the kind of variant, VK_*, or -1 for none). One kind per oscillator: SPARSITY (LFO 1's amount above 0, or
   // LFO 2 / LFO 3 on SPARSITY) before PHASE (LFO 2 / 3) before WIDTH (LFO 2 / 3; only a pulse or triangle source has a width).
+  // (TEST 1.2: then SYNC and ANGLE moved by LFO 2 / 3 (ANGLE only while the wavelet is Angle), then the kind TABLES names when the envelope or the velocity moves it (a_set_env,
+  // a_set_vel); the tables of OSC2 as a modulator (level 0) count as playing)
+  const hasWidth = (w) => w === 2 || w === 3 || w >= 26;   // (version 1.1: VOWEL, COMB, FOLD have a width too; TEST 1.2: the twelve new sources as well)
   function slotVariant(params, s) {
-    if (SLOTS[s].mode !== 0 || !(params[K[s].lvl] > 0)) return -1;
+    if (SLOTS[s].mode !== 0 || !(params[K[s].lvl] > 0 || (s === 1 && fmMode(params) > 0))) return -1;
     const r = lfo2Role(params), r3 = lfo3Role(params);
     if (params[P.lfo_sp] > 0 || r === ROLE_SPARSITY || r3 === ROLE_SPARSITY) return VK_SPARSITY;
     if (r === ROLE_PHASE || r3 === ROLE_PHASE) return VK_PHASE;
-    if (r === ROLE_WIDTH || r3 === ROLE_WIDTH) { const w = Math.round(params[K[s].wave]); if (w === 2 || w === 3 || w >= 26) return VK_WIDTH; }   // (version 1.1: VOWEL, COMB, FOLD have a width too)
+    if (r === ROLE_WIDTH || r3 === ROLE_WIDTH) { if (hasWidth(Math.round(params[K[s].wave]))) return VK_WIDTH; }
+    const isAngle = Math.round(params[K[s].wavelet]) >= FILTERS.length;
+    if (r === ROLE_SYNC || r3 === ROLE_SYNC) return VK_SYNC;
+    if ((r === ROLE_ANGLE || r3 === ROLE_ANGLE) && isAngle) return VK_ANGLE;
+    if (params[P.a_set_env] !== 0 || params[P.a_set_vel] !== 0) {
+      const t = Math.round(params[P.a_set_target]);
+      if (t === 0) return VK_SPARSITY;
+      if (t === 1) return VK_PHASE;
+      if (t === 2) { if (hasWidth(Math.round(params[K[s].wave]))) return VK_WIDTH; }
+      else if (t === 3) return VK_SYNC;
+      else if (t === 4 && isAngle) return VK_ANGLE;
+    }
     return -1;
   }
   function variantNeeded(params) {
     for (let s = 0; s < NS; s++) if (slotVariant(params, s) >= 0) return true;
     return false;
   }
-  // the kinds of all oscillators in one number: the tables are rebuilt when it changes
+  // the kinds of all oscillators in one number: the tables are rebuilt when it changes (TEST 1.2: five kinds, 3 bits each; and the OSC2 route, which decides whether OSC2's tables exist)
   function variantSig(params) {
     let m = 0;
-    for (let s = 0; s < NS; s++) m |= (slotVariant(params, s) + 1) << (2 * s);
-    return m;
+    for (let s = 0; s < NS; s++) m |= (slotVariant(params, s) + 1) << (3 * s);
+    return m | (fmMode(params) > 0 ? 1 << 9 : 0);
   }
 
   // Builds everything that depends only on structural parameters.
@@ -528,32 +617,40 @@ function WSCoreFactory(SPEC) {
   // The other sets of a variant of subtractive oscillator s with wavelet wav. PHASE: phase a_phase + k / PHASE_K for k = 1 .. PHASE_K - 1
   // (set 0 is the oscillator's own). SPARSITY and WIDTH: the SPARSE_K sparsities k / (SPARSE_K - 1) and the WIDTH_K widths
   // WIDTH_MIN + k (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1), k = 0 .. K - 1 (all of them; the oscillator's own set is not one of them).
+  // (TEST 1.2: SYNC: the SYNC_K ratios 1 .. 8, all of them; ANGLE: like PHASE, the angle + k / ANGLE_K for k = 1 .. ANGLE_K - 1)
+  const vkWraps = (vk) => vk === VK_PHASE || vk === VK_ANGLE;   // the kinds whose sets go round (set 0 is the oscillator's own, the place wraps)
   function variantSets(params, s, wav, vk) {
     const sets = [];
-    const first = vk === VK_PHASE ? 1 : 0;
+    const first = vkWraps(vk) ? 1 : 0;
     for (let k = first; k < VK_N[vk]; k++) {
       const over = { wavelet: wav };
       if (vk === VK_PHASE) { let v = params[K[s].phase] + k / PHASE_K; v -= Math.floor(v); over.phase = v; }
       else if (vk === VK_SPARSITY) over.sparsity = k / (SPARSE_K - 1);
-      else over.width = WIDTH_MIN + k * (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1);
+      else if (vk === VK_WIDTH) over.width = WIDTH_MIN + k * (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1);
+      else if (vk === VK_SYNC) over.sync = SYNC_MIN + k * (SYNC_MAX - SYNC_MIN) / (SYNC_K - 1);
+      else { let v = params[K[s].angle] + k / ANGLE_K; v -= Math.floor(v); over.angle = v; }
       const b = buildSet(params, s, true, over);
       sets.push({ mode: 0, mips: b.mips, rms: b.rms });
     }
     return sets;
   }
-  // the set k of a table set t with variants (PHASE: k = 0 is t itself)
-  function variantSet(t, k) { return t.vk === VK_PHASE ? (k === 0 ? t : t.ph[k - 1]) : t.ph[k]; }
+  // the set k of a table set t with variants (PHASE, ANGLE: k = 0 is t itself)
+  function variantSet(t, k) { return vkWraps(t.vk) ? (k === 0 ? t : t.ph[k - 1]) : t.ph[k]; }
 
   // over: { wavelet, phase, sparsity, width } replace the oscillator's own (the WAVELET MORPH set, the variants' sets)
+  // (TEST 1.2: over.sync and over.angle too, the SYNC and ANGLE sets; the wavelet choice past the list is the Angle wavelet of the oscillator's angle; ENCRE (w_synth) draws the
+  // atoms of a subtractive oscillator back with another wavelet, the layers then brought to a peak of 1 together)
   function buildSet(params, s, withMips, over) {
     const k = K[s], mode = SLOTS[s].mode;
-    const f = FILTERS[Math.round(over && over.wavelet !== undefined ? over.wavelet : params[k.wavelet])];
+    const wi = Math.round(over && over.wavelet !== undefined ? over.wavelet : params[k.wavelet]);
+    const f = waveletFilter(wi, over && over.angle !== undefined ? over.angle : params[k.angle]);
     let c, kept = 0, nonzero = 0;
     const layers = [];
     const bandScale = new Float64Array(NB).fill(1);
     if (mode === 0) {
       const ph = over && over.phase !== undefined ? over.phase : params[k.phase];
-      const src = sourceCycle(Math.round(params[k.wave]), over && over.width !== undefined ? over.width : params[k.width], ph);
+      const src = sourceCycle(Math.round(params[k.wave]), over && over.width !== undefined ? over.width : params[k.width], ph,
+        over && over.sync !== undefined ? over.sync : params[k.sync], params[k.sdrive], params[k.bits]);
       c = dwt(src, f);
       c[0] = 0;
       const sh = shaperOf(params);   // (version 1.1: the WAVELET SHAPER, null when neutral)
@@ -561,13 +658,18 @@ function WSCoreFactory(SPEC) {
       const sp = sh ? sparsifyMode(c, spv, sh.mode) : sparsify(c, spv);
       kept = sp.K; nonzero = sp.nz;
       if (sh) { shapeCoeffs(c, sh); kept = 0; for (let i = 1; i < N; i++) if (c[i] !== 0) kept++; }   // (the displays show the atoms left)
+      const ws = Math.round(params[P.w_synth]), fs = ws > 0 ? FILTERS[ws - 1] : f;
       const dry = new Float64Array(N);
       for (let b = 1; b <= NB; b++) {
-        const l = idwt(bandOnly(c, b), f);
+        const l = idwt(bandOnly(c, b), fs);
         for (let i = 0; i < N; i++) dry[i] += l[i];
         layers.push(l);
       }
       layers.push(dry);
+      if (ws > 0) {   // ENCRE: the wave drawn with other atoms has another peak: all the layers scaled by its inverse
+        let pk = 0; for (let i = 0; i < N; i++) pk = Math.max(pk, Math.abs(dry[i]));
+        if (pk > 0) for (const l of layers) for (let i = 0; i < N; i++) l[i] /= pk;
+      }
     } else {
       c = patternCoeffs(Math.round(params[k.pattern]), Math.round(params[k.seed]));
       for (let b = 1; b <= NB; b++) {
@@ -723,8 +825,9 @@ function WSCoreFactory(SPEC) {
     this.f0 = 261.63; this.mip = 0; this.pc = 0; this.pw = 1; this.pd = 0;   // its pitch, mip level and position window
     this.own = new Env(); this.pe = 1;                      // its own envelope; its pitch envelope (1 -> 0)
     this.live = false;                                      // rendered in the last block
-    // its place among the sets of each kind of variant (VK_*: phase, sparsity, width), from the start to the end of the block
-    this.vq0 = new Float64Array(3); this.vq1 = new Float64Array(3);
+    // its place among the sets of each kind of variant (VK_*: phase, sparsity, width, sync, angle), from the start to the end of the block
+    this.vq0 = new Float64Array(5); this.vq1 = new Float64Array(5);
+    this.fmPhase = new Float64Array(4);   // TEST 1.2 (OSC1 only): the phases of OSC2 read as its modulator, one per unison copy
     // memos of what the last block computed from the same inputs (compared exactly): the oscillator's pitch, the scale filter's gains, the mip level
     this.mA = NaN; this.mF0 = 0; this.mL2f0 = NaN; this.mL2 = 0; this.mTop = NaN; this.mFmax = NaN; this.mMip = 0;
     this.mType = -1; this.mCut = 0; this.mSlope = 0; this.mRes = 0; this.mFg = new Float64Array(NB);
@@ -746,6 +849,8 @@ function WSCoreFactory(SPEC) {
     this.pu = 0;   // PUNCH (version 1.0.16): the boost's envelope, 1 at the start of a note, falling to 0
     this.bpu = 0;  // version 1.1 BAND PUNCH: its envelope, (1 - VEL) + VEL · velocity at the start of a note, falling to 0
     this.mSemis = NaN; this.mPitchF0 = 0;   // memo: the voice's frequency for its last pitch in semitones
+    this.nzY = 0; this.nzEnv = 1;   // TEST 1.2 NOISE: the one-pole state of its colour, its decay envelope (1 at the start of a note)
+    this.og = 1;                    // TEST 1.2 OSC DRIVE: the gain of this voice's drive for the block (1 = off)
   }
   // version 1.1 BAND PUNCH (ClaudeProjects/ExchNGE/CLAUDE.md S1): +15 dB at full on the finest band (G = 10^(15/20) - 1), none on bands 1 to 4, rising to band 11
   const BPUNCH_G = 4.623413251903491, BPUNCH_W = Array.from({ length: 11 }, (_, b) => Math.min(1, Math.max(0, (b - 3) / 7)));
@@ -806,6 +911,10 @@ function WSCoreFactory(SPEC) {
     this.ownBuf = []; this.endPh = [];
     for (let s = 0; s < NS; s++) { this.ownBuf.push(new Float64Array(CTRL)); this.endPh.push(new Float64Array(4)); }
     this.ownOn = new Uint8Array(NS); this.ownLevel = new Float64Array(NS); this.ownStage = new Int32Array(NS);
+    // TEST 1.2: the random places of START MODE, the NOISE generator and its decay's memo; OSC2 -> OSC1: the route, the FM index, whether OSC2 is heard, the modulator's steps and
+    // end phases of a render (committed with the voice's phases)
+    this.startRng = rng(4242); this.nzRng = rng(9001); this.mNzD = new ExpMemo();
+    this.fmMode = 0; this.fmIdx = 0; this.fmHeard = true; this.inc2 = new Float64Array(4); this.endFmPh = new Float64Array(4);
     this.endLevel = 0; this.endStage = 0; this.endSubPhase = 0; this.endPunch = 0;
     // beta 0.3.1: also the live gains and window of every oscillator that plays in the last voice (sg: NS x NB, swin: NS x [center, width, depth], mask: its bits), for the
     // SCOPE and the SCALOGRAM, which show the whole sound and move with the modulation (the cutoff of the LFOs and the envelopes, the note)
@@ -970,8 +1079,16 @@ function WSCoreFactory(SPEC) {
         // version 1.1 START (S2): the subtractive oscillators' copies start START later in their cycle (0: as before)
         const st = this.p[P.a_start];
         if (st > 0 && SLOTS[s].mode === 0) for (let u = 0; u < 4; u++) { let x = st + sl.phase[u]; x -= Math.floor(x); sl.phase[u] = x; }
+        // TEST 1.2 START MODE (D1): the subtractive oscillators' copies moved by a random place, one per note (every copy the same) or one per copy
+        const sm = Math.round(this.p[P.a_start_mode]);
+        if (sm > 0 && SLOTS[s].mode === 0) {
+          let rr = this.startRng();
+          for (let u = 0; u < 4; u++) { if (sm === 2 && u) rr = this.startRng(); let x = sl.phase[u] + rr; x -= Math.floor(x); sl.phase[u] = x; }
+        }
         sl.scale.fill(0); sl.live = false; sl.own.level = 0; sl.own.stage = 0; sl.pe = 1;
       }
+      vc.sl[0].fmPhase.set(vc.sl[1].phase);   // (TEST 1.2: OSC1's modulator starts where OSC2's copies start)
+      vc.nzY = 0;
       vc.subPhase = 0;
       vc.amp.level = 0; vc.mod.level = 0; vc.fe.level = 0; vc.fs.fill(0); vc.fOn = false;
       // polyphonic portamento: an idle voice glides from its own last pitch (a never-used voice from the last note)
@@ -986,6 +1103,7 @@ function WSCoreFactory(SPEC) {
       for (let s = 0; s < NS; s++) { const sl = vc.sl[s]; sl.scaleAtk.fill(1); sl.own.gate(true); sl.pe = 1; }
       vc.pu = 1;   // PUNCH (version 1.0.16): a new start of the note
       vc.bpu = (1 - this.p[P.a_punch_vel]) + this.p[P.a_punch_vel] * vel;   // (version 1.1 BAND PUNCH)
+      vc.nzEnv = 1;   // (TEST 1.2 NOISE: its decay starts again)
     }
     this.lastPitch = note;
   };
@@ -1379,6 +1497,9 @@ function WSCoreFactory(SPEC) {
     // (< 0) keeps band 1 and turns the finer bands down, brighter (> 0) keeps band 11 and turns the coarser bands down; PARITY turns the even bands down (band b + 1 is even
     // when b is odd)
     if (am.shapeOn) for (let b = 0; b < NB; b++) am.shape[b] = Math.exp(aTilt * (aTilt > 0 ? b - 10 : b) * (Math.LN10 / 20)) * ((b & 1) === 1 ? 1 - aPar : 1);
+    // TEST 1.2: the OSC2 route (OSC2 as a modulator is live whatever its level: its pitch, mip level and own envelope serve OSC1; it is heard in Mix and the "+ mix" routes)
+    const fmm = fmMode(p);
+    this.fmMode = fmm; this.fmIdx = fmm === 1 || fmm === 2 ? p[P.a_fm] * FM_MAX : 0; this.fmHeard = fmHeard(fmm);
     const a = 1 - this.mLvl.get(-n / (0.02 * sr));
     for (let s = 0; s < NS; s++) {
       const k = K[s], q = this.pr[s];
@@ -1386,7 +1507,7 @@ function WSCoreFactory(SPEC) {
       this.lvlSm[s] += (p[k.lvl] - this.lvlSm[s]) * a;
       this.m1[s] = this.lvlSm[s];
       const has = (this.cur && this.cur.slots[s]) || (fading && this.prev && this.prev.slots[s]);
-      this.live[s] = has && (this.m0[s] > LVL_EPS || this.m1[s] > LVL_EPS) ? 1 : 0;
+      this.live[s] = has && (this.m0[s] > LVL_EPS || this.m1[s] > LVL_EPS || (s === 1 && fmm > 0)) ? 1 : 0;
       if (!this.live[s]) continue;
       q.tune = 12 * p[k.oct] + p[k.fine] / 100 + p[k.semi];
       q.ftype = Math.round(p[k.ftype]);
@@ -1471,6 +1592,11 @@ function WSCoreFactory(SPEC) {
     const wm = Math.min(1, Math.max(0, p[P.wmorph] + this.dMorph + p[P.lfo_wav] * this.lfo + (p[P.env_wav] + p[P.lfo_ew] * this.lfo) * mod));
     vc.wm0 = vc.fresh ? wm : vc.wm1; vc.wm1 = wm;
     vc.fresh = false;
+    // TEST 1.2 OSC DRIVE (C4): this voice's gain for the block, 1 + 15 x DRIVE x ((1 - ENV) + ENV x MOD ENVELOPE) x ((1 - VEL) + VEL x velocity); 1 = off
+    const od = p[P.a_odrive];
+    vc.og = od > 0 ? 1 + 15 * od * ((1 - p[P.a_odrive_env]) + p[P.a_odrive_env] * mod) * ((1 - p[P.a_odrive_vel]) + p[P.a_odrive_vel] * vc.vel) : 1;
+    // TEST 1.2 ENV / VEL -> TABLES (C5): the move of the voice among the sets of the kind TABLES names, in units of the kind's range (half the range at 100 %)
+    const setT = Math.round(p[P.a_set_target]), setMv = (p[P.a_set_env] !== 0 || p[P.a_set_vel] !== 0) ? 0.5 * (p[P.a_set_env] * mod + p[P.a_set_vel] * (vc.vel - 1)) : 0;
 
     for (let s = 0; s < NS; s++) {
       const sl = vc.sl[s], k = K[s], q = this.pr[s];
@@ -1492,6 +1618,18 @@ function WSCoreFactory(SPEC) {
         sl.mMip = maxH >= 1024 ? 0 : maxH < 1 ? NMIP - 1 : Math.min(NMIP - 1, Math.ceil(Math.log2(1024 / maxH) - 1e-9));
       }
       sl.mip = sl.mMip;
+      if (SLOTS[s].mode === 0) {
+        // TEST 1.2 OSC DRIVE: one mip level lower from a gain of 2, two from 6 (room for the harmonics the drive makes)
+        if (vc.og >= 2) sl.mip = Math.min(NMIP - 1, sl.mip + (vc.og >= 6 ? 2 : 1));
+        // TEST 1.2 FM (C1), OSC1 only: Carson's rule, the harmonics of OSC1 kept so that H f1 + (2 pi I + 2) f2 stays under fmax (f2: OSC2's pitch this block)
+        if (s === 0 && this.fmIdx > 0 && this.live[1]) {
+          const k2 = K[1], q2 = this.pr[1], f2 = 440 * Math.pow(2, (semis + q2.tune + p[k2.pamt] * vc.sl[1].pe - 69) / 12);
+          const room = this.fmax - (2 * Math.PI * this.fmIdx + 2) * f2;
+          const maxH = room > 0 ? Math.floor(room / fTop) : 0;
+          const mipFm = maxH >= 1024 ? 0 : maxH < 1 ? NMIP - 1 : Math.min(NMIP - 1, Math.ceil(Math.log2(1024 / maxH) - 1e-9));
+          if (mipFm > sl.mip) sl.mip = mipFm;
+        }
+      }
       // scale filter
       if (f0 !== sl.mL2f0) { sl.mL2f0 = f0; sl.mL2 = Math.log2(261.63 / f0); }
       const cut = q.fcut + (1 - q.fkey) * sl.mL2 + q.fenv * mod + p[P.lfo_cut] * this.lfo + q.fvel * (vc.vel - 1);
@@ -1510,13 +1648,19 @@ function WSCoreFactory(SPEC) {
         // the voice's place among the sets of each kind of variant (the tables' own kind decides which one is read, renderTable):
         // PHASE: LFO 2's move round the cycle; SPARSITY: the oscillator's sparsity + LFO 1 · LFO 1 TO SPARSITY + LFO 2's move; WIDTH:
         // the source width + LFO 2's move
-        let qp = ((this.role2 === ROLE_PHASE ? this.d2 : 0) + (this.role3 === ROLE_PHASE ? this.d3 : 0)) * PHASE_K; qp -= Math.floor(qp / PHASE_K) * PHASE_K;
-        const sp = Math.min(1, Math.max(0, p[k.sparsity] + p[P.lfo_sp] * this.lfo + (this.role2 === ROLE_SPARSITY ? this.d2 : 0) + (this.role3 === ROLE_SPARSITY ? this.d3 : 0)));
-        const wd = Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, p[k.width] + (this.role2 === ROLE_WIDTH ? this.d2 : 0) + (this.role3 === ROLE_WIDTH ? this.d3 : 0)));
+        // (TEST 1.2: + the move of ENV / VEL -> TABLES on the kind it names; SYNC: the ratio + LFO 2 / 3's move; ANGLE: LFO 2 / 3's move round the turn, like PHASE)
+        let qp = ((this.role2 === ROLE_PHASE ? this.d2 : 0) + (this.role3 === ROLE_PHASE ? this.d3 : 0) + (setT === 1 ? setMv : 0)) * PHASE_K; qp -= Math.floor(qp / PHASE_K) * PHASE_K;
+        const sp = Math.min(1, Math.max(0, p[k.sparsity] + p[P.lfo_sp] * this.lfo + (this.role2 === ROLE_SPARSITY ? this.d2 : 0) + (this.role3 === ROLE_SPARSITY ? this.d3 : 0) + (setT === 0 ? setMv : 0)));
+        const wd = Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, p[k.width] + (this.role2 === ROLE_WIDTH ? this.d2 : 0) + (this.role3 === ROLE_WIDTH ? this.d3 : 0) + (setT === 2 ? setMv * (WIDTH_MAX - WIDTH_MIN) : 0)));
         const qs = sp * (SPARSE_K - 1), qw = (wd - WIDTH_MIN) / (WIDTH_MAX - WIDTH_MIN) * (WIDTH_K - 1);
+        const sy = Math.min(SYNC_MAX, Math.max(SYNC_MIN, p[k.sync] + (this.role2 === ROLE_SYNC ? this.d2 : 0) + (this.role3 === ROLE_SYNC ? this.d3 : 0) + (setT === 3 ? setMv * (SYNC_MAX - SYNC_MIN) : 0)));
+        const qsy = (sy - SYNC_MIN) / (SYNC_MAX - SYNC_MIN) * (SYNC_K - 1);
+        let qa = ((this.role2 === ROLE_ANGLE ? this.d2 : 0) + (this.role3 === ROLE_ANGLE ? this.d3 : 0) + (setT === 4 ? setMv : 0)) * ANGLE_K; qa -= Math.floor(qa / ANGLE_K) * ANGLE_K;
         sl.vq0[VK_PHASE] = fresh ? qp : sl.vq1[VK_PHASE]; sl.vq1[VK_PHASE] = qp;
         sl.vq0[VK_SPARSITY] = fresh ? qs : sl.vq1[VK_SPARSITY]; sl.vq1[VK_SPARSITY] = qs;
         sl.vq0[VK_WIDTH] = fresh ? qw : sl.vq1[VK_WIDTH]; sl.vq1[VK_WIDTH] = qw;
+        sl.vq0[VK_SYNC] = fresh ? qsy : sl.vq1[VK_SYNC]; sl.vq1[VK_SYNC] = qsy;
+        sl.vq0[VK_ANGLE] = fresh ? qa : sl.vq1[VK_ANGLE]; sl.vq1[VK_ANGLE] = qa;
       }
       if (SLOTS[s].mode === 1) {   // additive: the band envelopes (a returning oscillator starts them again)
         if (fresh) { sl.scale.fill(0); sl.scaleAtk.fill(1); }
@@ -1626,6 +1770,10 @@ function WSCoreFactory(SPEC) {
   // crossfade, WAVELET MORPH, phase sets) start from the same state. The output follows the amp envelope (envA), the own
   // envelope when it is on, the crossfade (ramping from fade0 by fadeInc per sample; invert: 1 - fade) and the oscillator's
   // level share gain0 (+ gainInc per sample).
+  // TEST 1.2 (OKTOWAVE_OSCILLATEUR_PALETTE.md C1, C2, C4): OSC2 -> OSC1 on the subtractive OSC1: per sample and per unison copy, OSC2's dry layer is read at the modulator's own
+  // phase (sl.fmPhase, the same steps as OSC2's copies) and, times OSC2's own envelope when it is on, moves the phase OSC1 is read at by FM AMT x 1.5 turns (FM), or multiplies
+  // OSC1's sample (Ring: y x m; AM: y x (1 + m) / 2); the window keeps the unmoved phase. OSC DRIVE: the copy's sample through the rational tanh at the voice's gain, scaled by
+  // (1 + g) / 2g like the FILTER's drive. All off (the defaults): the loop of before, operation for operation.
   E.renderVoice = function (vc, n, s, mode, mips, rms, fade0, fadeInc, invert, gain0, gainInc) {
     const sl = vc.sl[s], off = sl.mip * TW, g = sl.g, dg = sl.dg;
     const act = this.active;
@@ -1642,6 +1790,17 @@ function WSCoreFactory(SPEC) {
     for (let b = 0; b < NB; b++) lg[b] = g[b];
     const pc = sl.pc, pw = sl.pw, pd = sl.pd;
     const L = this.bufL, R = this.bufR, envA = this.envA, own = this.ownOn[s] ? this.ownBuf[s] : null;
+    // TEST 1.2: the modulator (OSC2's main set) and the drive
+    const fmm = s === 0 && mode === 0 ? this.fmMode : 0, fmOn = fmm > 0 && this.cur && this.cur.slots[1] ? 1 : 0;
+    const kind = fmOn ? (fmm <= 2 ? 1 : fmm <= 4 ? 2 : 3) : 0;   // 1 FM, 2 ring, 3 AM
+    const ph2 = this.endFmPh, inc2 = this.inc2;
+    let mips2 = null, off2 = 0, idx = 0, own2 = null;
+    if (fmOn) {
+      const sl2 = vc.sl[1], t2 = this.cur.slots[1];
+      mips2 = t2.mips; off2 = sl2.mip * TW; idx = this.fmIdx; own2 = this.ownOn[1] ? this.ownBuf[1] : null;
+      for (let u = 0; u < U; u++) { inc2[u] = sl2.f0 * this.detMul[u] / sr; ph2[u] = sl.fmPhase[u]; }
+    }
+    const og = vc.og, drv = og > 1 && mode === 0, mk = drv ? (1 + og) / (2 * og) : 1;
     if (own && this.ownZero[s]) {
       for (let i = 0; i < n; i++) for (let u = 0; u < U; u++) { let x = ph[u] + inc[u]; if (x >= 1) x -= Math.floor(x); ph[u] = x; }
       return;
@@ -1660,7 +1819,17 @@ function WSCoreFactory(SPEC) {
         let x = ph[u] + inc[u];
         if (x >= 1) x -= Math.floor(x);   // keeps the table position inside the cycle even for steps longer than a cycle
         ph[u] = x;
-        const pos = x * N, i0 = pos | 0, fr = pos - i0, base = off + i0 * NL, nx = base + NL;
+        let xr = x, m = 0;
+        if (fmOn) {
+          let x2 = ph2[u] + inc2[u];
+          if (x2 >= 1) x2 -= Math.floor(x2);
+          ph2[u] = x2;
+          const p2 = x2 * N, j0 = p2 | 0, f2 = p2 - j0, b2 = off2 + j0 * NL + DRY, v2 = mips2[b2];
+          m = v2 + f2 * (mips2[b2 + NL] - v2);
+          if (own2) m *= own2[i];
+          if (kind === 1) { xr = x + idx * m; xr -= Math.floor(xr); }
+        }
+        const pos = xr * N, i0 = pos | 0, fr = pos - i0, base = off + i0 * NL, nx = base + NL;
         let y;
         if (mode === 0) {
           let sum = 0;
@@ -1669,6 +1838,8 @@ function WSCoreFactory(SPEC) {
             const v0 = mips[base + DRY], dry = v0 + fr * (mips[nx + DRY] - v0);
             y = dry + windowValue(x, pc, pw, pd) * (sum - dry);
           } else y = sum;
+          if (kind === 2) y *= m; else if (kind === 3) y *= 0.5 * (1 + m);
+          if (drv) y = tnh(og * y) * mk;
         } else {
           let first = 0, sum = 0;
           for (let j = 0; j < na; j++) {
@@ -1681,6 +1852,29 @@ function WSCoreFactory(SPEC) {
       }
       L[i] += outL * env; R[i] += outR * env;
     }
+  };
+
+  // TEST 1.2 NOISE (D4): a true noise per voice, white through a one-pole of COLOUR (- : low-pass from 20 kHz down to 200 Hz; + : high-pass from 100 Hz up to 5 kHz), its own
+  // decay from the start of the note (20 s = held), at NOISE / 2, with the voice's amp envelope (before its FILTER, like the oscillators); 0 = nothing (the sound of before).
+  E.renderNoise = function (vc, n) {
+    const p = this.p, lvl = p[P.nz_level];
+    if (!(lvl > 0)) return;
+    const L = this.bufL, R = this.bufR, envA = this.envA, sr = this.sr, r = this.nzRng;
+    const col = p[P.nz_colour], dec = p[P.nz_decay];
+    const fc = col < 0 ? 20000 * Math.pow(0.01, -col) : col > 0 ? 100 * Math.pow(50, col) : 0;
+    const a = fc > 0 ? Math.exp(-2 * Math.PI * fc / sr) : 0, kd = dec < 20 ? this.mNzD.get(-1 / (dec * sr)) : 1, amp = lvl * 0.5;
+    let y = vc.nzY, e = vc.nzEnv;
+    for (let i = 0; i < n; i++) {
+      const w = r() * 2 - 1;
+      let v;
+      if (col < 0) { y = w + a * (y - w); v = y; }
+      else if (col > 0) { y = w + a * (y - w); v = w - y; }
+      else v = w;
+      e *= kd;
+      const sv = amp * v * e * envA[i];
+      L[i] += sv; R[i] += sv;
+    }
+    vc.nzY = Math.abs(y) < 1e-20 ? 0 : y; vc.nzEnv = e;
   };
 
   // The sub oscillator: one per voice (not per unison voice), centred, not filtered, following the amp envelope.
@@ -1722,8 +1916,9 @@ function WSCoreFactory(SPEC) {
     const gain1 = gain0 + gainInc * n;
     const vk = t.vk, KN = VK_N[vk], sl = vc.sl[s], q0 = sl.vq0[vk], q1 = sl.vq1[vk];
     // PHASE wraps round the cycle; SPARSITY and WIDTH stop at their ends (the last set has no neighbour above it)
-    const a0 = Math.min(Math.floor(q0), KN - 1) % KN, f0 = q0 - Math.floor(q0), b0 = vk === VK_PHASE ? (a0 + 1) % KN : Math.min(a0 + 1, KN - 1);
-    const a1 = Math.min(Math.floor(q1), KN - 1) % KN, f1 = q1 - Math.floor(q1), b1 = vk === VK_PHASE ? (a1 + 1) % KN : Math.min(a1 + 1, KN - 1);
+    const wraps = vkWraps(vk);   // (TEST 1.2: ANGLE wraps like PHASE)
+    const a0 = Math.min(Math.floor(q0), KN - 1) % KN, f0 = q0 - Math.floor(q0), b0 = wraps ? (a0 + 1) % KN : Math.min(a0 + 1, KN - 1);
+    const a1 = Math.min(Math.floor(q1), KN - 1) % KN, f1 = q1 - Math.floor(q1), b1 = wraps ? (a1 + 1) % KN : Math.min(a1 + 1, KN - 1);
     for (let k = 0; k < KN; k++) {
       const s0 = k === a0 ? 1 - f0 : k === b0 ? f0 : 0, s1 = k === a1 ? 1 - f1 : k === b1 ? f1 : 0;
       if (s0 === 0 && s1 === 0) continue;
@@ -1805,15 +2000,22 @@ function WSCoreFactory(SPEC) {
         realEnv = this.envA; this.envA = this.envOne; this.bufL = this.vtL; this.bufR = this.vtR;
         this.vtL.fill(0, 0, n); this.vtR.fill(0, 0, n);
       } else vc.fOn = false;
+      // (TEST 1.2: every own envelope first: OSC2's shapes the FM index of OSC1, rendered before it; OSC2 as a modulator only is not rendered; then the NOISE)
+      for (let s = 0; s < NS; s++) {
+        if (!live[s]) continue;
+        this.ownOn[s] = p[K[s].eon] >= 0.5 ? 1 : 0;
+        if (this.ownOn[s]) this.ownPass(vc, s, n);
+      }
+      this.endFmPh.set(vc.sl[0].fmPhase);   // (a render of OSC1 that is skipped leaves its modulator's phases as they were)
       for (let s = 0; s < NS; s++) {
         if (!live[s]) continue;
         const sl = vc.sl[s];
-        this.ownOn[s] = p[K[s].eon] >= 0.5 ? 1 : 0;
-        if (this.ownOn[s]) this.ownPass(vc, s, n);
         this.endPh[s].set(sl.phase);   // a render that is skipped leaves the phases as they were
+        if (s === 1 && !this.fmHeard) continue;
         if (fading && this.prev.slots[s]) this.renderSlot(vc, n, s, this.prev.slots[s], fade0, fadeInc, true, m0[s], m1[s]);
         if (this.cur.slots[s]) this.renderSlot(vc, n, s, this.cur.slots[s], fade0, fadeInc, false, m0[s], m1[s]);
       }
+      this.renderNoise(vc, n);
       this.renderSub(vc, n);
       if (realEnv) { this.envA = realEnv; this.bufL = L; this.bufR = R; this.fltProcess(vc, n); }
       // commit end-of-block state
@@ -1823,6 +2025,7 @@ function WSCoreFactory(SPEC) {
         const sl = vc.sl[s];
         if (live[s]) {
           sl.phase.set(this.endPh[s]); sl.g.set(sl.tg); sl.live = true;
+          if (s === 0) sl.fmPhase.set(this.endFmPh);
           if (this.ownOn[s]) { sl.own.level = this.ownLevel[s]; sl.own.stage = this.ownStage[s]; }
         } else sl.live = false;
       }
@@ -2068,9 +2271,9 @@ function WSCoreFactory(SPEC) {
   }
 
   // Shape of one atom of the given wavelet (band 7, centred) for the atom preview.
-  function atomShape(waveletIndex) {
+  function atomShape(waveletIndex, angle) {   // (TEST 1.2: the Angle wavelet's atom, of the angle given)
     const c = new Float64Array(N); c[64 + 32] = 1;
-    const x = idwt(c, FILTERS[waveletIndex]);
+    const x = idwt(c, waveletFilter(waveletIndex, angle || 0));
     let lo = N, hi = 0;
     for (let i = 0; i < N; i++) if (Math.abs(x[i]) > 1e-9) { lo = Math.min(lo, i); hi = Math.max(hi, i); }
     return { x, lo, hi };
@@ -2078,6 +2281,7 @@ function WSCoreFactory(SPEC) {
 
   return {
     N, NB, NL, DRY, NMIP, TW, CTRL, MAXV, PHASE_K, SPARSE_K, WIDTH_K, VK_PHASE, VK_SPARSITY, VK_WIDTH, NS, P, NP, K, SLOTS,
+    SYNC_K, ANGLE_K, VK_SYNC, VK_ANGLE, SYNC_MIN, SYNC_MAX, FM_MAX, angleFilter, waveletFilter, fmMode,   // (TEST 1.2)
     rng, toPlain, toNorm, format, parse, defaults,
     FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables, tableNeeds, morphNeeded, slotVariant, variantNeeded, variantSig,
     filterGains, windowValue, staticGains, displayCycle, buildScopeSets, globalCycle, scopeBands, atomShape, Engine, ladder, tnh, FLT_K,

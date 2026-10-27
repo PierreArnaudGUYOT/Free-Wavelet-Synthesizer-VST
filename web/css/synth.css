@@ -78,6 +78,7 @@ button { font-family: inherit; }
 [data-sid^="mlfo_"] .title, [data-sid^="mlfo_"] .title b { color: #c49bff; }
 [data-sid^="shaper_"] { border-color: color-mix(in srgb, var(--accent) 60%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
 .labbtn.small { font-size: 8px; border-radius: 7px; }
+.labbtn.big { font-size: 12px; border-radius: 10px; }
 .labbtn { border: 1px solid var(--card-edge); border-radius: 9px; background: var(--inset); color: var(--dim); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; }
 .labbtn:hover { color: var(--text); }
 .labbtn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
