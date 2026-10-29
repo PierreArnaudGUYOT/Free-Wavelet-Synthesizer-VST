@@ -74,13 +74,13 @@ var WS_SPEC = {
   "panelCredit": "By OktoPierre",
   "copyright": "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)",
   "license": "freeware",
-  "version": "1.4 TEST",
+  "version": "1.4.0 PRE-RELEASE",
   "versionNum": "1.4.0",
-  "date": "2026-10-28",
+  "date": "2026-10-29",
   "doi": "",
   "base": "Wavelet Synthesizer beta 0.7"
  },
- "DEFAULT_PRESET": 235,
+ "DEFAULT_PRESET": 234,
  "TOP": 13,
  "TOP_EXTRA": [
   13,
@@ -105,68 +105,74 @@ var WS_SPEC = {
   40
  ],
  "TOP_LIST": [
-  235,
+  234,
+  287,
   6,
+  288,
   65,
-  242,
+  289,
+  241,
+  290,
   2,
-  205,
-  282,
+  281,
+  291,
   204,
-  240,
-  285,
-  226,
-  13,
-  278,
-  273,
+  239,
+  292,
   284,
-  286,
-  20,
-  280,
-  267,
+  225,
+  13,
+  293,
   277,
   272,
   283,
-  287,
-  220,
-  246,
+  285,
+  20,
+  279,
+  266,
+  276,
+  271,
+  282,
+  286,
+  219,
+  245,
   26,
   201,
-  236,
+  235,
   140,
-  238,
-  275,
-  209,
-  239,
-  17,
-  279,
   237,
   274,
+  208,
+  238,
+  17,
+  278,
+  236,
+  273,
   203,
-  217,
-  234,
-  241,
+  216,
+  233,
+  240,
   183,
   202,
   198,
-  225,
-  243,
-  276,
+  224,
+  242,
+  275,
   109,
-  270,
-  244,
+  269,
+  243,
   5,
   12,
-  245,
+  244,
   184,
   199,
   10,
-  206,
-  247,
+  205,
+  246,
   180,
   8,
   197,
-  281,
+  280,
   200,
   128,
   178,
@@ -3398,7 +3404,7 @@ var WS_SPEC = {
   },
   {
    "key": "vf_type",
-   "name": "Filter Type (retired in 1.4)",
+   "name": "Filter Type (retired in 1.3.1)",
    "short": "TYPE",
    "curve": "choice",
    "fmt": "choice",
@@ -4202,7 +4208,7 @@ var WS_SPEC = {
    "short": "AMOUNT",
    "curve": "lin",
    "fmt": "pct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": 0,
@@ -4215,7 +4221,7 @@ var WS_SPEC = {
    "short": "ATTACK",
    "curve": "exp",
    "fmt": "sec",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": 0.001,
@@ -4228,7 +4234,7 @@ var WS_SPEC = {
    "short": "SPREAD",
    "curve": "lin",
    "fmt": "bipct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -1,
@@ -4241,7 +4247,7 @@ var WS_SPEC = {
    "short": "BODY",
    "curve": "exp",
    "fmt": "sec",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": 0.01,
@@ -4254,7 +4260,7 @@ var WS_SPEC = {
    "short": "BRIGHT",
    "curve": "exp",
    "fmt": "sec",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": 0.01,
@@ -4267,7 +4273,7 @@ var WS_SPEC = {
    "short": "SUSTAIN",
    "curve": "lin",
    "fmt": "pct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": 0,
@@ -4280,7 +4286,7 @@ var WS_SPEC = {
    "short": "TILT",
    "curve": "lin",
    "fmt": "dbband",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -24,
@@ -4297,7 +4303,7 @@ var WS_SPEC = {
    "short": "PARITY",
    "curve": "lin",
    "fmt": "pct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": 0,
@@ -4402,7 +4408,7 @@ var WS_SPEC = {
    "short": "AMOUNT",
    "curve": "lin",
    "fmt": "bipct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -1,
@@ -4415,7 +4421,7 @@ var WS_SPEC = {
    "short": "ATTACK",
    "curve": "lin",
    "fmt": "bipct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -1,
@@ -4428,7 +4434,7 @@ var WS_SPEC = {
    "short": "SPREAD",
    "curve": "lin",
    "fmt": "bipct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -1,
@@ -4441,7 +4447,7 @@ var WS_SPEC = {
    "short": "BODY",
    "curve": "lin",
    "fmt": "bipct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -1,
@@ -4454,7 +4460,7 @@ var WS_SPEC = {
    "short": "BRIGHT",
    "curve": "lin",
    "fmt": "bipct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -1,
@@ -4467,7 +4473,7 @@ var WS_SPEC = {
    "short": "SUSTAIN",
    "curve": "lin",
    "fmt": "bipct",
-   "hidden": false,
+   "hidden": true,
    "structural": false,
    "perf": false,
    "min": -1,
@@ -4730,21 +4736,25 @@ var WS_SPEC = {
    "structural": true,
    "perf": false,
    "min": 0,
-   "max": 4,
+   "max": 6,
    "def": 0,
    "choices": [
     "Atoms",
     "Phase",
     "Width",
     "Sync",
-    "Angle"
+    "Angle",
+    "Rotate",
+    "Shift"
    ],
    "choiceShort": [
     "ATOMS",
     "PHASE",
     "WIDTH",
     "H.SYNC",
-    "ANGLE"
+    "ANGLE",
+    "ROTATE",
+    "SHIFT"
    ]
   },
   {
@@ -4834,6 +4844,59 @@ var WS_SPEC = {
    "min": 0.01,
    "max": 20,
    "def": 20
+  },
+  {
+   "key": "x_pol",
+   "name": "Polarity Bands",
+   "short": "BANDS",
+   "curve": "choice",
+   "fmt": "choice",
+   "hidden": false,
+   "structural": false,
+   "perf": false,
+   "min": 0,
+   "max": 4,
+   "def": 0,
+   "choices": [
+    "Off",
+    "Odd bands",
+    "Even bands",
+    "Fine bands",
+    "Coarse bands"
+   ],
+   "choiceShort": [
+    "OFF",
+    "ODD",
+    "EVEN",
+    "FINE",
+    "COARSE"
+   ]
+  },
+  {
+   "key": "x_pol_amt",
+   "name": "Polarity Amount",
+   "short": "AMOUNT",
+   "curve": "lin",
+   "fmt": "pct",
+   "hidden": false,
+   "structural": false,
+   "perf": false,
+   "min": 0,
+   "max": 1,
+   "def": 0
+  },
+  {
+   "key": "x_pol_at",
+   "name": "Polarity Split Band",
+   "short": "SPLIT",
+   "curve": "int",
+   "fmt": "int",
+   "hidden": false,
+   "structural": false,
+   "perf": false,
+   "min": 2,
+   "max": 10,
+   "def": 6
   }
  ],
  "SECTIONS": [
@@ -6713,8 +6776,8 @@ var WS_SPEC = {
    "visOn": true
   },
   {
-   "id": "shaper_a1",
-   "title": "WAVELET SHAPER · ATOMS",
+   "id": "tables_a1",
+   "title": "TABLES · ENV · VEL",
    "x": 12,
    "y": 356,
    "w": 296,
@@ -6723,7 +6786,7 @@ var WS_SPEC = {
    "widgets": [
     {
      "type": "label",
-     "text": "AT. MODE",
+     "text": "TARGET",
      "x": 12,
      "y": 30,
      "w": 62,
@@ -6731,31 +6794,15 @@ var WS_SPEC = {
     },
     {
      "type": "menu",
-     "param": "w_sp_mode",
+     "param": "a_set_target",
      "x": 76,
      "y": 26,
-     "w": 88,
-     "h": 22
-    },
-    {
-     "type": "label",
-     "text": "MIRROR",
-     "x": 172,
-     "y": 30,
-     "w": 50,
-     "h": 14
-    },
-    {
-     "type": "menu",
-     "param": "w_mirror",
-     "x": 224,
-     "y": 26,
-     "w": 60,
+     "w": 100,
      "h": 22
     },
     {
      "type": "knobM",
-     "param": "w_power",
+     "param": "a_set_env",
      "x": 18,
      "y": 66,
      "w": 52,
@@ -6763,7 +6810,7 @@ var WS_SPEC = {
     },
     {
      "type": "knobM",
-     "param": "w_quant",
+     "param": "a_set_vel",
      "x": 70,
      "y": 66,
      "w": 52,
@@ -6771,24 +6818,16 @@ var WS_SPEC = {
     },
     {
      "type": "knobM",
-     "param": "w_shift",
-     "x": 122,
-     "y": 66,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
      "param": "w_rot",
-     "x": 174,
+     "x": 160,
      "y": 66,
      "w": 52,
      "h": 60
     },
     {
      "type": "knobM",
-     "param": "w_rot_tilt",
-     "x": 226,
+     "param": "w_shift",
+     "x": 212,
      "y": 66,
      "w": 52,
      "h": 60
@@ -6913,10 +6952,93 @@ var WS_SPEC = {
    ]
   },
   {
+   "id": "lab_shaper_a1",
+   "title": "WAVELET SHAPER · ATOMS",
+   "x": 1114,
+   "y": 252,
+   "w": 388,
+   "h": 132,
+   "view": 0,
+   "widgets": [
+    {
+     "type": "label",
+     "text": "AT. MODE",
+     "x": 12,
+     "y": 30,
+     "w": 62,
+     "h": 14
+    },
+    {
+     "type": "menu",
+     "param": "w_sp_mode",
+     "x": 76,
+     "y": 26,
+     "w": 88,
+     "h": 22
+    },
+    {
+     "type": "label",
+     "text": "MIRROR",
+     "x": 172,
+     "y": 30,
+     "w": 50,
+     "h": 14
+    },
+    {
+     "type": "menu",
+     "param": "w_mirror",
+     "x": 224,
+     "y": 26,
+     "w": 60,
+     "h": 22
+    },
+    {
+     "type": "knobM",
+     "param": "w_power",
+     "x": 18,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_quant",
+     "x": 70,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_shift",
+     "x": 122,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_rot",
+     "x": 174,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_rot_tilt",
+     "x": 226,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    }
+   ]
+  },
+  {
    "id": "lab_attack_a1",
    "title": "ATTACK",
    "x": 1114,
-   "y": 252,
+   "y": 392,
    "w": 244,
    "h": 112,
    "view": 0,
@@ -6956,44 +7078,25 @@ var WS_SPEC = {
    ]
   },
   {
-   "id": "lab_tilt_a1",
-   "title": "TILT · PARITY",
+   "id": "lab_pol_a1",
+   "title": "POLARITY",
    "x": 1366,
-   "y": 252,
+   "y": 392,
    "w": 136,
    "h": 112,
    "view": 0,
    "widgets": [
     {
-     "type": "knobM",
-     "param": "a_tilt",
-     "x": 12,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_parity",
+     "type": "menu",
+     "param": "x_pol",
      "x": 72,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    }
-   ]
-  },
-  {
-   "id": "lab_env_a1",
-   "title": "BAND ENVELOPES",
-   "x": 1114,
-   "y": 372,
-   "w": 388,
-   "h": 112,
-   "view": 0,
-   "widgets": [
+     "y": 3,
+     "w": 56,
+     "h": 20
+    },
     {
      "type": "knobM",
-     "param": "a_env_amt",
+     "param": "x_pol_amt",
      "x": 12,
      "y": 36,
      "w": 52,
@@ -7001,40 +7104,8 @@ var WS_SPEC = {
     },
     {
      "type": "knobM",
-     "param": "a_env_atk",
-     "x": 74,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_spread",
-     "x": 136,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_body",
-     "x": 198,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_bright",
-     "x": 260,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_sus",
-     "x": 322,
+     "param": "x_pol_at",
+     "x": 72,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7045,7 +7116,7 @@ var WS_SPEC = {
    "id": "lab_src_a1",
    "title": "SOURCE+ · ENCRE · START MODE",
    "x": 1114,
-   "y": 492,
+   "y": 512,
    "w": 388,
    "h": 112,
    "view": 0,
@@ -7118,49 +7189,17 @@ var WS_SPEC = {
   },
   {
    "id": "lab_set_a1",
-   "title": "ENV · VEL → TABLES · NOISE",
+   "title": "NOISE",
    "x": 1114,
-   "y": 612,
-   "w": 388,
+   "y": 632,
+   "w": 188,
    "h": 112,
    "view": 0,
    "widgets": [
     {
-     "type": "label",
-     "text": "TABLES",
-     "x": 12,
-     "y": 24,
-     "w": 80,
-     "h": 14
-    },
-    {
-     "type": "menu",
-     "param": "a_set_target",
-     "x": 12,
-     "y": 42,
-     "w": 80,
-     "h": 22
-    },
-    {
-     "type": "knobM",
-     "param": "a_set_env",
-     "x": 100,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_set_vel",
-     "x": 152,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
      "type": "knobM",
      "param": "nz_level",
-     "x": 220,
+     "x": 12,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7168,7 +7207,7 @@ var WS_SPEC = {
     {
      "type": "knobM",
      "param": "nz_colour",
-     "x": 272,
+     "x": 64,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7176,7 +7215,7 @@ var WS_SPEC = {
     {
      "type": "knobM",
      "param": "nz_decay",
-     "x": 324,
+     "x": 116,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7184,8 +7223,8 @@ var WS_SPEC = {
    ]
   },
   {
-   "id": "shaper_a2",
-   "title": "WAVELET SHAPER · ATOMS",
+   "id": "tables_a2",
+   "title": "TABLES · ENV · VEL",
    "x": 12,
    "y": 356,
    "w": 296,
@@ -7194,7 +7233,7 @@ var WS_SPEC = {
    "widgets": [
     {
      "type": "label",
-     "text": "AT. MODE",
+     "text": "TARGET",
      "x": 12,
      "y": 30,
      "w": 62,
@@ -7202,31 +7241,15 @@ var WS_SPEC = {
     },
     {
      "type": "menu",
-     "param": "w_sp_mode",
+     "param": "a_set_target",
      "x": 76,
      "y": 26,
-     "w": 88,
-     "h": 22
-    },
-    {
-     "type": "label",
-     "text": "MIRROR",
-     "x": 172,
-     "y": 30,
-     "w": 50,
-     "h": 14
-    },
-    {
-     "type": "menu",
-     "param": "w_mirror",
-     "x": 224,
-     "y": 26,
-     "w": 60,
+     "w": 100,
      "h": 22
     },
     {
      "type": "knobM",
-     "param": "w_power",
+     "param": "a_set_env",
      "x": 18,
      "y": 66,
      "w": 52,
@@ -7234,7 +7257,7 @@ var WS_SPEC = {
     },
     {
      "type": "knobM",
-     "param": "w_quant",
+     "param": "a_set_vel",
      "x": 70,
      "y": 66,
      "w": 52,
@@ -7242,24 +7265,16 @@ var WS_SPEC = {
     },
     {
      "type": "knobM",
-     "param": "w_shift",
-     "x": 122,
-     "y": 66,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
      "param": "w_rot",
-     "x": 174,
+     "x": 160,
      "y": 66,
      "w": 52,
      "h": 60
     },
     {
      "type": "knobM",
-     "param": "w_rot_tilt",
-     "x": 226,
+     "param": "w_shift",
+     "x": 212,
      "y": 66,
      "w": 52,
      "h": 60
@@ -7384,10 +7399,93 @@ var WS_SPEC = {
    ]
   },
   {
+   "id": "lab_shaper_a2",
+   "title": "WAVELET SHAPER · ATOMS",
+   "x": 1114,
+   "y": 252,
+   "w": 388,
+   "h": 132,
+   "view": 1,
+   "widgets": [
+    {
+     "type": "label",
+     "text": "AT. MODE",
+     "x": 12,
+     "y": 30,
+     "w": 62,
+     "h": 14
+    },
+    {
+     "type": "menu",
+     "param": "w_sp_mode",
+     "x": 76,
+     "y": 26,
+     "w": 88,
+     "h": 22
+    },
+    {
+     "type": "label",
+     "text": "MIRROR",
+     "x": 172,
+     "y": 30,
+     "w": 50,
+     "h": 14
+    },
+    {
+     "type": "menu",
+     "param": "w_mirror",
+     "x": 224,
+     "y": 26,
+     "w": 60,
+     "h": 22
+    },
+    {
+     "type": "knobM",
+     "param": "w_power",
+     "x": 18,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_quant",
+     "x": 70,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_shift",
+     "x": 122,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_rot",
+     "x": 174,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    },
+    {
+     "type": "knobM",
+     "param": "w_rot_tilt",
+     "x": 226,
+     "y": 66,
+     "w": 52,
+     "h": 60
+    }
+   ]
+  },
+  {
    "id": "lab_attack_a2",
    "title": "ATTACK",
    "x": 1114,
-   "y": 252,
+   "y": 392,
    "w": 244,
    "h": 112,
    "view": 1,
@@ -7427,44 +7525,25 @@ var WS_SPEC = {
    ]
   },
   {
-   "id": "lab_tilt_a2",
-   "title": "TILT · PARITY",
+   "id": "lab_pol_a2",
+   "title": "POLARITY",
    "x": 1366,
-   "y": 252,
+   "y": 392,
    "w": 136,
    "h": 112,
    "view": 1,
    "widgets": [
     {
-     "type": "knobM",
-     "param": "a_tilt",
-     "x": 12,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_parity",
+     "type": "menu",
+     "param": "x_pol",
      "x": 72,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    }
-   ]
-  },
-  {
-   "id": "lab_env_a2",
-   "title": "BAND ENVELOPES",
-   "x": 1114,
-   "y": 372,
-   "w": 388,
-   "h": 112,
-   "view": 1,
-   "widgets": [
+     "y": 3,
+     "w": 56,
+     "h": 20
+    },
     {
      "type": "knobM",
-     "param": "a_env_amt",
+     "param": "x_pol_amt",
      "x": 12,
      "y": 36,
      "w": 52,
@@ -7472,40 +7551,8 @@ var WS_SPEC = {
     },
     {
      "type": "knobM",
-     "param": "a_env_atk",
-     "x": 74,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_spread",
-     "x": 136,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_body",
-     "x": 198,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_bright",
-     "x": 260,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_env_sus",
-     "x": 322,
+     "param": "x_pol_at",
+     "x": 72,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7516,7 +7563,7 @@ var WS_SPEC = {
    "id": "lab_src_a2",
    "title": "SOURCE+ · ENCRE · START MODE",
    "x": 1114,
-   "y": 492,
+   "y": 512,
    "w": 388,
    "h": 112,
    "view": 1,
@@ -7589,49 +7636,17 @@ var WS_SPEC = {
   },
   {
    "id": "lab_set_a2",
-   "title": "ENV · VEL → TABLES · NOISE",
+   "title": "NOISE",
    "x": 1114,
-   "y": 612,
-   "w": 388,
+   "y": 632,
+   "w": 188,
    "h": 112,
    "view": 1,
    "widgets": [
     {
-     "type": "label",
-     "text": "TABLES",
-     "x": 12,
-     "y": 24,
-     "w": 80,
-     "h": 14
-    },
-    {
-     "type": "menu",
-     "param": "a_set_target",
-     "x": 12,
-     "y": 42,
-     "w": 80,
-     "h": 22
-    },
-    {
-     "type": "knobM",
-     "param": "a_set_env",
-     "x": 100,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
-     "type": "knobM",
-     "param": "a_set_vel",
-     "x": 152,
-     "y": 36,
-     "w": 52,
-     "h": 60
-    },
-    {
      "type": "knobM",
      "param": "nz_level",
-     "x": 220,
+     "x": 12,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7639,7 +7654,7 @@ var WS_SPEC = {
     {
      "type": "knobM",
      "param": "nz_colour",
-     "x": 272,
+     "x": 64,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7647,7 +7662,7 @@ var WS_SPEC = {
     {
      "type": "knobM",
      "param": "nz_decay",
-     "x": 324,
+     "x": 116,
      "y": 36,
      "w": 52,
      "h": 60
@@ -7991,7 +8006,7 @@ var WS_SPEC = {
    "name": "A · Wave Brass",
    "cat": "Other",
    "id": "A · Wave Brass",
-   "rank": 108,
+   "rank": 114,
    "values": [
     0,
     6,
@@ -8256,14 +8271,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Wave Riser",
    "cat": "FX",
    "id": "A · Wave Riser",
-   "rank": 61,
+   "rank": 68,
    "values": [
     0,
     6,
@@ -8528,14 +8546,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Noise Wash Pad",
    "cat": "Wavelet FM",
    "id": "A · Noise Wash Pad",
-   "rank": 191,
+   "rank": 197,
    "values": [
     0,
     6,
@@ -8800,14 +8821,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "B · Choir Pad",
    "cat": "Other",
    "id": "B · Choir Pad",
-   "rank": 120,
+   "rank": 126,
    "values": [
     2,
     6,
@@ -9072,14 +9096,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Cello Section",
    "cat": "Strings",
    "id": "A · Cello Section",
-   "rank": 35,
+   "rank": 42,
    "values": [
     0,
     6,
@@ -9344,7 +9371,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -9610,14 +9640,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Silk Strings",
    "cat": "Strings",
    "id": "AB · Silk Strings",
-   "rank": 0,
+   "rank": 2,
    "values": [
     0,
     6,
@@ -9882,7 +9915,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -10148,14 +10184,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Wavelet Lead",
    "cat": "Lead",
    "id": "A · Wavelet Lead",
-   "rank": 11,
+   "rank": 18,
    "values": [
     0,
     3,
@@ -10420,7 +10459,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -10686,14 +10728,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "B · Focus Sweep",
    "cat": "FX",
    "id": "B · Focus Sweep",
-   "rank": 54,
+   "rank": 61,
    "values": [
     2,
     0,
@@ -10958,14 +11003,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Wave Pulse Lead",
    "cat": "Bass",
    "id": "A · Wave Pulse Lead",
-   "rank": 140,
+   "rank": 146,
    "values": [
     0,
     5,
@@ -11230,7 +11278,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -11496,14 +11547,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Spiccato Strings",
    "cat": "Other",
    "id": "A · Spiccato Strings",
-   "rank": 125,
+   "rank": 131,
    "values": [
     0,
     3,
@@ -11768,7 +11822,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -12034,14 +12091,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Shimmering Strings",
    "cat": "Strings",
    "id": "A · Shimmering Strings",
-   "rank": 26,
+   "rank": 33,
    "values": [
     0,
     6,
@@ -12306,14 +12366,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "B · Flute Lead",
    "cat": "Other",
    "id": "B · Flute Lead",
-   "rank": 162,
+   "rank": 168,
    "values": [
     2,
     6,
@@ -12578,7 +12641,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     2,
@@ -12844,14 +12910,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Warm Pad",
    "cat": "Pad",
    "id": "A · Warm Pad",
-   "rank": 103,
+   "rank": 109,
    "values": [
     0,
     4,
@@ -13116,14 +13185,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Moss Tide",
    "cat": "Other",
    "id": "508 A1A2 · Moss Tide",
-   "rank": 114,
+   "rank": 120,
    "values": [
     0,
     6,
@@ -13388,14 +13460,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Analog Cloud HIGH_CPU",
    "cat": "Other",
    "id": "079 A1A2 · Analog Cloud",
-   "rank": 83,
+   "rank": 89,
    "values": [
     0,
     2,
@@ -13660,14 +13735,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Salt Beam Strings HIGH_CPU",
    "cat": "SuperModulation",
    "id": "527 A1A2 · Salt Beam Strings",
-   "rank": 27,
+   "rank": 34,
    "values": [
     0,
     6,
@@ -13932,14 +14010,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Sweep of Pixel HIGH_CPU",
    "cat": "Other",
    "id": "545 A1A2 · Sweep of Pixel",
-   "rank": 55,
+   "rank": 62,
    "values": [
     0,
     2,
@@ -14204,14 +14285,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Chalk Edge Call",
    "cat": "Bass",
    "id": "608 A1A2 · Chalk Edge Call",
-   "rank": 109,
+   "rank": 115,
    "values": [
     0,
     0,
@@ -14476,14 +14560,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Silk Cloud",
    "cat": "Other",
    "id": "095 A1B1 · Silk Cloud",
-   "rank": 130,
+   "rank": 136,
    "values": [
     0,
     6,
@@ -14748,14 +14835,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Resonance Storm",
    "cat": "Other",
    "id": "502 A1B1 · Resonance Storm",
-   "rank": 135,
+   "rank": 141,
    "values": [
     0,
     1,
@@ -15020,14 +15110,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Orbit Pad",
    "cat": "SuperModulation",
    "id": "506 A1A2 · Orbit Pad",
-   "rank": 145,
+   "rank": 151,
    "values": [
     0,
     4,
@@ -15292,14 +15385,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Step Sub",
    "cat": "Bass",
    "id": "558 A2B1 · Step Sub",
-   "rank": 147,
+   "rank": 153,
    "values": [
     0,
     6,
@@ -15564,7 +15660,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     1,
@@ -15830,14 +15929,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Resonance Keys",
    "cat": "Other",
    "id": "669 A1A2B1 · Resonance Keys",
-   "rank": 141,
+   "rank": 147,
    "values": [
     0,
     4,
@@ -16102,14 +16204,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Velvet Cloud HIGH_CPU",
    "cat": "Other",
    "id": "774 A1B1 · Velvet Cloud",
-   "rank": 36,
+   "rank": 43,
    "values": [
     0,
     4,
@@ -16374,14 +16479,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Rust Aurora HIGH_CPU",
    "cat": "Other",
    "id": "799 A1A2B1 · Rust Aurora",
-   "rank": 62,
+   "rank": 69,
    "values": [
     2,
     4,
@@ -16646,14 +16754,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Step Spiral HIGH_CPU",
    "cat": "Other",
    "id": "800 A1B1 · Step Spiral",
-   "rank": 88,
+   "rank": 94,
    "values": [
     0,
     4,
@@ -16918,14 +17029,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Bloom of Soft",
    "cat": "Keyboard",
    "id": "1101 A1A2 · Bloom of Soft",
-   "rank": 28,
+   "rank": 35,
    "values": [
     0,
     5,
@@ -17190,14 +17304,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Sweep Call",
    "cat": "Other",
    "id": "1104 A1A2B1 · Sweep Call",
-   "rank": 151,
+   "rank": 157,
    "values": [
     0,
     2,
@@ -17462,7 +17579,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -17728,14 +17848,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Pick & Soft",
    "cat": "SuperModulation",
    "id": "1187 A1A2B1 · Pick & Soft",
-   "rank": 174,
+   "rank": 180,
    "values": [
     0,
     4,
@@ -18000,14 +18123,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Static & Fibre",
    "cat": "Other",
    "id": "1210 A1A2B1 · Static & Fibre",
-   "rank": 155,
+   "rank": 161,
    "values": [
     0,
     2,
@@ -18272,14 +18398,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Chalk Drift",
    "cat": "Bass",
    "id": "1287 A1A2 · Chalk Drift",
-   "rank": 152,
+   "rank": 158,
    "values": [
     0,
     3,
@@ -18544,14 +18673,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Breath & Drift",
    "cat": "Other",
    "id": "1355 A1A2B1 · Breath & Drift",
-   "rank": 159,
+   "rank": 165,
    "values": [
     0,
     1,
@@ -18816,14 +18948,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pure Fog",
    "cat": "Pad",
    "id": "401 A1B1 · Pure Fog",
-   "rank": 84,
+   "rank": 90,
    "values": [
     2,
     4,
@@ -19088,7 +19223,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     2,
@@ -19354,14 +19492,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Breathe Pluck",
    "cat": "Other",
    "id": "529 A1A2 · Breathe Pluck",
-   "rank": 165,
+   "rank": 171,
    "values": [
     0,
     4,
@@ -19626,14 +19767,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Origami & Honey",
    "cat": "Other",
    "id": "550 A1A2 · Origami & Honey",
-   "rank": 168,
+   "rank": 174,
    "values": [
     0,
     4,
@@ -19898,14 +20042,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Hollow Bass",
    "cat": "Bass",
    "id": "554 A1A2 · Hollow Bass",
-   "rank": 1,
+   "rank": 6,
    "values": [
     0,
     2,
@@ -20170,7 +20317,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -20436,14 +20586,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Ripple of Marimba",
    "cat": "Other",
    "id": "562 A1B1 · Ripple of Marimba",
-   "rank": 171,
+   "rank": 177,
    "values": [
     0,
     3,
@@ -20708,14 +20861,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Orbit Bloom",
    "cat": "Other",
    "id": "575 A1A2 · Orbit Bloom",
-   "rank": 175,
+   "rank": 181,
    "values": [
     0,
     4,
@@ -20980,14 +21136,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Ghost Foundation",
    "cat": "Other",
    "id": "593 A1B1 · Ghost Foundation",
-   "rank": 177,
+   "rank": 183,
    "values": [
     0,
     4,
@@ -21252,14 +21411,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Atoms Signal",
    "cat": "Other",
    "id": "602 A1B1 · Atoms Signal",
-   "rank": 179,
+   "rank": 185,
    "values": [
     0,
     6,
@@ -21524,14 +21686,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Swing of Odd",
    "cat": "Other",
    "id": "680 A2B1 · Swing of Odd",
-   "rank": 181,
+   "rank": 187,
    "values": [
     0,
     2,
@@ -21796,7 +21961,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     1,
@@ -22062,14 +22230,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Swell of Drop",
    "cat": "Pad",
    "id": "773 A1A2B1 · Swell of Drop",
-   "rank": 89,
+   "rank": 95,
    "values": [
     0,
     1,
@@ -22334,14 +22505,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Flint Ripple Haze HIGH_CPU",
    "cat": "Other",
    "id": "785 A1A2 · Flint Ripple Haze",
-   "rank": 12,
+   "rank": 19,
    "values": [
     0,
     0,
@@ -22606,14 +22780,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wood Rise Bows",
    "cat": "Strings",
    "id": "845 A1A2 · Wood Rise Bows",
-   "rank": 56,
+   "rank": 63,
    "values": [
     0,
     5,
@@ -22878,7 +23055,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -23144,14 +23324,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Mist & Origami",
    "cat": "FX",
    "id": "1035 A1A2 · Mist & Origami",
-   "rank": 13,
+   "rank": 20,
    "values": [
     0,
     0,
@@ -23416,14 +23599,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Orbit Drum",
    "cat": "FX",
    "id": "1092 A1A2 · Orbit Drum",
-   "rank": 69,
+   "rank": 75,
    "values": [
     0,
     6,
@@ -23688,7 +23874,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -23954,14 +24143,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Pure Tide Pad",
    "cat": "SuperModulation",
    "id": "1141 A1A2 · Pure Tide Pad",
-   "rank": 44,
+   "rank": 51,
    "values": [
     0,
     6,
@@ -24226,14 +24418,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Slow Violins",
    "cat": "Other",
    "id": "110 A1A2 · Slow Violins",
-   "rank": 183,
+   "rank": 189,
    "values": [
     0,
     6,
@@ -24498,14 +24693,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Wind Tunnel",
    "cat": "Other",
    "id": "186 A1B1 · Wind Tunnel",
-   "rank": 185,
+   "rank": 191,
    "values": [
     0,
     6,
@@ -24770,14 +24968,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Kick",
    "cat": "Other",
    "id": "189 A1A2 · Kick",
-   "rank": 187,
+   "rank": 193,
    "values": [
     0,
     6,
@@ -25042,14 +25243,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Snare",
    "cat": "Other",
    "id": "190 A1A2 · Snare",
-   "rank": 189,
+   "rank": 195,
    "values": [
     0,
     3,
@@ -25314,14 +25518,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Closed Hat",
    "cat": "Other",
    "id": "191 A1A2 · Closed Hat",
-   "rank": 192,
+   "rank": 198,
    "values": [
     0,
     0,
@@ -25586,14 +25793,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Open Hat",
    "cat": "Other",
    "id": "192 A1A2 · Open Hat",
-   "rank": 193,
+   "rank": 199,
    "values": [
     0,
     0,
@@ -25858,14 +26068,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Clap",
    "cat": "Other",
    "id": "193 A1A2 · Clap",
-   "rank": 196,
+   "rank": 202,
    "values": [
     0,
     2,
@@ -26130,14 +26343,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Tom",
    "cat": "Other",
    "id": "198 A1B1 · Tom",
-   "rank": 197,
+   "rank": 203,
    "values": [
     0,
     6,
@@ -26402,14 +26618,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Rim Shot",
    "cat": "Other",
    "id": "199 A1B1 · Rim Shot",
-   "rank": 198,
+   "rank": 204,
    "values": [
     0,
     3,
@@ -26674,14 +26893,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Ice Rise Clav",
    "cat": "Other",
    "id": "526 A1A2B1 · Ice Rise Clav",
-   "rank": 199,
+   "rank": 205,
    "values": [
     0,
     1,
@@ -26946,7 +27168,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -27212,14 +27437,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Silk & Plink",
    "cat": "SuperModulation",
    "id": "547 A1A2 · Silk & Plink",
-   "rank": 98,
+   "rank": 104,
    "values": [
     0,
     6,
@@ -27484,14 +27712,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Drift of Anvil",
    "cat": "Bass",
    "id": "568 A1A2B1 · Drift of Anvil",
-   "rank": 116,
+   "rank": 122,
    "values": [
     0,
     3,
@@ -27756,14 +27987,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Milk Sweep Growl",
    "cat": "Other",
    "id": "573 A1A2 · Milk Sweep Growl",
-   "rank": 200,
+   "rank": 206,
    "values": [
     0,
     3,
@@ -28028,14 +28262,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Reed Beam Undertow",
    "cat": "Other",
    "id": "577 A1A2 · Reed Beam Undertow",
-   "rank": 201,
+   "rank": 207,
    "values": [
     0,
     2,
@@ -28300,14 +28537,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Crystal Signal",
    "cat": "Other",
    "id": "605 A1A2B1 · Crystal Signal",
-   "rank": 202,
+   "rank": 208,
    "values": [
     0,
     5,
@@ -28572,14 +28812,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Fold & Moss",
    "cat": "Other",
    "id": "636 A1A2 · Fold & Moss",
-   "rank": 203,
+   "rank": 209,
    "values": [
     0,
     0,
@@ -28844,14 +29087,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Moon & Breath",
    "cat": "Other",
    "id": "776 A1A2 · Moon & Breath",
-   "rank": 204,
+   "rank": 210,
    "values": [
     0,
     4,
@@ -29116,14 +29362,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pearl Wash HIGH_CPU",
    "cat": "Other",
    "id": "777 A1B1 · Pearl Wash",
-   "rank": 29,
+   "rank": 36,
    "values": [
     0,
     4,
@@ -29388,14 +29637,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Horns",
    "cat": "Bass",
    "id": "870 A1A2 · Tide Horns",
-   "rank": 99,
+   "rank": 105,
    "values": [
     0,
     4,
@@ -29660,14 +29912,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Dust Breath",
    "cat": "Brass & Wind",
    "id": "886 A1A2 · Dust Breath",
-   "rank": 14,
+   "rank": 21,
    "values": [
     0,
     3,
@@ -29932,14 +30187,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Open Mallets",
    "cat": "Bells & Mallets",
    "id": "992 A1B1 · Open Mallets",
-   "rank": 30,
+   "rank": 37,
    "values": [
     0,
     3,
@@ -30204,7 +30462,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -30470,14 +30731,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Beam Zap",
    "cat": "Other",
    "id": "1075 A1A2 · Beam Zap",
-   "rank": 206,
+   "rank": 212,
    "values": [
     0,
     6,
@@ -30742,14 +31006,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Opal Rise Chords HIGH_CPU",
    "cat": "Other",
    "id": "1114 A1A2 · Opal Rise Chords",
-   "rank": 70,
+   "rank": 76,
    "values": [
     0,
     3,
@@ -31014,14 +31281,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wind Surge Horns HIGH_CPU",
    "cat": "Other",
    "id": "1125 A1A2 · Wind Surge Horns",
-   "rank": 93,
+   "rank": 99,
    "values": [
     0,
     4,
@@ -31286,14 +31556,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Nave Rise Keys",
    "cat": "Other",
    "id": "1144 A1B1 · Nave Rise Keys",
-   "rank": 207,
+   "rank": 213,
    "values": [
     0,
     1,
@@ -31558,14 +31831,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Mist Sweep Piano",
    "cat": "Other",
    "id": "1148 A1B1 · Mist Sweep Piano",
-   "rank": 208,
+   "rank": 214,
    "values": [
     0,
     3,
@@ -31830,14 +32106,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wind Storm",
    "cat": "SuperModulation",
    "id": "1156 A1A2 · Wind Storm",
-   "rank": 77,
+   "rank": 83,
    "values": [
     0,
     1,
@@ -32102,14 +32381,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Swirl Chimes",
    "cat": "Other",
    "id": "1167 A1A2 · Swirl Chimes",
-   "rank": 209,
+   "rank": 215,
    "values": [
     0,
     0,
@@ -32374,14 +32656,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Halo Piano",
    "cat": "SuperModulation",
    "id": "1169 A1A2B1 · Halo Piano",
-   "rank": 85,
+   "rank": 91,
    "values": [
     0,
     3,
@@ -32646,14 +32931,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Beam Lung Keys",
    "cat": "SuperModulation",
    "id": "1170 A1B1 · Beam Lung Keys",
-   "rank": 104,
+   "rank": 110,
    "values": [
     0,
     5,
@@ -32918,14 +33206,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Fold Pulse Piano",
    "cat": "SuperModulation",
    "id": "1175 A1A2 · Fold Pulse Piano",
-   "rank": 90,
+   "rank": 96,
    "values": [
     0,
     0,
@@ -33190,14 +33481,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Rust Bloom Machine",
    "cat": "Other",
    "id": "1178 A1B1 · Rust Bloom Machine",
-   "rank": 211,
+   "rank": 217,
    "values": [
     0,
     3,
@@ -33462,14 +33756,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Nasal Swell",
    "cat": "Bass",
    "id": "1181 A1A2 · Nasal Swell",
-   "rank": 136,
+   "rank": 142,
    "values": [
     0,
     2,
@@ -33734,14 +34031,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pure Beam Keys",
    "cat": "SuperModulation",
    "id": "1185 A1B1 · Pure Beam Keys",
-   "rank": 111,
+   "rank": 117,
    "values": [
     0,
     4,
@@ -34006,14 +34306,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Bloom of Timber HIGH_CPU",
    "cat": "Other",
    "id": "1193 A1B1 · Bloom of Timber",
-   "rank": 78,
+   "rank": 84,
    "values": [
     0,
     3,
@@ -34278,14 +34581,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Pixel Surge",
    "cat": "Other",
    "id": "1195 A1A2 · Pixel Surge",
-   "rank": 212,
+   "rank": 218,
    "values": [
     0,
     3,
@@ -34550,14 +34856,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Knock Lead",
    "cat": "Other",
    "id": "1198 A2B1 · Knock Lead",
-   "rank": 213,
+   "rank": 219,
    "values": [
     0,
     1,
@@ -34822,14 +35131,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Morph of Flint",
    "cat": "Other",
    "id": "1202 A1A2 · Morph of Flint",
-   "rank": 214,
+   "rank": 220,
    "values": [
     0,
     0,
@@ -35094,14 +35406,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Pearl Chords",
    "cat": "Other",
    "id": "1203 A1A2 · Pearl Chords",
-   "rank": 215,
+   "rank": 221,
    "values": [
     0,
     2,
@@ -35366,14 +35681,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Fold Flip Harp",
    "cat": "Other",
    "id": "1204 A2B1 · Fold Flip Harp",
-   "rank": 216,
+   "rank": 222,
    "values": [
     0,
     0,
@@ -35638,14 +35956,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Breath Bloom",
    "cat": "SuperModulation",
    "id": "1208 A2B1 · Breath Bloom",
-   "rank": 169,
+   "rank": 175,
    "values": [
     0,
     2,
@@ -35910,14 +36231,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Even of Amber",
    "cat": "Other",
    "id": "1212 A1B1 · Even of Amber",
-   "rank": 217,
+   "rank": 223,
    "values": [
     0,
     4,
@@ -36182,14 +36506,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Glint Atoms Strum",
    "cat": "SuperModulation",
    "id": "1223 A1A2B1 · Glint Atoms Strum",
-   "rank": 94,
+   "rank": 100,
    "values": [
     0,
     0,
@@ -36454,14 +36781,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Lung of Marimba",
    "cat": "Other",
    "id": "1265 A1A2B1 · Lung of Marimba",
-   "rank": 218,
+   "rank": 224,
    "values": [
     0,
     3,
@@ -36726,14 +37056,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Halo Float",
    "cat": "SuperModulation",
    "id": "1307 A1B1 · Halo Float",
-   "rank": 117,
+   "rank": 123,
    "values": [
     0,
     4,
@@ -36998,14 +37331,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Whistle Lead",
    "cat": "Other",
    "id": "024 A1A2 · Whistle Lead",
-   "rank": 219,
+   "rank": 225,
    "values": [
     0,
     6,
@@ -37270,14 +37606,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · String Machine II",
    "cat": "Other",
    "id": "121 A1B1 · String Machine II",
-   "rank": 220,
+   "rank": 226,
    "values": [
     0,
     2,
@@ -37542,14 +37881,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wind Chimes",
    "cat": "Bells & Mallets",
    "id": "162 A1A2 · Wind Chimes",
-   "rank": 2,
+   "rank": 7,
    "values": [
     0,
     6,
@@ -37814,14 +38156,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Tambourine",
    "cat": "Other",
    "id": "200 A1B1 · Tambourine",
-   "rank": 221,
+   "rank": 227,
    "values": [
     0,
     0,
@@ -38086,14 +38431,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Opal Morph Haze",
    "cat": "Other",
    "id": "203 A1A2 · Opal Morph Haze",
-   "rank": 222,
+   "rank": 228,
    "values": [
     0,
     6,
@@ -38358,14 +38706,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Dust Resonance",
    "cat": "Other",
    "id": "279 A1B1 · Dust Resonance",
-   "rank": 223,
+   "rank": 229,
    "values": [
     0,
     2,
@@ -38630,14 +38981,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Swing Signal",
    "cat": "Lead",
    "id": "351 A1A2 · Swing Signal",
-   "rank": 3,
+   "rank": 8,
    "values": [
     0,
     1,
@@ -38902,14 +39256,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Moon Ripple",
    "cat": "Other",
    "id": "362 A2B1 · Moon Ripple",
-   "rank": 224,
+   "rank": 230,
    "values": [
     0,
     4,
@@ -39174,14 +39531,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Taper & Vibes",
    "cat": "Other",
    "id": "504 A1B1 · Taper & Vibes",
-   "rank": 225,
+   "rank": 231,
    "values": [
     0,
     4,
@@ -39446,14 +39806,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Wah Sub",
    "cat": "Bass",
    "id": "509 A1B1 · Wah Sub",
-   "rank": 156,
+   "rank": 162,
    "values": [
     0,
     2,
@@ -39718,14 +40081,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Clang Tide Signal",
    "cat": "SuperModulation",
    "id": "522 A1A2B1 · Clang Tide Signal",
-   "rank": 57,
+   "rank": 64,
    "values": [
     0,
     2,
@@ -39990,14 +40356,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Hold of Gong",
    "cat": "Other",
    "id": "523 A1A2B1 · Hold of Gong",
-   "rank": 226,
+   "rank": 232,
    "values": [
     0,
     6,
@@ -40262,14 +40631,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wasp Surge",
    "cat": "Other",
    "id": "525 A1A2 · Wasp Surge",
-   "rank": 227,
+   "rank": 233,
    "values": [
     0,
     3,
@@ -40534,14 +40906,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Origami Blend",
    "cat": "Other",
    "id": "546 A1B1 · Origami Blend",
-   "rank": 228,
+   "rank": 234,
    "values": [
     0,
     2,
@@ -40806,14 +41181,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Amber Morph",
    "cat": "Other",
    "id": "559 A1B1 · Amber Morph",
-   "rank": 229,
+   "rank": 235,
    "values": [
     0,
     4,
@@ -41078,14 +41456,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Rise of Odd",
    "cat": "Other",
    "id": "561 A1B1 · Rise of Odd",
-   "rank": 230,
+   "rank": 236,
    "values": [
     0,
     0,
@@ -41350,14 +41731,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Stair & Tap",
    "cat": "Other",
    "id": "572 A1A2B1 · Stair & Tap",
-   "rank": 231,
+   "rank": 237,
    "values": [
     0,
     0,
@@ -41622,14 +42006,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Crystal Swirl",
    "cat": "Keyboard",
    "id": "677 A1A2 · Crystal Swirl",
-   "rank": 4,
+   "rank": 9,
    "values": [
     0,
     4,
@@ -41894,14 +42281,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Morph of Brass HIGH_CPU",
    "cat": "Other",
    "id": "754 A1A2 · Morph of Brass",
-   "rank": 45,
+   "rank": 52,
    "values": [
     0,
     4,
@@ -42166,14 +42556,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Ripple Reeds",
    "cat": "Brass & Wind",
    "id": "860 A1B1 · Ripple Reeds",
-   "rank": 5,
+   "rank": 10,
    "values": [
     0,
     6,
@@ -42438,7 +42831,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -42704,14 +43100,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Sweep of Tin",
    "cat": "Other",
    "id": "1077 A2B1 · Sweep of Tin",
-   "rank": 232,
+   "rank": 238,
    "values": [
     0,
     0,
@@ -42976,14 +43375,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Clack Wah",
    "cat": "Other",
    "id": "1085 A1A2B1 · Clack Wah",
-   "rank": 233,
+   "rank": 239,
    "values": [
     0,
     3,
@@ -43248,14 +43650,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Zap Laser",
    "cat": "Other",
    "id": "1086 A1A2 · Zap Laser",
-   "rank": 234,
+   "rank": 240,
    "values": [
     0,
     6,
@@ -43520,14 +43925,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Beam of Brass",
    "cat": "Other",
    "id": "1111 A1A2B1 · Beam of Brass",
-   "rank": 235,
+   "rank": 241,
    "values": [
     0,
     1,
@@ -43792,14 +44200,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Lute",
    "cat": "SuperModulation",
    "id": "1115 A1A2 · Tide Lute",
-   "rank": 172,
+   "rank": 178,
    "values": [
     0,
     6,
@@ -44064,7 +44475,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -44330,14 +44744,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Moon Surge Clav",
    "cat": "Other",
    "id": "1184 A1A2B1 · Moon Surge Clav",
-   "rank": 236,
+   "rank": 242,
    "values": [
     0,
     3,
@@ -44602,14 +45019,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Bloom of Bright",
    "cat": "Other",
    "id": "1190 A1A2 · Bloom of Bright",
-   "rank": 237,
+   "rank": 243,
    "values": [
     0,
     3,
@@ -44874,14 +45294,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Breath of Wood",
    "cat": "Other",
    "id": "1250 A1B1 · Breath of Wood",
-   "rank": 238,
+   "rank": 244,
    "values": [
     0,
     1,
@@ -45146,14 +45569,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Spark Orbit Ensemble",
    "cat": "Other",
    "id": "1326 A1B1 · Spark Orbit Ensemble",
-   "rank": 239,
+   "rank": 245,
    "values": [
     0,
     3,
@@ -45418,14 +45844,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Milk Strum",
    "cat": "Other",
    "id": "1361 A1A2 · Milk Strum",
-   "rank": 240,
+   "rank": 246,
    "values": [
     0,
     2,
@@ -45690,14 +46119,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Octave Square Lead",
    "cat": "Other",
    "id": "020 A1A2 · Octave Square Lead",
-   "rank": 241,
+   "rank": 247,
    "values": [
     0,
     2,
@@ -45962,14 +46394,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Cry Lead",
    "cat": "Other",
    "id": "038 A1B1 · Cry Lead",
-   "rank": 242,
+   "rank": 248,
    "values": [
     0,
     2,
@@ -46234,14 +46669,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Crotales",
    "cat": "Bells & Mallets",
    "id": "160 A1A2 · Crotales",
-   "rank": 15,
+   "rank": 22,
    "values": [
     0,
     6,
@@ -46506,14 +46944,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Rising Sweep",
    "cat": "FX",
    "id": "175 A1A2 · Rising Sweep",
-   "rank": 31,
+   "rank": 38,
    "values": [
     0,
     6,
@@ -46778,14 +47219,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Laser Zap",
    "cat": "FX",
    "id": "177 A1A2 · Laser Zap",
-   "rank": 46,
+   "rank": 53,
    "values": [
     0,
     2,
@@ -47050,14 +47494,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Robot Voice",
    "cat": "FX",
    "id": "179 A1A2 · Robot Voice",
-   "rank": 6,
+   "rank": 11,
    "values": [
     0,
     0,
@@ -47322,14 +47769,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Fibre Sweep Rumble",
    "cat": "Bass",
    "id": "208 A1B1 · Fibre Sweep Rumble",
-   "rank": 95,
+   "rank": 101,
    "values": [
     0,
     6,
@@ -47594,14 +48044,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Open Call",
    "cat": "Other",
    "id": "627 A1A2 · Open Call",
-   "rank": 243,
+   "rank": 249,
    "values": [
     0,
     6,
@@ -47866,14 +48319,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Drift Signal",
    "cat": "Other",
    "id": "633 A2B1 · Drift Signal",
-   "rank": 244,
+   "rank": 250,
    "values": [
     0,
     3,
@@ -48138,14 +48594,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Atoms of Dive",
    "cat": "Other",
    "id": "648 A1A2 · Atoms of Dive",
-   "rank": 245,
+   "rank": 251,
    "values": [
     0,
     6,
@@ -48410,14 +48869,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Ice Tide Strum",
    "cat": "Other",
    "id": "901 A1B1 · Ice Tide Strum",
-   "rank": 246,
+   "rank": 252,
    "values": [
     0,
     5,
@@ -48682,14 +49144,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Wood & Drawbar",
    "cat": "Other",
    "id": "980 A1B1 · Wood & Drawbar",
-   "rank": 247,
+   "rank": 253,
    "values": [
     0,
     1,
@@ -48954,14 +49419,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide of Boom",
    "cat": "Other",
    "id": "1051 A1A2 · Tide of Boom",
-   "rank": 248,
+   "rank": 254,
    "values": [
     0,
     6,
@@ -49226,14 +49694,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Thud Shift",
    "cat": "Other",
    "id": "1053 A1A2 · Thud Shift",
-   "rank": 249,
+   "rank": 255,
    "values": [
     0,
     2,
@@ -49498,14 +49969,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Temple Rise Drum",
    "cat": "Other",
    "id": "1057 A1B1 · Temple Rise Drum",
-   "rank": 250,
+   "rank": 256,
    "values": [
     0,
     6,
@@ -49770,14 +50244,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Breathe Kick",
    "cat": "Other",
    "id": "1061 A1A2 · Breathe Kick",
-   "rank": 251,
+   "rank": 257,
    "values": [
     0,
     6,
@@ -50042,14 +50519,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Plasma Tom",
    "cat": "Other",
    "id": "1062 A1A2 · Plasma Tom",
-   "rank": 252,
+   "rank": 258,
    "values": [
     0,
     6,
@@ -50314,14 +50794,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Punch Rise Kick",
    "cat": "Other",
    "id": "1068 A1A2 · Punch Rise Kick",
-   "rank": 253,
+   "rank": 259,
    "values": [
     0,
     6,
@@ -50586,14 +51069,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Deep Ripple",
    "cat": "Bass",
    "id": "1116 A1A2 · Deep Ripple",
-   "rank": 105,
+   "rank": 111,
    "values": [
     0,
     6,
@@ -50858,14 +51344,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Knock Wah HIGH_CPU",
    "cat": "Other",
    "id": "1117 A1B1 · Knock Wah",
-   "rank": 100,
+   "rank": 106,
    "values": [
     0,
     4,
@@ -51130,14 +51619,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Mosaic Strum",
    "cat": "Other",
    "id": "1182 A1A2B1 · Mosaic Strum",
-   "rank": 254,
+   "rank": 260,
    "values": [
     0,
     0,
@@ -51402,14 +51894,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Static Open Reeds",
    "cat": "Other",
    "id": "1192 A1A2B1 · Static Open Reeds",
-   "rank": 255,
+   "rank": 261,
    "values": [
     0,
     0,
@@ -51674,14 +52169,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Kite Swing",
    "cat": "Other",
    "id": "1199 A1A2 · Kite Swing",
-   "rank": 256,
+   "rank": 262,
    "values": [
     0,
     0,
@@ -51946,14 +52444,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Taper Atoms",
    "cat": "Other",
    "id": "1201 A1A2 · Taper Atoms",
-   "rank": 257,
+   "rank": 263,
    "values": [
     0,
     3,
@@ -52218,14 +52719,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Beam & Fanfare",
    "cat": "Other",
    "id": "1206 A1A2B1 · Beam & Fanfare",
-   "rank": 258,
+   "rank": 264,
    "values": [
     0,
     4,
@@ -52490,14 +52994,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Hollow & Drop",
    "cat": "Other",
    "id": "1231 A1B1 · Hollow & Drop",
-   "rank": 259,
+   "rank": 265,
    "values": [
     0,
     6,
@@ -52762,14 +53269,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Drum & Moss",
    "cat": "Other",
    "id": "1253 A1A2 · Drum & Moss",
-   "rank": 260,
+   "rank": 266,
    "values": [
     0,
     3,
@@ -53034,14 +53544,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Breathe Clav",
    "cat": "Other",
    "id": "1254 A1B1 · Breathe Clav",
-   "rank": 261,
+   "rank": 267,
    "values": [
     0,
     2,
@@ -53306,14 +53819,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Ripple of Crystal",
    "cat": "Other",
    "id": "1267 A1A2 · Ripple of Crystal",
-   "rank": 262,
+   "rank": 268,
    "values": [
     0,
     3,
@@ -53578,14 +54094,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Sweep of Flute",
    "cat": "Other",
    "id": "1278 A1B1 · Sweep of Flute",
-   "rank": 263,
+   "rank": 269,
    "values": [
     0,
     6,
@@ -53850,14 +54369,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Slope of Weave",
    "cat": "Other",
    "id": "1300 A1A2 · Slope of Weave",
-   "rank": 264,
+   "rank": 270,
    "values": [
     0,
     2,
@@ -54122,14 +54644,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Choir Breath Horns",
    "cat": "Other",
    "id": "1305 A1B1 · Choir Breath Horns",
-   "rank": 265,
+   "rank": 271,
    "values": [
     0,
     4,
@@ -54394,14 +54919,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pixel Lean Pipes",
    "cat": "Other",
    "id": "1336 A1B1 · Pixel Lean Pipes",
-   "rank": 266,
+   "rank": 272,
    "values": [
     0,
     0,
@@ -54666,14 +55194,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Talk Lead",
    "cat": "Other",
    "id": "025 A1A2 · Talk Lead",
-   "rank": 267,
+   "rank": 273,
    "values": [
     0,
     3,
@@ -54938,14 +55469,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Fifth Lead",
    "cat": "Other",
    "id": "026 A1A2 · Fifth Lead",
-   "rank": 268,
+   "rank": 274,
    "values": [
     0,
     3,
@@ -55210,14 +55744,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tape Pad",
    "cat": "Other",
    "id": "080 A1A2 · Tape Pad",
-   "rank": 269,
+   "rank": 275,
    "values": [
     0,
     2,
@@ -55482,14 +56019,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · FM Bell",
    "cat": "Other",
    "id": "157 A1A2 · FM Bell",
-   "rank": 270,
+   "rank": 276,
    "values": [
     0,
     6,
@@ -55754,14 +56294,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Air Tide",
    "cat": "Other",
    "id": "371 A1B1 · Air Tide",
-   "rank": 271,
+   "rank": 277,
    "values": [
     0,
     4,
@@ -56026,14 +56569,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Orbit Cloud",
    "cat": "Pad",
    "id": "404 A1B1 · Orbit Cloud",
-   "rank": 137,
+   "rank": 143,
    "values": [
     0,
     3,
@@ -56298,7 +56844,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -56564,14 +57113,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Abyss & Kalimba",
    "cat": "Other",
    "id": "515 A1A2B1 · Abyss & Kalimba",
-   "rank": 272,
+   "rank": 278,
    "values": [
     0,
     3,
@@ -56836,14 +57388,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Swirl of Odd",
    "cat": "Other",
    "id": "538 A1B1 · Swirl of Odd",
-   "rank": 273,
+   "rank": 279,
    "values": [
     0,
     0,
@@ -57108,14 +57663,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Sweep of Trumpet",
    "cat": "Other",
    "id": "645 A1B1 · Sweep of Trumpet",
-   "rank": 274,
+   "rank": 280,
    "values": [
     0,
     1,
@@ -57380,7 +57938,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -57646,14 +58207,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Drawbar Shift",
    "cat": "Other",
    "id": "678 A1B1 · Drawbar Shift",
-   "rank": 275,
+   "rank": 281,
    "values": [
     0,
     0,
@@ -57918,14 +58482,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Moon Resonance Clav",
    "cat": "Other",
    "id": "689 A1B1 · Moon Resonance Clav",
-   "rank": 276,
+   "rank": 282,
    "values": [
     0,
     6,
@@ -58190,14 +58757,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Stair Pulse Tines",
    "cat": "Other",
    "id": "693 A1B1 · Stair Pulse Tines",
-   "rank": 277,
+   "rank": 283,
    "values": [
     0,
     5,
@@ -58462,14 +59032,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Hollow Scape",
    "cat": "Other",
    "id": "1043 A1A2B1 · Hollow Scape",
-   "rank": 278,
+   "rank": 284,
    "values": [
     0,
     6,
@@ -58734,14 +59307,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Skin Swing Hand Drum",
    "cat": "Other",
    "id": "1052 A2B1 · Skin Swing Hand Drum",
-   "rank": 279,
+   "rank": 285,
    "values": [
     0,
     3,
@@ -59006,14 +59582,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Temple & Pixel",
    "cat": "Other",
    "id": "1180 A1A2B1 · Temple & Pixel",
-   "rank": 280,
+   "rank": 286,
    "values": [
     0,
     6,
@@ -59278,14 +59857,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Beam of Cave",
    "cat": "Other",
    "id": "1232 A1B1 · Beam of Cave",
-   "rank": 281,
+   "rank": 287,
    "values": [
     0,
     3,
@@ -59550,14 +60132,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Soft Blend Harp",
    "cat": "Other",
    "id": "1255 A1A2 · Soft Blend Harp",
-   "rank": 282,
+   "rank": 288,
    "values": [
     0,
     2,
@@ -59822,14 +60407,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Tide of Chalk",
    "cat": "Other",
    "id": "1281 A1A2B1 · Tide of Chalk",
-   "rank": 283,
+   "rank": 289,
    "values": [
     0,
     3,
@@ -60094,14 +60682,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Rise of Slate HIGH_CPU",
    "cat": "Other",
    "id": "1333 A1A2 · Rise of Slate",
-   "rank": 106,
+   "rank": 112,
    "values": [
     0,
     2,
@@ -60366,14 +60957,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wood Orbit Pluck",
    "cat": "Other",
    "id": "1339 A1A2 · Wood Orbit Pluck",
-   "rank": 284,
+   "rank": 290,
    "values": [
     0,
     1,
@@ -60638,14 +61232,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Open Pluck",
    "cat": "Other",
    "id": "1340 A1A2B1 · Open Pluck",
-   "rank": 285,
+   "rank": 291,
    "values": [
     0,
     2,
@@ -60910,14 +61507,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Swing of Chalk",
    "cat": "Other",
    "id": "1366 A1A2 · Swing of Chalk",
-   "rank": 286,
+   "rank": 292,
    "values": [
     0,
     6,
@@ -61182,14 +61782,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Opal Atoms",
    "cat": "Other",
    "id": "1374 A1B1 · Opal Atoms",
-   "rank": 287,
+   "rank": 293,
    "values": [
     0,
     6,
@@ -61454,14 +62057,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Flint Ripple Haze LGT",
    "cat": "Pad",
    "id": "AA · Flint Ripple Haze LGT",
-   "rank": 118,
+   "rank": 124,
    "values": [
     0,
     0,
@@ -61726,14 +62332,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Knock Sweep LGT",
    "cat": "Pad",
    "id": "AA · Knock Sweep LGT",
-   "rank": 101,
+   "rank": 107,
    "values": [
     0,
     3,
@@ -61998,7 +62607,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -62264,14 +62876,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Drift Pick LGT",
    "cat": "SuperModulation",
    "id": "AAB · Drift Pick LGT",
-   "rank": 71,
+   "rank": 77,
    "values": [
     0,
     2,
@@ -62536,14 +63151,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Kalimba Lung Machine LGT",
    "cat": "SuperModulation",
    "id": "AB · Kalimba Lung Machine LGT",
-   "rank": 121,
+   "rank": 127,
    "values": [
     0,
     4,
@@ -62808,7 +63426,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -63074,14 +63695,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pearl Wash LGT",
    "cat": "Pad",
    "id": "AB · Pearl Wash LGT",
-   "rank": 32,
+   "rank": 39,
    "values": [
     0,
     4,
@@ -63346,14 +63970,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Velvet Cloud LGT",
    "cat": "Pad",
    "id": "AB · Velvet Cloud LGT",
-   "rank": 122,
+   "rank": 128,
    "values": [
     0,
     4,
@@ -63618,14 +64245,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Sweep of Pixel LGT",
    "cat": "SuperModulation",
    "id": "AA · Sweep of Pixel LGT",
-   "rank": 63,
+   "rank": 70,
    "values": [
     0,
     2,
@@ -63890,14 +64520,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Rust Aurora LGT",
    "cat": "Pad",
    "id": "AB · Rust Aurora LGT",
-   "rank": 126,
+   "rank": 132,
    "values": [
     2,
     4,
@@ -64162,7 +64795,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     2,
@@ -64428,14 +65064,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Opal Rise Chords LGT",
    "cat": "SuperModulation",
    "id": "AA · Opal Rise Chords LGT",
-   "rank": 153,
+   "rank": 159,
    "values": [
     0,
     3,
@@ -64700,7 +65339,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -64966,14 +65608,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Bloom of Timber LGT",
    "cat": "SuperModulation",
    "id": "AB · Bloom of Timber LGT",
-   "rank": 157,
+   "rank": 163,
    "values": [
     0,
     3,
@@ -65238,7 +65883,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -65504,14 +66152,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Analog Cloud LGT",
    "cat": "Pad",
    "id": "AA · Analog Cloud LGT",
-   "rank": 142,
+   "rank": 148,
    "values": [
     0,
     2,
@@ -65776,7 +66427,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -66042,14 +66696,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Salt Beam Strings LGT",
    "cat": "SuperModulation",
    "id": "AA · Salt Beam Strings LGT",
-   "rank": 143,
+   "rank": 149,
    "values": [
     0,
     6,
@@ -66314,7 +66971,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -66580,14 +67240,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Step Spiral LGT",
    "cat": "Pad",
    "id": "AB · Step Spiral LGT",
-   "rank": 131,
+   "rank": 137,
    "values": [
     1,
     4,
@@ -66852,14 +67515,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wind Surge Horns LGT",
    "cat": "SuperModulation",
    "id": "AA · Wind Surge Horns LGT",
-   "rank": 160,
+   "rank": 166,
    "values": [
     0,
     4,
@@ -67124,14 +67790,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Knock Wah LGT",
    "cat": "SuperModulation",
    "id": "AB · Knock Wah LGT",
-   "rank": 163,
+   "rank": 169,
    "values": [
     0,
     4,
@@ -67396,14 +68065,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Rise of Slate LGT",
    "cat": "SuperModulation",
    "id": "AA · Rise of Slate LGT",
-   "rank": 166,
+   "rank": 172,
    "values": [
     0,
     2,
@@ -67668,14 +68340,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Moon & Breath LGT",
    "cat": "Other",
    "id": "AA · Moon & Breath LGT",
-   "rank": 205,
+   "rank": 211,
    "values": [
     0,
     4,
@@ -67940,7 +68615,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -68206,14 +68884,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Drum Bloom LGT",
    "cat": "Other",
    "id": "AA · Drum Bloom LGT",
-   "rank": 148,
+   "rank": 154,
    "values": [
     0,
     3,
@@ -68478,7 +69159,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -68744,14 +69428,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Beam Lung Keys LGT",
    "cat": "Other",
    "id": "AB · Beam Lung Keys LGT",
-   "rank": 210,
+   "rank": 216,
    "values": [
     0,
     5,
@@ -69016,7 +69703,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ],
    "values0": [
     0,
@@ -69282,14 +69972,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Pure Tide Pad FM 3:1",
    "cat": "Pad",
    "id": "AA · Pure Tide Pad FM 3:1",
-   "rank": 47,
+   "rank": 54,
    "values": [
     0,
     6,
@@ -69554,14 +70247,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Pure Tide Pad STEP SINE",
    "cat": "SuperModulation",
    "id": "AA · Pure Tide Pad STEP SINE",
-   "rank": 7,
+   "rank": 12,
    "values": [
     0,
     6,
@@ -69826,14 +70522,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pure Fog PARABOLA",
    "cat": "Pad",
    "id": "AB · Pure Fog PARABOLA",
-   "rank": 79,
+   "rank": 85,
    "values": [
     2,
     4,
@@ -70098,14 +70797,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Clang Tide Signal SAW STACK",
    "cat": "SuperModulation",
    "id": "AAB · Clang Tide Signal SAW STACK",
-   "rank": 16,
+   "rank": 23,
    "values": [
     0,
     2,
@@ -70370,14 +71072,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Horns STEP SAW",
    "cat": "Bass",
    "id": "AA · Tide Horns STEP SAW",
-   "rank": 37,
+   "rank": 44,
    "values": [
     0,
     4,
@@ -70642,14 +71347,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Analog Cloud ORGAN 2 HIGH_CPU",
    "cat": "Other",
    "id": "AA · Analog Cloud ORGAN 2 HIGH_CPU",
-   "rank": 8,
+   "rank": 13,
    "values": [
     0,
     2,
@@ -70914,14 +71622,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Clang Tide Signal FM 2:1",
    "cat": "SuperModulation",
    "id": "AAB · Clang Tide Signal FM 2:1",
-   "rank": 38,
+   "rank": 45,
    "values": [
     0,
     2,
@@ -71186,14 +71897,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pure Fog ORGAN",
    "cat": "Pad",
    "id": "AB · Pure Fog ORGAN",
-   "rank": 96,
+   "rank": 102,
    "values": [
     2,
     4,
@@ -71458,286 +72172,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
-   ]
-  },
-  {
-   "name": "AA · Wood Rise Bows STEP SINE",
-   "cat": "Strings",
-   "id": "AA · Wood Rise Bows STEP SINE",
-   "rank": 64,
-   "values": [
-    0,
-    5,
-    13,
-    0.296,
-    0,
-    0,
-    1,
-    -6,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    0.005,
-    0,
     20,
-    20,
-    1,
     0,
-    4.7,
-    24,
-    4.455,
-    1,
-    2.63,
     0,
-    0,
-    0.5,
-    0,
-    0.003,
-    0.4,
-    0.8,
-    0.3,
-    0.5,
-    0.123,
-    1.37,
-    0.13,
-    0.73,
-    0,
-    4,
-    0,
-    0,
-    0,
-    0,
-    0,
-    8,
-    0,
-    3,
-    8.7,
-    0.9,
-    0,
-    0.35,
-    0.35,
-    0,
-    0.633,
-    0.205,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    1,
-    0.5,
-    0.69,
-    0.6,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0.526,
-    0.41,
-    4,
-    0,
-    0,
-    5,
-    0,
-    7,
-    0,
-    7,
-    0,
-    0,
-    2,
-    1,
-    1,
-    0,
-    0.176615,
-    0,
-    0,
-    0,
-    0,
-    0.08731128585961158,
-    0.8,
-    0.963,
-    1.12,
-    0,
-    0.08,
-    1,
-    10,
-    0.1293,
-    0,
-    0,
-    2,
-    5.6961,
-    24,
-    5.8145,
-    1,
-    2.68,
-    0,
-    0,
-    0.5,
-    0,
-    0.023313,
-    1,
-    0,
-    0,
-    0,
-    0.020100199315953145,
-    0.09593050070283303,
-    0,
-    0.08706192358366271,
-    0,
-    0.08,
-    2,
-    0,
-    12,
-    24,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0.5,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0.08731128585961158,
-    0.8,
-    0.963,
-    1.12,
-    0,
-    0.08,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0.181,
-    0.42,
-    0,
-    0,
-    7,
-    0,
-    0,
-    20000,
-    0,
-    0,
-    0,
-    0,
-    0.005,
-    0.3,
-    0.5,
-    0.3,
-    0.5,
-    0,
-    0.5,
-    0.5,
-    0.5,
-    1,
-    1,
-    0.6,
-    0.02,
-    0.4,
-    150,
-    1,
-    0.318,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0.06,
-    0.5,
-    0,
-    0,
-    0.005,
-    0,
-    20,
-    20,
-    1,
-    0,
-    0,
-    1,
-    0.166667,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0.166667,
-    0.166667,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    20
+    6
    ]
   },
   {
    "name": "AA · Wood Rise Bows TRAPEZOID",
    "cat": "Strings",
    "id": "AA · Wood Rise Bows TRAPEZOID",
-   "rank": 72,
+   "rank": 78,
    "values": [
     0,
     1,
@@ -72002,14 +72447,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Orbit Pad RESO SAW",
    "cat": "Keyboard",
    "id": "AA · Orbit Pad RESO SAW",
-   "rank": 49,
+   "rank": 56,
    "values": [
     0,
     4,
@@ -72274,14 +72722,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Horns SYNC SQR",
    "cat": "Bass",
    "id": "AA · Tide Horns SYNC SQR",
-   "rank": 80,
+   "rank": 86,
    "values": [
     0,
     4,
@@ -72546,14 +72997,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Horns STEP SAW 2",
    "cat": "Bass",
    "id": "AA · Tide Horns STEP SAW 2",
-   "rank": 33,
+   "rank": 40,
    "values": [
     0,
     4,
@@ -72818,14 +73272,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pure Fog FORMANT",
    "cat": "Pad",
    "id": "AB · Pure Fog FORMANT",
-   "rank": 112,
+   "rank": 118,
    "values": [
     2,
     4,
@@ -73090,14 +73547,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Robot Voice SAW+SQR 2",
    "cat": "FX",
    "id": "AA · Robot Voice SAW+SQR 2",
-   "rank": 39,
+   "rank": 46,
    "values": [
     0,
     0,
@@ -73362,14 +73822,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Horns FM 1:1",
    "cat": "Bass",
    "id": "AA · Tide Horns FM 1:1",
-   "rank": 123,
+   "rank": 129,
    "values": [
     0,
     4,
@@ -73634,14 +74097,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Crotales HALF SINE",
    "cat": "Bells & Mallets",
    "id": "AA · Crotales HALF SINE",
-   "rank": 40,
+   "rank": 47,
    "values": [
     0,
     6,
@@ -73906,14 +74372,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Crotales ABS SINE",
    "cat": "Bells & Mallets",
    "id": "AA · Crotales ABS SINE",
-   "rank": 50,
+   "rank": 57,
    "values": [
     0,
     6,
@@ -74178,14 +74647,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Deep Ripple SYNC 2.5 2",
    "cat": "Bass",
    "id": "AA · Deep Ripple SYNC 2.5 2",
-   "rank": 127,
+   "rank": 133,
    "values": [
     0,
     6,
@@ -74450,14 +74922,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Deep Ripple STEP SAW",
    "cat": "Bass",
    "id": "AA · Deep Ripple STEP SAW",
-   "rank": 132,
+   "rank": 138,
    "values": [
     0,
     6,
@@ -74722,14 +75197,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Wave Pulse Lead FORMANT",
    "cat": "Bass",
    "id": "A · Wave Pulse Lead FORMANT",
-   "rank": 58,
+   "rank": 65,
    "values": [
     0,
     5,
@@ -74994,14 +75472,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Pure Tide Pad PARABOLA",
    "cat": "SuperModulation",
    "id": "AA · Pure Tide Pad PARABOLA",
-   "rank": 128,
+   "rank": 134,
    "values": [
     0,
     6,
@@ -75266,14 +75747,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Clang Tide Signal STEP SAW 2",
    "cat": "SuperModulation",
    "id": "AAB · Clang Tide Signal STEP SAW 2",
-   "rank": 133,
+   "rank": 139,
    "values": [
     0,
     2,
@@ -75538,14 +76022,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Wave Pulse Lead TRAPEZOID",
    "cat": "Bass",
    "id": "A · Wave Pulse Lead TRAPEZOID",
-   "rank": 51,
+   "rank": 58,
    "values": [
     0,
     5,
@@ -75810,14 +76297,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Rust Aurora SYNC SQR",
    "cat": "Strings",
    "id": "AB · Rust Aurora SYNC SQR",
-   "rank": 17,
+   "rank": 24,
    "values": [
     2,
     4,
@@ -76082,14 +76572,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AAB · Clang Tide Signal STEP SAW",
    "cat": "SuperModulation",
    "id": "AAB · Clang Tide Signal STEP SAW",
-   "rank": 138,
+   "rank": 144,
    "values": [
     0,
     2,
@@ -76354,14 +76847,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wood Rise Bows SYNC SQR",
    "cat": "Strings",
    "id": "AA · Wood Rise Bows SYNC SQR",
-   "rank": 81,
+   "rank": 87,
    "values": [
     0,
     5,
@@ -76626,14 +77122,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Ripple",
    "cat": "Keyboard",
    "id": "AB · Ripple",
-   "rank": 41,
+   "rank": 48,
    "values": [
     0,
     6,
@@ -76898,14 +77397,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Horns STEP SAW 3",
    "cat": "Bass",
    "id": "AA · Tide Horns STEP SAW 3",
-   "rank": 66,
+   "rank": 72,
    "values": [
     0,
     4,
@@ -77170,14 +77672,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Warm Pad Treble",
    "cat": "Pad",
    "id": "A · Warm Pad Treble",
-   "rank": 9,
+   "rank": 16,
    "values": [
     0,
     4,
@@ -77442,14 +77947,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Tide Horns SYNC 2",
    "cat": "Bass",
    "id": "AA · Tide Horns SYNC 2",
-   "rank": 73,
+   "rank": 79,
    "values": [
     0,
     4,
@@ -77714,14 +78222,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "GLASS BREATH · Tide Horns STEP SAW 2",
    "cat": "Bass",
    "id": "GLASS BREATH · Tide Horns STEP SAW 2",
-   "rank": 86,
+   "rank": 92,
    "values": [
     0,
     4,
@@ -77986,14 +78497,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "GLASS CHAOS · Tide Horns",
    "cat": "Bass",
    "id": "GLASS CHAOS · Tide Horns",
-   "rank": 91,
+   "rank": 97,
    "values": [
     0,
     4,
@@ -78222,7 +78736,7 @@ var WS_SPEC = {
     20,
     20,
     1,
-    -6.22,
+    0,
     0,
     4,
     3.88,
@@ -78258,14 +78772,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "GLASS BREATH · Moon & Breath",
    "cat": "Pad",
    "id": "GLASS BREATH · Moon & Breath",
-   "rank": 59,
+   "rank": 66,
    "values": [
     0,
     4,
@@ -78494,7 +79011,7 @@ var WS_SPEC = {
     20,
     20,
     1,
-    -7.65,
+    0,
     0,
     1,
     0.451,
@@ -78530,14 +79047,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "GLASS BREATH · Pick & Soft",
    "cat": "Pad",
    "id": "GLASS BREATH · Pick & Soft",
-   "rank": 67,
+   "rank": 73,
    "values": [
     0,
     4,
@@ -78766,7 +79286,7 @@ var WS_SPEC = {
     20,
     20,
     1,
-    -6.13,
+    0,
     0,
     1,
     0.499,
@@ -78802,14 +79322,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "GLASS BREATH · Pearl Wash HIGH_CPU",
    "cat": "Pad",
    "id": "GLASS BREATH · Pearl Wash HIGH_CPU",
-   "rank": 74,
+   "rank": 80,
    "values": [
     0,
     4,
@@ -79074,14 +79597,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Salt Beam Strings 2",
    "cat": "Pad",
    "id": "AA · Salt Beam Strings 2",
-   "rank": 149,
+   "rank": 155,
    "values": [
     0,
     6,
@@ -79346,14 +79872,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BASS · Slope of Weave",
    "cat": "Wavelet FM",
    "id": "FM BASS · Slope of Weave",
-   "rank": 82,
+   "rank": 88,
    "values": [
     0,
     2,
@@ -79618,14 +80147,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Slope of Weave",
    "cat": "Wavelet FM",
    "id": "SYNC · Slope of Weave",
-   "rank": 10,
+   "rank": 17,
    "values": [
     0,
     2,
@@ -79890,14 +80422,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BELL · Reed Beam Undertow",
    "cat": "Wavelet FM",
    "id": "FM BELL · Reed Beam Undertow",
-   "rank": 107,
+   "rank": 113,
    "values": [
     0,
     2,
@@ -80162,14 +80697,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BELL · Pixel Surge",
    "cat": "Wavelet FM",
    "id": "FM BELL · Pixel Surge",
-   "rank": 34,
+   "rank": 41,
    "values": [
     0,
     3,
@@ -80434,14 +80972,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM EP · Warm Pad Treble",
    "cat": "Wavelet FM",
    "id": "FM EP · Warm Pad Treble",
-   "rank": 97,
+   "rank": 103,
    "values": [
     0,
     4,
@@ -80706,14 +81247,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BASS · Robot Voice SAW+SQR 2",
    "cat": "Wavelet FM",
    "id": "FM BASS · Robot Voice SAW+SQR 2",
-   "rank": 113,
+   "rank": 119,
    "values": [
     0,
     0,
@@ -80978,14 +81522,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM METAL · Clang Tide Signal FM 2:1",
    "cat": "Wavelet FM",
    "id": "FM METAL · Clang Tide Signal FM 2:1",
-   "rank": 75,
+   "rank": 81,
    "values": [
     0,
     2,
@@ -81250,14 +81797,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "ENCRE · Moon & Breath",
    "cat": "Wavelet FM",
    "id": "ENCRE · Moon & Breath",
-   "rank": 92,
+   "rank": 98,
    "values": [
     0,
     3,
@@ -81522,14 +82072,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "DIGI · Temple & Pixel",
    "cat": "Wavelet FM",
    "id": "DIGI · Temple & Pixel",
-   "rank": 119,
+   "rank": 125,
    "values": [
     0,
     6,
@@ -81794,14 +82347,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SWARM · Tide Horns SYNC 2",
    "cat": "Wavelet FM",
    "id": "SWARM · Tide Horns SYNC 2",
-   "rank": 124,
+   "rank": 130,
    "values": [
     0,
     4,
@@ -82066,14 +82622,17 @@ var WS_SPEC = {
     1,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "MIX · Chalk Edge Call",
    "cat": "Wavelet FM",
    "id": "MIX · Chalk Edge Call",
-   "rank": 134,
+   "rank": 140,
    "values": [
     0,
     0,
@@ -82338,14 +82897,17 @@ var WS_SPEC = {
     1,
     0.395,
     0.461,
-    0.152
+    0.152,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BASS · Tide of Chalk",
    "cat": "Wavelet FM",
    "id": "FM BASS · Tide of Chalk",
-   "rank": 139,
+   "rank": 145,
    "values": [
     0,
     3,
@@ -82610,14 +83172,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "MIX · Deep Ripple",
    "cat": "Wavelet FM",
    "id": "MIX · Deep Ripple",
-   "rank": 144,
+   "rank": 150,
    "values": [
     0,
     6,
@@ -82882,14 +83447,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "MIX · Pure Tide Pad FM 3:1",
    "cat": "Wavelet FM",
    "id": "MIX · Pure Tide Pad FM 3:1",
-   "rank": 52,
+   "rank": 59,
    "values": [
     0,
     6,
@@ -83154,14 +83722,17 @@ var WS_SPEC = {
     1,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BASS · Deep Ripple SYNC 2.5 2",
    "cat": "Wavelet FM",
    "id": "FM BASS · Deep Ripple SYNC 2.5 2",
-   "rank": 150,
+   "rank": 156,
    "values": [
     0,
     6,
@@ -83426,14 +83997,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BASS · Whistle Lead",
    "cat": "Wavelet FM",
    "id": "FM BASS · Whistle Lead",
-   "rank": 154,
+   "rank": 160,
    "values": [
     0,
     6,
@@ -83698,14 +84272,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "RING · Wind Chimes",
    "cat": "Wavelet FM",
    "id": "RING · Wind Chimes",
-   "rank": 158,
+   "rank": 164,
    "values": [
     0,
     6,
@@ -83970,14 +84547,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "DRIVE · Opal Rise Chords HIGH_CPU",
    "cat": "Wavelet FM",
    "id": "DRIVE · Opal Rise Chords HIGH_CPU",
-   "rank": 161,
+   "rank": 167,
    "values": [
     0,
     3,
@@ -84242,14 +84822,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "NOISE · Pick & Soft",
    "cat": "Wavelet FM",
    "id": "NOISE · Pick & Soft",
-   "rank": 164,
+   "rank": 170,
    "values": [
     0,
     4,
@@ -84514,14 +85097,17 @@ var WS_SPEC = {
     0,
     0.78,
     0.756,
-    3.15
+    3.15,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "NOISE · Sweep of Pixel HIGH_CPU",
    "cat": "Wavelet FM",
    "id": "NOISE · Sweep of Pixel HIGH_CPU",
-   "rank": 87,
+   "rank": 93,
    "values": [
     0,
     2,
@@ -84786,14 +85372,17 @@ var WS_SPEC = {
     0,
     0.583,
     0.824,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "NOISE · Flint Ripple Haze LGT",
    "cat": "Wavelet FM",
    "id": "NOISE · Flint Ripple Haze LGT",
-   "rank": 68,
+   "rank": 74,
    "values": [
     0,
     0,
@@ -85058,14 +85647,17 @@ var WS_SPEC = {
     0,
     0.766,
     0.757,
-    2.34
+    2.34,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "MIX · Salt Beam Strings 2",
    "cat": "Wavelet FM",
    "id": "MIX · Salt Beam Strings 2",
-   "rank": 60,
+   "rank": 67,
    "values": [
     0,
     6,
@@ -85330,14 +85922,17 @@ var WS_SPEC = {
     2,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BELL · Slow Violins",
    "cat": "Wavelet FM",
    "id": "FM BELL · Slow Violins",
-   "rank": 167,
+   "rank": 173,
    "values": [
     0,
     6,
@@ -85602,14 +86197,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Rise of Odd",
    "cat": "Wavelet FM",
    "id": "SYNC · Rise of Odd",
-   "rank": 170,
+   "rank": 176,
    "values": [
     0,
     0,
@@ -85874,14 +86472,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Pick & Soft",
    "cat": "Wavelet FM",
    "id": "SYNC · Pick & Soft",
-   "rank": 173,
+   "rank": 179,
    "values": [
     0,
     4,
@@ -86110,7 +86711,7 @@ var WS_SPEC = {
     20,
     20,
     1,
-    -6.13,
+    0,
     0,
     1,
     0.499,
@@ -86146,14 +86747,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Tape Pad",
    "cat": "Wavelet FM",
    "id": "SYNC · Tape Pad",
-   "rank": 176,
+   "rank": 182,
    "values": [
     0,
     2,
@@ -86418,14 +87022,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Wave Brass",
    "cat": "Wavelet FM",
    "id": "SYNC · Wave Brass",
-   "rank": 178,
+   "rank": 184,
    "values": [
     0,
     6,
@@ -86690,14 +87297,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BASS · Wind Surge Horns LGT",
    "cat": "Wavelet FM",
    "id": "FM BASS · Wind Surge Horns LGT",
-   "rank": 180,
+   "rank": 186,
    "values": [
     0,
     4,
@@ -86962,14 +87572,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM METAL · Tide Horns FM 1:1",
    "cat": "Wavelet FM",
    "id": "FM METAL · Tide Horns FM 1:1",
-   "rank": 182,
+   "rank": 188,
    "values": [
     0,
     4,
@@ -87234,14 +87847,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM METAL · Clang Tide Signal SAW STACK",
    "cat": "Wavelet FM",
    "id": "FM METAL · Clang Tide Signal SAW STACK",
-   "rank": 184,
+   "rank": 190,
    "values": [
     0,
     2,
@@ -87506,14 +88122,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "HARD · Deep Ripple STEP SAW",
    "cat": "Wavelet FM",
    "id": "HARD · Deep Ripple STEP SAW",
-   "rank": 186,
+   "rank": 192,
    "values": [
     0,
     6,
@@ -87778,14 +88397,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "HARD · Glint Atoms Strum",
    "cat": "Wavelet FM",
    "id": "HARD · Glint Atoms Strum",
-   "rank": 188,
+   "rank": 194,
    "values": [
     0,
     0,
@@ -88050,14 +88672,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM METAL · Tide Horns STEP SAW 3",
    "cat": "Wavelet FM",
    "id": "FM METAL · Tide Horns STEP SAW 3",
-   "rank": 190,
+   "rank": 196,
    "values": [
     0,
     4,
@@ -88322,14 +88947,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Noise Wash Pad 2",
    "cat": "Wavelet FM",
    "id": "A · Noise Wash Pad 2",
-   "rank": 194,
+   "rank": 200,
    "values": [
     0,
     6,
@@ -88594,14 +89222,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Cello Section 2",
    "cat": "Strings",
    "id": "A · Cello Section 2",
-   "rank": 53,
+   "rank": 60,
    "values": [
     0,
     7,
@@ -88866,14 +89497,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Hollow Bass 2",
    "cat": "Bass",
    "id": "AA · Hollow Bass 2",
-   "rank": 18,
+   "rank": 25,
    "values": [
     0,
     2,
@@ -89138,14 +89772,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Crystal Swirl 2",
    "cat": "Keyboard",
    "id": "AA · Crystal Swirl 2",
-   "rank": 19,
+   "rank": 26,
    "values": [
     0,
     4,
@@ -89410,14 +90047,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AB · Pearl Wash LGT 2",
    "cat": "Pad",
    "id": "AB · Pearl Wash LGT 2",
-   "rank": 42,
+   "rank": 49,
    "values": [
     0,
     4,
@@ -89682,14 +90322,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Warm Pad Treble 2",
    "cat": "Pad",
    "id": "A · Warm Pad Treble 2",
-   "rank": 20,
+   "rank": 27,
    "values": [
     0,
     4,
@@ -89912,12 +90555,12 @@ var WS_SPEC = {
     0.06,
     0.5,
     0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
     1,
-    5,
-    0,
-    0.01,
-    0.01,
-    0,
     0,
     0,
     1,
@@ -89954,14 +90597,17 @@ var WS_SPEC = {
     1,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Slope of Weave 2",
    "cat": "Wavelet FM",
    "id": "SYNC · Slope of Weave 2",
-   "rank": 23,
+   "rank": 30,
    "values": [
     0,
     2,
@@ -90226,14 +90872,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM BELL · Pixel Surge 2",
    "cat": "Wavelet FM",
    "id": "FM BELL · Pixel Surge 2",
-   "rank": 43,
+   "rank": 50,
    "values": [
     0,
     5,
@@ -90498,14 +91147,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM EP · Warm Pad Treble 2",
    "cat": "Wavelet FM",
    "id": "FM EP · Warm Pad Treble 2",
-   "rank": 102,
+   "rank": 108,
    "values": [
     0,
     4,
@@ -90770,14 +91422,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SWARM · Tide Horns SYNC 2 2",
    "cat": "Wavelet FM",
    "id": "SWARM · Tide Horns SYNC 2 2",
-   "rank": 129,
+   "rank": 135,
    "values": [
     0,
     4,
@@ -91042,14 +91697,17 @@ var WS_SPEC = {
     1,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Noise Wash Pad 3",
    "cat": "Wavelet FM",
    "id": "A · Noise Wash Pad 3",
-   "rank": 195,
+   "rank": 201,
    "values": [
     0,
     6,
@@ -91314,14 +91972,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Moss Tide 2",
    "cat": "Other",
    "id": "AA · Moss Tide 2",
-   "rank": 115,
+   "rank": 121,
    "values": [
     0,
     6,
@@ -91586,14 +92247,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Chalk Edge Call 2",
    "cat": "Bass",
    "id": "AA · Chalk Edge Call 2",
-   "rank": 110,
+   "rank": 116,
    "values": [
     0,
     0,
@@ -91858,14 +92522,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Orbit Pad 2",
    "cat": "SuperModulation",
    "id": "AA · Orbit Pad 2",
-   "rank": 146,
+   "rank": 152,
    "values": [
     0,
     4,
@@ -92130,14 +92797,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Pure Tide Pad FM 3:1 2",
    "cat": "Pad",
    "id": "AA · Pure Tide Pad FM 3:1 2",
-   "rank": 48,
+   "rank": 55,
    "values": [
     0,
     6,
@@ -92402,14 +93072,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "AA · Wood Rise Bows STEP SINE 2",
    "cat": "Strings",
    "id": "AA · Wood Rise Bows STEP SINE 2",
-   "rank": 65,
+   "rank": 71,
    "values": [
     0,
     5,
@@ -92674,14 +93347,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Warm Pad Treble 3",
    "cat": "Pad",
    "id": "A · Warm Pad Treble 3",
-   "rank": 21,
+   "rank": 28,
    "values": [
     0,
     4,
@@ -92946,14 +93622,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Slope of Weave 3",
    "cat": "Wavelet FM",
    "id": "SYNC · Slope of Weave 3",
-   "rank": 24,
+   "rank": 31,
    "values": [
     0,
     2,
@@ -93218,14 +93897,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "FM METAL · Clang Tide Signal FM 2:1 2",
    "cat": "Wavelet FM",
    "id": "FM METAL · Clang Tide Signal FM 2:1 2",
-   "rank": 76,
+   "rank": 82,
    "values": [
     0,
     2,
@@ -93490,14 +94172,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "SYNC · Slope of Weave 4",
    "cat": "Wavelet FM",
    "id": "SYNC · Slope of Weave 4",
-   "rank": 25,
+   "rank": 32,
    "values": [
     0,
     2,
@@ -93762,14 +94447,17 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
    "name": "A · Warm Pad Treble 4",
    "cat": "Pad",
    "id": "A · Warm Pad Treble 4",
-   "rank": 22,
+   "rank": 29,
    "values": [
     0,
     4,
@@ -94034,7 +94722,1935 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
+   ]
+  },
+  {
+   "name": "Didgeridou",
+   "cat": "Bass",
+   "id": "Didgeridou",
+   "rank": 3,
+   "values": [
+    0,
+    1,
+    0,
+    0.5,
+    0,
+    1,
+    1,
+    -5.0052,
+    1,
+    0,
+    0.6207,
+    0,
+    0.405,
+    0,
+    0.2977,
+    0,
+    0.2769,
+    0,
+    0,
+    0.0437,
+    0,
+    20,
+    20,
+    1,
+    0,
+    5.4405,
+    24,
+    2.1006,
+    1,
+    0,
+    0,
+    0.91,
+    0.26,
+    0.78,
+    0.003,
+    0.4,
+    0.8,
+    0.3,
+    0.6,
+    0.003,
+    0.5,
+    0.728241,
+    0.5,
+    1,
+    0.777,
+    6.300116,
+    0,
+    0,
+    -2,
+    0,
+    12,
+    0,
+    2,
+    10,
+    0.96,
+    0,
+    0.35,
+    0.35,
+    0,
+    0.65,
+    0.29,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0.3,
+    0.56,
+    0.6,
+    6,
+    0.41,
+    1,
+    0,
+    0,
+    1.22,
+    1,
+    9,
+    0.0976,
+    0,
+    5,
+    0,
+    7,
+    0,
+    7,
+    0,
+    0,
+    2,
+    1,
+    1,
+    0,
+    0.32023,
+    -1,
+    7,
+    8.018324,
+    0,
+    0.004,
+    0.803279,
+    0.575602,
+    1.068,
+    0,
+    0.08,
+    2,
+    5,
+    0.5,
+    0,
+    0,
+    2,
+    7.8907,
+    24,
+    2.9105,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.211913,
+    0,
+    0,
+    0,
+    0,
+    0.004,
+    0.803279,
+    0.575602,
+    1.068,
+    0,
+    0.08,
+    6,
+    0,
+    5.27,
+    24,
+    1.79,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.252005,
+    0,
+    0,
+    0,
+    0,
+    0.004,
+    0.803279,
+    0.575602,
+    1.068,
+    0,
+    0.08,
+    0,
+    24,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0.444,
+    1,
+    6,
+    0,
+    7,
+    0,
+    0,
+    2056,
+    0.13,
+    0.14,
+    0.72,
+    0.22,
+    0.002,
+    0.708,
+    0.35,
+    0.442,
+    0.5,
+    0,
+    0.5,
+    0.5,
+    0.5,
+    1,
+    1,
+    0.6,
+    0.02,
+    0.4,
+    150,
+    1,
+    0.5,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.595647,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0.06,
+    0.5,
+    0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    0,
+    1,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0.166667,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    -0.492554,
+    0.664375,
+    0,
+    0,
+    0,
+    20,
+    3,
+    0.876289,
+    3
+   ]
+  },
+  {
+   "name": "AB · Velvet Cloud LGT 2",
+   "cat": "Pad",
+   "id": "AB · Velvet Cloud LGT 2",
+   "rank": 14,
+   "values": [
+    0,
+    4,
+    0,
+    0.5,
+    0,
+    5,
+    76,
+    -1.5965,
+    0,
+    0,
+    0.051,
+    0.4355,
+    0.8492,
+    1,
+    0.8948,
+    0.7051,
+    0.5629,
+    0,
+    0,
+    0.1979,
+    0,
+    20,
+    20,
+    0.7447,
+    0,
+    4.536,
+    24,
+    2.5253,
+    1,
+    1.5446,
+    0,
+    0,
+    0.5,
+    0,
+    0.003,
+    0.4,
+    0.8,
+    0.3,
+    0.3,
+    0.001,
+    10,
+    1,
+    10,
+    1,
+    0.212,
+    0,
+    0,
+    0,
+    0,
+    0,
+    10,
+    0,
+    1,
+    8.4,
+    0.96,
+    0,
+    0.35,
+    0.35,
+    0,
+    0.285808,
+    0.31,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0.59,
+    0.45,
+    0.6,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    5,
+    0,
+    7,
+    0,
+    7,
+    0,
+    0,
+    2,
+    1,
+    1,
+    0,
+    0.312113,
+    0,
+    0,
+    0,
+    0,
+    0.001,
+    0.8,
+    0.801,
+    0.010787,
+    0,
+    0.08,
+    2,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    12,
+    24,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1.858363,
+    0.8,
+    0.801,
+    2.108,
+    0,
+    0.08,
+    3,
+    0,
+    7.99,
+    24,
+    2.14,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.142011,
+    -1,
+    0,
+    0,
+    0,
+    1.858363,
+    0.8,
+    0.801,
+    2.108,
+    0,
+    0.08,
+    0,
+    20.88,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.061,
+    0,
+    16,
+    0,
+    7,
+    0,
+    0,
+    479.643023,
+    0.39,
+    0.02,
+    0.59,
+    0.3,
+    0.079706,
+    1.234,
+    0.88,
+    2.601,
+    0.5,
+    0,
+    0.5,
+    0.5,
+    0.5,
+    1,
+    1,
+    0.6,
+    0.02,
+    0.4,
+    150,
+    1,
+    0.5,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.06,
+    0.5,
+    0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    0,
+    1,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0.166667,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5,
+    -0.198167,
+    -0.477663,
+    0,
+    0,
+    0,
+    20,
+    4,
+    0,
+    10
+   ]
+  },
+  {
+   "name": "AB · Silk Strings 2",
+   "cat": "Strings",
+   "id": "AB · Silk Strings 2",
+   "rank": 0,
+   "values": [
+    0,
+    6,
+    0,
+    0.5,
+    0,
+    1,
+    1,
+    -6,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    7,
+    18,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.003,
+    0.4,
+    0.8,
+    0.3,
+    0.5,
+    0.003,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    4,
+    4.581943,
+    0,
+    0,
+    0,
+    0,
+    8,
+    0,
+    2,
+    9,
+    0.7,
+    0,
+    0.35,
+    0.35,
+    0,
+    0.239175,
+    0.299542,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0.8,
+    0.5,
+    0.7,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    5,
+    0,
+    7,
+    0,
+    7,
+    0,
+    0,
+    2,
+    1,
+    1,
+    0,
+    0.277272,
+    0,
+    0,
+    0,
+    0,
+    0.001,
+    0.4,
+    0.641466,
+    0.001596,
+    0,
+    0.08,
+    2,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    12,
+    24,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1.098285,
+    0.4,
+    0.9,
+    1.6,
+    0,
+    0.08,
+    6,
+    0,
+    7,
+    18,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.126002,
+    0,
+    0,
+    0,
+    0,
+    1.098285,
+    0.4,
+    0.9,
+    0.001,
+    0,
+    0.08,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    7,
+    0,
+    0,
+    6605.862532,
+    0,
+    0.166094,
+    0,
+    0,
+    0.005,
+    0.3,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    0.5,
+    0.5,
+    0.5,
+    1,
+    1,
+    0.6,
+    0.02,
+    0.4,
+    150,
+    1,
+    0.5,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.06,
+    0.5,
+    0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    0,
+    1,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0.166667,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    -0.996564,
+    0,
+    0,
+    0,
+    20,
+    4,
+    0.332188,
+    6
+   ]
+  },
+  {
+   "name": "A · Duck Pad",
+   "cat": "Pad",
+   "id": "A · Duck Pad",
+   "rank": 15,
+   "values": [
+    0,
+    4,
+    13,
+    0.5,
+    0,
+    0,
+    1,
+    -6,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    5,
+    24,
+    4,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.003,
+    0.4,
+    0.8,
+    0.3,
+    0.5,
+    0.003,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    0.4,
+    0,
+    0.8,
+    0,
+    0,
+    0,
+    8,
+    0,
+    3,
+    16,
+    0.9,
+    0,
+    0.42,
+    0.076923,
+    0.12,
+    0.306838,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    0.7,
+    0.6,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2.518982,
+    0,
+    0,
+    0,
+    0,
+    5,
+    0,
+    7,
+    0,
+    7,
+    0,
+    0,
+    2,
+    1,
+    1,
+    0,
+    0.220204,
+    0,
+    0,
+    0,
+    0,
+    0.001,
+    1,
+    0.85,
+    0.008393,
+    0,
+    0.08,
+    2,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    12,
+    24,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.001,
+    1,
+    0.85,
+    0.008393,
+    0,
+    0.08,
+    5,
+    0,
+    5,
+    24,
+    4,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.001,
+    1,
+    0.85,
+    0.008393,
+    0,
+    0.08,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    7,
+    0,
+    0,
+    20000,
+    0.459184,
+    0,
+    0,
+    0,
+    0.036697,
+    0.3,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    0.5,
+    0.5,
+    0.5,
+    1,
+    1,
+    0.6,
+    0.02,
+    0.4,
+    150,
+    1,
+    0.226757,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -0.045819,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0.06,
+    0.5,
+    0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    0,
+    2,
+    1.381614,
+    0,
+    0.750567,
+    0.195011,
+    0.283448,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.013606,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0.166667,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    6,
+    0.904926,
+    0.996563,
+    0,
+    0,
+    0,
+    20,
+    0,
+    0,
+    6
+   ]
+  },
+  {
+   "name": "A · Strings Ensemble",
+   "cat": "Strings",
+   "id": "A · Strings Ensemble",
+   "rank": 1,
+   "values": [
+    2,
+    6,
+    0,
+    0.5,
+    0,
+    0,
+    1,
+    -6,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    6,
+    18,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.003,
+    0.4,
+    0.8,
+    0.3,
+    0.5,
+    0.001,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    0.714668,
+    7.222223,
+    1,
+    0,
+    0,
+    0,
+    8,
+    0,
+    3,
+    10,
+    0.7,
+    0,
+    0.35,
+    0.35,
+    0,
+    0.210538,
+    0.210997,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0.5,
+    0.7,
+    0.6,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    5,
+    0,
+    7,
+    0,
+    7,
+    0,
+    0,
+    2,
+    1,
+    1,
+    0,
+    0.137457,
+    0,
+    0,
+    5.727375,
+    0,
+    0.004617,
+    0.4,
+    0.9,
+    1,
+    0,
+    0.08,
+    2,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    12,
+    24,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.21764,
+    0,
+    0,
+    0,
+    0,
+    0.375,
+    0.4,
+    0.9,
+    1,
+    0,
+    0.08,
+    6,
+    0,
+    6,
+    18,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0.292096,
+    0,
+    0,
+    0,
+    0,
+    0.001,
+    0.4,
+    0,
+    1,
+    0,
+    0.08,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    7,
+    0,
+    0,
+    4274.920035,
+    0,
+    0.246277,
+    0,
+    0,
+    0.001,
+    0.3,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    0.5,
+    0.5,
+    0.5,
+    1,
+    1,
+    0.6,
+    0.02,
+    0.4,
+    150,
+    1,
+    0.322451,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.06,
+    0.5,
+    0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    0,
+    1,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0.166667,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    20,
+    0,
+    0,
+    6
+   ]
+  },
+  {
+   "name": "AA · BAss Flute",
+   "cat": "Bass",
+   "id": "AA · BAss Flute",
+   "rank": 4,
+   "values": [
+    0,
+    6,
+    23,
+    0.5,
+    0.01,
+    0,
+    1,
+    -6,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    4.59,
+    24,
+    0,
+    1,
+    0,
+    0,
+    0.83,
+    0.34,
+    0.8,
+    0.003,
+    0.4,
+    0.8,
+    0.3,
+    0.3,
+    0.003,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    0.179,
+    0,
+    0,
+    0,
+    0,
+    0,
+    8,
+    0,
+    3,
+    8,
+    0.82,
+    0,
+    0.35,
+    0.35,
+    0,
+    0.452,
+    0.18,
+    0,
+    0,
+    0,
+    0,
+    0.292096,
+    1,
+    2,
+    1,
+    0.54,
+    0.4,
+    0.6,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.066,
+    1,
+    7,
+    0,
+    0,
+    5,
+    0,
+    7,
+    0,
+    7,
+    0,
+    0,
+    2,
+    1,
+    1,
+    0,
+    0.397167,
+    0,
+    0,
+    0,
+    0,
+    0.001,
+    0.8,
+    0.796,
+    0.014558,
+    0,
+    0.08,
+    3,
+    5,
+    0.5,
+    0.3,
+    0,
+    2,
+    4.97,
+    24,
+    2.2673,
+    1,
+    0,
+    0,
+    0.36,
+    0.27,
+    0.84,
+    0.095551,
+    0,
+    0,
+    0,
+    0,
+    0.049911,
+    0.8,
+    0.796,
+    0.014558,
+    0,
+    0.08,
+    2,
+    0,
+    12,
+    24,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.049911,
+    0.8,
+    0.796,
+    0.014558,
+    0,
+    0.08,
+    0.967,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.109,
+    -1,
+    6,
+    0,
+    7,
+    0,
+    0,
+    445,
+    0.26,
+    0.09,
+    0.38,
+    0.32,
+    0.019099,
+    0.001,
+    0.450447,
+    2.199,
+    0.5,
+    0,
+    0.5,
+    0.5,
+    0.5,
+    1,
+    1,
+    0.6,
+    0.02,
+    0.4,
+    150,
+    1,
+    0.477,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.664375,
+    0,
+    0,
+    0,
+    0,
+    10,
+    1,
+    0,
+    0.06,
+    0.5,
+    0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    0,
+    1,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0.166667,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    20,
+    0,
+    0,
+    6
+   ]
+  },
+  {
+   "name": "Square Bass",
+   "cat": "Bass",
+   "id": "Square Bass",
+   "rank": 5,
+   "values": [
+    0,
+    6,
+    9,
+    0.5,
+    0,
+    4,
+    1,
+    -5.1153,
+    1,
+    0.7813,
+    0.8884,
+    0.5884,
+    0.4519,
+    0.4714,
+    0.3074,
+    0.1541,
+    0,
+    0,
+    0,
+    0.014,
+    0,
+    20,
+    20,
+    1,
+    0,
+    4.304,
+    24,
+    0.6029,
+    1,
+    4.39,
+    0,
+    0,
+    0.5,
+    0,
+    0.003,
+    0.4,
+    0.8,
+    0.3,
+    0.5605,
+    0.265,
+    0.96,
+    0.42,
+    0.66,
+    0,
+    0.869765,
+    7.8,
+    1.954503,
+    0,
+    -1,
+    0,
+    1,
+    0.088,
+    1,
+    0,
+    0.3,
+    0,
+    0.35,
+    0.35,
+    0,
+    0.27,
+    0.07,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    2,
+    0,
+    0.7,
+    0.6,
+    0,
+    0.37,
+    0,
+    0,
+    0,
+    0.324,
+    0.54,
+    6,
+    0,
+    0,
+    5,
+    0,
+    7,
+    0,
+    7,
+    0,
+    0,
+    2,
+    1,
+    1,
+    0,
+    0.118406,
+    -1,
+    0,
+    0,
+    0,
+    0.008,
+    0.702,
+    0.808,
+    0.121,
+    0,
+    0.08,
+    2,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    12,
+    24,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0.5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.008,
+    0.702,
+    0.808,
+    0.121,
+    0,
+    0.08,
+    3,
+    0,
+    5.82,
+    24,
+    0,
+    1,
+    4.87,
+    0,
+    0.01,
+    0.28,
+    0.79,
+    0.169151,
+    -1,
+    0,
+    0,
+    0,
+    0.008,
+    0.702,
+    0.808,
+    0.121,
+    0,
+    0.08,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    7,
+    0,
+    0,
+    20000,
+    0,
+    0,
+    0,
+    0,
+    0.005,
+    0.3,
+    0.5,
+    0.3,
+    0.5,
+    0,
+    0.5,
+    0.5,
+    0.5,
+    1,
+    1,
+    0.6,
+    0.02,
+    0.4,
+    150,
+    1,
+    0.5,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.389462,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0.06,
+    0.5,
+    0,
+    0,
+    0.005,
+    0,
+    20,
+    20,
+    1,
+    0,
+    0,
+    1,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0.166667,
+    0.166667,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    -0.896907,
+    0.790378,
+    0,
+    0,
+    0,
+    20,
+    0,
+    0,
+    6
    ]
   }
  ],
@@ -94305,7 +96921,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
@@ -94574,7 +97193,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
@@ -94843,7 +97465,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
@@ -95112,7 +97737,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   },
   {
@@ -95381,7 +98009,10 @@ var WS_SPEC = {
     0,
     0,
     0,
-    20
+    20,
+    0,
+    0,
+    6
    ]
   }
  ],
@@ -96825,21 +99456,11 @@ var WS_SPEC = {
    ]
   },
   {
-   "title": "BAND ENVELOPES",
+   "title": "POLARITY",
    "p": [
-    221,
-    222,
-    223,
-    224,
-    225,
-    226
-   ]
-  },
-  {
-   "title": "TILT · PARITY",
-   "p": [
-    227,
-    228
+    264,
+    265,
+    266
    ]
   }
  ],
@@ -96916,37 +99537,17 @@ var WS_SPEC = {
    "Where a note starts in the cycle: on the edge it clicks, at zero it is soft.",
    "0 %"
   ],
-  "221": [
-   "How much the band envelopes shape A1 / A2 (0 = off).",
-   "+12 %"
+  "264": [
+   "Which bands POLARITY turns down: odd, even, the fine ones (from SPLIT up) or the coarse ones (below).",
+   "0 %"
   ],
-  "222": [
-   "The bands' attack time.",
-   "in AMOUNT"
-  ],
-  "223": [
-   "+: the fine bands rise later; -: the coarse bands rise later.",
-   "in AMOUNT"
-  ],
-  "224": [
-   "How long the coarse bands take to fall to the sustain.",
-   "in AMOUNT"
-  ],
-  "225": [
-   "How long the fine bands take to fall: short = a bright attack that dies.",
-   "in AMOUNT"
-  ],
-  "226": [
-   "The bands' level once they have fallen.",
-   "in AMOUNT"
-  ],
-  "227": [
-   "Slopes the band gains: - darker, + brighter, without a filter edge.",
-   "+3 %"
-  ],
-  "228": [
-   "Turns the even bands down: a hollow colour, like an octave comb.",
+  "265": [
+   "0: untouched; 50 %: those bands silent; 100 %: inverted (a hollow, then a reversed colour).",
    "+1 %"
+  ],
+  "266": [
+   "The band where fine and coarse part (FINE: from it up; COARSE: below it).",
+   "in BANDS"
   ]
  }
 };

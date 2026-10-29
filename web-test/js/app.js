@@ -31,6 +31,14 @@
   // beta 0.6 (security review): stored data is untrusted (other pages of the same site share it): well-formed entries only
   userPresets = userPresets.filter(p => p && typeof p === 'object' && typeof p.name === 'string' && p.values && typeof p.values === 'object')
     .map(p => ({ name: p.name.slice(0, 40), values: p.values }));
+  // OktoWave 1.3.2: the sounds this browser saved for an older web app (the AMP ENVELOPE, the own-envelope switches, the SUB OSC with two octaves) are converted once so that they play as they did
+  // (web/js/legacy.js, from tools/amp_convert.js: the rule of the factory presets); 'mwt14.ver' says which format the stored sounds are in
+  const LEGACY = window.WS_LEGACY, defOfKey = k => PARAMS[P[k]].def;
+  if (LEGACY && store.get('mwt14.ver', 0) < LEGACY.STORE_VERSION) {
+    userPresets.forEach(p => { try { LEGACY.convertValues(p.values, defOfKey); } catch (_) { /* a sound it cannot convert stays as it is */ } });
+    store.set('mwt14.user', userPresets);
+    store.set('mwt14.ver', LEGACY.STORE_VERSION);
+  }
 
   // Okto MultiWave Synth: the performance settings (perf: CHORD, its type, octave, voicing, bass, strum) are not part of a sound: a
   // preset or an export never holds them (withPerf = false); the state saved by this page keeps them
@@ -298,7 +306,7 @@
     saveStateSoon();
   }
   function exportPreset() {
-    const data = { format: 'okto-multiwave-synth-preset', version: 1, name: presetName, values: toKeyed() };
+    const data = { format: 'okto-multiwave-synth-preset', version: 2, name: presetName, values: toKeyed() };   // (1.3.2: version 2 = the sound of 1.3 and later; a file of version 1 is converted when it is imported)
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     a.download = presetName.replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '_') + '.json';
@@ -312,7 +320,9 @@
         const data = JSON.parse(r.result);
         if (!data || !data.values || typeof data.values !== 'object') throw new Error('not a Okto MultiWave Synth preset');
         const name = String(data.name || file.name.replace(/\.json$/i, '')).slice(0, 40);
-        userPresets.push({ name, values: data.values });
+        const vals = Object.assign({}, data.values);
+        if (LEGACY && !(data.version >= LEGACY.STORE_VERSION)) LEGACY.convertValues(vals, defOfKey);   // (1.3.2: a file an older web app exported)
+        userPresets.push({ name, values: vals });
         store.set('mwt14.user', userPresets);
         loadPreset('u:' + (userPresets.length - 1));
       } catch (e) { alert('Could not import preset: ' + e.message); }

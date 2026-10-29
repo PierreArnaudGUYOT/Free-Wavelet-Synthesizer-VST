@@ -234,7 +234,7 @@ class SynthUI {
     const widget = {
       w, p, i, el: box,
       update: () => {
-        const v = this.host.get(i), np = this.C.toNorm(p, v), n = this.knobNorm(p, v);   // (1.4: n is the knob's travel, np the parameter's own mapping: they differ for TILT)
+        const v = this.host.get(i), np = this.C.toNorm(p, v), n = this.knobNorm(p, v);   // (1.3.1: n is the knob's travel, np the parameter's own mapping: they differ for TILT)
         const a = A0 + (A1 - A0) * n;
         const from = bip ? A0 + (A1 - A0) * this.knobNorm(p, 0) : A0;
         val.setAttribute('d', arcPath(cx, cy, ar, Math.min(from, a), Math.max(from, a)));
@@ -318,11 +318,11 @@ class SynthUI {
     }, { passive: false });
   }
 
-  // OktoWave 1.4: a knob's travel can cover a part of the parameter's range only (p.zoom = [lo, hi], a straight line: TILT's central half, -15 .. +3 dB per band); the range, the values of the
+  // OktoWave 1.3.1: a knob's travel can cover a part of the parameter's range only (p.zoom = [lo, hi], a straight line: TILT's central half, -15 .. +3 dB per band); the range, the values of the
   // sounds, the host's mapping and what the LFOs swing are as they were (vst/src/dsp.h knobNorm / knobPlain are the same)
   knobNorm(p, v) { return p.zoom ? clamp((v - p.zoom[0]) / (p.zoom[1] - p.zoom[0]), 0, 1) : this.C.toNorm(p, v); }
   knobPlain(p, n) { return p.zoom ? p.zoom[0] + clamp(n, 0, 1) * (p.zoom[1] - p.zoom[0]) : this.C.toPlain(p, n); }
-  // OktoWave 1.4 (the owner: "OSC2 pas activé: monter son volume ne fait rien"): in the routes FM, RING and AM OSC2 only modulates OSC1 and the OS2 level does nothing; turning OS2 up from 0 then
+  // OktoWave 1.3.1 (the owner: "OSC2 pas activé: monter son volume ne fait rien"): in the routes FM, RING and AM OSC2 only modulates OSC1 and the OS2 level does nothing; turning OS2 up from 0 then
   // moves the route to its "+ MIX" variant (2, 4, 6) (vst/src/editor.cpp routeFollowsOs2 is the same)
   userSet(i, v) {
     const old = this.host.get(i);

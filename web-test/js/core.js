@@ -28,7 +28,10 @@ function WSCoreFactory(SPEC) {
   // TEST 1.2 (ClaudeProjects/OKTOWAVE_OSCILLATEUR_PALETTE.md): two more kinds of variant, the SOURCE SYNC ratio (SYNC_K sets from 1 to 8) and the wavelet ANGLE (ANGLE_K sets round
   // the turn, relative to the knob like the PHASE sets: set 0 is the oscillator's own, the place wraps)
   const SYNC_K = 15, ANGLE_K = 12, VK_SYNC = 3, VK_ANGLE = 4;
-  const VK_N = [PHASE_K, SPARSE_K, WIDTH_K, SYNC_K, ANGLE_K];
+  // 1.4: two more kinds, the WAVELET SHAPER's ROTATE (ROT_K sets round the cycle, relative to the knob like PHASE: set 0 is the oscillator's own, the place wraps) and SHIFT (SHIFT_K
+  // sets, -3 .. +3), moved by ENV / VEL -> TABLES
+  const ROT_K = 16, SHIFT_K = 7, VK_ROT = 5, VK_SHIFTSET = 6;
+  const VK_N = [PHASE_K, SPARSE_K, WIDTH_K, SYNC_K, ANGLE_K, ROT_K, SHIFT_K];
   const WIDTH_MIN = 0.02, WIDTH_MAX = 0.98;
   const SYNC_MIN = 1, SYNC_MAX = 8;
   const FM_MAX = 1.5;   // TEST 1.2: OSC2 -> OSC1 FM at FM AMT 100 %: the phase of OSC1's reading moved by up to 1.5 turns by OSC2's dry wave (x its own envelope)
@@ -396,9 +399,9 @@ function WSCoreFactory(SPEC) {
   // The atoms of a subtractive oscillator changed between SPARSITY and the reconstruction, the same operations in the same order as dsp.h:
   // sparsity mode (W3) -> power (W4) -> quantise (W5) -> scale shift (W6) -> rotate (W1) -> mirror (W2). Its settings, or null when all are neutral (the code is skipped).
   const MIRROR_FIRST = [0, 9, 7, 5, 2];
-  function shaperOf(p) {
-    const sh = { rot: p[P.w_rot], tilt: p[P.w_rot_tilt], mirror: Math.round(p[P.w_mirror]), mode: Math.round(p[P.w_sp_mode]),
-      power: p[P.w_power], quant: Math.round(p[P.w_quant]), shift: Math.round(p[P.w_shift]) };
+  function shaperOf(p, over) {   // (1.4: over.rot / over.shift replace ROTATE / SHIFT: the sets of ENV / VEL -> TABLES)
+    const sh = { rot: over && over.rot !== undefined ? over.rot : p[P.w_rot], tilt: p[P.w_rot_tilt], mirror: Math.round(p[P.w_mirror]), mode: Math.round(p[P.w_sp_mode]),
+      power: p[P.w_power], quant: Math.round(p[P.w_quant]), shift: Math.round(over && over.shift !== undefined ? over.shift : p[P.w_shift]) };
     return sh.rot === 0 && sh.tilt === 0 && sh.mirror === 0 && sh.mode === 0 && sh.power === 0 && sh.quant === 0 && sh.shift === 0 ? null : sh;
   }
   // W3: SPARSITY in another mode (0 = sparsify). Per band: K_b = nz_b^(1-s) atoms kept in every band. Soft: the K largest kept (the K_b of each band per band), as the
@@ -574,6 +577,8 @@ function WSCoreFactory(SPEC) {
       if (t === 2) { if (hasWidth(Math.round(params[K[s].wave]))) return VK_WIDTH; }
       else if (t === 3) return VK_SYNC;
       else if (t === 4 && isAngle) return VK_ANGLE;
+      else if (t === 5) return VK_ROT;   // 1.4
+      else if (t === 6) return VK_SHIFTSET;
     }
     return -1;
   }
@@ -618,7 +623,7 @@ function WSCoreFactory(SPEC) {
   // (set 0 is the oscillator's own). SPARSITY and WIDTH: the SPARSE_K sparsities k / (SPARSE_K - 1) and the WIDTH_K widths
   // WIDTH_MIN + k (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1), k = 0 .. K - 1 (all of them; the oscillator's own set is not one of them).
   // (TEST 1.2: SYNC: the SYNC_K ratios 1 .. 8, all of them; ANGLE: like PHASE, the angle + k / ANGLE_K for k = 1 .. ANGLE_K - 1)
-  const vkWraps = (vk) => vk === VK_PHASE || vk === VK_ANGLE;   // the kinds whose sets go round (set 0 is the oscillator's own, the place wraps)
+  const vkWraps = (vk) => vk === VK_PHASE || vk === VK_ANGLE || vk === VK_ROT;   // the kinds whose sets go round (set 0 is the oscillator's own, the place wraps)
   function variantSets(params, s, wav, vk) {
     const sets = [];
     const first = vkWraps(vk) ? 1 : 0;
@@ -628,6 +633,8 @@ function WSCoreFactory(SPEC) {
       else if (vk === VK_SPARSITY) over.sparsity = k / (SPARSE_K - 1);
       else if (vk === VK_WIDTH) over.width = WIDTH_MIN + k * (WIDTH_MAX - WIDTH_MIN) / (WIDTH_K - 1);
       else if (vk === VK_SYNC) over.sync = SYNC_MIN + k * (SYNC_MAX - SYNC_MIN) / (SYNC_K - 1);
+      else if (vk === VK_ROT) { let v = params[P.w_rot] + k / ROT_K; v -= Math.floor(v); over.rot = v; }   // 1.4: the turn goes round (1 = 0)
+      else if (vk === VK_SHIFTSET) over.shift = k - 3;                                                       // -3 .. +3
       else { let v = params[K[s].angle] + k / ANGLE_K; v -= Math.floor(v); over.angle = v; }
       const b = buildSet(params, s, true, over);
       sets.push({ mode: 0, mips: b.mips, rms: b.rms });
@@ -653,7 +660,7 @@ function WSCoreFactory(SPEC) {
         over && over.sync !== undefined ? over.sync : params[k.sync], params[k.sdrive], params[k.bits]);
       c = dwt(src, f);
       c[0] = 0;
-      const sh = shaperOf(params);   // (version 1.1: the WAVELET SHAPER, null when neutral)
+      const sh = shaperOf(params, over);   // (version 1.1: the WAVELET SHAPER, null when neutral)
       const spv = over && over.sparsity !== undefined ? over.sparsity : params[k.sparsity];
       const sp = sh ? sparsifyMode(c, spv, sh.mode) : sparsify(c, spv);
       kept = sp.K; nonzero = sp.nz;
@@ -838,7 +845,7 @@ function WSCoreFactory(SPEC) {
     this.own = new Env(); this.pe = 1;                      // its own envelope; its pitch envelope (1 -> 0)
     this.live = false;                                      // rendered in the last block
     // its place among the sets of each kind of variant (VK_*: phase, sparsity, width, sync, angle), from the start to the end of the block
-    this.vq0 = new Float64Array(5); this.vq1 = new Float64Array(5);
+    this.vq0 = new Float64Array(7); this.vq1 = new Float64Array(7);
     this.fmPhase = new Float64Array(4);   // TEST 1.2 (OSC1 only): the phases of OSC2 read as its modulator, one per unison copy
     // memos of what the last block computed from the same inputs (compared exactly): the oscillator's pitch, the scale filter's gains, the mip level
     this.mA = NaN; this.mF0 = 0; this.mL2f0 = NaN; this.mL2 = 0; this.mTop = NaN; this.mFmax = NaN; this.mMip = 0;
@@ -1496,7 +1503,10 @@ function WSCoreFactory(SPEC) {
     const am = this.am;
     am.punch = p[P.a_punch]; am.env = p[P.a_env_amt];
     const aTilt = p[P.a_tilt], aPar = p[P.a_parity];
-    am.shapeOn = aTilt !== 0 || aPar > 0;
+    // 1.4: POLARITY (the chosen bands' gain x (1 - 2 x amount): 0.5 silent, 1 inverted; in the shape)
+    const pol = Math.round(p[P.x_pol]), polAt = Math.round(p[P.x_pol_at]), polAmt = p[P.x_pol_amt];
+    const polOn = pol > 0 && polAmt > 0;
+    am.shapeOn = aTilt !== 0 || aPar > 0 || polOn;
     am.on = am.punch > 0 || am.env > 0 || am.shapeOn;
     if (am.punch > 0) am.pd = this.mBpu.get(-n / (p[P.a_punch_time] * sr));
     if (am.env > 0) {
@@ -1512,7 +1522,11 @@ function WSCoreFactory(SPEC) {
     // TILT never makes a band louder (the owner, 2026-10-27: a TILT of +12 dB per band moved by the MORPH LFO gave band 11 +120 dB and pinned the output at the limiter): darker
     // (< 0) keeps band 1 and turns the finer bands down, brighter (> 0) keeps band 11 and turns the coarser bands down; PARITY turns the even bands down (band b + 1 is even
     // when b is odd)
-    if (am.shapeOn) for (let b = 0; b < NB; b++) am.shape[b] = Math.exp(aTilt * (aTilt > 0 ? b - 10 : b) * (Math.LN10 / 20)) * ((b & 1) === 1 ? 1 - aPar : 1);
+    if (am.shapeOn) for (let b = 0; b < NB; b++) {
+      // POLARITY's bands (1-based number b + 1): odd, even, from SPLIT up (fine), below SPLIT (coarse)
+      const pb = polOn && (pol === 1 ? (b & 1) === 0 : pol === 2 ? (b & 1) === 1 : pol === 3 ? b + 1 >= polAt : b + 1 < polAt);
+      am.shape[b] = Math.exp(aTilt * (aTilt > 0 ? b - 10 : b) * (Math.LN10 / 20)) * ((b & 1) === 1 ? 1 - aPar : 1) * (pb ? 1 - 2 * polAmt : 1);
+    }
     // TEST 1.2: the OSC2 route (OSC2 as a modulator is live whatever its level: its pitch, mip level and own envelope serve OSC1; it is heard in Mix and the "+ mix" routes)
     const fmm = fmMode(p);
     this.fmMode = fmm; this.fmIdx = fmm === 1 || fmm === 2 ? p[P.a_fm] * FM_MAX : 0; this.fmHeard = fmHeard(fmm);
@@ -1575,7 +1589,7 @@ function WSCoreFactory(SPEC) {
   // The voice buffers through the filter, times the amp envelope, added to the mix
   E.fltProcess = function (vc, n) {
     const p = this.p, L = this.bufL, R = this.bufR, a = this.vtL, b = this.vtR, env = this.envA, st = vc.fs;
-    const k = vc.fk, type = 1, drive = p[P.vf_drive];   // (1.4, the owner: "supprime le filtre LADDER, ne garde que OTA": the filter is the OTA one whatever vf_type says: a sound of before that had the LADDER plays with the same knobs)
+    const k = vc.fk, type = 1, drive = p[P.vf_drive];   // (1.3.1, the owner: "supprime le filtre LADDER, ne garde que OTA": the filter is the OTA one whatever vf_type says: a sound of before that had the LADDER plays with the same knobs)
     const gin = 1 + 7 * drive, mk = (1 + gin) / (2 * gin), comp = type === 1 ? 1 + 0.6 * k : 1;   // OTA: the low end the resonance takes away comes back in part
     const G0 = vc.fG0, dG = (vc.fG1 - vc.fG0) / n;
     for (let i = 0; i < n; i++) {
@@ -1677,6 +1691,13 @@ function WSCoreFactory(SPEC) {
         sl.vq0[VK_WIDTH] = fresh ? qw : sl.vq1[VK_WIDTH]; sl.vq1[VK_WIDTH] = qw;
         sl.vq0[VK_SYNC] = fresh ? qsy : sl.vq1[VK_SYNC]; sl.vq1[VK_SYNC] = qsy;
         sl.vq0[VK_ANGLE] = fresh ? qa : sl.vq1[VK_ANGLE]; sl.vq1[VK_ANGLE] = qa;
+        // 1.4: ROTATE (the move round the turn, like PHASE: set 0 is the knob's own) and SHIFT (the knob's value + the move, -3 .. +3, half the range at 100 %)
+        if (setT >= 5) {
+          let qr = (setT === 5 ? setMv : 0) * ROT_K; qr -= Math.floor(qr / ROT_K) * ROT_K;
+          const qsh = Math.min(3, Math.max(-3, p[P.w_shift] + (setT === 6 ? setMv * 6 : 0))) + 3;
+          sl.vq0[VK_ROT] = fresh ? qr : sl.vq1[VK_ROT]; sl.vq1[VK_ROT] = qr;
+          sl.vq0[VK_SHIFTSET] = fresh ? qsh : sl.vq1[VK_SHIFTSET]; sl.vq1[VK_SHIFTSET] = qsh;
+        }
       }
       if (SLOTS[s].mode === 1) {   // additive: the band envelopes (a returning oscillator starts them again)
         if (fresh) { sl.scale.fill(0); sl.scaleAtk.fill(1); }
@@ -2254,13 +2275,13 @@ function WSCoreFactory(SPEC) {
     return out;
   }
 
-  // 1.4 (the owner: "le sub OSC: 4 positions"): the SUB OSC's pitch against the note: 0 two octaves down, 1 one octave down (the default), 2 the same pitch, 3 one octave up
+  // 1.3.1 (the owner: "le sub OSC: 4 positions"): the SUB OSC's pitch against the note: 0 two octaves down, 1 one octave down (the default), 2 the same pitch, 3 one octave up
   function subRatio(v) { const i = Math.round(v); return i <= 0 ? 0.25 : i === 1 ? 0.5 : i === 2 ? 1 : 2; }
   // beta 0.3 (Okto MultiWave Synth): the SCOPE and the SCALOGRAM show the whole sound, not the oscillator shown. buildScopeSets: the raw layers of every
   // oscillator that plays (level above 0; the set of the oscillator shown is passed in, so it is built once).
   function buildScopeSets(params, shown) {
     const view = Math.round(params[P.osc_view]), sets = [];
-    // (1.4, the owner: "je vois une onde sur l'oscilloscope mais rien ne sort de l'oscillateur 2"): OSC2 is in the mix only when its route lets it be heard (Mix and the "+ MIX" routes);
+    // (1.3.1, the owner: "je vois une onde sur l'oscilloscope mais rien ne sort de l'oscillateur 2"): OSC2 is in the mix only when its route lets it be heard (Mix and the "+ MIX" routes);
     // in FM, Ring and AM it only modulates OSC1 and is not part of the sound the scope and the scalogram show
     const heardB = fmHeard(fmMode(params));
     for (let s = 0; s < NS; s++) sets.push(params[K[s].lvl] > 0 && !(s === 1 && !heardB) ? (shown && s === view ? shown : buildSet(params, s, false)) : null);
@@ -2318,7 +2339,7 @@ function WSCoreFactory(SPEC) {
 
   return {
     N, NB, NL, DRY, NMIP, TW, CTRL, MAXV, PHASE_K, SPARSE_K, WIDTH_K, VK_PHASE, VK_SPARSITY, VK_WIDTH, NS, P, NP, K, SLOTS,
-    SYNC_K, ANGLE_K, VK_SYNC, VK_ANGLE, SYNC_MIN, SYNC_MAX, FM_MAX, angleFilter, waveletFilter, fmMode,   // (TEST 1.2)
+    SYNC_K, ANGLE_K, VK_SYNC, VK_ANGLE, ROT_K, SHIFT_K, VK_ROT, VK_SHIFTSET, SYNC_MIN, SYNC_MAX, FM_MAX, angleFilter, waveletFilter, fmMode,   // (TEST 1.2)
     rng, toPlain, toNorm, format, parse, defaults,
     FILTERS, dwt, idwt, fft, sourceCycle, sparsify, patternCoeffs, buildTables, tableNeeds, morphNeeded, slotVariant, variantNeeded, variantSig,
     filterGains, windowValue, staticGains, displayCycle, buildScopeSets, globalCycle, scopeBands, atomShape, Engine, ladder, tnh, FLT_K,
