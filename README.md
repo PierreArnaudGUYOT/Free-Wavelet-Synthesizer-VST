@@ -6,7 +6,7 @@
 **https://www.youtube.com/watch?v=hWzu-LVZM8I**
 
 ## ▶ Play it online, nothing to install
-**https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/** (Chrome or Edge; a MIDI keyboard plays it directly). The online version is still 1.2: the plug-in 1.3 comes first.
+**https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/** (Chrome or Edge; a MIDI keyboard plays it directly). The online version is still 1.2: the plug-in comes first.
 
 ## ⬇ Download the plug-in (Windows VST3 / VST2, macOS VST3)
 1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)**.
@@ -21,7 +21,7 @@
 - **One envelope per oscillator (version 1.3)**: the AMP ENVELOPE card is gone; each oscillator has its own volume ADSR, in its **OSC PITCH · VOLUME ADSR** card with its pitch (its attack starts steeper), and the **TONE ENVELOPE** moves the tone through each note. **OSC2 → OSC1** sits under the oscillator, level with the FILTER. Your older sounds and projects are converted to play as they did.
 - **The Wavelet Laboratory**: the wavelet filter of each oscillator drawn large, with a smooth curve through its bands like the response of a classic filter, band punch, start phase, tilt and parity, an envelope per band.
 - **Compare the wavelets**: seven of them (Haar, Daubechies 2, 4, 8 and 20, Symlet 8, Coiflet 3), WAVELET MORPH between two, and LFOs that move the wavelet itself (SuperModulation), to hear how each one colours the same sound.
-- **A complete synthesizer around it**: a real filter (ladder / OTA), three LFOs, envelopes, chorus, delay, reverb and punch, a chord mode, oriental tunings, VINTAGE and 277 presets, all as loud as one another (the master volume stays when you change preset).
+- **A complete synthesizer around it**: a real filter (OTA), three LFOs, envelopes, chorus, delay, reverb and punch, a chord mode, oriental tunings, VINTAGE and 288 presets, all as loud as one another (the master volume stays when you change preset).
 - **Free to use**: the plug-in and the web app, free of charge for any use, including your music productions.
 
 ## Licence
