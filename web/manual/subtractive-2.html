@@ -18,13 +18,13 @@
 <p class="lead">Subtracting means turning bands down. The <b>WAVELET FILTER</b> does it by size, the <b>WINDOW</b> does it by place.</p>
 
 <h2>The wavelet filter works on bands, not on hertz</h2>
-<p><span class="ctl">CUTOFF</span> is a band number, from 0 to 12: a low-pass at 5 keeps bands 1 to 5 and turns the finer ones down. Each band is an octave of the note's harmonics, so the filter follows the note: with <span class="ctl">KEY TRK</span> at 100 % (the default) the same bands are kept whatever key you play. At 0 % the cutoff stays at a fixed pitch, as in a classic filter, and high notes lose their top. The knob reads the highest harmonic the filter lets through at C4, with its frequency (for example <i>H8 · 2.1 kHz</i>); you can type a harmonic (<i>H8</i>), a frequency (<i>2 kHz</i>) or a band number. The picture next to <span class="ctl">TYPE</span> shows the gain of the 11 bands at C4, one bar per band (the last three, above 20 kHz at C4, in grey).</p>
+<p><span class="ctl">CUTOFF</span> is a band number, from 0 to 12: a low-pass at 5 keeps bands 1 to 5 and turns the finer ones down. Each band is an octave of the note's harmonics, so the filter follows the note: with <span class="ctl">KEY TRK</span> at 100 % (the default) the same bands are kept whatever key you play. At 0 % the cutoff stays at a fixed pitch, as in a classic filter, and high notes lose their top. The knob reads the highest harmonic the filter lets through at C4, with its frequency (for example <i>H8 · 2.1 kHz</i>); you can type a harmonic (<i>H8</i>), a frequency (<i>2 kHz</i>) or a band number. The picture under <span class="ctl">TYPE</span> shows the gain of the 11 bands at C4, one bar per band (the last three, above 20 kHz at C4, in grey), and a smooth curve through the ends of the bars: the response of the filter, like the curve of a classic filter.</p>
 <figure class="tall snug"><img src="img/sub-filter.svg" alt="Gain in dB of the 11 bands for the four filter types, with different slopes and with resonance"></figure>
 <ul>
   <li><span class="ctl">TYPE</span>: <b>LOW-PASS</b> keeps the large bands, <b>HIGH-PASS</b> the small ones, <b>BAND-PASS</b> a few bands around the cutoff, <b>BAND-REJ</b> removes a few and keeps the rest.</li>
   <li><span class="ctl">SLOPE</span>: how many dB each band beyond the cutoff loses, from 6 (gentle) to 96 (a wall). 24 is the default.</li>
   <li><span class="ctl">PEAK</span> (called RESONANCE before version 1.0.20): a bump of up to 24 dB, about one band wide, around the cutoff (not on BAND-REJ).</li>
-  <li><span class="ctl">ENV AMT</span>: the MOD ENVELOPE moves the cutoff by up to ±11 bands. <span class="ctl">VEL AMT</span>: the key velocity moves it by up to ±6 bands (positive: soft notes are darker).</li>
+  <li><span class="ctl">ENV AMT</span>: the TONE ENVELOPE moves the cutoff by up to ±11 bands. <span class="ctl">VEL AMT</span>: the key velocity moves it by up to ±6 bands (positive: soft notes are darker).</li>
 </ul>
 
 <h2>Why the wavelet matters here</h2>

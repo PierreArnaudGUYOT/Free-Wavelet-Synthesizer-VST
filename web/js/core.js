@@ -804,6 +804,18 @@ function WSCoreFactory(SPEC) {
   function ExpMemo() { this.arg = NaN; this.val = 0; }
   ExpMemo.prototype.get = function (a) { if (a !== this.arg) { this.arg = a; this.val = Math.exp(a); } return this.val; };
   const expOf = (m, a) => (m ? m.get(a) : Math.exp(a));
+  // OktoWave 1.3 (the owner, 2026-10-28: "augmente un peu la pente de l'ADSR des volumes des oscillateurs pour qu'il y ait un peu plus d'attaque; garde les mêmes presets"): the
+  // attack of an OSCILLATOR's envelope is no longer a straight line but a curve that starts steeper and still reaches 1 after ATTACK: level = 1 - (1 - t / ATTACK)^1.5 (a straight line
+  // is the exponent 1; at a tenth of the time it is at 15 %, not 10 %, at half of it at 65 %). tools/amp_convert.js moves the attack times of the factory presets, and of the sounds
+  // of before, so that they play as they did. The other envelopes (FILTER, TONE ENVELOPE) are as ever. vst/src/dsp.h is the same, operation for operation.
+  const ATK_INV = 2 / 3;   // the inverse of the exponent 1.5: the progress along the attack from the level
+  Env.prototype.stepOsc = function (n, sr, a, d, s, r, decay, release) {
+    if (this.stage !== 1) return this.step(n, sr, a, d, s, r, decay, release);
+    let x = 1 - Math.pow(1 - this.level, ATK_INV);
+    x += n / (a * sr);
+    if (x >= 1) { this.level = 1; this.stage = 2; } else { const u = 1 - x; this.level = 1 - u * Math.sqrt(u); }
+    return this.level;
+  };
   Env.prototype.step = function (n, sr, a, d, s, r, decay, release) {
     if (this.stage === 1) {
       this.level += n / (a * sr);
@@ -910,6 +922,7 @@ function WSCoreFactory(SPEC) {
     this.envA = new Float64Array(CTRL);
     this.ownBuf = []; this.endPh = [];
     for (let s = 0; s < NS; s++) { this.ownBuf.push(new Float64Array(CTRL)); this.endPh.push(new Float64Array(4)); }
+    this.subEnvBuf = new Float64Array(CTRL); this.subEnv = null;   // (1.3: what the sub oscillator and the noise follow)
     this.ownOn = new Uint8Array(NS); this.ownLevel = new Float64Array(NS); this.ownStage = new Int32Array(NS);
     // TEST 1.2: the random places of START MODE, the NOISE generator and its decay's memo; OSC2 -> OSC1: the route, the FM index, whether OSC2 is heard, the modulator's steps and
     // end phases of a render (committed with the voice's phases)
@@ -1305,7 +1318,10 @@ function WSCoreFactory(SPEC) {
       const vc = this.voices[k];
       if (!vc.active || vc.gain !== 1) continue;   // a chord keyboard note has its own level (chordTrim): it is not counted again
       any = true;
-      const a = vc.amp.level * (1 - p[P.amp_vel] * (1 - vc.vel));
+      // 1.3: the voice's energy is the highest envelope level of its sounding oscillators (what the AMP level was: a voice in its release counts less than a new one)
+      let lv = 0;
+      for (let s = 0; s < NS; s++) if (vc.sl[s].live && !(s === 1 && !this.fmHeard) && vc.sl[s].own.level > lv) lv = vc.sl[s].own.level;   // (OSC2 as a modulator only is not heard)
+      const a = lv * (1 - p[P.amp_vel] * (1 - vc.vel));
       if (a > amax) amax = a;
       sum += a * a;
     }
@@ -1559,7 +1575,7 @@ function WSCoreFactory(SPEC) {
   // The voice buffers through the filter, times the amp envelope, added to the mix
   E.fltProcess = function (vc, n) {
     const p = this.p, L = this.bufL, R = this.bufR, a = this.vtL, b = this.vtR, env = this.envA, st = vc.fs;
-    const k = vc.fk, type = Math.round(p[P.vf_type]), drive = p[P.vf_drive];
+    const k = vc.fk, type = 1, drive = p[P.vf_drive];   // (1.3.1, the owner: "supprime le filtre LADDER, ne garde que OTA": the filter is the OTA one whatever vf_type says: a sound of before that had the LADDER plays with the same knobs)
     const gin = 1 + 7 * drive, mk = (1 + gin) / (2 * gin), comp = type === 1 ? 1 + 0.6 * k : 1;   // OTA: the low end the resonance takes away comes back in part
     const G0 = vc.fG0, dG = (vc.fG1 - vc.fG0) / n;
     for (let i = 0; i < n; i++) {
@@ -1603,7 +1619,7 @@ function WSCoreFactory(SPEC) {
       // the pitch envelope and the own envelope go on whether the oscillator sounds or not
       if (p[k.pamt] !== 0) sl.pe *= this.mPe[s].get(-n * LN1000 / (p[k.ptime] * sr));
       if (!this.live[s]) {
-        if (p[k.eon] >= 0.5) sl.own.step(n, sr, p[k.ea], p[k.ed], p[k.es], p[k.er], this.mOwnStepD[s], this.mOwnStepR[s]);
+        sl.own.stepOsc(n, sr, p[k.ea], p[k.ed], p[k.es], p[k.er], this.mOwnStepD[s], this.mOwnStepR[s]);   // (1.3: the envelope is always on)
         sl.live = false;
         continue;
       }
@@ -1712,16 +1728,19 @@ function WSCoreFactory(SPEC) {
     if (this.am.punch > 0) vc.bpu *= this.am.pd;   // (version 1.1 BAND PUNCH: it falls once per block)
   };
 
-  // The voice's AMP ENVELOPE for the block, per sample, with the velocity gain (envA); its end state in endLevel / endStage.
+  // OktoWave 1.3 (the owner, 2026-10-28: the AMP ENVELOPE card is gone, every oscillator has its own envelope, always on): what this pass gives is no longer an envelope but the
+  // voice's GAIN per sample (envA: the velocity gain, the chord's gain, PUNCH) and its LIFE, in endLevel / endStage: the level is 1 while the key is down and while a sounding
+  // oscillator's envelope has not finished (the oscillators' envelopes shape the sound, before the FILTER); then it falls in 20 ms (QUICK_REL when a chord change drops the note)
+  // and the voice is free. vst/src/dsp.h ampPass is the same, operation for operation.
   E.ampPass = function (vc, n) {
     const p = this.p, sr = this.sr, env = this.envA;
     let lev = vc.amp.level, st = vc.amp.stage;
-    const s = p[P.amp_s];
-    const aInc = 1 / (p[P.amp_a] * sr), dC = this.mAmpD.get(-LN1000 / (p[P.amp_d] * sr)), rC = this.mAmpR.get(-LN1000 / (p[P.amp_r] * sr));
+    let alive = false;
+    for (let q = 0; q < NS; q++) if (this.live[q] && vc.sl[q].own.stage !== 0) { alive = true; break; }
     // beta 0.2: the chord's bass note plays louder (vc.gain; exactly the old value when it is 1), and a note dropped by a live chord
     // change fades out in QUICK_REL at most
     const velGain = VOICE_GAIN * (1 - p[P.amp_vel] * (1 - vc.vel)) * vc.gain * this.velVolume(vc);
-    const rQ = vc.quick && p[P.amp_r] > QUICK_REL ? this.mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : rC;
+    const rN = vc.quick ? this.mAmpQ.get(-LN1000 / (QUICK_REL * sr)) : this.mAmpD.get(-LN1000 / (0.02 * sr));
     // PUNCH (version 1.0.16): the start of the note boosted by (1 + gP pu), pu falling from 1 in 30 + 20 x PUNCH ms, gP from +8 dB x PUNCH, the whole of it up to C3 and a quarter
     // of it from C6 up (a transient shaper per note: it never lowers the level). PUNCH 0: the loop of before, bit for bit (and no boost left for later).
     const pAmt = p[P.fx_punch];
@@ -1730,9 +1749,8 @@ function WSCoreFactory(SPEC) {
       const gP = (Math.exp(8 * pAmt * (Math.LN10 / 20)) - 1) * lowK, pd = Math.exp(-1 / ((0.03 + 0.02 * pAmt) * sr));
       let pu = vc.pu;
       for (let i = 0; i < n; i++) {
-        if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
-        else if (st === 2) lev = s + (lev - s) * dC;
-        else if (st === 3) { lev *= rQ; if (lev < 1e-5) { lev = 0; st = 0; } }
+        if (st === 1 || st === 2) { lev = 1; st = 2; }
+        else if (st === 3) { if (alive && !vc.quick) lev = 1; else { lev *= rN; if (lev < 1e-5) { lev = 0; st = 0; } } }
         env[i] = lev * velGain * (1 + gP * pu);
         pu *= pd;
       }
@@ -1740,9 +1758,8 @@ function WSCoreFactory(SPEC) {
       return;
     }
     for (let i = 0; i < n; i++) {
-      if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
-      else if (st === 2) lev = s + (lev - s) * dC;
-      else if (st === 3) { lev *= rQ; if (lev < 1e-5) { lev = 0; st = 0; } }
+      if (st === 1 || st === 2) { lev = 1; st = 2; }
+      else if (st === 3) { if (alive && !vc.quick) lev = 1; else { lev *= rN; if (lev < 1e-5) { lev = 0; st = 0; } } }
       env[i] = lev * velGain;
     }
     this.endLevel = lev; this.endStage = st; this.endPunch = 0;
@@ -1754,8 +1771,9 @@ function WSCoreFactory(SPEC) {
     const sus = p[k.es];
     const aInc = 1 / (p[k.ea] * sr), dC = this.mOwnD[s].get(-LN1000 / (p[k.ed] * sr)), rC = this.mOwnR[s].get(-LN1000 / (p[k.er] * sr));
     let zero = true;
+    let x = st === 1 ? 1 - Math.pow(1 - lev, ATK_INV) : 0;   // (1.3: the progress along the attack, whose curve is 1 - (1 - x)^1.5, see Env.stepOsc)
     for (let i = 0; i < n; i++) {
-      if (st === 1) { lev += aInc; if (lev >= 1) { lev = 1; st = 2; } }
+      if (st === 1) { x += aInc; if (x >= 1) { lev = 1; st = 2; } else { const u = 1 - x; lev = 1 - u * Math.sqrt(u); } }
       else if (st === 2) { lev = sus + (lev - sus) * dC; if (Math.abs(lev - sus) < 1e-9) lev = sus; }
       else if (st === 3) { lev *= rC; if (lev < 1e-5) { lev = 0; st = 0; } }
       buf[i] = lev;
@@ -1859,7 +1877,7 @@ function WSCoreFactory(SPEC) {
   E.renderNoise = function (vc, n) {
     const p = this.p, lvl = p[P.nz_level];
     if (!(lvl > 0)) return;
-    const L = this.bufL, R = this.bufR, envA = this.envA, sr = this.sr, r = this.nzRng;
+    const L = this.bufL, R = this.bufR, envA = this.envA, subEnv = this.subEnv, sr = this.sr, r = this.nzRng;
     const col = p[P.nz_colour], dec = p[P.nz_decay];
     const fc = col < 0 ? 20000 * Math.pow(0.01, -col) : col > 0 ? 100 * Math.pow(50, col) : 0;
     const a = fc > 0 ? Math.exp(-2 * Math.PI * fc / sr) : 0, kd = dec < 20 ? this.mNzD.get(-1 / (dec * sr)) : 1, amp = lvl * 0.5;
@@ -1871,7 +1889,8 @@ function WSCoreFactory(SPEC) {
       else if (col > 0) { y = w + a * (y - w); v = w - y; }
       else v = w;
       e *= kd;
-      const sv = amp * v * e * envA[i];
+      let sv = amp * v * e * envA[i];
+      if (subEnv) sv *= subEnv[i];   // (1.3)
       L[i] += sv; R[i] += sv;
     }
     vc.nzY = Math.abs(y) < 1e-20 ? 0 : y; vc.nzEnv = e;
@@ -1882,13 +1901,14 @@ function WSCoreFactory(SPEC) {
     const p = this.p, subLvl = p[P.sub_level];
     this.endSubPhase = vc.subPhase;
     if (!(subLvl > 0)) return;
-    const subInc = vc.f0 * (Math.round(p[P.sub_oct]) === 1 ? 0.25 : 0.5) / this.sr, subShape = Math.round(p[P.sub_shape]);
+    const subInc = vc.f0 * subRatio(p[P.sub_oct]) / this.sr, subShape = Math.round(p[P.sub_shape]);
     if (!(subInc < 0.5)) return;   // silent when it would alias (above Nyquist)
-    const L = this.bufL, R = this.bufR, envA = this.envA;
+    const L = this.bufL, R = this.bufR, envA = this.envA, subEnv = this.subEnv;
     let sph = vc.subPhase;
     for (let i = 0; i < n; i++) {
       sph += subInc; if (sph >= 1) sph -= Math.floor(sph);
-      const sv = subLvl * subWave(sph, subInc, subShape) * envA[i];
+      let sv = subLvl * subWave(sph, subInc, subShape) * envA[i];
+      if (subEnv) sv *= subEnv[i];   // (1.3)
       L[i] += sv; R[i] += sv;
     }
     this.endSubPhase = sph;
@@ -2003,8 +2023,20 @@ function WSCoreFactory(SPEC) {
       // (TEST 1.2: every own envelope first: OSC2's shapes the FM index of OSC1, rendered before it; OSC2 as a modulator only is not rendered; then the NOISE)
       for (let s = 0; s < NS; s++) {
         if (!live[s]) continue;
-        this.ownOn[s] = p[K[s].eon] >= 0.5 ? 1 : 0;
-        if (this.ownOn[s]) this.ownPass(vc, s, n);
+        this.ownOn[s] = 1;   // (1.3: every oscillator's envelope is on)
+        this.ownPass(vc, s, n);
+      }
+      // 1.3: the sub oscillator and the noise follow the sounding oscillators' envelopes (the highest of them at each sample: the sound's own envelope, what the AMP ENVELOPE was)
+      this.subEnv = null;
+      if (p[P.sub_level] > 0 || p[P.nz_level] > 0) {
+        let nl = 0, f1 = -1;
+        for (let s = 0; s < NS; s++) if (live[s]) { if (nl++ === 0) f1 = s; }
+        if (nl === 1) this.subEnv = this.ownBuf[f1];
+        else if (nl > 1) {
+          const sb = this.subEnvBuf; sb.set(this.ownBuf[f1].subarray(0, n));
+          for (let s = f1 + 1; s < NS; s++) if (live[s]) { const ob = this.ownBuf[s]; for (let i = 0; i < n; i++) if (ob[i] > sb[i]) sb[i] = ob[i]; }
+          this.subEnv = sb;
+        }
       }
       this.endFmPh.set(vc.sl[0].fmPhase);   // (a render of OSC1 that is skipped leaves its modulator's phases as they were)
       for (let s = 0; s < NS; s++) {
@@ -2026,7 +2058,7 @@ function WSCoreFactory(SPEC) {
         if (live[s]) {
           sl.phase.set(this.endPh[s]); sl.g.set(sl.tg); sl.live = true;
           if (s === 0) sl.fmPhase.set(this.endFmPh);
-          if (this.ownOn[s]) { sl.own.level = this.ownLevel[s]; sl.own.stage = this.ownStage[s]; }
+          sl.own.level = this.ownLevel[s]; sl.own.stage = this.ownStage[s];
         } else sl.live = false;
       }
       if (vc.amp.stage === 0) { vc.active = false; vc.gate = false; continue; }
@@ -2222,11 +2254,16 @@ function WSCoreFactory(SPEC) {
     return out;
   }
 
+  // 1.3.1 (the owner: "le sub OSC: 4 positions"): the SUB OSC's pitch against the note: 0 two octaves down, 1 one octave down (the default), 2 the same pitch, 3 one octave up
+  function subRatio(v) { const i = Math.round(v); return i <= 0 ? 0.25 : i === 1 ? 0.5 : i === 2 ? 1 : 2; }
   // beta 0.3 (Okto MultiWave Synth): the SCOPE and the SCALOGRAM show the whole sound, not the oscillator shown. buildScopeSets: the raw layers of every
   // oscillator that plays (level above 0; the set of the oscillator shown is passed in, so it is built once).
   function buildScopeSets(params, shown) {
     const view = Math.round(params[P.osc_view]), sets = [];
-    for (let s = 0; s < NS; s++) sets.push(params[K[s].lvl] > 0 ? (shown && s === view ? shown : buildSet(params, s, false)) : null);
+    // (1.3.1, the owner: "je vois une onde sur l'oscilloscope mais rien ne sort de l'oscillateur 2"): OSC2 is in the mix only when its route lets it be heard (Mix and the "+ MIX" routes);
+    // in FM, Ring and AM it only modulates OSC1 and is not part of the sound the scope and the scalogram show
+    const heardB = fmHeard(fmMode(params));
+    for (let s = 0; s < NS; s++) sets.push(params[K[s].lvl] > 0 && !(s === 1 && !heardB) ? (shown && s === view ? shown : buildSet(params, s, false)) : null);
     return sets;
   }
   // One cycle of the mix at the reference note (C4, full velocity): each oscillator that plays through its own scale filter and position window, at
@@ -2250,7 +2287,7 @@ function WSCoreFactory(SPEC) {
     }
     const sub = params[P.sub_level];
     if (sub > 0) {
-      const ratio = Math.round(params[P.sub_oct]) === 1 ? 0.25 : 0.5, shape = Math.round(params[P.sub_shape]);
+      const ratio = subRatio(params[P.sub_oct]), shape = Math.round(params[P.sub_shape]);
       for (let i = 0; i < N; i++) out[i] += sub * subWave(i / N * ratio, ratio / N, shape);
     }
     return out;

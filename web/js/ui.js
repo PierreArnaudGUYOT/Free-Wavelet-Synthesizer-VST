@@ -234,12 +234,12 @@ class SynthUI {
     const widget = {
       w, p, i, el: box,
       update: () => {
-        const v = this.host.get(i), n = this.C.toNorm(p, v);
+        const v = this.host.get(i), np = this.C.toNorm(p, v), n = this.knobNorm(p, v);   // (1.3.1: n is the knob's travel, np the parameter's own mapping: they differ for TILT)
         const a = A0 + (A1 - A0) * n;
-        const from = bip ? A0 + (A1 - A0) * this.C.toNorm(p, 0) : A0;
+        const from = bip ? A0 + (A1 - A0) * this.knobNorm(p, 0) : A0;
         val.setAttribute('d', arcPath(cx, cy, ar, Math.min(from, a), Math.max(from, a)));
         if (modArc) {
-          const dd = Math.abs(this.host.get(depthId)), m0 = Math.max(0, n - dd / 2), m1 = Math.min(1, n + dd / 2);
+          const dd = Math.abs(this.host.get(depthId)), m0 = this.knobNorm(p, this.C.toPlain(p, Math.max(0, np - dd / 2))), m1 = this.knobNorm(p, this.C.toPlain(p, Math.min(1, np + dd / 2)));
           modArc.setAttribute('d', dd > 0 && m1 > m0 ? arcPath(cx, cy, ar + sw, A0 + (A1 - A0) * m0, A0 + (A1 - A0) * m1) : '');
         }
         const dx = cx + dotD * Math.sin(a), dy = cy - dotD * Math.cos(a);
@@ -276,7 +276,7 @@ class SynthUI {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) { this.host.begin(i); this.host.set(i, p.def); this.host.end(i); return; }   // Ctrl+click = default
       box.setPointerCapture(e.pointerId);
-      widget.drag = { y: e.clientY, n: this.C.toNorm(p, this.host.get(i)), shift: e.shiftKey, moved: false };
+      widget.drag = { y: e.clientY, n: this.knobNorm(p, this.host.get(i)), shift: e.shiftKey, moved: false };
       box.classList.add('active');
       this.host.begin(i);
       widget.update();
@@ -287,15 +287,15 @@ class SynthUI {
       if (Math.abs(dy) > 3) widget.drag.moved = true;
       const sens = e.shiftKey && !few ? range * 5 : range;
       let n = clamp(widget.drag.n - dy / sens, 0, 1);
-      if (e.shiftKey !== widget.drag.shift) { widget.drag = { y: e.clientY, n: this.C.toNorm(p, this.host.get(i)), shift: e.shiftKey }; return; }
-      const v = this.C.toPlain(p, n);
-      if (v !== this.host.get(i)) this.host.set(i, v);
+      if (e.shiftKey !== widget.drag.shift) { widget.drag = { y: e.clientY, n: this.knobNorm(p, this.host.get(i)), shift: e.shiftKey }; return; }
+      const v = this.knobPlain(p, n);
+      if (v !== this.host.get(i)) this.userSet(i, v);
     });
     const end = (e) => {
       if (!widget.drag) return;
       if (few && !widget.drag.moved && e.type === 'pointerup') {   // a click: the next value
         const n = p.max - p.min + 1;
-        this.host.set(i, ((Math.round(this.host.get(i)) - p.min + 1) % n) + p.min);
+        this.userSet(i, ((Math.round(this.host.get(i)) - p.min + 1) % n) + p.min);
       }
       widget.drag = null;
       box.classList.remove('active');
@@ -313,9 +313,24 @@ class SynthUI {
       const cur = this.host.get(i);
       let v;
       if (stepped) v = clamp(Math.round(cur) + dir, p.min, p.max);
-      else v = this.C.toPlain(p, clamp(this.C.toNorm(p, cur) + dir * (e.shiftKey ? 0.002 : 0.01), 0, 1));
-      this.host.begin(i); this.host.set(i, v); this.host.end(i);
+      else v = this.knobPlain(p, clamp(this.knobNorm(p, cur) + dir * (e.shiftKey ? 0.002 : 0.01), 0, 1));
+      this.host.begin(i); this.userSet(i, v); this.host.end(i);
     }, { passive: false });
+  }
+
+  // OktoWave 1.3.1: a knob's travel can cover a part of the parameter's range only (p.zoom = [lo, hi], a straight line: TILT's central half, -15 .. +3 dB per band); the range, the values of the
+  // sounds, the host's mapping and what the LFOs swing are as they were (vst/src/dsp.h knobNorm / knobPlain are the same)
+  knobNorm(p, v) { return p.zoom ? clamp((v - p.zoom[0]) / (p.zoom[1] - p.zoom[0]), 0, 1) : this.C.toNorm(p, v); }
+  knobPlain(p, n) { return p.zoom ? p.zoom[0] + clamp(n, 0, 1) * (p.zoom[1] - p.zoom[0]) : this.C.toPlain(p, n); }
+  // OktoWave 1.3.1 (the owner: "OSC2 pas activé: monter son volume ne fait rien"): in the routes FM, RING and AM OSC2 only modulates OSC1 and the OS2 level does nothing; turning OS2 up from 0 then
+  // moves the route to its "+ MIX" variant (2, 4, 6) (vst/src/editor.cpp routeFollowsOs2 is the same)
+  userSet(i, v) {
+    const old = this.host.get(i);
+    this.host.set(i, v);
+    if (i === this.P.a2_lvl && old <= 0 && v > 0) {
+      const r = Math.round(this.host.get(this.P.a_fm_mode));
+      if (r === 1 || r === 3 || r === 5) { this.host.begin(this.P.a_fm_mode); this.host.set(this.P.a_fm_mode, r + 1); this.host.end(this.P.a_fm_mode); }
+    }
   }
 
   // ------------------------------------------------------------------ selectors
@@ -1150,7 +1165,7 @@ class SynthUI {
   // engine's; at C4 KEY TRK has no effect), one bar per octave of harmonics, from +24 dB (top) to -48 dB (bottom); the bands that start above 20 kHz at C4 (9 to 11) are grey
   draw_filterview(ctx, W, H, c) {
     const sl = this.SPEC.SLOTS[c.sec.view];
-    if (!sl || sl.mode !== 0) return;
+    if (!sl) return;   // (1.3: the additive oscillator's too)
     const NB = 11, g = this.C.filterGains(Math.round(this.host.get(sl.k.ftype)), this.host.get(sl.k.fcut), this.host.get(sl.k.fslope), this.host.get(sl.k.fres), new Float64Array(NB));
     const pad = 4, bw = (W - 2 * pad) / NB, top = 3, h = H - 6, y0 = top + h * (24 / 72);
     ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad, y0); ctx.lineTo(W - pad, y0); ctx.stroke();
@@ -1160,6 +1175,26 @@ class SynthUI {
       const heard = 261.63 * Math.pow(2, b - 1) < 20000;   // band b + 1 starts at harmonic 2^(b - 1)
       ctx.fillStyle = heard ? this.accent() : 'rgba(200,210,225,0.27)';
       ctx.fillRect(x + 1.5, Math.min(y, y0), bw - 3, Math.max(1.5, Math.abs(y - y0)));
+    }
+    // OktoWave 1.3 (the owner: "une courbe d'interpolation qui ressemble à une courbe de filtre classique, qui se superpose avec les bandes"): a smooth curve through the ends of the bars (a
+    // monotone cubic: it never overshoots; flat before the first and after the last band), with a dot on each; vst/src/editor.cpp drawFilterView draws the same
+    {
+      const xs = [], ys = [];
+      for (let b = 0; b < NB; b++) { const db = Math.max(-48, Math.min(24, 20 * Math.log10(Math.max(1e-12, g[b])))); xs.push(pad + (b + 0.5) * bw); ys.push(top + (24 - db) / 72 * h); }
+      const dx = [], dy = [], m = new Array(NB).fill(0);
+      for (let i = 0; i < NB - 1; i++) { dx.push(xs[i + 1] - xs[i]); dy.push((ys[i + 1] - ys[i]) / dx[i]); }
+      for (let i = 1; i < NB - 1; i++) if (dy[i - 1] * dy[i] > 0) { const w1 = 2 * dx[i] + dx[i - 1], w2 = dx[i] + 2 * dx[i - 1]; m[i] = (w1 + w2) / (w1 / dy[i - 1] + w2 / dy[i]); }
+      const pts = [[pad, ys[0]], [xs[0], ys[0]]];
+      for (let i = 0; i < NB - 1; i++) for (let k = 1; k <= 10; k++) {
+        const u = k / 10, u2 = u * u, u3 = u2 * u, hh = dx[i];
+        pts.push([xs[i] + u * hh, (2 * u3 - 3 * u2 + 1) * ys[i] + (u3 - 2 * u2 + u) * hh * m[i] + (-2 * u3 + 3 * u2) * ys[i + 1] + (u3 - u2) * hh * m[i + 1]]);
+      }
+      pts.push([W - pad, ys[NB - 1]]);
+      const trace = () => { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); };
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      trace(); ctx.strokeStyle = 'rgba(30,12,36,0.6)'; ctx.lineWidth = 4.4; ctx.stroke();
+      trace(); ctx.strokeStyle = 'rgba(255,250,236,0.97)'; ctx.lineWidth = 2; ctx.stroke();
+      for (let b = 0; b < NB; b++) { ctx.beginPath(); ctx.arc(xs[b], ys[b], 2.4, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(255,250,236,0.97)'; ctx.fill(); ctx.strokeStyle = 'rgba(30,12,36,0.6)'; ctx.lineWidth = 1; ctx.stroke(); }
     }
     ctx.fillStyle = 'rgba(200,210,225,0.47)'; ctx.font = '600 7.5px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'right';
     ctx.fillText('at C4', W - 3, 9); ctx.textAlign = 'left';
@@ -1191,7 +1226,9 @@ class SynthUI {
     const f = t => 0.06 + Math.log10(1 + t * 100) / Math.log10(1001);
     const wa = f(a), wd = f(d), wr = f(r), hold = 0.35, tot = wa + wd + hold + wr;
     const X = v => 4 + v / tot * (W - 8), Y = v => H - 4 - v * (H - 8);
-    ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(wa), Y(1));
+    ctx.beginPath(); ctx.moveTo(X(0), Y(0));
+    if (c.w.env === 'own' && /^(a1|a2|b1)_ea$/.test(c.w.param || '')) for (let k = 1; k < 8; k++) { const t = k / 8; ctx.lineTo(X(wa * t), Y(1 - Math.pow(1 - t, 1.5))); }   // (1.3: an oscillator's attack is the curve 1 - (1 - x)^1.5, steeper at the start)
+    ctx.lineTo(X(wa), Y(1));
     for (let k = 1; k <= 16; k++) { const t = k / 16; ctx.lineTo(X(wa + wd * t), Y(s + (1 - s) * Math.pow(0.001, t))); }
     ctx.lineTo(X(wa + wd + hold), Y(s));
     for (let k = 1; k <= 16; k++) { const t = k / 16; ctx.lineTo(X(wa + wd + hold + wr * t), Y(s * Math.pow(0.001, t))); }
