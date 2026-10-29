@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE) -->
+<!-- Page 1 of 3 on additive synthesis with wavelets (oscillator B1): the drawbars, the patterns, the band envelopes. The pictures are made by tools/manual_figs.js. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OktoWave manual — Additive 1: drawbars and patterns</title>
+<meta name="description" content="The additive wavelet oscillator: eleven drawbars for the eleven wavelet bands, the six patterns, the tilt and the band envelopes.">
+<link rel="stylesheet" href="manual.css">
+<script src="manual.js" defer></script>
+</head>
+<body class="add">
+<main>
+
+<p class="kicker">Additive synthesis with wavelets · page 1 of 3 · oscillator B1</p>
+<h1>The drawbars are the bands</h1>
+<p class="lead">An additive synthesizer builds a sound by adding parts. In OktoWave the parts are the 11 wavelet bands, and you set each one with a drawbar.</p>
+
+<h2>Eleven bars for eleven sizes</h2>
+<p>Open the third folder tab, <span class="ctl">OSC3</span> (B1), and the <span class="ctl">WAVELET · ADDITIVE</span> card shows eleven <b>drawbars</b>. Bar 1 is band 1, the slow body of the wave; bar 11 is band 11, the finest detail. A bar sets the level of its band, from 0 to 100 %. It is like a drawbar organ, except that each “pipe” is not one sine harmonic but a whole octave band of wavelet atoms. When the bars add up to more than 1 the sum is divided by that total, so opening more bars does not keep raising the level.</p>
+<p><span class="ctl">TILT</span> multiplies the bars by a slope: <span class="ctl">−6</span> dB (the default) means each band is half as loud as the one below, whatever the bars say. It is the fastest way to make a tone darker (more negative) or brighter (towards 0 and above).</p>
+<figure><img src="img/add-drawbars.svg" alt="Eleven bars at three different tilts: flat, minus three and minus six decibels per band"></figure>
+
+<h2>Pattern: what the atoms of a band are</h2>
+<p>A band is a row of atoms (1, 2, 4 … 1024 of them). The <span class="ctl">PATTERN</span> decides which way each atom points, and so what the band's layer looks like:</p>
+<ul>
+  <li><span class="ctl">RAMP</span>: all atoms the same way. <span class="ctl">MIRROR</span>: the first half of a band up, the second half down. <span class="ctl">ALT</span>: the bands take turns, one up and the next down.</li>
+  <li><span class="ctl">WALSH</span>: the atoms of a band alternate, up, down, up, down. <span class="ctl">IMPULSE</span>: only the first atom of each band, so all the detail sits at the start of the cycle, a tick. <span class="ctl">RANDOM</span>: each atom up or down at random; <span class="ctl">SEED</span> (0 to 99) chooses the dice.</li>
+</ul>
+<p>Each band's layer is normalised, so a bar at 1 means the same strength in every band, whatever the pattern.</p>
+<figure><img src="img/add-patterns.svg" alt="One cycle of the additive oscillator for each of the six patterns"></figure>
+
+<h2>Every band has its own envelope</h2>
+<p>When a note starts, the bands do not all arrive and leave together. <span class="ctl">ATTACK</span> is the rise time of the middle band; <span class="ctl">SPREAD</span> makes the fine bands later (above 0) or earlier (below 0), up to four times slower or faster than the middle band. <span class="ctl">BODY</span> and <span class="ctl">BRIGHT</span> are how long band 1 and band 11 take to settle to <span class="ctl">SUSTAIN</span> (0 to 100 %), the other bands in between. With the defaults (SUSTAIN 100 %, BODY and BRIGHT 20 s) the bands simply hold, like organ pipes; lower SUSTAIN and shorten BRIGHT, and the tone starts bright and mellows, as a struck bar does.</p>
+<figure><img src="img/add-envelope.svg" alt="Eleven band envelopes rising and falling at different speeds"></figure>
+
+<div class="try"><p><b>Try it.</b> B1 is silent in a fresh patch: raise the <span class="ctl">OS3</span> knob in OSC MIX (or load <i>B · Flute Lead</i>). Then draw a staircase of bars from the left, move TILT, and flip through the six patterns while you hold a chord.</p></div>
+
+<footer><p><a href="manual.html">Contents</a> · OktoWave, by Pierre Arnaud GUYOT (OktoPierre), free to use (freeware), all rights reserved.</p></footer>
+</main>
+</body>
+</html>

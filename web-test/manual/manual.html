@@ -1,0 +1,166 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre). SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE) -->
+<!-- The user manual of OktoWave: this CONTENTS page (start, panel map, playing, presets, install, help) and seven pages written by hand
+     (wavelets.html, subtractive-1..3.html, additive-1..3.html), a shared manual.css and manual.js (the menu, built from one list), the figures in img/ (tools/manual_figs.js)
+     and panel.jpg (tools/manual_shot.js). tests/quick.js checks that the pages name every card of the panel and that every picture is there. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OktoWave — user manual</title>
+<meta name="description" content="User manual of OktoWave (the plug-in Okto Fractal Wavelet): contents, the panel, playing, presets, install; and seven pages on wavelets and on subtractive and additive synthesis with wavelets.">
+<link rel="stylesheet" href="manual.css">
+<script src="manual.js" defer></script>
+</head>
+<body>
+<main>
+
+<h1>OKTO<span>WAVE</span> manual</h1>
+<p class="lead">Okto MultiWave Synth — a polyphonic synthesizer whose oscillators are built from <b>wavelets</b>. This page is the map; seven short pages explain the idea.</p>
+
+<h2 id="start">Start in one minute</h2>
+<div class="two">
+  <div class="card"><h3>In the browser</h3>
+    <ol>
+      <li>Open the web app (Chrome or Edge).</li>
+      <li>Click <b>Play the synth</b>, then <b>▶ DEMO</b> in the header for a tour of the sounds (the welcome window's <b>Play the demo on YouTube</b> opens the video of the demo).</li>
+      <li>Play the on-screen keyboard with the mouse, the keys <kbd>1</kbd>…<kbd>0</kbd> and <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd>…, or a MIDI keyboard. <kbd>Z</kbd> / <kbd>X</kbd> change the octave.</li>
+    </ol>
+  </div>
+  <div class="card"><h3>As a plug-in</h3>
+    <ol>
+      <li>Download the zip from the <a href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest">Releases</a> page and unzip it.</li>
+      <li>Install it (see <a href="#install">Install</a>), rescan the plug-ins in your DAW.</li>
+      <li>Load <b>OktoPierre → Okto MultiWave Synth</b> on a MIDI track. Same sound, same panel.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="idea">The idea, and the seven pages</h2>
+<p>A normal oscillator repeats one smooth wave. A <b>wavelet</b> is a tiny wave that starts, rings and fades. OktoWave cuts a cycle of sound into wavelet “atoms” in 11 octave bands, and lets you work on the bands: turn them down with a filter, draw them with drawbars, keep only the strongest, confine the effect to one part of the wave.</p>
+<table>
+  <tr><th><a href="wavelets.html">Wavelets</a></th><td>The principle of the wavelet decomposition, and the idea of making an oscillator of it.</td></tr>
+  <tr><th>Subtractive</th><td>Oscillators <b>A1</b> and <b>A2</b>: a classic wave cut into atoms, then filtered by size and by place.<br>
+    <a href="subtractive-1.html">1 · The oscillator</a> · <a href="subtractive-2.html">2 · Filter and window</a> · <a href="subtractive-3.html">3 · Making it move</a></td></tr>
+  <tr><th>Additive</th><td>Oscillator <b>B1</b>: eleven drawbars, one per band, with a pattern and an envelope for every band.<br>
+    <a href="additive-1.html">1 · Drawbars and patterns</a> · <a href="additive-2.html">2 · Atoms and scalogram</a> · <a href="additive-3.html">3 · Playing with the others</a></td></tr>
+</table>
+<figure><img src="img/signal-flow.svg" alt="The path of the sound: oscillators with their envelopes, mix, voice filter, velocity, then the effects"><figcaption>Per note: the oscillators, each with its envelope, mixed by OSC MIX, a conventional filter, the velocity; then all the notes share the effects.</figcaption></figure>
+
+<h2 id="panel">The panel</h2>
+<img class="panel" src="panel.jpg" alt="The OktoWave panel with oscillator A1 shown" width="1140">
+<p>The panel is the same in the browser and in the plug-in, except for a few buttons (listed under the table). From top to bottom:</p>
+<table>
+  <tr><th>Header</th><td>The <b>preset box</b> (◀ ▶ step through the sounds, a click on the name opens the preset browser), <b>MANUAL</b>, the master volume knob and the level meter. The master volume is yours: it no longer changes with the preset, and every preset plays at the same loudness (it starts at 0 dB, with 6 dB of room above). The demo (a piece played as a tour of the presets): <b>▶ DEMO</b> in the browser, <b>▶ PLAY DEMO</b> in the plug-in (it leaves your sound as it was; a second click stops it). Browser only: <b>DOWNLOAD VST</b> and <b>SEND FEEDBACK</b> (a short form that opens in a new tab: a bug, an idea, a sound you miss). Plug-in only: <b>SAVE PRESET</b> and the window-size button.</td></tr>
+  <tr><th>OSC1 · OSC2 · OSC3</th><td>The three folder tabs choose <em>which oscillator's cards you see</em> (OSC1 and OSC2 are the subtractive ones, A1 and A2 in this manual; OSC3 is the additive one, B1). They never change the sound: a lit dot says the oscillator is heard, and what you hear is set by <b>OSC MIX</b>.</td></tr>
+  <tr><th>WAVELET · SUBTRACTIVE</th><td>The heart of A1 and A2, in four columns: <b>SOURCE</b> (the wave, its cycle, WIDTH, PHASE), <b>ATOMS</b> (the wavelet, its atom, how many atoms are kept), <b>MORPH</b> (WAVELET 2, MORPH, ENV&gt;WAV, and the small <b>WAVELET LAB</b> button) and <b>WINDOW</b>: a window that confines the wavelet filter to one part of the cycle (<b>AMOUNT</b>, <b>POSITION</b>, <b>WIDTH</b>). → <a href="subtractive-1.html">Subtractive 1</a>, <a href="subtractive-2.html">Subtractive 2</a></td></tr>
+  <tr><th>WAVELET SHAPER · ATOMS</th><td>Under the card of A1 and A2 (a gold frame): the atoms reshaped before the sound is rebuilt, for both oscillators at once. → <a href="#lab">The Wavelet Laboratory</a></td></tr>
+  <tr><th>MORPH LFO</th><td>Beside it (lavender): an LFO that swings the bands' <b>TILT</b>, with its <b>SHAPE</b> and <b>RATE</b>. → <a href="#lab">The Wavelet Laboratory</a></td></tr>
+  <tr><th>WAVELET · ADDITIVE</th><td>The heart of B1: the pattern, the 11 drawbars, the atom and its wavelet; under it, <b>SCALE ENVELOPE · ATOM PATTERN</b>: the band envelope knobs, <b>TILT</b> and <b>SEED</b>. → <a href="additive-1.html">Additive 1</a></td></tr>
+  <tr><th>WAVELET FILTER · WINDOW</th><td>In the laboratory (WAVELET LAB), for the oscillator shown: the <b>WAVELET FILTER</b>, low-pass, high-pass, band-pass or band-reject <em>on band sizes</em>, with slope, <b>PEAK</b>, key tracking, envelope and velocity, and a picture of the gain of its 11 bands at C4, as bars with a smooth curve through them (the response of the filter, like the curve of a classic filter); for B1 also its <b>WINDOW</b>, which confines the detail to one part of the cycle. → <a href="subtractive-2.html">Subtractive 2</a>, <a href="additive-2.html">Additive 2</a></td></tr>
+  <tr><th>OSC PITCH · VOLUME ADSR</th><td>At the right of the MORPH LFO, for the oscillator shown: its pitch (<b>OCTAVE</b>, <b>SEMI</b>, <b>FINE</b> and a pitch envelope) and its volume ADSR, its loudness in time (there is no envelope of the whole voice, each oscillator has its own; the attack starts steep). → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
+  <tr><th>OSC MIX · SUB OSC</th><td>The three oscillator levels, <b>OS1</b> <b>OS2</b> <b>OS3</b> as the tabs (an oscillator at 0 costs nothing), and the sub oscillator. In the plug-in the card is titled MIX and VINTAGE: <b>VINTAGE</b> ages the instrument like an analog synthesizer. <b>VELOCITY</b> (under TYPE in the plug-in, under OS2 in the browser) says how much the strength of the key counts for the level of a note. → <a href="additive-3.html">Additive 3</a></td></tr>
+  <tr><th>SCOPE · ALL OSCILLATORS</th><td>One cycle of the whole sound, and under it the <b>SCALOGRAM</b>: rows are band sizes, bright cells are loud atoms. → <a href="additive-2.html">Additive 2</a></td></tr>
+  <tr><th>OSC2 → OSC1</th><td>Under the oscillator, at the left of the FILTER: OSC2 acts on OSC1. The route (<b>MIX</b>, <b>FM</b>, <b>RING</b>, <b>AM</b>, or the same with <b>+ MIX</b>), <b>FM AMT</b>, and <b>OSC DRIVE</b> with <b>ENV</b> and <b>VEL</b>. → <a href="#palette">Version 1.2</a></td></tr>
+  <tr><th>TONE ENVELOPE</th><td>At the left of the FILTER: an ADSR that moves the tone through each note: the wavelet filters' cutoffs (<b>ENV AMT</b>), the wavelet morph (<b>ENV&gt;WAV</b>), the tables and <b>OSC DRIVE</b>. It does not set the loudness: each oscillator's volume ADSR does. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
+  <tr><th>FILTER</th><td>A 24 dB resonant low-pass in every voice, the round and smooth <b>OTA</b>, with its own ADSR. Open by default. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
+  <tr><th>LFO 1 · LFO 2/3</th><td>LFO 1 moves pitch, cutoff, position, morph, atoms and peak. LFO 2 and LFO 3 (two tabs) each move <em>one control of your choice</em> (<b>TARGET</b>) in every oscillator. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
+  <tr><th>VOICE · EFFECTS</th><td>Portamento (OFF · POLY · LEGATO), <b>VOICES</b>, <b>GLIDE</b>, <b>UNISON</b>, <b>DETUNE</b>, <b>STEREO</b>; then saturation, chorus, ping-pong delay, reverb, <b>PUNCH</b> (a stronger start of every note), master volume and a soft limiter. → <a href="subtractive-3.html">Subtractive 3</a></td></tr>
+  <tr><th>PLAY · CHORD KEYBOARD</th><td><b>CHORD MODE</b>, <b>BASS</b>, the <b>TUNING</b> switch (WEST · ARAB · TURK) and the chord card: see <a href="#play">Playing</a>. <b>VELOCITY</b>: how much the velocity of your keys counts (50 %: a note played at half velocity is about 8 dB softer; 0 %: every note alike) and, in the menu under it, where it goes: <b>VOLUME</b>, <b>FILTER</b> (the cutoff of the FILTER card, which it switches in) or both. It stays when you change preset.</td></tr>
+  <tr><th>Keyboard</th><td>Five octaves, with the <b>pitch</b> and <b>mod</b> wheels at its left. Lit keys follow what is played, by you, by MIDI or by the demo.</td></tr>
+</table>
+<h3>Working with the controls</h3>
+<ul>
+  <li><b>Drag</b> a knob up or down; hold <kbd>Shift</kbd> for five times finer steps. The mouse wheel also works. <b>Double-click</b> (or <kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + click) resets it to its default. Hover a knob to read its value.</li>
+  <li><b>Right-click</b> a control in the browser to link a MIDI knob (MIDI learn; <kbd>Esc</kbd> cancels). A <b>greyed-out</b> control has no effect with the current settings (WIDTH unless the wave is PULSE or TRI; the WINDOW's POSITION and WIDTH while its AMOUNT is 0; WAVELET 2 while nothing morphs).</li>
+  <li>Browser only: <b>Save preset</b>, <b>Export</b>, <b>Import</b> in the bar under the panel. Plug-in only: the SYNC buttons lock the delay and the LFOs to the tempo of your DAW, and <b>VINTAGE</b> (<b>AMOUNT</b>, <b>TYPE</b>) in the OSC MIX card.</li>
+</ul>
+
+<h2 id="play">Playing</h2>
+<h3>CHORD MODE</h3>
+<p>The <b>CHORD MODE</b> button of the PLAY card turns the keyboard into a chord harp and shows the <b>CHORD KEYBOARD</b> card under it. One octave of keys (<b>KEYS OCT</b>, tinted on the keyboard) <em>chooses the chord type</em> and makes no sound; every key above it plays the whole chord with one finger. The twelve pads show the types (Maj, Min, 7, m7, Maj7, Sus2, Sus4, Dim, Aug, 5, Add9, Note); a click on a pad chooses one. <b>VOICING</b> stacks the chord or folds it into one octave, <b>STRUM</b> starts its notes one after the other (the <b>strum plate</b> strums it with the mouse), and <b>BASS</b> adds the root two octaves below. These are playing settings, never part of a preset.</p>
+<h3>Oriental tunings</h3>
+<p>The <b>TUNING</b> switch gives the keyboard quarter tones. <b>WEST</b> is equal temperament. <b>ARAB</b> plays 24 tones to the octave; <b>TURK</b> plays the 53 commas of Turkish music. Outside WEST the card shows <b>MAQAM</b> (the scale: Rast, Bayati, Saba, Hijaz…) and <b>TONIC</b>; the panel takes sand-gold (ARAB) or carmine (TURK) colours with an oriental pattern on the PLAY card. The demo always plays in equal temperament.</p>
+<h3>The demo</h3>
+<p>In the browser, <b>▶ DEMO</b> plays Beethoven's <i>Appassionata</i> while the sounds change every few seconds; its window presents the synthesizer, one sentence per sound. <b>■ STOP</b> (or <kbd>Esc</kbd>) stops it and puts every control back.</p>
+
+<h2 id="presets">Presets</h2>
+<p>OktoWave has <b>267 presets</b>, all kept by its author after his own listening, all as loud as one another; in each one OSC1 is the main oscillator. Nineteen end with <b>LGT</b>: lighter versions of sounds that ask a lot of the computer (less modulation, fewer unison voices); the full versions are marked <b>HIGH_CPU</b>, most of them in <b>Other</b>. <b>TOP Sounds</b> come first (the synth opens on the first one), then <b>Wavelet FM</b> (34 sounds that play the version 1.2 palette: OSC2 → OSC1 FM, ring, sync, ENCRE, the new source waves), then the sections of the author's favourites (Pad, Bass, SuperModulation, Lead, Keyboard, Strings, Brass &amp; Wind, Bells &amp; Mallets, FX), in his order, and <b>Other</b>, which holds every other sound. In the plug-in, <b>▲ UP</b> and <b>▼ DOWN</b> above the list move the sound you play up or down in it (your order is kept in your presets file). The letters at the start of a name say which oscillators it uses (<code>A</code>, <code>AA</code>, <code>AB</code>, <code>AAB</code>, <code>B</code>).</p>
+<ul>
+  <li><b>Choose a sound</b> with ◀ ▶, or click the preset name to open the <b>preset browser</b>: one click plays a sound, the arrow keys move in the lists. In the plug-in, you can rate sounds with stars (1 to 10). In the plug-in, resting the mouse on the preset name opens a menu of the banks, each one with its presets.</li>
+  <li><b>Browser:</b> <b>Save preset</b> keeps your sound in this browser, <b>Export</b> writes a <code>.json</code> file, <b>Import</b> reads one.</li>
+  <li><b>Plug-in:</b> <b>SAVE PRESET</b> adjusts the sound playing (<b>RESTORE</b> brings the original back) or replaces a sound of your <b>USER BANK</b> (empty at first). <b>SAVE PRESET</b> is also at the top of the preset lists. In the preset browser, <b>NEW</b> copies the sound right under the selected one and you type its name in place; <b>RENAME</b>, <b>COPY</b> / <b>PASTE</b> (<kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + C, V), <b>NEW BANK</b>. <b>EXPORT…</b> writes one bank, one list, your favourites or everything; <b>IMPORT…</b> shows what a file holds and adds the banks you tick (nothing of yours is replaced, unless you choose to).</li>
+  <li><b>Your sounds are safe:</b> they live in <code>Documents\OktoPierre\Okto Fractal Wavelet</code> (macOS: <code>~/Documents/OktoPierre/Okto Fractal Wavelet</code>), made the first time you keep something. Installing, replacing or deleting the plug-in never touches it; the file of an older version is read where it is.</li>
+</ul>
+
+<h2 id="lab">The Wavelet Shaper, the Morph LFO and the Wavelet Laboratory</h2>
+<p>The <b>WAVELET SHAPER</b> and the <b>MORPH LFO</b> are under the card of the subtractive oscillators. The small <b>WAVELET LAB</b> button of that card, or <b>WAVELET LAB</b> at the top of the preset browser, shows the laboratory in the browser's place (<b>◂ PRESETS</b> brings the preset lists back): the <b>WAVELET FILTER</b> of the oscillator shown, then, for A1 and A2, <b>ATTACK</b>, <b>TILT · PARITY</b> and the <b>BAND ENVELOPES</b> (for B1 its WINDOW). They work on the wavelet atoms of A1 and A2 (both at once). Every control is neutral by default: a sound is as it was until you turn one.</p>
+<ul>
+  <li><b>WAVELET SHAPER</b> reshapes the atoms before the sound is rebuilt: <b>AT. MODE</b> (how ATOMS keeps atoms: all bands together, per band so that every octave stays, or shrunk softly), <b>POWER</b> (under 1 the small atoms get louder: denser and noisier; over 1 purer and darker), <b>QUANT</b> (the atom sizes rounded to a few levels: grainy, metallic; 0 = off), <b>SHIFT</b> (the atoms moved to finer or coarser bands: a change of timbre, not of pitch), <b>ROTATE</b> and <b>ROT TILT</b> (each band's atoms turned round the cycle: the detail moves in the wave; clearest with the WINDOW or the drive), <b>MIRROR</b> (the chosen bands' atoms backwards). Like WAVE and WAVELET, they build the tables again when they move.</li>
+  <li><b>ATTACK</b>: <b>B.PUNCH</b> boosts the fine bands at the start of each note (a bright attack; <b>TIME</b> how long, <b>VEL</b> how much the velocity counts); <b>START</b> is where a note starts in the cycle (on the edge it clicks, at zero it is soft).</li>
+  <li><b>TILT</b> slopes the bands: darker (the fine bands down) or brighter (the coarse bands down), without a filter's edge; <b>PARITY</b> turns the even bands down: a hollow colour. Both only turn bands down: the sound never gets louder. The TILT knob shows the useful part of its range, from −15 to +3: typing a value (or an automation) still reaches the whole range, −24 to +12.</li>
+  <li><b>BAND ENVELOPES</b>: an envelope per band, as in the additive oscillator: <b>AMOUNT</b>, <b>ATTACK</b>, <b>SPREAD</b> (which bands rise first), <b>BODY</b> and <b>BRIGHT</b> (how long the coarse and the fine bands take to fall), <b>SUSTAIN</b>. A short BRIGHT gives a bright attack that dies octave by octave.</li>
+  <li><b>MORPH LFO</b> (its frame is lavender): one LFO, <b>SHAPE</b> (sine, triangle, saw, square, sample &amp; hold, with its picture), <b>RATE</b>, and <b>TILT</b>, its depth on the bands' TILT: at 0 % TILT stays where its knob is; otherwise it swings round its knob's value by up to half its range (a negative depth swings the other way). The TILT knob of the laboratory shows, in light lavender, the range it goes through.</li>
+</ul>
+<p>The subtractive oscillators also have three more source waves in WAVE ▸ MORE ▾: <b>VOWEL</b> (formants A, E, I, O, U, which follow the note: SOURCE WIDTH moves through them), <b>COMB</b> (equal harmonics, 2 to 60 as WIDTH turns) and <b>FOLD</b> (a sine through a wavefolder, more folds as WIDTH turns).</p>
+
+<h2 id="palette">Version 1.2: a wider palette (OSC2 → OSC1, SOURCE+, ENCRE, TABLES, NOISE)</h2>
+<p>Two more cards of the laboratory, under the BAND ENVELOPES (the third, OSC2 → OSC1, has been on the panel since 1.3, under the oscillator), and twelve more source waves. Everything is neutral by default (a sound is as it was until you turn one).</p>
+<ul>
+  <li><b>OSC2 → OSC1</b> makes OSC2 an operator that acts on OSC1: <b>FM</b> (OSC2's wave moves the place OSC1 is read at; <b>FM AMT</b> is the depth, OSC2's own envelope shapes it, its OCTAVE and SEMITONES are the ratio), <b>RING</b> (the two multiplied: inharmonic, metallic) or <b>AM</b>; the routes with <b>+ MIX</b> also let you hear OSC2 (in <b>FM</b>, <b>RING</b> and <b>AM</b> alone OSC2 is only the modulator: raising OS2 from 0 in one of them switches to its <b>+ MIX</b> variant, and the scope and the scalogram show only what is heard). <b>OSC DRIVE</b> saturates each subtractive oscillator before the mix; <b>ENV</b> and <b>VEL</b> make the drive follow the TONE ENVELOPE and the key velocity.</li>
+  <li><b>SOURCE+</b>: <b>H.SYNC</b> (hard sync) reads the source at a multiple of the note and restarts it every cycle (hard sync, for every wave), <b>DRIVE</b> and <b>BITS</b> saturate and coarsen the source before it is split into atoms, <b>ANGLE</b> turns the wavelet while WAVELET says ANGLE (60° is Daubechies 2). <b>ENCRE</b> analyses with the oscillator's wavelet and draws the atoms back with another one. <b>START MODE</b> starts each note, or each unison copy, at a random place in the cycle.</li>
+  <li><b>ENV</b> · <b>VEL → TABLES</b> and <b>NOISE</b>: the TONE ENVELOPE and the velocity move the sound among the tables of ATOMS, PHASE, WIDTH, SYNC or ANGLE (<b>TABLES</b> chooses which): a timbre that travels inside each note, as the LFO 2 targets do. <b>NOISE</b> is a true noise per voice with its <b>COLOUR</b> (dark to bright) and its own <b>DECAY</b>, before the FILTER.</li>
+  <li>The new waves, WAVE ▸ MORE ▾: XOR SQR, FEEDBK FM, RESO, RESO SQR, GROWL, CHAOS, RND STEPS, NZ BURST, PRIME, SUPER PLS, TRI FOLD, ALIAS SAW (SOURCE WIDTH shapes each). The AT. MODE <b>RESIDUE</b> keeps the atoms ATOMS removes: the thin ghost of the wave.</li>
+</ul>
+
+<h2 id="macros">Morph macros</h2>
+<p>Since version 1.1, WAVELET LAB took the place of the MACROS panel; in the plug-in the macros are parameters your DAW can automate (<i>Macro 1 BRIGHTEN</i> … <i>Macro 20 GLASS</i>). Each one moves several controls of the subtractive oscillators A1 and A2 together, from the sound's own settings (0 %) towards a destination (100 %): an easy way to vary a sound without opening every card. A double click puts a slider back to 0 %. Hover a slider in the browser to read what it does.</p>
+<ul>
+  <li><b>The wavelet filter:</b> BRIGHTEN, DARKEN, RESONANCE, FILTER PLUCK (it opens at each note and closes fast), SLOW BLOOM (it opens slowly), VOWEL, GLASS.</li>
+  <li><b>The wavelet:</b> WAVELET MORPH (towards WAVELET 2), MORPH BREATH (LFO 1 swings it), MORPH ENVELOPE (each note travels towards WAVELET 2).</li>
+  <li><b>The window:</b> HOLLOW, WINDOW SCAN (LFO 1 moves the window through the cycle), HARMONIC SHIFT.</li>
+  <li><b>Grain, noise and motion:</b> SPARSE GRAIN, GRIT, NOISE AIR (A2 becomes a thin noise), HARMONIC MOTION, SLOW DRIFT, FAST CHAOS, SHIMMER (A2 joins, slightly detuned).</li>
+</ul>
+<p>The cards keep showing the sound's own settings; the macros move what you hear. Several macros on one control share it: the control goes towards the mean of their destinations, so two macros up never push it past both. The macros are playing settings, like VELOCITY: they stay when you change preset and are never saved in a preset. In the plug-in they are kept with your project and can be automated (<i>Macro 1 BRIGHTEN</i> … <i>Macro 20 GLASS</i>); in the browser a right-click links one to a MIDI knob. A macro that acts through the wavelet filter or the window is heard best on a sound whose filter is not wide open.</p>
+
+<h2 id="install">Install the plug-in</h2>
+<div class="two">
+  <div class="card"><h3>Windows (VST3 · VST2)</h3>
+    <ol>
+      <li>Copy the <b>whole</b> <code>OktoMultiWaveSynth.vst3</code> folder into <code>C:\Program Files\Common Files\VST3</code> (administrator rights), or into your VST2 folder.</li>
+      <li>Rescan in your DAW (Ableton Live: <i>Preferences → Plug-ins → Rescan</i>): it appears as <b>Okto Fractal Wavelet</b> (OktoPierre).</li>
+      <li>Your presets go to your Documents folder, so the plug-in's folder never has to allow writing.</li>
+    </ol>
+  </div>
+  <div class="card"><h3>macOS (VST3, Apple silicon and Intel)</h3>
+    <ol>
+      <li>Copy <code>OktoMultiWaveSynth.vst3</code> into <code>~/Library/Audio/Plug-Ins/VST3</code>.</li>
+      <li>The plug-in is free and not signed with a paid Apple certificate: allow it once with <code>xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/OktoMultiWaveSynth.vst3</code> in Terminal, or <i>System Settings → Privacy &amp; Security → Open Anyway</i>.</li>
+      <li>Rescan in your DAW. Logic Pro and GarageBand only load Audio Units and cannot use it. On a Mac, <kbd>Cmd</kbd>-click resets a knob and Control-click is a right-click.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="help">Help</h2>
+<details><summary>No sound in the browser</summary><p>Browsers only allow sound after a click: click <b>Play the synth</b> in the welcome window. The status bar must say <i>Audio on</i>. Only one tab plays at a time.</p></details>
+<details><summary>I click an oscillator tab and the sound does not change</summary><p>By design: the tabs only choose which cards you see. The sound is set by the three levels in OSC MIX (a fresh patch plays A1 only).</p></details>
+<details><summary>A knob has no effect</summary><p>Check the level of the oscillator you are editing in OSC MIX (an oscillator at 0 is silent) and whether the control is greyed out. With the FILTER wide open, its cutoff does nothing.</p></details>
+<details><summary>It crackles, or the page slows down</summary><p>The cost grows with VOICES × UNISON × the oscillators that are on. Lower UNISON or VOICES, turn off oscillators you do not hear, open the FILTER, or use the plug-in, which has the whole computer's time. A few sounds with long releases and many unison copies are heavy on a slow computer.</p></details>
+<details><summary>The plug-in does not appear in my DAW</summary><p>Copy the <b>whole</b> bundle folder (not only the file inside), then rescan. On Windows the DAW must see the VST3 (or VST2) folder you used.</p></details>
+<details><summary>Where are my presets? SAVE PRESET says it cannot write</summary><p>In <code>Documents\OktoPierre\Okto Fractal Wavelet</code> (macOS: <code>~/Documents/OktoPierre/Okto Fractal Wavelet</code>), in one readable file, <code>OKTOMULTIWAVE presets.txt</code>. That folder must allow writing (a security tool may block it). Before 1.0.17 the file was next to the <code>.vst3</code> folder: it is still read there until you keep something new.</p></details>
+
+<h2 id="credits">Credits and thanks</h2>
+<ul>
+  <li>Demo music: MIDI from the <a href="https://www.mutopiaproject.org">Mutopia Project</a> — Beethoven's Piano Sonata No. 23 <i>Appassionata</i>, Op. 57 III (public domain).</li>
+  <li>VST3 interface headers: Steinberg Media Technologies, MIT licence. Wavelet filter coefficients generated with PyWavelets (MIT).</li>
+  <li class="thanks-star">Thanks to Jérémie Palmigiani, aka <span class="stage">Soul Machine</span>.<br>
+    <span class="insta">Instagram: <a href="https://www.instagram.com/djsoulmachine" target="_blank" rel="noopener">https://www.instagram.com/djsoulmachine</a></span></li>
+  <li>Thanks to Soul Machine, Flo (Go Tiger) and Arnaud Grignard for testing and review of the Wavelet Synthesizer.</li>
+</ul>
+
+<footer>
+  <p>OktoWave — Okto MultiWave Synth, created by <b>Pierre Arnaud GUYOT</b> (OktoPierre), on the basis of his Wavelet Synthesizer. Free to use (freeware), all rights reserved, without any warranty: <a href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST">github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST</a>. Demo music: Beethoven, <i>Appassionata</i>, Op. 57 III, public domain, MIDI from the <a href="https://www.mutopiaproject.org">Mutopia Project</a>.</p>
+</footer>
+</main>
+</body>
+</html>

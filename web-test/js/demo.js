@@ -1,0 +1,309 @@
+// Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)
+// SPDX-License-Identifier: LicenseRef-OktoWave (all rights reserved, see LICENSE)
+// Okto MultiWave Synth — created by Pierre Arnaud GUYOT (OktoPierre); based on his Wavelet Synthesizer (beta 0.7). Release beta 0.2.
+// Demo player: plays Beethoven's Appassionata (III) (public-domain MIDI from the Mutopia Project, web/js/demo_data.js) as a tour of the
+// presets (a new preset every 8 beats, 3.6 s, at the start of the theme's phrase; before 1.0.10: about every 4 s, on a change of chord). A small window says which preset plays and what it is made of.
+function WSDemo(api) {
+  'use strict';
+  const SONG = WS_DEMO_SONGS[0];
+  const C = api.C, P = api.P, PARAMS = api.PARAMS, SPEC_SLOTS = WS_SPEC.SLOTS;
+  const LEAD_IN = 0.25;   // seconds between the click and the first note
+
+  // The preset sequence of the tour (tools/spec.js TOUR: the tour of the Wavelet Synthesizer's web app, same piece, same presets, same level; the presets are
+  // WS_SPEC.DEMO_PRESETS, app.js applyPreset): written out so that a new menu order does not change the demo. The demo starts at song.origin (version 1.0.10: 17.0 s, the low F that starts the theme; its opening line and chords are cut).
+  // version 1.0.6: the window presents the synth while the piece plays, one short sentence per preset of the tour (the wavelets, the idea of an oscillator made of them, how it differs from the
+  // other synthesizers): WS_SPEC.DEMO_STORY ([chapter, sentence], tools/spec.js); the last one stays if the tour is longer
+  const STORY = WS_SPEC.DEMO_STORY;
+
+  // Preset tour: a new preset of the tour (WS_SPEC.TOUR, or the list given to start()) every PHRASE of the piece. Version 1.0.10: the owner's request, the change goes with the music: the theme
+  // of the right hand repeats over 8 beats and starts with a low note, so the demo starts on that low F (song.origin, tools/make_demo.js) and a preset lasts 8 beats, song.phrase seconds
+  // (the tempo is 134 beats a minute, fitted on the onsets): the preset k changes at k phrases, on the onset of the note that sits there (every note of the piece starts on a sixteenth of
+  // that grid). Before, a change went to the chord with the most notes near every 4-second mark of the whole piece. The preset is loaded TOUR_LEAD before the note, so the new sound starts
+  // with it. The last scene is at least TOUR_MIN_LAST seconds long (30 phrases for the 30 presets, the last one 6 s: the end of the piece).
+  // Every preset is made playable on the piece: polyphonic, normal octave, no glide, short attack.
+  const TOUR_SAFE = { v_voices: 16, v_oct: 0, v_glide: 0, vel_amt: 0 };   // (version 1.0.13: the PLAY card's VELOCITY off: the levels of the tour were set without it)
+  const TOUR_MAX_ATTACK = 0.08;
+  const TOUR_MAX_DELAY_MIX = 0.1, TOUR_MAX_DELAY_FB = 0.3;   // long echoes on a fast piece sound like a canon
+  const TOUR_LEAD = 0.08, TOUR_MIN_LAST = 3;
+  // Web update 2026-10-22 (the owner's request): in the phrase of AA · Hollow Bass the keyboard is in the oriental tuning, ARAB, maqam SABA on B flat (the pedal of that phrase: the C is a quarter tone
+  // lower, the other notes of the phrase stay where they are); the next preset puts it back to WEST (every scene sets mt_mode: 0 unless it has an entry here). The tuning is a performance setting, not
+  // in a preset: it goes with the preset change (the rules below), at the chord, and the panel takes the oriental colours for that phrase. mt_scale 3 = Saba, mt_tonic 10 = B flat.
+  // Version 1.0.14 (the owner: "passer en mode ARAB sur le Spiccato Strings de la démo"): its phrase (around C: C E G B B-flat A-flat F) in maqam RAST on G: the B goes a quarter tone down
+  // (3 notes), the rest stays where it is. mt_scale 0 = Rast, mt_tonic 7 = G.
+  // Version 1.0.19 (the tour in the order of the owner's ratings): these tunings go with their phrases of the piece, 4 and 9 (the scene's place), whatever preset plays there.
+  const TOUR_TUNING = { 3: { mt_mode: 1, mt_scale: 3, mt_tonic: 10, label: 'ARAB · SABA' }, 8: { mt_mode: 1, mt_scale: 0, mt_tonic: 7, label: 'ARAB · RAST' } };
+  // Version 1.0.14 (the owner: crackles in the phrase before AAB · Rust Aurora and in the one before AB · Open Mallets, "diminue la modulation si nécessaire"): these presets play the demo with their
+  // modulation scaled by the factor given here, every amount of LFO 1 and the amounts of LFO 2 and LFO 3 (the rates, shapes and targets stay). The presets themselves are not changed.
+  const TOUR_CALM = { 'AB · Orbit Cloud': 0.5 };   // (version 1.0.14: AA · Drum Bloom left this list: the demo plays its light version, tools/spec.js LIGHT)
+  const CALM_KEYS = ['lfo_pitch', 'lfo_cut', 'lfo_pos', 'lfo_wav', 'lfo_sp', 'lfo_res', 'lfo_ew', 'lfo2_amt', 'lfo3_amt'];
+  // version 1.0.8: the change of preset is made by the audio thread, at the chord. The page sends it SEND_LEAD seconds ahead (the new sound's values and tables, with the song time of the chord:
+  // worklet.js starts the dip so that it ends at the chord); the panel, the window and the label follow at TOUR_LEAD before the chord, as before. A page that was late (a busy main thread) made the
+  // change late, 100 ms after the chord for a delay of 100 ms: the audio thread's clock does not wait for the page.
+  const SEND_LEAD = 0.6;
+  // Version 1.0.14 (the owner: a preset changes at its place in the piece, never elsewhere): a hidden page gets no animation frame, so the demo does not follow while it is hidden (the audio thread
+  // goes on with the sound in place). When the page comes back, a scene whose chord went by more than MISSED seconds ago is not played late, in the middle of its phrase: the sound in place stays
+  // until the next chord, whose change goes as usual. (A timer that kept the demo going in a hidden page, web update 2026-10-22, made changes at wrong places: removed.)
+  const MISSED = 0.15;
+  function chordOnsets(notes) {   // notes: flat [time, duration, note, velocity] * n, sorted by time
+    const ev = [];
+    for (let i = 0; i < notes.length; i += 4) {
+      const last = ev[ev.length - 1];
+      if (last && notes[i] - last.t < 0.03) last.n++; else ev.push({ t: notes[i], n: 1 });
+    }
+    return ev;
+  }
+  function tourScenes(song, names) {
+    const P = song.phrase, ev = chordOnsets(song.notes), out = [];
+    for (let k = 0; k * P <= song.duration - TOUR_MIN_LAST + 1e-9; k++) {
+      const g = k * P, e = ev.find(x => x.t >= g - 0.03), chord = e ? e.t : g;   // chord: the song time of the note the change goes with (version 1.0.8)
+      out.push({ t: k ? chord - TOUR_LEAD : 0, chord, tour: true, preset: names[k % names.length] });
+    }
+    out.forEach((sc, i) => { sc.pos = i; sc.of = out.length; });
+    return out;
+  }
+  // what the sound uses (the oscillators that play), not the panel shown
+  const SLOT_NAMES = ['A1', 'A2', 'B1'];
+  function playing() { const v = api.values(); return SPEC_SLOTS.map((sl, s) => (v[sl.k.lvl] > 0 ? s : -1)).filter(s => s >= 0); }
+  function engineLabel() {
+    const on = playing();
+    return on.length ? 'Oscillators ' + on.map(s => SLOT_NAMES[s]).join(' + ') : 'No oscillator';
+  }
+  let st = null;        // running state
+  let win = null;       // window elements
+
+  // ---------------------------------------------------------------- window
+  function buildWindow() {
+    const dev = document.getElementById('device');
+    const w = document.createElement('div');
+    w.className = 'demo-win';
+    w.innerHTML =
+      '<div class="dw-bar"><span class="dw-title"></span><button class="dw-stop" title="Stop the demo">■ STOP</button></div>' +
+      '<div class="dw-body"><div class="dw-sec"></div><div class="dw-param"></div><div class="dw-val"></div><div class="dw-chap"></div><div class="dw-text"></div>' +
+      '<div class="dw-prog"><i></i></div><div class="dw-foot"><span class="dw-time"></span><span class="dw-src"></span></div></div>';
+    dev.appendChild(w);
+    win = {
+      el: w, title: w.querySelector('.dw-title'), sec: w.querySelector('.dw-sec'), param: w.querySelector('.dw-param'),
+      val: w.querySelector('.dw-val'), chap: w.querySelector('.dw-chap'), text: w.querySelector('.dw-text'), prog: w.querySelector('.dw-prog i'),
+      time: w.querySelector('.dw-time'), src: w.querySelector('.dw-src'),
+    };
+    w.querySelector('.dw-stop').onclick = () => stop();
+    const bar = w.querySelector('.dw-bar');
+    let drag = null;
+    bar.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      bar.setPointerCapture(e.pointerId);
+      drag = { x: e.clientX, y: e.clientY, l: w.offsetLeft, t: w.offsetTop };
+    });
+    bar.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const s = api.ui.scale;
+      w.style.left = Math.max(0, Math.min(place().left, drag.l + (e.clientX - drag.x) / s)) + 'px';
+      w.style.top = Math.max(0, Math.min(WS_SPEC.DEVICE.h - w.offsetHeight, drag.t + (e.clientY - drag.y) / s)) + 'px';
+    });
+    bar.addEventListener('pointerup', () => { drag = null; });
+  }
+
+  // Where the window sits (version 1.0.6, the owner's request: "more to the right"): as far right as the page allows, so that it hides as little of the panel as possible. In panel pixels (the panel is
+  // scaled to the page): the content is the panel, and the preset list at its right while it is open (348 wide: the window is then as wide as the list and sits over it, off the panel); the
+  // room the page leaves beyond the content is used as well.
+  function place() {
+    const dev = document.getElementById('device').getBoundingClientRect(), s = api.ui.scale || 1;
+    const listOn = !!(api.ui.browser && api.ui.bOpen), contentW = 1100 + (listOn ? 360 : 0);
+    const free = Math.max(0, (document.documentElement.clientWidth - (dev.left + contentW * s)) / s);
+    const edge = contentW + free - 8, w = listOn ? Math.min(386, edge - 1104) : 386;
+    return { w, left: edge - w };
+  }
+
+  const mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+  // ---------------------------------------------------------------- control
+  function set(key, v) { if (key in P) api.setParam(P[key], v); }
+
+  // the demo's rules for a preset (modify(set, get) of app.js applyKeyed): polyphonic, normal octave, no glide, short attack, little delay, and from 1.0.4 the trim that keeps the piece
+  // under the output stage (tools/demo_trim.js)
+  const sceneRules = (sc) => (setk, get) => {
+    for (const key in TOUR_SAFE) setk(key, TOUR_SAFE[key]);
+    if (get('amp_a') > TOUR_MAX_ATTACK) setk('amp_a', TOUR_MAX_ATTACK);
+    if (get('fx_dmix') > TOUR_MAX_DELAY_MIX) setk('fx_dmix', TOUR_MAX_DELAY_MIX);
+    if (get('fx_dfb') > TOUR_MAX_DELAY_FB) setk('fx_dfb', TOUR_MAX_DELAY_FB);
+    const tun = TOUR_TUNING[sc.pos] || { mt_mode: 0 };   // (web update 2026-10-22: the oriental tuning of one phrase, else WEST; 1.0.19: by the scene's place)
+    for (const key in tun) if (key !== 'label') setk(key, tun[key]);
+    const calm = TOUR_CALM[sc.preset];   // (version 1.0.14: less modulation)
+    if (calm !== undefined) for (const key of CALM_KEYS) setk(key, get(key) * calm);
+    const trim = (WS_SPEC.DEMO_TRIM || {})[sc.preset];
+    // (OktoWave 1.1: the scene's own MASTER: the default for a factory preset, which carries none any more (never the scene before's: the trims would add up), the demo's
+    // copies keep theirs (DEMO_PRESETS); gen_spec, which runs these rules without a demo (st null), keeps the presets' values)
+    const copy = (WS_SPEC.DEMO_PRESETS || []).find(p => p.name === sc.preset);
+    const m0 = !st ? get('master') : copy ? copy.values[P.master] : PARAMS[P.master].def;
+    setk('master', trim ? Math.max(PARAMS[P.master].min, m0 - trim) : m0);
+    // web update 2026-10-24 (the owner: the VOLUME knob did nothing during the demo, every preset put its own back): the turns of the VOLUME knob during the demo
+    // move every preset's (syncVol; at the start the knob shows the loaded preset's level, not a choice of the player); not in the plug-in's scenes (tools/gen_spec.js)
+    // and the demo plays DEMO_DB lower (the owner: "baisser le volume global lors de la démo", 20 %)
+    if (st && st.vol) {
+      const m = PARAMS[P.master], mv = Math.min(m.max, Math.max(m.min, get('master') + st.vol.off + DEMO_DB));
+      setk('master', mv); sc.masterSet = mv;
+      st.vol.mine = (st.vol.mine || []).concat(mv).slice(-4);   // (the levels the demo itself gave: never a turn of the knob)
+    }
+  };
+  const DEMO_DB = 20 * Math.log10(0.8);   // -1.94 dB: 20 % lower (the plug-in: plugin.cpp demoMaster)
+  // a turn of the VOLUME knob since the demo set the scene's level goes into the offset (OktoWave 1.1: measured against the level the demo gave the scene playing, masterSet:
+  // MASTER no longer comes with the preset, so the level of the panel and the one last noted could be a scene apart and a preset's trim was taken for a turn of the knob)
+  function syncVol() {
+    const mine = st.vol.mine || [], now = api.values()[P.master];
+    if (mine.length && !mine.some(x => Math.abs(x - now) < 1e-9)) { st.vol.off += now - mine[mine.length - 1]; st.vol.mine = [now]; }
+    st.vol.last = null;
+  }
+
+  function enterScene(k) {
+    const sc = st.scenes[k];
+    if (sc.tour) {
+      // version 1.0.6: the preset and the demo's rules (polyphonic, short attack, little delay, and from 1.0.4 the trim that keeps the piece under the output stage: tools/demo_trim.js) reach the
+      // audio thread together, in one message (app.js applyKeyed): changing them one by one made a burst of noise at every change of preset
+      // (1.0.8: when the message was sent ahead (sc.sent), the audio thread has made or will make the change by itself: the panel only follows)
+      syncVol();
+      api.applyPreset(sc.preset, sceneRules(sc), { audio: !sc.sent });
+      st.vol.last = api.values()[P.master];
+      if (sc.sent && sc.sentOff !== st.vol.off && sc.masterSet !== undefined) set('master', sc.masterSet);   // (the knob turned after the preset went to the audio thread)
+      st.scene = k;
+      // the next preset's tables are built ahead, in a Worker, a second after this one is in place
+      clearTimeout(st.pre);
+      const nx = st.scenes[k + 1];
+      if (nx && nx.tour) st.pre = setTimeout(() => api.prebuildPreset(nx.preset, sceneRules(nx)), 300);   // (1.0.19: 0.3 s, was 1 s: on a first visit a heavy preset after a heavy one was ready late)
+      api.setPresetLabel(sc.preset, false);
+      const engine = engineLabel();
+      win.sec.textContent = `Preset tour · ${sc.pos + 1}/${sc.of} · ${engine}${TOUR_TUNING[sc.pos] ? ' · tuning ' + TOUR_TUNING[sc.pos].label : ''}`;
+      win.param.textContent = 'Now playing: ' + sc.preset;
+      const line = STORY[Math.min(sc.pos, STORY.length - 1)];
+      win.chap.textContent = line[0];
+      win.text.textContent = line[1];
+      return;
+    }
+  }
+
+  // Scene clock: the audio thread reports the sequencer position about 30 times per second;
+  // between reports it is extrapolated (at most 120 ms). Before the first note and after the
+  // last one, the AudioContext clock is used.
+  // version 1.0.13: the piece can start from a time (seek: the rating build's "5 s back", and its pause); st.offset is the song time of the sequence's start
+  function now() {
+    if (st.paused !== null) return st.paused;
+    if (st.sync) return st.offset + st.sync.seq + Math.min(0.12, (performance.now() - st.sync.at) / 1000);
+    const t = api.ctxTime() - st.t0;
+    return st.offset ? st.offset + Math.max(0, t) : t;   // (after a seek the lead-in waits at the time asked: the scene before it must not come back)
+  }
+
+  function tick() {
+    if (!st) return;
+    const t = now();
+    let k = 0;
+    for (let i = 0; i < st.scenes.length; i++) if (t >= st.scenes[i].t) k = i;
+    const nx = st.scenes[st.scene + 1];
+    if (nx && nx.tour && !nx.sent && st.paused === null && t >= nx.chord - SEND_LEAD && t < nx.t) { nx.sent = true; syncVol(); st.vol.last = api.values()[P.master]; nx.sentOff = st.vol.off; api.sendPreset(nx.preset, sceneRules(nx), nx.chord - st.offset); }   // (1.0.8: ahead of the chord, for the audio thread; its time in the sequence, which starts at st.offset)
+    if (t >= 0 && k !== st.scene) {
+      const sc = st.scenes[k];
+      if (sc.tour && !sc.sent && t > sc.chord + MISSED) {   // (version 1.0.14: missed while the page was hidden: the sound in place stays, the next scene is built ahead and changes at its chord)
+        st.scene = k;
+        clearTimeout(st.pre);
+        const nx = st.scenes[k + 1];
+        if (nx && nx.tour) st.pre = setTimeout(() => api.prebuildPreset(nx.preset, sceneRules(nx)), 300);
+      } else enterScene(k);
+    }
+    const sc = st.scenes[st.scene];
+    if (sc && sc.tour && t >= 0) {
+      const next = st.scenes[st.scene + 1];
+      win.val.textContent = next ? `next preset in ${Math.max(0, next.t - t).toFixed(1)} s: ${next.preset}` : 'last preset of this demo';
+    }
+    const total = st.song.duration;
+    win.prog.style.width = (100 * Math.min(1, Math.max(0, t / total))) + '%';
+    win.time.textContent = `${mmss(Math.max(0, Math.min(total, t)))} / ${mmss(Math.round(total))}`;   // total rounded like the menu
+    if (t > total + 2.5) { stop(); return; }
+    st.raf = requestAnimationFrame(tick);
+  }
+
+  // the scenes of a plan given with the piece (opts.song / opts.scenes: the rating build plays each phrase several times)
+  function scenesFrom(list) {
+    return list.map((s, k) => ({ t: k ? s.chord - TOUR_LEAD : 0, chord: s.chord, tour: true, preset: s.preset, pos: k, of: list.length }));
+  }
+
+  // Plays Beethoven's Appassionata (III) as a tour of the presets.
+  async function start(opts) {
+    if (st) stop();
+    await api.startAudio();
+    if (!win) buildWindow();
+    const song = (opts && opts.song) || SONG;   // (version 1.0.13: the rating build gives the piece with each phrase played several times, and its scenes)
+    const scenes = opts && opts.scenes ? scenesFrom(opts.scenes) : tourScenes(song, (opts && opts.tour) || WS_SPEC.TOUR);   // (opts.tour: another list of presets, the vote build's)
+    const TUNING_KEYS = ['mt_mode', 'mt_scale', 'mt_tonic', 'vel_amt', 'master'], v0 = api.values();   // (version 1.0.13: VELOCITY too, a performance setting the demo's rules set to 0; OktoWave 1.1: MASTER, a performance setting now, which the scenes move)
+    st = { song, scenes, saved: api.snapshot(), tuning: TUNING_KEYS.map(k => [k, v0[P[k]]]), master0: v0[P.master], scene: -1, t0: 0, raf: 0, sync: null, pre: 0, offset: 0, paused: null,
+      vol: { off: 0, last: null } };   // (web update 2026-10-24: the VOLUME knob, sceneRules)   // (the tuning is a performance setting: a snapshot leaves it out, the demo gives it back)
+    api.post({ t: 'alloff' });
+    win.title.textContent = 'DEMO · ' + song.composer + ' — ' + (song.short || song.title);
+    win.title.title = song.title;
+    win.src.textContent = 'MIDI: ' + song.source.replace(/ \(mutopiaproject\.org\)/, '') + ' · public domain';
+    win.el.style.display = 'block';
+    { const p = place(); win.el.style.width = p.w + 'px'; win.el.style.left = p.left + 'px'; }   // as far to the right as the page allows
+    api.ui.setDemoRunning(true);
+    // version 1.0.6: the first preset is in place BEFORE the piece starts: building its tables takes 60 to 190 ms here (more on a slow machine), and the first notes, started by the audio thread
+    // 0.25 s after the click, sounded with the sound that was loaded before the demo, then changed under the player's ears
+    enterScene(0);
+    st.t0 = api.ctxTime() + LEAD_IN;
+    api.post({ t: 'seq', notes: song.notes, delay: LEAD_IN });
+    st.raf = requestAnimationFrame(tick);
+  }
+
+  function stop() {
+    if (!st) return;
+    cancelAnimationFrame(st.raf); clearTimeout(st.pre);
+    api.post({ t: 'seqstop' });
+    syncVol();
+    const saved = st.saved, tuning = st.tuning, vol = st.vol;
+    st = null;
+    api.ui.setDemoRunning(false);
+    if (win) win.el.style.display = 'none';
+    api.restore(saved);
+    for (const [k, v] of tuning) set(k, v);   // the player's own tuning, which the oriental phrase of the demo may have changed
+    if (vol.off) { const m = PARAMS[P.master]; set('master', Math.min(m.max, Math.max(m.min, api.values()[P.master] + vol.off))); }   // (web update 2026-10-24: the knob's turns during the demo stay)
+  }
+
+  // version 1.0.13 (the rating build: "revenir 5 s en arrière", "un bouton pause"): the piece from song time T, with the preset of that moment in place; pause and resume
+  function seekTo(T) {
+    if (!st) return;
+    T = Math.max(0, Math.min(st.song.duration - 0.5, T));
+    api.post({ t: 'seqstop' }); api.post({ t: 'alloff' });
+    let k = 0;
+    for (let i = 0; i < st.scenes.length; i++) if (T >= st.scenes[i].t) k = i;
+    st.scenes.forEach(sc => { sc.sent = false; });
+    st.scene = -1; enterScene(k);
+    st.offset = T; st.sync = null; st.paused = null; st.t0 = api.ctxTime() + LEAD_IN;
+    const n = st.song.notes, notes = [];
+    for (let i = 0; i < n.length; i += 4) if (n[i] >= T - 1e-6) notes.push(n[i] - T, n[i + 1], n[i + 2], n[i + 3]);
+    api.post({ t: 'seq', notes, delay: LEAD_IN });
+  }
+  function pause() {
+    if (!st || st.paused !== null) return;
+    const T = Math.max(0, now());
+    api.post({ t: 'seqstop' }); api.post({ t: 'alloff' });
+    st.paused = T; st.sync = null;
+  }
+  function resume() { if (st && st.paused !== null) seekTo(st.paused); }
+
+  function onSeqTime(seqTime) {
+    if (!st) return;
+    if (seqTime >= 0) st.sync = { seq: seqTime, at: performance.now() };
+    else if (st.sync) {   // the sequence has ended: continue on the AudioContext clock
+      st.t0 = api.ctxTime() - (st.sync.seq + Math.min(0.12, (performance.now() - st.sync.at) / 1000));
+      st.sync = null;
+    }
+  }
+
+  return {
+    start, stop, onSeqTime,
+    seek: seekTo, back: (s) => { if (st) seekTo((st.paused !== null ? st.paused : now()) - s); }, pause, resume, paused: () => !!st && st.paused !== null,   // version 1.0.13 (the rating build)
+    running: () => !!st,
+    // the preset tour ([{ t, preset }]): for the tests and the manual
+    tourPlan: (names) => tourScenes(SONG, names || WS_SPEC.TOUR).map(x => ({ t: x.t, chord: x.chord, preset: x.preset })),
+    rules: (name, pos) => sceneRules({ preset: name, pos }),   // version 1.0.10: the demo's rules for a preset (polyphonic, short attack, trim...), for the vote build (1.0.19: pos, the scene's place, for its tuning)
+    tourLead: TOUR_LEAD,
+    song: () => ({ title: SONG.title, short: SONG.short || SONG.title, composer: SONG.composer, duration: SONG.duration, phrase: SONG.phrase, license: SONG.license }),
+    state: () => (st ? { running: true, song: st.song.title, scene: st.scene, preset: st.scenes[Math.max(0, st.scene)].preset,
+      scenes: st.scenes.length, time: now() } : { running: false }),
+  };
+}
