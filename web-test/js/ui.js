@@ -16,7 +16,7 @@ const splitName = (name) => { const m = /^(\d{3,4} )?((?:[AB][12]?)+) · (.*)$/.
 const engHTML = (eng) => eng.replace(/[AB]/g, c => `<span class="${c.toLowerCase()}">${c}</span>`).replace(/[12]/g, d => `<span class="d">${d}</span>`);
 const SVGNS = 'http://www.w3.org/2000/svg';
 // beta 0.6: where the free plug-in is published (the header's DOWNLOAD VST; index.html's welcome window links there too)
-const VST_RELEASES = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest';   // the official release page (version 1.0.3: the Free-Wavelet-Synthesizer-VST repository)
+const VST_RELEASES = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/tag/v2.0.0';   // the official release page (version 1.0.3: the Free-Wavelet-Synthesizer-VST repository)
 // version 1.0.9: the owner's feedback form (a Google Form: it opens without a Google account; the header's SEND FEEDBACK; index.html's welcome window links to the same address)
 const FEEDBACK_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdqkWNwanzcDDURcKepEK_U1P8b_HyR8B5_Gk48xtuQOYHqgQ/viewform';
 
