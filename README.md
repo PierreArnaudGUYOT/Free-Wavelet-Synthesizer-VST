@@ -1,12 +1,18 @@
 # Okto Fractal Wavelet (OktoWave)
 
-**A research synthesizer for the sound of the wavelet transform**, by Pierre Arnaud GUYOT ("OktoPierre").
+**A free synthesizer plug-in that builds its sounds from wavelets**, by Pierre Arnaud GUYOT ("OktoPierre"). Windows and Mac (VST3). Free for any use, including your music.
+
+## ✨ New in 2.0
+- **New interface**: a cleaner front panel, with the filter next to the oscillator and the LFOs numbered 1, 2, 3.
+- **New sound engine**: an arpeggiator, a sound that moves while each note plays, FM and ring modulation between oscillators, new wavelet tools.
+- **New Halloween presets** 🎃: nine special sounds in a list called **Halloween**.
 
 ## ▶ Watch the demo
 **https://www.youtube.com/watch?v=hWzu-LVZM8I**
 
 ## ▶ Play it online, nothing to install
-**https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/** (Chrome or Edge; a MIDI keyboard plays it directly).
+**https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/** (Chrome or Edge; a MIDI keyboard plays it directly; the web version is updated separately from the plug-in).
+
 ## ⬇ Download the plug-in (Windows VST3 / VST2, macOS VST3)
 1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)**.
 2. Under **Assets**, click the zip for **Windows** (`…-win64.zip`) or **macOS** (`…-mac.zip`).
@@ -15,15 +21,13 @@
 
 ## What it is
 - **A research instrument** to hear what the wavelet transform does to sound: the discrete wavelet transform splits each tone into 11 octave-spaced bands, and the synthesizer rebuilds it band by band instead of shaping it with Fourier filters.
-- **Three wavelet oscillators**: two subtractive ones (A1, A2) that shape a source wave band by band (its WINDOW in the card, a MORPH LFO that swings the bands' balance, **TABLES** that moves the timbre through each note), and an additive one (B1) that builds a tone from wavelet atoms with eleven drawbars.
-- **A wider palette (version 1.2)**: OSC2 can modulate OSC1 (**FM**, ring, AM), twelve harder source waves, hard **SYNC**, a source **DRIVE** and **BITS**, a continuous **ANGLE** wavelet and **ENCRE** (the atoms drawn back with another wavelet), an oscillator drive that follows the playing, **ENV / VEL → TABLES** (the timbre travels inside each note), a random start per note and a true **NOISE**; the new bank **Wavelet FM** shows them.
-- **One envelope per oscillator (version 1.3)**: the AMP ENVELOPE card is gone; each oscillator has its own volume ADSR, in its **OSC PITCH · VOLUME ADSR** card with its pitch (its attack starts steeper), and the **TONE ENVELOPE** moves the tone through each note. **OSC2 → OSC1** sits under the oscillator, level with the FILTER. Your older sounds and projects are converted to play as they did.
-- **TABLES (version 1.4)**: the TONE ENVELOPE and the key velocity move the sound among sets of tables: ATOMS, PHASE, WIDTH (the default), H.SYNC, ANGLE and the new **ROTATE** (the atoms turned round the cycle) and **SHIFT** (the atoms moved to finer or coarser bands).
-- **An arpeggiator (version 1.4, plug-in)**: **ARP** and **HOLD** in the PLAY card with RATE, PATTERN, OCT and GATE; MOTION (the timbre travels along the sequence), SWING and CHANCE in the Wavelet Laboratory. It follows your DAW's tempo and its settings are saved with each preset: a preset without arpeggiator stops it.
-- **The Wavelet Laboratory**: the wavelet filter of each oscillator drawn large, with a smooth curve through its bands like the response of a classic filter, the WAVELET SHAPER, the new **POLARITY** (chosen bands turned down through silence to inverted), band punch and start phase.
-- **Compare the wavelets**: seven of them (Haar, Daubechies 2, 4, 8 and 20, Symlet 8, Coiflet 3), WAVELET MORPH between two, and LFOs that move the wavelet itself (SuperModulation), to hear how each one colours the same sound.
-- **A complete synthesizer around it**: a real filter (OTA), three LFOs, envelopes, chorus, delay, reverb and punch, a chord mode, oriental tunings, VINTAGE and 295 presets (the opening sound is Didgeridou), all as loud as one another (the master volume stays when you change preset).
-- **Your sounds are kept from one version to the next**: each new version reads and converts your presets file; if it holds presets of yours in the factory bank (adjusted or deleted ones, your own, a changed order), the plug-in asks once whether you keep your bank or use the new one, after a backup copy of your file.
+- **Three wavelet oscillators**: two subtractive ones (A1, A2) that shape a source wave band by band (a WINDOW, a WAVELET FILTER, **TABLES** that moves the timbre through each note), and an additive one (B1) that builds a tone from wavelet atoms with eleven drawbars.
+- **A wide palette**: OSC2 can modulate OSC1 (**FM**, ring, AM), many source waves, hard **SYNC**, a source **DRIVE** and **BITS**, a continuous **ANGLE** wavelet and **ENCRE**, **ENV / VEL → TABLES** (the timbre travels inside each note), a random start per note and a true **NOISE**.
+- **An arpeggiator** (plug-in): **ARP** and **HOLD** in the PLAY card with RATE, PATTERN, OCT and GATE; MOTION, SWING and CHANCE in the Wavelet Lab. It follows your DAW's tempo and its settings are saved with each preset.
+- **The Wavelet Lab**: the **MORPH LFO**, the **TONE ENVELOPE**, the WAVELET SHAPER, **POLARITY** (chosen bands turned down through silence to inverted), band punch and start phase.
+- **Compare the wavelets**: seven of them (Haar, Daubechies 2, 4, 8 and 20, Symlet 8, Coiflet 3), WAVELET MORPH between two, and LFOs that move the wavelet itself (SuperModulation).
+- **A complete synthesizer around it**: a real filter (OTA), three LFOs, envelopes, chorus, delay, reverb and punch, a chord mode, oriental tunings, VINTAGE and 312 presets (the opening sound is Didgeridoo), all as loud as one another.
+- **Your sounds are kept from one version to the next**: each new version reads and converts your presets file and your projects; if your file holds presets of yours in the factory bank, the plug-in asks once whether you keep your bank or use the new one, after a backup copy of your file.
 - **Free to use**: the plug-in and the web app, free of charge for any use, including your music productions.
 
 ## Licence
