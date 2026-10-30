@@ -433,8 +433,8 @@ class SynthUI {
     const tabs = [0, 1].map(k => {
       const b = el('button', 'ltab', box, { left: (6 + k * 60) + 'px' });
       el('span', 'dot', b);
-      el('span', 'tx', b).innerHTML = '<span class="t1">LFO ' + (k + 2) + '</span>';
-      b.title = 'Show LFO ' + (k + 2) + ' (a lit dot: its amount is not 0)';
+      el('span', 'tx', b).innerHTML = '<span class="t1">LFO ' + (k + 1) + '</span>';   // (2.0: the tabs read LFO 1 | LFO 2, the card under them is LFO 3)
+      b.title = 'Show LFO ' + (k + 1) + ' (a lit dot: its amount is not 0)';
       b.onclick = () => { this.host.begin(i); this.host.set(i, k); this.host.end(i); };
       return b;
     });
