@@ -19,6 +19,51 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const VST_RELEASES = 'https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest';   // the official release page (version 1.0.3: the Free-Wavelet-Synthesizer-VST repository)
 // version 1.0.9: the owner's feedback form (a Google Form: it opens without a Google account; the header's SEND FEEDBACK; index.html's welcome window links to the same address)
 const FEEDBACK_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdqkWNwanzcDDURcKepEK_U1P8b_HyR8B5_Gk48xtuQOYHqgQ/viewform';
+// TEST 2026-10-30 (the owner: "une interface Halloween", his picture ClaudeProjects/ExchNGE/Gemini_Generated_Image_mlcrpxmlcrpxmlcr.jpg, measured pixel by pixel; web only): the GHOST
+// look, on / off with the header's GHOST button (remembered, 'mw.ghost'; "#ghost" in the address forces it). The stylesheet holds the look (synth.css, html.ghost); the canvases take
+// these colours: blue for the displays of the oscillators A, magenta for the additive one, and the lavender keyboard of the picture (dark at the top, light at the bottom)
+const GHOST = { a: '#58c8ff', b: '#ff4fd8', kb: { w: ['#4a4d9e', '#9290f0'], b: ['#1c1e42', '#0a0b20'], onW: '#dff6ff', onB: '#1e5a7a', lab: '#d8d4ff' } };
+const KB_DEFAULT = { w: ['#d9dee5', '#f6f8fa'], b: ['#262b33', '#0d0f12'], onW: '#e9fbf9', onB: '#0f5a54', lab: '#7a8594' };   // the keyboard of the Crépuscule look
+const LOGO_MARK = '<svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 16h5l3-9 4 18 4-13 3 7h7" fill="none" stroke="var(--logo-wave, var(--accent))" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+// a cobweb of the GHOST look, as in the picture: fine lavender threads from an anchor, rings sagging toward it, a little irregular (a seeded random), a denser hub, a torn thread now
+// and then; drawn for an anchor at the top-left corner of its box (the threads span the quadrant); cls tl / tr / bl / br: the stylesheet mirrors it for the other corners
+function cobweb(S, cls, seed) {
+  let z = seed * 9301 + 49297; const rnd = () => { z = (z * 9301 + 49297) % 233280; return z / 233280; };
+  const f = v => v.toFixed(1), q = Math.PI / 2, n = 15;
+  const angles = []; for (let k = 0; k <= n; k++) angles.push(q * (k + (k > 0 && k < n ? (rnd() - 0.5) * 0.5 : 0)) / n);
+  let d = '';
+  for (const a of angles) { const L = S * (0.9 + rnd() * 0.14); d += `M0,0L${f(L * Math.cos(a))},${f(L * Math.sin(a))}`; }
+  for (let i = 0; i < 12; i++) {
+    const R = S * (0.1 + 0.8 * Math.pow((i + 1) / 12, 0.85)) * (0.97 + rnd() * 0.06);
+    for (let k = 0; k < n; k++) {
+      if (rnd() < 0.06) continue;
+      const a0 = angles[k], a1 = angles[k + 1], am = (a0 + a1) / 2, Rs = R * (0.84 + rnd() * 0.08);
+      d += `M${f(R * Math.cos(a0))},${f(R * Math.sin(a0))}Q${f(Rs * Math.cos(am))},${f(Rs * Math.sin(am))} ${f(R * Math.cos(a1))},${f(R * Math.sin(a1))}`;
+    }
+  }
+  for (const r of [0.03, 0.05, 0.075]) { const R = f(S * r); d += `M${R},0A${R},${R} 0 0 1 0,${R}`; }
+  return `<svg class="web ${cls}" viewBox="0 0 ${S} ${S}" width="${S}" height="${S}"><path d="${d}"/></svg>`;
+}
+// a candle of the picture: blue-violet on a dark saucer, wax running down, a white flame with a blue halo (it flickers: CSS); the light it throws on the panel is a div .glow (ghostDeco)
+const CANDLE_SVG = '<svg class="candle" viewBox="0 0 20 56" width="20" height="56">' +
+  '<defs><linearGradient id="gcw" x1="0" x2="1"><stop offset="0" stop-color="#a39bff"/><stop offset="0.45" stop-color="#6a5ff0"/><stop offset="1" stop-color="#2a2470"/></linearGradient>' +
+  '<radialGradient id="gcf" cx="50%" cy="65%" r="55%"><stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#dbe6ff"/><stop offset="0.7" stop-color="#7f8cff" stop-opacity="0.75"/><stop offset="1" stop-color="#4a4cff" stop-opacity="0"/></radialGradient></defs>' +
+  '<ellipse cx="10" cy="51.5" rx="9.5" ry="3.2" fill="#0d0c26" stroke="#4a4a8c" stroke-width="0.6"/>' +
+  '<rect x="6" y="20" width="8" height="30" rx="1.2" fill="url(#gcw)"/>' +
+  '<path d="M6 24c0 3 1 5 .6 8 .8 1 1.6-1 1.2-3M14 27c0 2-1 3-.5 6 .9.4 1.3-1 1-3M6.2 44c-.8 1.5-1.4 3.5-.2 5h1.4" fill="none" stroke="#c4bdff" stroke-width="0.9" opacity="0.75"/>' +
+  '<ellipse cx="10" cy="20.3" rx="4" ry="1.4" fill="#cfc9ff"/><rect x="9.5" y="15" width="1" height="5" fill="#2a2140"/>' +
+  '<g class="flame"><ellipse cx="10" cy="11" rx="4.6" ry="8.5" fill="url(#gcf)"/></g></svg>';
+// the raven skull of the picture (violet, beside the preset box): the cranium at the right, the beak down to the left, a dark eye socket
+const SKULL_SVG = '<svg class="skull" viewBox="0 0 80 52" width="70" height="46"><defs>' +
+  '<linearGradient id="gsk" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#cfc6ff"/><stop offset="0.5" stop-color="#8878e8"/><stop offset="1" stop-color="#2f2478"/></linearGradient>' +
+  '<radialGradient id="gsh" cx="0.72" cy="0.22" r="0.55"><stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs>' +
+  '<path d="M3 46C12 36 22 22 34 12c6-8 22-10 32-4 10 6 12 20 4 30-6 6-16 6-22 2-8-4-14-4-22 0z" fill="url(#gsk)" stroke="#e0daff" stroke-width="0.7" stroke-opacity="0.6" stroke-linejoin="round"/>' +   // the cranium and the upper beak
+  '<path d="M3 46C12 36 22 22 34 12c6-8 22-10 32-4 10 6 12 20 4 30-6 6-16 6-22 2-8-4-14-4-22 0z" fill="url(#gsh)"/>' +   // its sheen
+  '<path d="M48 40c-10 2-22 5-40 8" fill="none" stroke="#1c1450" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>' +   // the lower mandible
+  '<path d="M30 20c-6 7-13 15-22 24M38 10c-6 6-12 13-20 22" fill="none" stroke="#1c1450" stroke-width="0.6" opacity="0.55"/>' +   // the beak's ridge lines
+  '<ellipse cx="46" cy="22" rx="8.5" ry="7.5" transform="rotate(-12 46 22)" fill="#120c30"/><ellipse cx="49" cy="19" rx="2.6" ry="1.8" fill="#6a5cc0" opacity="0.6"/>' +   // the eye socket
+  '<path d="M33 23l-7 6M55 8l1 6M63 13l-3 6" fill="none" stroke="#1c1450" stroke-width="0.8" opacity="0.6"/>' +   // the nostril, two cracks
+  '</svg>';
 
 function el(tag, cls, parent, style) {
   const e = document.createElement(tag);
@@ -69,6 +114,10 @@ class SynthUI {
     this.mode = 0; this.view = 0;   // the oscillator shown (A1 A2 B1) and its engine
     this.orient = false;            // beta 0.3.4: the oriental colour code (TUNING ARAB or TURK)
     this.orientMode = 0;            // version 1.0.5: 0 WEST, 1 ARAB (sand-gold), 2 TURK (carmine): the palette
+    // TEST 2026-10-30: the GHOST look (Halloween) follows the bank the browser shows (Halloween in the Halloween bank, the usual look elsewhere: followBank); the header's GHOST button turns it the
+    // other way until the next change of bank; the tests (window.WS_NOGHOST, "#noghost" in the address) keep the usual look
+    this.ghost = false; this.bankLook = -1;
+    this.ghostLocked = !!window.WS_NOGHOST || /noghost/.test(location.hash);
     this.chordOn = false;           // CHORD MODE: the chord card is shown and the panel is taller
     this.live = null;
     this.tip = el('div', 'tip', document.body, { display: 'none' });
@@ -82,6 +131,7 @@ class SynthUI {
     try { if (localStorage.getItem('mw.browser') === 'closed') this.bOpen = false; } catch (_) { /* storage unavailable */ }
     this.build();
     if (this.browserOn) this.makeBrowser();
+    this.followBank();   // (TEST 2026-10-30: the GHOST look, once the header's button and the browser exist)
     window.addEventListener('resize', () => this.fit());
     this.fit();
     const loop = () => { this.frame(); requestAnimationFrame(loop); };
@@ -162,6 +212,14 @@ class SynthUI {
         a.title = 'Download the free VST plug-in (Windows VST3 / VST2) from GitHub';
         return;
       }
+      case 'ghost': {   // TEST 2026-10-30, web only: GHOST, the Halloween look of the page on / off (the owner's picture; lit while it is on)
+        const b = el('button', 'hbtn ghost', box, { width: '100%', height: '100%' });
+        b.innerHTML = 'THEME<b>GHOST</b>';
+        b.title = 'GHOST: the Halloween look of the synth, on / off (the sound does not change)';
+        b.onclick = () => this.setGhost(!this.ghost);
+        this.ghostBtn = b;
+        return;
+      }
       case 'feedback': {   // version 1.0.9, web only: the feedback form, in a new tab (no referrer sent)
         const a = el('a', 'hbtn fb', box, { width: '100%', height: '100%' });
         a.href = FEEDBACK_FORM; a.target = '_blank'; a.rel = 'noopener noreferrer';
@@ -213,8 +271,10 @@ class SynthUI {
     });
     const fm = svg('feMerge', {}, f);
     for (const m of ['sb', 'sa', 'SourceGraphic']) svg('feMergeNode', { in: m }, fm);
-    svg('path', { d: arcPath(cx, cy, ar, A0, A1), style: `stroke: rgba(255,255,255,0.18); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
-    const val = svg('path', { d: '', style: `stroke: var(--accent); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
+    svg('path', { class: 'track', d: arcPath(cx, cy, ar, A0, A1), style: `stroke: rgba(255,255,255,0.18); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
+    // TEST 2026-10-30, the GHOST look (the owner's picture): a green ring at the knob's edge in place of the track, the value arc magenta outside it (the stylesheet shows one or the other)
+    svg('path', { class: 'gtrack', d: arcPath(cx, cy, r + (thin ? 1 : 1.5), -Math.PI, Math.PI - 0.001), style: `stroke: var(--ring-track, #4fd060); stroke-width: ${thin ? 1.8 : 2.2}; fill: none` }, s);
+    const val = svg('path', { class: 'arc', d: '', style: `stroke: var(--ring-arc, var(--accent)); stroke-width: ${sw}; fill: none; stroke-linecap: round` }, s);
     // TEST (web, as the plug-in): a control the MORPH LFO moves shows the range it goes through (its knob ± depth x half the range), a light lavender arc outside the ring
     const labK = (this.SPEC.LAB_LFO || []).indexOf(i), depthId = labK >= 0 ? this.SPEC.LAB_DEPTH[labK] : -1;
     const modArc = depthId >= 0 ? svg('path', { d: '', style: 'stroke: #e2d2ff; stroke-width: 2.5; fill: none; stroke-linecap: round' }, s) : null;
@@ -433,8 +493,8 @@ class SynthUI {
     const tabs = [0, 1].map(k => {
       const b = el('button', 'ltab', box, { left: (6 + k * 60) + 'px' });
       el('span', 'dot', b);
-      el('span', 'tx', b).innerHTML = '<span class="t1">LFO ' + (k + 2) + '</span>';
-      b.title = 'Show LFO ' + (k + 2) + ' (a lit dot: its amount is not 0)';
+      el('span', 'tx', b).innerHTML = '<span class="t1">LFO ' + (k + 1) + '</span>';   // (2.0: the tabs read LFO 1 | LFO 2, the card under them is LFO 3)
+      b.title = 'Show LFO ' + (k + 1) + ' (a lit dot: its amount is not 0)';
       b.onclick = () => { this.host.begin(i); this.host.set(i, k); this.host.end(i); };
       return b;
     });
@@ -533,7 +593,7 @@ class SynthUI {
   logo(box) {
     box.classList.add('logo');
     const mark = el('div', 'mark', box);
-    mark.innerHTML = '<svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 16h5l3-9 4 18 4-13 3 7h7" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+    mark.innerHTML = LOGO_MARK; this.logoMark = mark;   // (TEST 2026-10-30: the GHOST look draws the wave in blue, --logo-wave)
     const t = el('div', 'txt', box);
     t.innerHTML = '<b>OKTOWAVE</b><span>FRACTAL WAVELET SYNTHESIZER</span>';   // version 1.0 (the product's name in the header)
   }
@@ -676,6 +736,8 @@ class SynthUI {
       l.sort((a, b) => P[a].rank - P[b].rank);
       lists.push({ label: c, presets: l });
     }
+    const hh = lists.findIndex(l => l.label === 'Halloween');   // (GHOST TEST, the owner: "mets la banque Halloween en première position")
+    if (hh > 0) lists.unshift(lists.splice(hh, 1)[0]);
     return lists;
   }
   // beta 0.5: an arrow key while the browser is open ('up' / 'down' play the sound above / below, 'left' / 'right' show the
@@ -793,12 +855,13 @@ class SynthUI {
     const k = +cur.id.slice(2), lists = this.bLists();
     this.bTab = 0;
     if (lists[this.bCat] && lists[this.bCat].presets.includes(k)) return;
-    const c = lists.findIndex((l, i) => i > 0 && l.presets.includes(k));
+    const c = lists.findIndex(l => l.label !== 'TOP Sounds' && l.presets.includes(k));
     if (c >= 0) this.bCat = c;
   }
   renderBrowser() {
     const b = this.browser;
     if (!b) return;
+    this.followBank();
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const all = this.host.presetList(), user = all.filter(x => x.id.startsWith('u:')), cur = all.find(x => x.current);
     const lists = this.bLists(), P = this.SPEC.PRESETS;
@@ -814,7 +877,7 @@ class SynthUI {
       r.onclick = () => { this.bCat = i; this.renderBrowser(); };
     });
     const items = this.bTab === 0
-      ? (lists[this.bCat] || lists[0]).presets.map(k => ({ id: 'f:' + k, name: P[k].name, fav: this.bCat !== 0 && this.SPEC.TOP_LIST.includes(k), stars: P[k].stars || 0 }))   // (the TOP Sounds mark is not repeated in the TOP Sounds list itself)
+      ? (lists[this.bCat] || lists[0]).presets.map(k => ({ id: 'f:' + k, name: P[k].name, fav: (lists[this.bCat] || lists[0]).label !== 'TOP Sounds' && this.SPEC.TOP_LIST.includes(k), stars: P[k].stars || 0 }))   // (the TOP Sounds mark is not repeated in the TOP Sounds list itself)
       : user.map(x => ({ id: x.id, name: x.name, fav: false, stars: 0 }));
     b.querySelector('.bhd').textContent = `${(this.bTab === 0 ? (lists[this.bCat] || lists[0]).label : 'My presets').toUpperCase()}  ·  ${items.length}`;
     const list = b.querySelector('.blist');
@@ -968,10 +1031,58 @@ class SynthUI {
   }
 
   // beta 0.3: A1 A2 yellow, B1 blue. Beta 0.3.4: while the TUNING switch is ARAB or TURK, the oriental colour code (ORIENT in tools/spec.js): terracotta / turquoise
-  accentFor(mode) { return this.orient ? (mode === 0 ? this.orientPal().a : this.orientPal().b) : mode === 0 ? '#ffd166' : '#7ae7ff'; }   // Crépuscule: gold for A1 A2, cyan for B1 (the same as --accent-a / --accent-b in synth.css)
+  accentFor(mode) { return this.orient ? (mode === 0 ? this.orientPal().a : this.orientPal().b) : this.ghost ? (mode === 0 ? GHOST.a : GHOST.b) : mode === 0 ? '#ffd166' : '#7ae7ff'; }   // Crépuscule: gold for A1 A2, cyan for B1 (the same as --accent-a / --accent-b in synth.css)
   accent() { return this.accentFor(this.mode); }
   accentRGB() { return hexRGB(this.accentFor(this.mode)); }
   // version 1.0.5: the palette of the tuning on (ARAB sand-gold, TURK carmine), with the tile and the opacity of the pattern
+  // TEST 2026-10-30: the GHOST look (Halloween) on / off: classes on the page, the panel and the browser (synth.css html.ghost), the decorations once; the canvases and the frame of the
+  // oscillator shown are drawn again; remembered ('mw.ghost')
+  setGhost(on) {
+    this.ghost = !!on;
+    if (this.ghostBtn) this.ghostBtn.classList.toggle('on', this.ghost);
+    // (not remembered: the bank decides at every opening)
+    this.ghostApply();
+  }
+  // the look follows the bank the browser shows: Halloween in the Halloween bank, the usual one elsewhere (the owner: "quand on est dans la banque Halloween, le mode par défaut soit Halloween, et
+  // sinon le mode normal"); the GHOST button turns it the other way until the next change of bank
+  inHalloween() { if (this.bTab !== 0 || !this.browser) return false; const l = this.bLists()[this.bCat]; return !!l && l.label === 'Halloween'; }
+  followBank() {
+    if (this.ghostLocked) return;
+    const now = this.inHalloween() ? 1 : 0;
+    if (now === this.bankLook) return;
+    this.bankLook = now; this.ghost = now === 1;
+    if (this.ghostBtn) this.ghostBtn.classList.toggle('on', this.ghost);
+    this.ghostApply();
+  }
+  // the look as it shows: on while GHOST is on and the TUNING is WEST (ARAB and TURK keep their oriental colours: the owner, "pas la peine de faire une interface Halloween" there)
+  ghostApply() {
+    const eff = this.ghost && !this.orient;
+    for (const e of [document.documentElement, document.body, this.dev, this.browser]) if (e) e.classList.toggle('ghost', eff);
+    if (eff) this.ghostDeco();
+    if (this.outlinePaint) this.outlinePaint();
+    for (const c of this.canvases) c.dirty = true;
+  }
+  // the decorations of the GHOST look, built once and placed as in the picture: cobwebs at corners (the panel's top right under the master knob, the SCOPE card's top right, above the
+  // OSC PITCH card's right corner over the scalogram's end, the left edge at TABLES, the bottom left over the wheels and the EFFECTS corner, the keyboard's top at that card's other
+  // corner), a candle between the OSC3 tab and OSC MIX with a web under its saucer, a candle on the right edge between OSC PITCH and FILTER, the blue light of both, the raven skull
+  // beside the preset box; the browser gets two webs. They let the mouse through (CSS pointer-events) and lie under the menus
+  ghostDeco() {
+    if (this.gdeco) return;
+    const deco = (parent, html) => { const d = el('div', 'gdeco'); d.innerHTML = html; parent.insertBefore(d, parent.firstChild); return d; };
+    const at = (cls, x, y, w, h, html) => `<div class="${cls}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${html}</div>`;
+    const candle = (x, y) => at('glow', x + 10 - 120, y + 11 - 120, 240, 240, '') + at('cnd', x, y, 20, 56, CANDLE_SVG);   // (x, y): the candle's box; its flame at (x + 10, y + 11)
+    this.gdeco = deco(this.dev,
+      at('wb', 1010, 0, 90, 90, cobweb(90, 'tr', 3)) +
+      at('wb', 978, 56, 110, 110, cobweb(110, 'tr', 5)) +
+      at('wb', 964, 232, 124, 124, cobweb(124, 'br', 7)) +
+      at('wb', 0, 348, 56, 56, cobweb(56, 'tl', 11)) +
+      at('wb', 0, 832, 120, 120, cobweb(120, 'bl', 13)) +
+      at('wb', 504, 920, 80, 80, cobweb(80, 'tl', 17)) +
+      at('wb', 480, 92, 72, 72, cobweb(72, 'tr', 19)) +
+      candle(552, 40) + candle(1080, 466) +
+      at('skl', 314, 1, 70, 46, SKULL_SVG));
+    if (this.browser) this.gdecoB = deco(this.browser, at('wb', 312, 0, 96, 96, cobweb(96, 'tr', 23)) + at('wb faint', 298, 768, 110, 110, cobweb(110, 'br', 29)));
+  }
   orientPal() { const O = this.SPEC.ORIENT; return Object.assign({ tile: O.tile, opacity: O.opacity }, this.orientMode === 2 ? O.turk : O.arab); }
 
   // ------------------------------------------------------------------ the oriental colour code (beta 0.3.4)
@@ -988,6 +1099,7 @@ class SynthUI {
     const mode = Math.round(this.host.get(this.P.mt_mode)), on = mode !== 0;
     if (on === this.orient && mode === this.orientMode) return;
     this.orient = on; this.orientMode = mode;
+    if (this.ghostApply) this.ghostApply();   // (no Halloween look in ARAB and TURK)
     this.dev.classList.toggle('orient', on);
     if (this.browser) this.browser.classList.toggle('orient', on);
     document.documentElement.classList.toggle('orient', on); document.body.classList.toggle('orient', on);   // version 1.0.9: the page's margins show the pattern
@@ -1286,15 +1398,16 @@ class SynthUI {
     // Okto MultiWave Synth: with CHORD on, the selector octave is tinted (its keys choose the chord type and make no sound)
     const P = this.P, chordOn = this.host.get(P.chord_mode) >= 0.5, selBase = 24 + 12 * Math.round(this.host.get(P.chord_oct));
     const sel = n => chordOn && n >= selBase && n < selBase + 12;
+    const KB = this.ghost && !this.orient ? GHOST.kb : KB_DEFAULT;   // (TEST 2026-10-30: the keyboard's colours in the GHOST look)
     whites.forEach((n, k) => {
       const x = k * ww, on = keys.has(n);
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, '#e9fbf9'); }
+      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, KB.onW); }
       else if (sel(n)) { g.addColorStop(0, '#9d93e0'); g.addColorStop(1, '#cfc9f2'); }
-      else { g.addColorStop(0, '#d9dee5'); g.addColorStop(1, '#f6f8fa'); }
+      else { g.addColorStop(0, KB.w[0]); g.addColorStop(1, KB.w[1]); }
       ctx.fillStyle = g; ctx.fillRect(x + 0.5, 0, ww - 1, H);
       ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x + 0.5, H - 3, ww - 1, 3);
-      if (n % 12 === 0) { ctx.fillStyle = on ? '#0d1014' : '#7a8594'; ctx.font = '600 9px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(noteName(n), x + ww / 2, H - 8); ctx.textAlign = 'left'; }
+      if (n % 12 === 0) { ctx.fillStyle = on ? '#0d1014' : KB.lab; ctx.font = '600 9px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(noteName(n), x + ww / 2, H - 8); ctx.textAlign = 'left'; }
     });
     const base = this.host.computerBase ? this.host.computerBase() : -1;
     if (base >= KB_LO && base <= KB_HI) {
@@ -1305,9 +1418,9 @@ class SynthUI {
       if (!isBlack(n)) continue;
       const k = whites.indexOf(n - 1), x = (k + 1) * ww - ww * 0.31, bw = ww * 0.62, bh = H * 0.6, on = keys.has(n);
       const g = ctx.createLinearGradient(0, 0, 0, bh);
-      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, '#0f5a54'); }
+      if (on) { g.addColorStop(0, this.accent()); g.addColorStop(1, KB.onB); }
       else if (sel(n)) { g.addColorStop(0, '#4a4280'); g.addColorStop(1, '#1e1a3a'); }
-      else { g.addColorStop(0, '#262b33'); g.addColorStop(1, '#0d0f12'); }
+      else { g.addColorStop(0, KB.b[0]); g.addColorStop(1, KB.b[1]); }
       ctx.fillStyle = g; ctx.fillRect(x, 0, bw, bh);
       ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(x + 2, bh - 5, bw - 4, 3);
     }

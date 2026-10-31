@@ -34,8 +34,9 @@
   // OktoWave 1.3.2: the sounds this browser saved for an older web app (the AMP ENVELOPE, the own-envelope switches, the SUB OSC with two octaves) are converted once so that they play as they did
   // (web/js/legacy.js, from tools/amp_convert.js: the rule of the factory presets); 'mw.ver' says which format the stored sounds are in
   const LEGACY = window.WS_LEGACY, defOfKey = k => PARAMS[P[k]].def;
-  if (LEGACY && store.get('mw.ver', 0) < LEGACY.STORE_VERSION) {
-    userPresets.forEach(p => { try { LEGACY.convertValues(p.values, defOfKey); } catch (_) { /* a sound it cannot convert stays as it is */ } });
+  const storedVer = store.get('mw.ver', 0);   // (2.0: store version 3: the sounds of version 2 only get the MORPH LFO's TILT capped at 10 %, the older ones are converted as before)
+  if (LEGACY && storedVer < LEGACY.STORE_VERSION) {
+    userPresets.forEach(p => { try { LEGACY.convertValues(p.values, defOfKey, storedVer); } catch (_) { /* a sound it cannot convert stays as it is */ } });
     store.set('mw.user', userPresets);
     store.set('mw.ver', LEGACY.STORE_VERSION);
   }
@@ -306,7 +307,7 @@
     saveStateSoon();
   }
   function exportPreset() {
-    const data = { format: 'okto-multiwave-synth-preset', version: 2, name: presetName, values: toKeyed() };   // (1.3.2: version 2 = the sound of 1.3 and later; a file of version 1 is converted when it is imported)
+    const data = { format: 'okto-multiwave-synth-preset', version: LEGACY ? LEGACY.STORE_VERSION : 3, name: presetName, values: toKeyed() };   // (1.3.2: version 2 = the sound of 1.3 and later; 2.0: version 3 = the MORPH LFO's TILT within 20 %; a file of an older version is converted when it is imported)
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     a.download = presetName.replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '_') + '.json';
@@ -321,7 +322,7 @@
         if (!data || !data.values || typeof data.values !== 'object') throw new Error('not a Okto MultiWave Synth preset');
         const name = String(data.name || file.name.replace(/\.json$/i, '')).slice(0, 40);
         const vals = Object.assign({}, data.values);
-        if (LEGACY && !(data.version >= LEGACY.STORE_VERSION)) LEGACY.convertValues(vals, defOfKey);   // (1.3.2: a file an older web app exported)
+        if (LEGACY && !(data.version >= LEGACY.STORE_VERSION)) LEGACY.convertValues(vals, defOfKey, data.version || 0);   // (1.3.2: a file an older web app exported; 2.0: from its version on)
         userPresets.push({ name, values: vals });
         store.set('mw.user', userPresets);
         loadPreset('u:' + (userPresets.length - 1));
@@ -767,6 +768,8 @@
     demoTour: () => demo.tourPlan(),
     demoStop: () => demo.stop(),
     demoState: () => demo.state(),
+    setGhost: (on) => ui.setGhost(on),   // TEST 2026-10-30: the GHOST look (Halloween) on / off
+    ghost: () => ({ on: ui.ghost }),
     changes: () => changeLog.slice(),   // version 1.0.8
     midi: (bytes) => onMIDI({ data: bytes }),
     chord: () => (live && live.chord ? Object.assign({}, live.chord) : null),   // Okto MultiWave Synth: the chord sounding

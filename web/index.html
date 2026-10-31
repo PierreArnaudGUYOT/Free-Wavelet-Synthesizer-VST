@@ -31,19 +31,19 @@
 <div id="start-overlay">
   <div class="welcome" role="dialog" aria-modal="true" aria-labelledby="w-title" aria-describedby="w-sub">
     <h1 id="w-title"><span>OKTOMULTIWAVE</span> · Wavelet Synthesizer</h1>
-    <p id="w-sub" class="sub">A wavelet synthesizer with three oscillators (A1 A2 subtractive, B1 additive), LFOs that move the wavelet itself (SuperModulation), a chord mode with bass, an oriental tuning switch and 229 presets — by OktoPierre, built on his Wavelet Synthesizer.</p>
+    <p id="w-sub" class="sub">A wavelet synthesizer with three oscillators (A1 A2 subtractive, B1 additive), LFOs that move the wavelet itself (SuperModulation), a chord mode with bass, an oriental tuning switch and 332 presets — by OktoPierre, built on his Wavelet Synthesizer.</p>
     <div class="choices">
-      <button id="start-btn" class="choice">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6v7M12 6v7M17 6v7" stroke="currentColor" stroke-width="1.8"/></svg>
-        <b>Play the synth</b><small>MIDI supported</small></button>
-      <!-- web update 2026-10-25 (the owner: three boxes, "le cadre avec le lien vers la démo au centre, mets-le bien en valeur car je veux que les gens ouvrent la vidéo YouTube"):
-           the middle box opens the demo video on YouTube (a new tab); the demo inside the page stays on the header's ▶ DEMO -->
-      <a id="w-demo" class="choice main demo" href="https://www.youtube.com/watch?v=hWzu-LVZM8I" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="4.5" width="21" height="15" rx="4.5" fill="currentColor"/><path d="M10 8.6v6.8l5.8-3.4z" style="fill: var(--brand)"/></svg>
+      <!-- web update 2026-10-31 (the owner: "PLAY The Synth on your browser" in the middle, the demo on YouTube on the left): the left box opens the demo video on YouTube
+           (a new tab); the demo inside the page stays on the header's ▶ DEMO -->
+      <a id="w-demo" class="choice yt" href="https://www.youtube.com/watch?v=hWzu-LVZM8I" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="4.5" width="21" height="15" rx="4.5" fill="currentColor"/><path d="M10 8.6v6.8l5.8-3.4z" style="fill: var(--on-accent)"/></svg>
         <b>Play the demo on YouTube</b><small>Watch and hear the synthesizer</small></a>
+      <button id="start-btn" class="choice main demo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6v7M12 6v7M17 6v7" stroke="currentColor" stroke-width="1.8"/></svg>
+        <b>PLAY The Synth on your browser</b></button>
       <a id="w-vst" class="choice dl" href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
-        <b>Download the VST</b><small>The free plug-in for Ableton Live &amp; co.: Windows (VST3 / VST2).</small></a>
+        <b>Download the VST</b><small>The free plug-in for Ableton Live &amp; co.: Windows and Mac (VST3).</small></a>
     </div>
     <p class="foot">Browsers only allow sound after a click. <a id="w-manual" href="manual/manual.html" target="_blank" rel="noopener">User manual</a> ·
       <a id="w-learn" href="manual/wavelets.html" target="_blank" rel="noopener">Learn more about the sound engine</a> ·
