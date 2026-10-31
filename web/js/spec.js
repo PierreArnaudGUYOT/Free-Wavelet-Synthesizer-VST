@@ -74,8 +74,8 @@ var WS_SPEC = {
   "panelCredit": "By OktoPierre",
   "copyright": "Copyright (C) 2026 Pierre Arnaud GUYOT (OktoPierre)",
   "license": "freeware",
-  "version": "2.1.0",
-  "versionNum": "2.1.0",
+  "version": "2.1.1",
+  "versionNum": "2.1.1",
   "date": "2026-10-31",
   "doi": "",
   "base": "Wavelet Synthesizer beta 0.7"
@@ -101426,7 +101426,7 @@ var WS_SPEC = {
    "name": "ARP bass 2",
    "cat": "Halloween",
    "id": "ARP bass 2",
-   "rank": 22,
+   "rank": 33,
    "values": [
     0,
     2,
@@ -101710,7 +101710,7 @@ var WS_SPEC = {
    "name": "AA · Wood Rise Bows STEP SINE 3",
    "cat": "Pad",
    "id": "AA · Wood Rise Bows STEP SINE 3",
-   "rank": 23,
+   "rank": 22,
    "values": [
     0,
     5,
@@ -102278,7 +102278,7 @@ var WS_SPEC = {
    "name": "AA · Tide Horns 4",
    "cat": "Pad",
    "id": "AA · Tide Horns 4",
-   "rank": 33,
+   "rank": 34,
    "values": [
     0,
     4,
@@ -103414,7 +103414,7 @@ var WS_SPEC = {
    "name": "Witch Cackle",
    "cat": "Halloween",
    "id": "Witch Cackle",
-   "rank": 11,
+   "rank": 23,
    "values": [
     0,
     0,
@@ -105118,7 +105118,7 @@ var WS_SPEC = {
    "name": "Grave Digger",
    "cat": "Halloween",
    "id": "Grave Digger",
-   "rank": 34,
+   "rank": 11,
    "values": [
     0,
     1,
