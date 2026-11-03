@@ -18,6 +18,11 @@
 <h1>OKTO<span>WAVE</span> manual</h1>
 <p class="lead">Okto MultiWave Synth — a polyphonic synthesizer whose oscillators are built from <b>wavelets</b>. This page is the map; seven short pages explain the idea.</p>
 
+<div class="try" id="notice">
+  <p><b>Test version — legal notice.</b> This plug-in is a development tool, built to run tests. It is provided “as is”, free of charge, without any warranty of any kind, express or implied (fitness for a purpose, absence of defects, compatibility with your software). You use it at your own risk: the author cannot be held responsible for any problem, malfunction, loss of data, or change it may cause on your computer, your DAW, your projects, your plug-in folders or your configuration, nor for any damage that follows. A test version has the same name and identifiers as the official plug-in and replaces it when installed: keep a copy of your projects, of your presets file and of the version you normally use before trying it, and do not use it on a project you cannot afford to lose.</p>
+  <p lang="fr"><i>Version de test — mention légale. Ce plug-in est un outil de développement destiné à faire des tests. Il est fourni « en l'état », gratuitement et sans aucune garantie. Vous l'utilisez à vos propres risques : l'auteur ne peut être tenu responsable d'un problème, d'un dysfonctionnement, d'une perte de données ou d'une modification de votre ordinateur, de votre logiciel de musique, de vos projets ou de votre configuration.</i></p>
+</div>
+
 <h2 id="start">Start in one minute</h2>
 <div class="two">
   <div class="card"><h3>In the browser</h3>
@@ -85,7 +90,7 @@
 <p>In the browser, <b>▶ DEMO</b> plays Beethoven's <i>Appassionata</i> while the sounds change every few seconds; its window presents the synthesizer, one sentence per sound. <b>■ STOP</b> (or <kbd>Esc</kbd>) stops it and puts every control back.</p>
 
 <h2 id="presets">Presets</h2>
-<p>OktoWave has <b>294 presets</b>, all kept by its author after his own listening, all as loud as one another; in each one OSC1 is the main oscillator. Nineteen end with <b>LGT</b>: lighter versions of sounds that ask a lot of the computer (less modulation, fewer unison voices); the full versions are marked <b>HIGH_CPU</b>, most of them in <b>Other</b>. <b>TOP Sounds</b> come first (the synth opens on the first one), then <b>Wavelet FM</b> (34 sounds that play the version 1.2 palette: OSC2 → OSC1 FM, ring, sync, ENCRE, the new source waves), then the sections of the author's favourites (Pad, Bass, SuperModulation, Lead, Keyboard, Strings, Brass &amp; Wind, Bells &amp; Mallets, FX), in his order, and <b>Other</b>, which holds every other sound. In the plug-in, <b>▲ UP</b> and <b>▼ DOWN</b> above the list move the sound you play up or down in it (your order is kept in your presets file). The letters at the start of a name say which oscillators it uses (<code>A</code>, <code>AA</code>, <code>AB</code>, <code>AAB</code>, <code>B</code>).</p>
+<p>OktoWave has <b>151 presets</b>, all kept by its author after his own listening, all as loud as one another; in each one OSC1 is the main oscillator. Eleven end with <b>LGT</b>: lighter versions of sounds that ask a lot of the computer (less modulation, fewer unison voices); three full versions are marked <b>HIGH_CPU</b>. The lists, in this order: <b>Halloween</b> (the synth opens on its first sound, <b>Grave Digger</b>), then Pad, Bass, SuperModulation, Lead, Keyboard, Strings, Brass &amp; Wind, Bells &amp; Mallets and FX. In the plug-in, <b>▲ UP</b> and <b>▼ DOWN</b> above the list move the sound you play up or down in it (your order is kept in your presets file). The letters at the start of a name say which oscillators it uses (<code>A</code>, <code>AA</code>, <code>AB</code>, <code>AAB</code>, <code>B</code>).</p>
 <ul>
   <li><b>Choose a sound</b> with ◀ ▶, or click the preset name to open the <b>preset browser</b>: one click plays a sound, the arrow keys move in the lists. In the plug-in, you can rate sounds with stars (1 to 10). In the plug-in, resting the mouse on the preset name opens a menu of the banks, each one with its presets.</li>
   <li><b>Browser:</b> <b>Save preset</b> keeps your sound in this browser, <b>Export</b> writes a <code>.json</code> file, <b>Import</b> reads one.</li>
@@ -154,6 +159,14 @@
   <li><b>A new sound bank</b>: the author's own, 332 presets. The Halloween list holds 32 of them, <b>Grave Digger</b> first (2.1.1).</li>
 </ul>
 
+<h2 id="v213">Version 2.1.3: the EFFECTS module, two filter models, a smaller sound bank</h2>
+<ul>
+  <li><b>EFFECTS.</b> Each effect has a drop-down and a round on/off switch. Modulation: ENSEMBLE (the old chorus), CHORUS, DIMENSION, JUNO I / II / I+II, FLANGER, PHASER 4 / 8 / 12, with the same three knobs MIX, RATE and DEPTH. Delay: PING-PONG, TAPE, ANALOG, DUAL, DUCKING. Reverb: PLATE (the default), HALL, SHIMMER, CLOUD (it follows the notes). A module that is switched off is greyed.</li>
+  <li><b>The filter</b> has two models: OTA 24 and SEM 12+. The factory sounds use SEM 12+. The CUTOFF knob glides, so a slow turn no longer steps.</li>
+  <li><b>A lighter panel</b>: H.SYNC and DRIVE in the TABLES card, new SUPER-PERIOD and RINGS cards in the WAVELET LAB, and on/off dots on LFO 1, 2, 3 and EFFECTS. LFO 1 and LFO 2 can also move the TABLES card's ROTATE.</li>
+  <li><b>A smaller sound bank</b>: 151 presets, the author's own choice. The lists TOP Sounds, Other and Wavelet FM are gone; the preset browser starts with <b>Halloween</b>, and the synth (the plug-in and the web app) opens on its first sound, <b>Grave Digger</b>. If your presets file has your own bank, a window asks once which bank to keep.</li>
+</ul>
+
 <h2 id="macros">Morph macros</h2>
 <p>Since version 1.1, WAVELET LAB took the place of the MACROS panel; in the plug-in the macros are parameters your DAW can automate (<i>Macro 1 BRIGHTEN</i> … <i>Macro 20 GLASS</i>). Each one moves several controls of the subtractive oscillators A1 and A2 together, from the sound's own settings (0 %) towards a destination (100 %): an easy way to vary a sound without opening every card. A double click puts a slider back to 0 %. Hover a slider in the browser to read what it does.</p>
 <ul>
@@ -200,7 +213,7 @@
 </ul>
 
 <footer>
-  <p>OktoWave — Okto MultiWave Synth, created by <b>Pierre Arnaud GUYOT</b> (OktoPierre), on the basis of his Wavelet Synthesizer. Free to use (freeware), all rights reserved, without any warranty: <a href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST">github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST</a>. Demo music: Beethoven, <i>Appassionata</i>, Op. 57 III, public domain, MIDI from the <a href="https://www.mutopiaproject.org">Mutopia Project</a>.</p>
+  <p>OktoWave — Okto MultiWave Synth, created by <b>Pierre Arnaud GUYOT</b> (OktoPierre), on the basis of his Wavelet Synthesizer. Free to use (freeware), all rights reserved, without any warranty: <a href="https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST">github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST</a>. A test version is a development tool: <a href="#notice">see the legal notice</a> at the top of this page (use at your own risk, the author is not responsible for any problem it may cause). Demo music: Beethoven, <i>Appassionata</i>, Op. 57 III, public domain, MIDI from the <a href="https://www.mutopiaproject.org">Mutopia Project</a>.</p>
 </footer>
 </main>
 </body>

@@ -526,9 +526,9 @@ function WSCoreFactory(SPEC) {
   const ROLE_PCEN = ROLES.indexOf('pcen'), ROLE_PHASE = ROLES.indexOf('phase'), ROLE_SPARSITY = ROLES.indexOf('sparsity'), ROLE_WIDTH = ROLES.indexOf('width'),
     ROLE_TILT = ROLES.indexOf('tilt'), ROLE_ODD = ROLES.indexOf('odd'), ROLE_EVEN = ROLES.indexOf('even'), ROLE_SUS = ROLES.indexOf('sus'),
     ROLE_MORPH = ROLES.indexOf('morph'), ROLE_FRES = ROLES.indexOf('fres'), ROLE_VFCUT = ROLES.indexOf('vfcut'), ROLE_VFRES = ROLES.indexOf('vfres'),
-    ROLE_SYNC = ROLES.indexOf('sync'), ROLE_ANGLE = ROLES.indexOf('angle');   // (TEST 1.2)
-  // the size of a move of LFO 2 / LFO 3 at full amount: half the range of its target in plain units; the filter cutoff is exponential: half its range in octaves
-  function roleSpan(tp, role) { return role === ROLE_VFCUT ? Math.log2(tp.max / tp.min) : tp.max - tp.min; }
+    ROLE_SYNC = ROLES.indexOf('sync'), ROLE_ANGLE = ROLES.indexOf('angle'), ROLE_ROT = ROLES.indexOf('rot');   // (TEST 1.2; LIGHT VERSION: ROTATE)
+  // the size of a move of LFO 2 / LFO 3 at full amount: half the range of its target in plain units; the filter cutoff is exponential: half its range in octaves; ROTATE (-1 .. 1 turn): half a turn
+  function roleSpan(tp, role) { return role === ROLE_VFCUT ? Math.log2(tp.max / tp.min) : role === ROLE_ROT ? 1 : tp.max - tp.min; }
   const LVL_EPS = 1e-5;     // an oscillator whose smoothed level is below this is not rendered
 
   // Which oscillators the sound needs: bit s = oscillator s has a level above 0.
@@ -570,6 +570,7 @@ function WSCoreFactory(SPEC) {
     const isAngle = Math.round(params[K[s].wavelet]) >= FILTERS.length;
     if (r === ROLE_SYNC || r3 === ROLE_SYNC) return VK_SYNC;
     if ((r === ROLE_ANGLE || r3 === ROLE_ANGLE) && isAngle) return VK_ANGLE;
+    if (r === ROLE_ROT || r3 === ROLE_ROT) return VK_ROT;   // LIGHT VERSION: an LFO moves the TABLES card's ROTATE
     if (params[P.a_set_env] !== 0 || params[P.a_set_vel] !== 0) {
       const t = Math.round(params[P.a_set_target]);
       if (t === 0) return VK_SPARSITY;
@@ -1692,8 +1693,8 @@ function WSCoreFactory(SPEC) {
         sl.vq0[VK_SYNC] = fresh ? qsy : sl.vq1[VK_SYNC]; sl.vq1[VK_SYNC] = qsy;
         sl.vq0[VK_ANGLE] = fresh ? qa : sl.vq1[VK_ANGLE]; sl.vq1[VK_ANGLE] = qa;
         // 1.4: ROTATE (the move round the turn, like PHASE: set 0 is the knob's own) and SHIFT (the knob's value + the move, -3 .. +3, half the range at 100 %)
-        if (setT >= 5) {
-          let qr = (setT === 5 ? setMv : 0) * ROT_K; qr -= Math.floor(qr / ROT_K) * ROT_K;
+        if (setT >= 5 || this.role2 === ROLE_ROT || this.role3 === ROLE_ROT) {
+          let qr = ((this.role2 === ROLE_ROT ? this.d2 : 0) + (this.role3 === ROLE_ROT ? this.d3 : 0) + (setT === 5 ? setMv : 0)) * ROT_K; qr -= Math.floor(qr / ROT_K) * ROT_K;   // (LIGHT VERSION: + an LFO's move of ROTATE, in turns)
           const qsh = Math.min(3, Math.max(-3, p[P.w_shift] + (setT === 6 ? setMv * 6 : 0))) + 3;
           sl.vq0[VK_ROT] = fresh ? qr : sl.vq1[VK_ROT]; sl.vq1[VK_ROT] = qr;
           sl.vq0[VK_SHIFTSET] = fresh ? qsh : sl.vq1[VK_SHIFTSET]; sl.vq1[VK_SHIFTSET] = qsh;

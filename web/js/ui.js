@@ -228,6 +228,7 @@ class SynthUI {
         return;
       }
       case 'label': box.classList.add('wlabel'); el('span', '', box).textContent = w.text; return;   // (a span: the oriental PLAY card puts the caption on a plate)
+      case 'dot': return this.dot(w, box);   // 2.1.3: the round on / off switch of a module (LFO 3, the three effects)
       case 'toggle': return this.toggle(w, box);   // Okto MultiWave Synth: the web app shows toggles too (CHORD ON, BASS)
       case 'labbtn': {   // TEST (web): WAVELET LAB, as CHORD MODE: it shows the laboratory in the browser's place (lit while it is shown)
         const bt = el('button', 'labbtn' + (w.h < 22 ? ' small' : w.h >= 40 ? ' big' : ''), box, { width: '100%', height: '100%' });   // (OktoWave 1.1: a small button in the card)
@@ -729,7 +730,7 @@ class SynthUI {
   // Selection only: saving stays in the status bar (Save preset / Export / Import).
   bLists() {
     const S = this.SPEC, P = S.PRESETS;
-    const lists = [{ label: 'TOP Sounds', presets: S.TOP_LIST.slice() }];   // (version 1.0.3: the list of the plug-in, the best first)
+    const lists = S.TOP_LIST.length ? [{ label: 'TOP Sounds', presets: S.TOP_LIST.slice() }] : [];   // (version 1.0.3: the list of the plug-in, the best first; 2.1.3: no TOP Sounds list any more, the lists start with Halloween)
     for (const c of S.CATEGORIES) {
       const l = [];
       for (let k = 0; k < P.length; k++) if (P[k].cat === c) l.push(k);
@@ -1368,7 +1369,8 @@ class SynthUI {
   // (version 1.0.13: the owner could not read them, grey at 42 % and 9 px: in the accent colour of the card titles, 10 px)
   draw_fxheads(ctx) {
     ctx.font = '700 10px Segoe UI, system-ui, sans-serif'; ctx.textAlign = 'center';
-    const groups = [['SATURATION', 8, 60], ['CHORUS', 64, 156], ['PING-PONG DELAY', 214, 162], ['REVERB', 376, 104], ['PUNCH', 480, 60]];   // (version 1.0.16: PUNCH)
+    // 2.1.3: the card's title EFFECTS is the first head, and the selectors (modulation, delay, reverb) are where the heads CHORUS, PING-PONG DELAY and REVERB were: only PUNCH is left
+    const groups = [['PUNCH', 480, 60]];   // (version 1.0.16: PUNCH)
     for (const [t, x, w] of groups) {
       ctx.fillStyle = this.accent(); ctx.fillText(t, x + w / 2, 12);
       ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.moveTo(x + 4, 17.5); ctx.lineTo(x + w - 4, 17.5); ctx.stroke();
@@ -1502,6 +1504,17 @@ class SynthUI {
 
   // ------------------------------------------------------------------ Okto MultiWave Synth: toggle, chord pads, chord name, strum plate
   // an on / off button (CHORD ON, BASS), lit when on: the plug-in's W_TOGGLE
+  // 2.1.3: a round switch (the plug-in's drawDot): lit when the module is on
+  dot(w, box) {
+    const i = this.P[w.param], p = this.params[i];
+    box.classList.add('dot');
+    const b = el('button', '', box);
+    b.title = p.name + ' (click: on / off)';
+    b.onclick = () => { this.host.begin(i); this.host.set(i, this.host.get(i) >= 0.5 ? 0 : 1); this.host.end(i); };
+    const widget = { w, p, i, el: box, update: () => b.classList.toggle('on', this.host.get(i) >= 0.5) };
+    this.reg(w.param, widget);
+    widget.update();
+  }
   toggle(w, box) {
     const i = this.P[w.param], p = this.params[i];
     box.classList.add('toggle');
