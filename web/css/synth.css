@@ -508,6 +508,7 @@ html.ghost .manual-bar { background: #180e42; }
 #browser > .gdeco { z-index: 3; }
 #device.ghost > .gdeco, #browser.ghost > .gdeco { display: block; }
 .gdeco > * { position: absolute; }
+.gdeco .wbi { position: absolute; pointer-events: none; }
 .gdeco .wb svg { position: absolute; left: 0; top: 0; opacity: var(--web-op); }
 .gdeco .wb.faint svg { opacity: 0.32; }
 .gdeco .web path { stroke: #bdb6ff; stroke-width: 0.75; fill: none; stroke-linecap: round; }

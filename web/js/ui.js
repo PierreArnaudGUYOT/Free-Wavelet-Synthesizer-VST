@@ -1072,17 +1072,15 @@ class SynthUI {
     const deco = (parent, html) => { const d = el('div', 'gdeco'); d.innerHTML = html; parent.insertBefore(d, parent.firstChild); return d; };
     const at = (cls, x, y, w, h, html) => `<div class="${cls}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${html}</div>`;
     const candle = (x, y) => at('glow', x + 10 - 120, y + 11 - 120, 240, 240, '') + at('cnd', x, y, 20, 56, CANDLE_SVG);   // (x, y): the candle's box; its flame at (x + 10, y + 11)
+    // 2.1.3 (the owner: the cobwebs of the plug-in on the web page too): the four webs of his picture (tools/make_web_pngs.js: web/img/web0..3.png, the plug-in's sprites), one at each corner of the panel at half of
+    // the picture's scale, and, smaller (x 0.6) and the lower one fainter, at the browser card's two right corners (the plug-in: editor.cpp drawWebSprite)
+    const WEB_PX = [[280, 375], [371, 384], [337, 384], [257, 384]];   // (the sprites' pixels, printed by tools/make_web_pngs.js)
+    const webImg = (i, f, op) => { const w = Math.round(WEB_PX[i][0] * 0.5 * f), h = Math.round(WEB_PX[i][1] * 0.5 * f); return '<img class="wbi" alt="" src="img/web' + i + '.png" style="' + ((i & 1) ? 'right' : 'left') + ':0;' + ((i & 2) ? 'bottom' : 'top') + ':0;width:' + w + 'px;height:' + h + 'px;opacity:' + op + '">'; };
     this.gdeco = deco(this.dev,
-      at('wb', 1010, 0, 90, 90, cobweb(90, 'tr', 3)) +
-      at('wb', 978, 56, 110, 110, cobweb(110, 'tr', 5)) +
-      at('wb', 964, 232, 124, 124, cobweb(124, 'br', 7)) +
-      at('wb', 0, 348, 56, 56, cobweb(56, 'tl', 11)) +
-      at('wb', 0, 832, 120, 120, cobweb(120, 'bl', 13)) +
-      at('wb', 504, 920, 80, 80, cobweb(80, 'tl', 17)) +
-      at('wb', 480, 92, 72, 72, cobweb(72, 'tr', 19)) +
+      webImg(0, 1, 1) + webImg(1, 1, 1) + webImg(2, 1, 1) + webImg(3, 1, 1) +
       candle(552, 40) + candle(1080, 466) +
       at('skl', 314, 1, 70, 46, SKULL_SVG));
-    if (this.browser) this.gdecoB = deco(this.browser, at('wb', 312, 0, 96, 96, cobweb(96, 'tr', 23)) + at('wb faint', 298, 768, 110, 110, cobweb(110, 'br', 29)));
+    if (this.browser) this.gdecoB = deco(this.browser, webImg(1, 0.6, 1) + webImg(3, 0.6, 0.6));
   }
   orientPal() { const O = this.SPEC.ORIENT; return Object.assign({ tile: O.tile, opacity: O.opacity }, this.orientMode === 2 ? O.turk : O.arab); }
 
