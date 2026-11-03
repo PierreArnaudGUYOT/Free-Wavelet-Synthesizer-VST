@@ -23,6 +23,7 @@ function WSDemo(api) {
   // Every preset is made playable on the piece: polyphonic, normal octave, no glide, short attack.
   const TOUR_SAFE = { v_voices: 16, v_oct: 0, v_glide: 0, vel_amt: 0 };   // (version 1.0.13: the PLAY card's VELOCITY off: the levels of the tour were set without it)
   const TOUR_MAX_ATTACK = 0.08;
+  const TOUR_MAX_UNISON = 2;   // 2.1.3 (crackles in the first scenes of the demo on a slow or power-saving computer, the owner): at most two unison voices per note in the demo, a third of the work less on the chords
   const TOUR_MAX_DELAY_MIX = 0.1, TOUR_MAX_DELAY_FB = 0.3;   // long echoes on a fast piece sound like a canon
   const TOUR_LEAD = 0.08, TOUR_MIN_LAST = 3;
   // Web update 2026-10-22 (the owner's request): in the phrase of AA · Hollow Bass the keyboard is in the oriental tuning, ARAB, maqam SABA on B flat (the pedal of that phrase: the C is a quarter tone
@@ -124,6 +125,7 @@ function WSDemo(api) {
   const sceneRules = (sc) => (setk, get) => {
     for (const key in TOUR_SAFE) setk(key, TOUR_SAFE[key]);
     if (get('amp_a') > TOUR_MAX_ATTACK) setk('amp_a', TOUR_MAX_ATTACK);
+    if (st && get('v_unison') > TOUR_MAX_UNISON) setk('v_unison', TOUR_MAX_UNISON);   // (only while the demo plays in the page: gen_spec, which bakes the plug-in's demo, has no st)
     if (get('fx_dmix') > TOUR_MAX_DELAY_MIX) setk('fx_dmix', TOUR_MAX_DELAY_MIX);
     if (get('fx_dfb') > TOUR_MAX_DELAY_FB) setk('fx_dfb', TOUR_MAX_DELAY_FB);
     const tun = TOUR_TUNING[sc.pos] || { mt_mode: 0 };   // (web update 2026-10-22: the oriental tuning of one phrase, else WEST; 1.0.19: by the scene's place)
