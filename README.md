@@ -2,18 +2,22 @@
 
 **A free synthesizer plug-in that builds its sounds from wavelets**, by Pierre Arnaud GUYOT ("OktoPierre"). Windows and Mac (VST3). Free for any use, including your music.
 
-## New in 2.1.3
+## New in 2.2.0
+- **EVOLVE controls** for the subtractive oscillators, in the Wavelet Lab: DISPERSION (the bands drift apart like the partials of a stiff string or a bell), FM TILT, a CYCLE SEQUENCE (the wave travels along a path while the note plays), LIVE ATOMS (the atoms breathe, bloom and echo), a SCALE and the SUPER-PERIOD TURN. Every control is neutral by default.
+- **The Wavelet Lab in one page**: a round on/off switch and a **RANDOM** button on every module (ten settings that sound good, then a random inside safe ranges); a true random on WAVELET · SUBTRACTIVE.
+- **The MORPH LFO is gone** from the plug-in (the web app keeps it). **Lighter on the computer** with chords and while a knob is turned.
+- **155 sounds**, the author's bank of 5 November, in 10 lists that start with **Halloween**; the synth opens on **Grave Digger**.
+
+## Also in 2.1.3
 - **A new effects module**: a drop-down and an on/off switch per effect. Modulation: ENSEMBLE, CHORUS, DIMENSION, JUNO, FLANGER, PHASER. Delay: PING-PONG, TAPE, ANALOG, DUAL, DUCKING. Reverb: PLATE, HALL, SHIMMER, CLOUD.
 - **Two filter models**: OTA 24 and SEM 12+, and a smoother CUTOFF knob.
-- **A lighter panel** and **a smaller, curated sound bank: 151 sounds**, in 10 lists that start with **Halloween**. The synth (plug-in and web app) opens on **Grave Digger**.
-- The Halloween Special Edition (2.1) is still here: the **Halloween look**, metal knobs, full screen (Windows) and two screens (Windows).
-- The web app is updated: same sounds, same engine as the plug-in.
+- **A lighter panel**. The Halloween Special Edition (2.1) is still here: the **Halloween look**, metal knobs, full screen (Windows) and two screens (Windows).
 
 ## ▶ Watch the demo
 **https://www.youtube.com/watch?v=hWzu-LVZM8I**
 
 ## ▶ Play it online, nothing to install
-**https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/** (Chrome or Edge; a MIDI keyboard plays it directly; the web version is updated separately from the plug-in).
+**https://pierrearnaudguyot.github.io/Free-Wavelet-Synthesizer-VST/web/** (Chrome or Edge; a MIDI keyboard plays it directly). The web version is updated separately from the plug-in: it is at 2.1.3, with the MORPH LFO and the 151 sounds of that version.
 
 ## ⬇ Download the plug-in (Windows VST3 / VST2, macOS VST3)
 1. Open the **[latest release](https://github.com/PierreArnaudGUYOT/Free-Wavelet-Synthesizer-VST/releases/latest)**.
@@ -26,9 +30,9 @@
 - **Three wavelet oscillators**: two subtractive ones (A1, A2) that shape a source wave band by band (a WINDOW, a WAVELET FILTER, **TABLES** that moves the timbre through each note), and an additive one (B1) that builds a tone from wavelet atoms with eleven drawbars.
 - **A wide palette**: OSC2 can modulate OSC1 (**FM**, ring, AM), many source waves, hard **SYNC**, a source **DRIVE** and **BITS**, a continuous **ANGLE** wavelet and **ENCRE**, **ENV / VEL → TABLES** (the timbre travels inside each note), a random start per note and a true **NOISE**.
 - **An arpeggiator** (plug-in): **ARP** and **HOLD** in the PLAY card with RATE, PATTERN, OCT and GATE; MOTION, SWING and CHANCE in the Wavelet Lab. It follows your DAW's tempo and its settings are saved with each preset.
-- **The Wavelet Lab**: the **MORPH LFO**, the **TONE ENVELOPE**, the WAVELET SHAPER, **POLARITY** (chosen bands turned down through silence to inverted), band punch and start phase.
+- **The Wavelet Lab**: the **TONE ENVELOPE**, the WAVELET SHAPER, the EVOLVE controls, **POLARITY** (chosen bands turned down through silence to inverted), band punch and start phase, each module with its switch and its RANDOM button (the web app also has the MORPH LFO).
 - **Compare the wavelets**: seven of them (Haar, Daubechies 2, 4, 8 and 20, Symlet 8, Coiflet 3), WAVELET MORPH between two, and LFOs that move the wavelet itself (SuperModulation).
-- **A complete synthesizer around it**: a real filter (OTA 24 or SEM 12+), three LFOs, envelopes, an effects module (modulation, delay, reverb) and punch, a chord mode, oriental tunings, VINTAGE and 151 presets (the opening sound is Grave Digger, the Halloween look), all as loud as one another.
+- **A complete synthesizer around it**: a real filter (OTA 24 or SEM 12+), three LFOs, envelopes, an effects module (modulation, delay, reverb) and punch, a chord mode, oriental tunings, VINTAGE and 155 presets (the opening sound is Grave Digger, the Halloween look), all as loud as one another.
 - **Your sounds are kept from one version to the next**: each new version reads and converts your presets file and your projects; if your file holds presets of yours in the factory bank, the plug-in asks once whether you keep your bank or use the new one, after a backup copy of your file.
 - **Free to use**: the plug-in and the web app, free of charge for any use, including your music productions.
 
